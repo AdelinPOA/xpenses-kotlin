@@ -1,0 +1,22 @@
+# Data
+data/
+*.db
+*.db-wal
+*.db-shm
+
+# Environment
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+
+# Node
+node_modules/
+.next/
+.turbo/
+
+# OS
+.DS_Store
+Thumbs.db

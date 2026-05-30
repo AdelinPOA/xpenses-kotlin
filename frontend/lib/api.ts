@@ -1,0 +1,86 @@
+import axios from "axios";
+
+const api = axios.create({
+  baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001/api",
+  headers: { "Content-Type": "application/json" },
+});
+
+export default api;
+
+// ── Types ──────────────────────────────────────────────────────────────────
+
+export interface Category {
+  id: number;
+  name: string;
+  limit_amount: number | null;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface Receipt {
+  id: number;
+  expense_id: number;
+  file_path: string;
+  original_name: string | null;
+  created_at: string;
+}
+
+export interface Expense {
+  id: number;
+  category_id: number | null;
+  category_name: string | null;
+  report_id: number | null;
+  amount_original: number;
+  currency_original: string;
+  amount_eur: number;
+  fx_rate: number;
+  date: string;
+  description: string | null;
+  merchant: string | null;
+  receipt_path: string | null;
+  receipts: Receipt[];
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Report {
+  id: number;
+  title: string;
+  description: string | null;
+  date_from: string | null;
+  date_to: string | null;
+  status: string;
+  submitted_at: string | null;
+  paid_at: string | null;
+  total_amount: number;
+  currency: string;
+  created_at: string;
+  updated_at: string;
+  expenses: Expense[];
+}
+
+export interface DashboardStats {
+  expense_count_total: number;
+  expense_count_month: number;
+  total_month_eur: number;
+  draft_count: number;
+  submitted_count: number;
+  paid_count: number;
+  spend_by_category: {
+    category_id: number | null;
+    category_name: string;
+    total: number;
+    count: number;
+  }[];
+  recent_expenses: Expense[];
+}
+
+export const CURRENCIES = [
+  "EUR", "USD", "GBP", "RON", "CHF", "SEK", "NOK", "DKK", "PLN", "CZK",
+  "HUF", "BGN", "HRK", "TRY", "JPY", "CNY", "KRW", "AUD", "CAD", "NZD",
+  "BRL", "MXN", "ARS", "CLP", "COP", "INR", "IDR", "MYR", "SGD", "THB",
+  "PHP", "VND", "ZAR", "EGP", "NGN", "KES", "AED", "SAR", "QAR", "ILS",
+  "RUB", "UAH", "GEL", "KZT", "TWD", "HKD", "ISK", "MAD", "TND",
+] as const;
+export type Currency = (typeof CURRENCIES)[number];

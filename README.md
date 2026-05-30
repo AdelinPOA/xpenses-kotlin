@@ -87,6 +87,55 @@ Expenses in any currency are automatically converted to EUR at the date of the e
 | `DATA_DIR` | `/app/data` | Database and receipts storage path |
 | `DEFAULT_CURRENCY` | `EUR` | Base currency |
 
+## Current Status
+
+**Phase 2 complete** — the app is fully functional for personal/testing use without authentication.
+
+- [x] Expenses CRUD with multi-currency FX conversion
+- [x] Multiple receipt uploads per expense
+- [x] Expense reports with date range, attach/submit/recall workflow
+- [x] PDF export with receipt embedding + receipts ZIP download
+- [x] Categories with EUR spending limits
+- [x] Dashboard with monthly EUR totals and spend by category
+- [x] Docker named volume for data persistence
+- [x] FX fallback provider for 200+ currencies
+- [ ] Authentication (see roadmap)
+
+## Roadmap
+
+### Phase 3 — Authentication & Users
+- Active Directory / LDAP integration for production
+- JWT-based auth for dev/testing
+- User roles (submitter, approver, admin)
+- Per-user expense and report isolation
+
+### Phase 4 — Approval Workflow
+- Manager approval step (submitted → approved → paid)
+- Email notifications on status changes
+- Approval delegation
+
+### Phase 5 — Analytics & Reporting
+- Spend trends over time (charts)
+- Category budget vs. actual tracking
+- Per-user / per-team spending reports
+- CSV/Excel export
+
+### Phase 6 — Quality of Life
+- Dark mode
+- Mobile-responsive improvements
+- Expense duplication
+- Recurring expenses
+- OCR receipt scanning (auto-fill merchant, amount, date)
+- Manual FX rate override option
+- Bulk expense import from CSV
+
+### Phase 7 — Production Hardening
+- PostgreSQL migration option
+- Backup/restore tooling
+- Audit log (who changed what, when)
+- Rate limiting and API key auth
+- Monitoring and health checks
+
 ## License
 
 Private — internal use only.

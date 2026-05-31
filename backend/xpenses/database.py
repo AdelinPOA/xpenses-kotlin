@@ -62,12 +62,37 @@ CREATE TABLE IF NOT EXISTS fx_rates (
     UNIQUE(from_currency, to_currency, rate_date)
 );
 
+CREATE TABLE IF NOT EXISTS users (
+    id            SERIAL PRIMARY KEY,
+    username      VARCHAR(100) UNIQUE NOT NULL,
+    display_name  VARCHAR(200) NOT NULL,
+    email         VARCHAR(200),
+    password_hash VARCHAR(200),
+    auth_source   VARCHAR(20) NOT NULL DEFAULT 'local',
+    role          VARCHAR(20) NOT NULL DEFAULT 'technician',
+    is_active     BOOLEAN NOT NULL DEFAULT true,
+    created_at    TIMESTAMPTZ DEFAULT NOW(),
+    updated_at    TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS refresh_tokens (
+    id         SERIAL PRIMARY KEY,
+    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token_hash VARCHAR(200) NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 CREATE INDEX IF NOT EXISTS idx_receipts_expense ON receipts(expense_id);
 CREATE INDEX IF NOT EXISTS idx_expenses_report ON expenses(report_id);
 CREATE INDEX IF NOT EXISTS idx_expenses_category ON expenses(category_id);
 CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses(date);
 CREATE INDEX IF NOT EXISTS idx_expenses_status ON expenses(status);
 CREATE INDEX IF NOT EXISTS idx_reports_status ON expense_reports(status);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_hash ON refresh_tokens(token_hash);
+CREATE INDEX IF NOT EXISTS idx_expenses_user ON expenses(user_id);
+CREATE INDEX IF NOT EXISTS idx_reports_user ON expense_reports(user_id);
 """
 
 DEFAULT_CATEGORIES = [
@@ -101,6 +126,24 @@ async def init_db() -> None:
             statement = statement.strip()
             if statement:
                 await conn.execute(statement)
+
+        # Add user_id columns if missing (migration from pre-auth schema)
+        for table in ("expenses", "expense_reports"):
+            col_exists = await conn.fetchval(
+                "SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name=$1 AND column_name='user_id')",
+                table,
+            )
+            if not col_exists:
+                await conn.execute(f"ALTER TABLE {table} ADD COLUMN user_id INTEGER REFERENCES users(id)")
+
+        # Add approval columns to expense_reports if missing
+        for col, col_type in [("approved_by", "INTEGER REFERENCES users(id)"), ("approved_at", "TIMESTAMPTZ"), ("rejected_reason", "TEXT")]:
+            col_exists = await conn.fetchval(
+                "SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name='expense_reports' AND column_name=$1)",
+                col,
+            )
+            if not col_exists:
+                await conn.execute(f"ALTER TABLE expense_reports ADD COLUMN {col} {col_type}")
 
         # Seed default categories
         for name, limit in DEFAULT_CATEGORIES:

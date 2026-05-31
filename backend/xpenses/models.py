@@ -2,6 +2,34 @@ from pydantic import BaseModel, ConfigDict
 from datetime import datetime
 
 
+# ── Auth ─────────────────────────────────────────────────────────────────────
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class UserOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    username: str
+    display_name: str
+    email: str | None
+    auth_source: str
+    role: str
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+
+
+class RoleUpdate(BaseModel):
+    role: str
+
+
+class ActiveUpdate(BaseModel):
+    is_active: bool
+
+
 # ── Categories ────────────────────────────────────────────────────────────────
 
 class CategoryOut(BaseModel):
@@ -88,6 +116,9 @@ class ReportOut(BaseModel):
     status: str
     submitted_at: datetime | None
     paid_at: datetime | None
+    approved_by: int | None = None
+    approved_at: datetime | None = None
+    rejected_reason: str | None = None
     total_amount: float
     currency: str
     created_at: datetime

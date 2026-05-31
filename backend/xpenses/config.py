@@ -1,3 +1,5 @@
+import secrets
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import field_validator
 import json
@@ -13,6 +15,13 @@ class Settings(BaseSettings):
     company_name: str = "Newtech Automation"
     submitter_name: str = "Popescu Adelin"
     submitter_email: str = "adelin.popescu@nt-automation.eu"
+
+    jwt_secret: str = secrets.token_hex(32)
+    jwt_access_expires_minutes: int = 15
+    jwt_refresh_expires_days: int = 7
+    ldap_enabled: bool = False
+    ldap_host: str = ""
+    ldap_base_dn: str = ""
 
     @field_validator("cors_origins", mode="before")
     @classmethod

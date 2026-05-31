@@ -2,13 +2,12 @@
 
 import { use } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
 import api, { Report, Expense, API_BASE_URL } from "@/lib/api";
 import { reportKeys, expenseKeys, dashboardKeys } from "@/lib/queryKeys";
 import AppShell from "@/components/layout/AppShell";
 import Badge from "@/components/ui/Badge";
 import EmptyState from "@/components/ui/EmptyState";
-import { ArrowLeft, CheckCircle, DollarSign, FileDown, FolderDown, Pencil, Plus, Send, Undo2 } from "lucide-react";
+import { ArrowLeft, DollarSign, FileDown, FolderDown, Pencil, Plus, Send, Undo2 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -18,7 +17,6 @@ function formatAmount(amount: number, currency: string) {
 
 export default function ReportDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const router = useRouter();
   const qc = useQueryClient();
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 

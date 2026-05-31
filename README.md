@@ -121,7 +121,7 @@ The PDF export matches Zoho Expenses quality:
 
 ## Current Status
 
-**Phase 3 complete** — PostgreSQL migration done, PDF export matches Zoho quality.
+**Phase 4 complete** — Authentication and role-based access control implemented.
 
 - [x] Expenses CRUD with multi-currency FX conversion
 - [x] Multiple receipt uploads per expense
@@ -133,7 +133,13 @@ The PDF export matches Zoho Expenses quality:
 - [x] Docker Compose with PostgreSQL + backend + frontend
 - [x] FX fallback provider for 200+ currencies
 - [x] Company branding (NT logo in sidebar + PDF)
-- [ ] Authentication (see roadmap)
+- [x] JWT authentication with httpOnly cookies (access + refresh tokens)
+- [x] 4 roles: Technician, Manager, Chef of Finances, Moderator
+- [x] Approval workflow: submit → approve → pay (or reject)
+- [x] Role-based UI: login page, role-aware sidebar, approvals/payments/user management pages
+- [x] Data isolation: users only see their own expenses/reports
+- [x] Local test accounts (tech1, manager1, cfo1, mod1) for development
+- [x] LDAP preparation (config flags, auth_source column — not active yet)
 
 ## Roadmap
 

@@ -5,10 +5,12 @@ from datetime import datetime
 from fastapi import Depends, APIRouter, HTTPException
 from fastapi.responses import Response
 import asyncpg
+from pydantic import BaseModel
 from ..config import settings
 from ..database import get_db
 from ..models import ReportOut, ReportCreate, ReportUpdate, ReportSubmit, ExpenseOut
 from ..services.pdf_export import generate_report_pdf
+from ..auth import get_current_user, require_role
 
 router = APIRouter(prefix="/api/reports", tags=["reports"])
 
@@ -17,6 +19,10 @@ EXPENSE_SELECT = """
     FROM expenses e
     LEFT JOIN categories c ON e.category_id = c.id
 """
+
+
+class RejectBody(BaseModel):
+    reason: str = ""
 
 
 async def _enrich_expenses_receipts(db: asyncpg.Connection, expenses: list[dict]) -> list[dict]:
@@ -48,12 +54,19 @@ async def _fetch_report(db: asyncpg.Connection, report_id: int) -> dict:
 
 
 @router.get("", response_model=list[ReportOut])
-async def list_reports(status: str | None = None, db: asyncpg.Connection = Depends(get_db)):
-    query = "SELECT * FROM expense_reports"
-    params: list = []
-    if status:
-        query += " WHERE status = $1"
-        params.append(status)
+async def list_reports(status: str | None = None, current_user: dict = Depends(get_current_user), db: asyncpg.Connection = Depends(get_db)):
+    if current_user["role"] in ("chef_finance", "mod"):
+        query = "SELECT * FROM expense_reports"
+        params: list = []
+        if status:
+            query += " WHERE status = $1"
+            params.append(status)
+    else:
+        query = "SELECT * FROM expense_reports WHERE user_id = $1"
+        params = [current_user["id"]]
+        if status:
+            query += " AND status = $2"
+            params.append(status)
     query += " ORDER BY created_at DESC"
     rows = await db.fetch(query, *params)
     result = []
@@ -66,25 +79,30 @@ async def list_reports(status: str | None = None, db: asyncpg.Connection = Depen
 
 
 @router.post("", response_model=ReportOut, status_code=201)
-async def create_report(body: ReportCreate, db: asyncpg.Connection = Depends(get_db)):
+async def create_report(body: ReportCreate, current_user: dict = Depends(get_current_user), db: asyncpg.Connection = Depends(get_db)):
     now = datetime.utcnow()
     row = await db.fetchrow(
-        "INSERT INTO expense_reports (title, description, date_from, date_to, currency, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id",
-        body.title, body.description, body.date_from, body.date_to, body.currency.upper(), now, now,
+        "INSERT INTO expense_reports (title, description, date_from, date_to, currency, user_id, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id",
+        body.title, body.description, body.date_from, body.date_to, body.currency.upper(), current_user["id"], now, now,
     )
     return await _fetch_report(db, row["id"])
 
 
 @router.get("/{report_id}", response_model=ReportOut)
-async def get_report(report_id: int, db: asyncpg.Connection = Depends(get_db)):
-    return await _fetch_report(db, report_id)
+async def get_report(report_id: int, current_user: dict = Depends(get_current_user), db: asyncpg.Connection = Depends(get_db)):
+    report = await _fetch_report(db, report_id)
+    if current_user["role"] not in ("chef_finance", "mod") and report.get("user_id") != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Not your report")
+    return report
 
 
 @router.patch("/{report_id}", response_model=ReportOut)
-async def update_report(report_id: int, body: ReportUpdate, db: asyncpg.Connection = Depends(get_db)):
-    row = await db.fetchrow("SELECT status FROM expense_reports WHERE id = $1", report_id)
+async def update_report(report_id: int, body: ReportUpdate, current_user: dict = Depends(get_current_user), db: asyncpg.Connection = Depends(get_db)):
+    row = await db.fetchrow("SELECT * FROM expense_reports WHERE id = $1", report_id)
     if not row:
         raise HTTPException(status_code=404, detail="Report not found")
+    if row["user_id"] is not None and row["user_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Not your report")
     if row["status"] != "draft":
         raise HTTPException(status_code=400, detail="Only draft reports can be edited")
 
@@ -106,10 +124,12 @@ async def update_report(report_id: int, body: ReportUpdate, db: asyncpg.Connecti
 
 
 @router.delete("/{report_id}", status_code=204)
-async def delete_report(report_id: int, db: asyncpg.Connection = Depends(get_db)):
-    row = await db.fetchrow("SELECT status FROM expense_reports WHERE id = $1", report_id)
+async def delete_report(report_id: int, current_user: dict = Depends(get_current_user), db: asyncpg.Connection = Depends(get_db)):
+    row = await db.fetchrow("SELECT status, user_id FROM expense_reports WHERE id = $1", report_id)
     if not row:
         raise HTTPException(status_code=404, detail="Report not found")
+    if row["user_id"] is not None and row["user_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Not your report")
     if row["status"] != "draft":
         raise HTTPException(status_code=400, detail="Only draft reports can be deleted")
     await db.execute("UPDATE expenses SET report_id = NULL, status = 'draft' WHERE report_id = $1", report_id)
@@ -117,10 +137,12 @@ async def delete_report(report_id: int, db: asyncpg.Connection = Depends(get_db)
 
 
 @router.post("/{report_id}/attach", response_model=ReportOut)
-async def attach_expenses(report_id: int, body: ReportSubmit, db: asyncpg.Connection = Depends(get_db)):
-    row = await db.fetchrow("SELECT status FROM expense_reports WHERE id = $1", report_id)
+async def attach_expenses(report_id: int, body: ReportSubmit, current_user: dict = Depends(get_current_user), db: asyncpg.Connection = Depends(get_db)):
+    row = await db.fetchrow("SELECT status, user_id FROM expense_reports WHERE id = $1", report_id)
     if not row:
         raise HTTPException(status_code=404, detail="Report not found")
+    if row["user_id"] is not None and row["user_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Not your report")
     if row["status"] != "draft":
         raise HTTPException(status_code=400, detail="Only draft reports can be modified")
     if not body.expense_ids:
@@ -149,10 +171,12 @@ async def attach_expenses(report_id: int, body: ReportSubmit, db: asyncpg.Connec
 
 
 @router.post("/{report_id}/submit", response_model=ReportOut)
-async def submit_report(report_id: int, body: ReportSubmit | None = None, db: asyncpg.Connection = Depends(get_db)):
-    row = await db.fetchrow("SELECT status FROM expense_reports WHERE id = $1", report_id)
+async def submit_report(report_id: int, body: ReportSubmit | None = None, current_user: dict = Depends(get_current_user), db: asyncpg.Connection = Depends(get_db)):
+    row = await db.fetchrow("SELECT status, user_id FROM expense_reports WHERE id = $1", report_id)
     if not row:
         raise HTTPException(status_code=404, detail="Report not found")
+    if row["user_id"] is not None and row["user_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Not your report")
     if row["status"] != "draft":
         raise HTTPException(status_code=400, detail="Report is not in draft status")
 
@@ -191,10 +215,12 @@ async def submit_report(report_id: int, body: ReportSubmit | None = None, db: as
 
 
 @router.post("/{report_id}/recall", response_model=ReportOut)
-async def recall_report(report_id: int, db: asyncpg.Connection = Depends(get_db)):
-    row = await db.fetchrow("SELECT status FROM expense_reports WHERE id = $1", report_id)
+async def recall_report(report_id: int, current_user: dict = Depends(get_current_user), db: asyncpg.Connection = Depends(get_db)):
+    row = await db.fetchrow("SELECT status, user_id FROM expense_reports WHERE id = $1", report_id)
     if not row:
         raise HTTPException(status_code=404, detail="Report not found")
+    if row["user_id"] is not None and row["user_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Not your report")
     if row["status"] != "submitted":
         raise HTTPException(status_code=400, detail="Only submitted reports can be recalled")
 
@@ -216,12 +242,12 @@ async def recall_report(report_id: int, db: asyncpg.Connection = Depends(get_db)
 
 
 @router.post("/{report_id}/pay", response_model=ReportOut)
-async def pay_report(report_id: int, db: asyncpg.Connection = Depends(get_db)):
+async def pay_report(report_id: int, current_user: dict = require_role("chef_finance"), db: asyncpg.Connection = Depends(get_db)):
     row = await db.fetchrow("SELECT status FROM expense_reports WHERE id = $1", report_id)
     if not row:
         raise HTTPException(status_code=404, detail="Report not found")
-    if row["status"] not in ("submitted", "approved"):
-        raise HTTPException(status_code=400, detail="Report must be submitted before marking as paid")
+    if row["status"] != "approved":
+        raise HTTPException(status_code=400, detail="Only approved reports can be marked as paid")
 
     now = datetime.utcnow()
     await db.execute(
@@ -236,10 +262,12 @@ async def pay_report(report_id: int, db: asyncpg.Connection = Depends(get_db)):
 
 
 @router.get("/{report_id}/export")
-async def export_report_pdf(report_id: int, db: asyncpg.Connection = Depends(get_db)):
+async def export_report_pdf(report_id: int, current_user: dict = Depends(get_current_user), db: asyncpg.Connection = Depends(get_db)):
     row = await db.fetchrow("SELECT * FROM expense_reports WHERE id = $1", report_id)
     if not row:
         raise HTTPException(status_code=404, detail="Report not found")
+    if current_user["role"] not in ("chef_finance", "mod") and row["user_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Not your report")
 
     report = dict(row)
     expenses_rows = await db.fetch(
@@ -265,10 +293,12 @@ async def export_report_pdf(report_id: int, db: asyncpg.Connection = Depends(get
 
 
 @router.get("/{report_id}/receipts-zip")
-async def download_receipts_zip(report_id: int, db: asyncpg.Connection = Depends(get_db)):
-    row = await db.fetchrow("SELECT title FROM expense_reports WHERE id = $1", report_id)
+async def download_receipts_zip(report_id: int, current_user: dict = Depends(get_current_user), db: asyncpg.Connection = Depends(get_db)):
+    row = await db.fetchrow("SELECT title, user_id FROM expense_reports WHERE id = $1", report_id)
     if not row:
         raise HTTPException(status_code=404, detail="Report not found")
+    if current_user["role"] not in ("chef_finance", "mod") and row["user_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Not your report")
     report_title = row["title"]
 
     receipt_rows = await db.fetch(
@@ -315,3 +345,56 @@ async def download_receipts_zip(report_id: int, db: asyncpg.Connection = Depends
         media_type="application/zip",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+@router.post("/{report_id}/approve", response_model=ReportOut)
+async def approve_report(
+    report_id: int,
+    current_user: dict = require_role("manager", "chef_finance"),
+    db: asyncpg.Connection = Depends(get_db),
+):
+    row = await db.fetchrow("SELECT * FROM expense_reports WHERE id = $1", report_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Report not found")
+    if row["status"] != "submitted":
+        raise HTTPException(status_code=400, detail="Only submitted reports can be approved")
+    if row["user_id"] == current_user["id"]:
+        raise HTTPException(status_code=400, detail="Cannot approve your own report")
+
+    now = datetime.utcnow()
+    await db.execute(
+        "UPDATE expense_reports SET status = 'approved', approved_by = $1, approved_at = $2, updated_at = $3 WHERE id = $4",
+        current_user["id"], now, now, report_id,
+    )
+    await db.execute(
+        "UPDATE expenses SET status = 'approved', updated_at = $1 WHERE report_id = $2",
+        now, report_id,
+    )
+    return await _fetch_report(db, report_id)
+
+
+@router.post("/{report_id}/reject", response_model=ReportOut)
+async def reject_report(
+    report_id: int,
+    body: RejectBody = RejectBody(),
+    current_user: dict = require_role("manager", "chef_finance"),
+    db: asyncpg.Connection = Depends(get_db),
+):
+    row = await db.fetchrow("SELECT * FROM expense_reports WHERE id = $1", report_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Report not found")
+    if row["status"] != "submitted":
+        raise HTTPException(status_code=400, detail="Only submitted reports can be rejected")
+    if row["user_id"] == current_user["id"]:
+        raise HTTPException(status_code=400, detail="Cannot reject your own report")
+
+    now = datetime.utcnow()
+    await db.execute(
+        "UPDATE expense_reports SET status = 'rejected', approved_by = $1, approved_at = $2, rejected_reason = $3, updated_at = $4 WHERE id = $5",
+        current_user["id"], now, body.reason, now, report_id,
+    )
+    await db.execute(
+        "UPDATE expenses SET status = 'draft', report_id = NULL, updated_at = $1 WHERE report_id = $2",
+        now, report_id,
+    )
+    return await _fetch_report(db, report_id)

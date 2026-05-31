@@ -2,12 +2,13 @@ from fastapi import Depends, APIRouter, HTTPException
 import asyncpg
 from ..database import get_db
 from ..models import CategoryOut, CategoryCreate, CategoryUpdate
+from ..auth import get_current_user, require_role
 
 router = APIRouter(prefix="/api/categories", tags=["categories"])
 
 
 @router.get("", response_model=list[CategoryOut])
-async def list_categories(active_only: bool = True, db: asyncpg.Connection = Depends(get_db)):
+async def list_categories(active_only: bool = True, current_user: dict = Depends(get_current_user), db: asyncpg.Connection = Depends(get_db)):
     query = "SELECT * FROM categories"
     if active_only:
         query += " WHERE is_active = true"
@@ -17,7 +18,7 @@ async def list_categories(active_only: bool = True, db: asyncpg.Connection = Dep
 
 
 @router.post("", response_model=CategoryOut, status_code=201)
-async def create_category(body: CategoryCreate, db: asyncpg.Connection = Depends(get_db)):
+async def create_category(body: CategoryCreate, current_user: dict = require_role("mod"), db: asyncpg.Connection = Depends(get_db)):
     try:
         row = await db.fetchrow(
             "INSERT INTO categories (name, limit_amount) VALUES ($1, $2) RETURNING id",
@@ -31,7 +32,7 @@ async def create_category(body: CategoryCreate, db: asyncpg.Connection = Depends
 
 
 @router.patch("/{category_id}", response_model=CategoryOut)
-async def update_category(category_id: int, body: CategoryUpdate, db: asyncpg.Connection = Depends(get_db)):
+async def update_category(category_id: int, body: CategoryUpdate, current_user: dict = require_role("mod"), db: asyncpg.Connection = Depends(get_db)):
     row = await db.fetchrow("SELECT * FROM categories WHERE id = $1", category_id)
     if not row:
         raise HTTPException(status_code=404, detail="Category not found")
@@ -57,5 +58,5 @@ async def update_category(category_id: int, body: CategoryUpdate, db: asyncpg.Co
 
 
 @router.delete("/{category_id}", status_code=204)
-async def deactivate_category(category_id: int, db: asyncpg.Connection = Depends(get_db)):
+async def deactivate_category(category_id: int, current_user: dict = require_role("mod"), db: asyncpg.Connection = Depends(get_db)):
     await db.execute("UPDATE categories SET is_active = false WHERE id = $1", category_id)

@@ -3,6 +3,7 @@ from fastapi import Depends, APIRouter
 import asyncpg
 from ..database import get_db
 from ..models import DashboardStats, CategorySpend, ExpenseOut
+from ..auth import get_current_user
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 
@@ -14,64 +15,85 @@ EXPENSE_SELECT = """
 
 
 @router.get("", response_model=DashboardStats)
-async def get_dashboard(db: asyncpg.Connection = Depends(get_db)):
+async def get_dashboard(current_user: dict = Depends(get_current_user), db: asyncpg.Connection = Depends(get_db)):
     now = datetime.utcnow()
     month_start = f"{now.year}-{now.month:02d}-01"
 
-    row = await db.fetchrow("SELECT COUNT(*) as cnt FROM expenses")
+    is_org_wide = current_user["role"] in ("chef_finance", "mod")
+
+    if is_org_wide:
+        row = await db.fetchrow("SELECT COUNT(*) as cnt FROM expenses")
+    else:
+        row = await db.fetchrow("SELECT COUNT(*) as cnt FROM expenses WHERE user_id = $1", current_user["id"])
     expense_count_total = row["cnt"]
 
-    row = await db.fetchrow(
-        "SELECT COUNT(*) as cnt FROM expenses WHERE date >= $1", month_start
-    )
+    if is_org_wide:
+        row = await db.fetchrow("SELECT COUNT(*) as cnt FROM expenses WHERE date >= $1", month_start)
+    else:
+        row = await db.fetchrow("SELECT COUNT(*) as cnt FROM expenses WHERE date >= $1 AND user_id = $2", month_start, current_user["id"])
     expense_count_month = row["cnt"]
 
-    row = await db.fetchrow(
-        "SELECT COALESCE(SUM(amount_eur), 0) as total FROM expenses WHERE date >= $1",
-        month_start,
-    )
+    if is_org_wide:
+        row = await db.fetchrow("SELECT COALESCE(SUM(amount_eur), 0) as total FROM expenses WHERE date >= $1", month_start)
+    else:
+        row = await db.fetchrow("SELECT COALESCE(SUM(amount_eur), 0) as total FROM expenses WHERE date >= $1 AND user_id = $2", month_start, current_user["id"])
     total_month_eur = row["total"]
 
-    row = await db.fetchrow("SELECT COUNT(*) as cnt FROM expense_reports WHERE status = 'draft'")
+    if is_org_wide:
+        row = await db.fetchrow("SELECT COUNT(*) as cnt FROM expense_reports WHERE status = 'draft'")
+    else:
+        row = await db.fetchrow("SELECT COUNT(*) as cnt FROM expense_reports WHERE status = 'draft' AND user_id = $1", current_user["id"])
     draft_count = row["cnt"]
 
-    row = await db.fetchrow("SELECT COUNT(*) as cnt FROM expense_reports WHERE status = 'submitted'")
+    if is_org_wide:
+        row = await db.fetchrow("SELECT COUNT(*) as cnt FROM expense_reports WHERE status = 'submitted'")
+    else:
+        row = await db.fetchrow("SELECT COUNT(*) as cnt FROM expense_reports WHERE status = 'submitted' AND user_id = $1", current_user["id"])
     submitted_count = row["cnt"]
 
-    row = await db.fetchrow("SELECT COUNT(*) as cnt FROM expense_reports WHERE status = 'paid'")
+    if is_org_wide:
+        row = await db.fetchrow("SELECT COUNT(*) as cnt FROM expense_reports WHERE status = 'paid'")
+    else:
+        row = await db.fetchrow("SELECT COUNT(*) as cnt FROM expense_reports WHERE status = 'paid' AND user_id = $1", current_user["id"])
     paid_count = row["cnt"]
 
-    rows = await db.fetch(
-        """SELECT e.category_id, COALESCE(c.name, 'Uncategorized') as category_name,
-                  SUM(e.amount_eur) as total, COUNT(*) as count
-           FROM expenses e
-           LEFT JOIN categories c ON e.category_id = c.id
-           WHERE e.date >= $1
-           GROUP BY e.category_id, c.name
-           ORDER BY total DESC
-           LIMIT 10""",
-        month_start,
-    )
-    spend_by_category = [
-        CategorySpend(
-            category_id=r["category_id"],
-            category_name=r["category_name"],
-            total=r["total"],
-            count=r["count"],
+    if is_org_wide:
+        rows = await db.fetch(
+            """SELECT e.category_id, COALESCE(c.name, 'Uncategorized') as category_name,
+                      SUM(e.amount_eur) as total, COUNT(*) as count
+               FROM expenses e
+               LEFT JOIN categories c ON e.category_id = c.id
+               WHERE e.date >= $1
+               GROUP BY e.category_id, c.name
+               ORDER BY total DESC LIMIT 10""",
+            month_start,
         )
+    else:
+        rows = await db.fetch(
+            """SELECT e.category_id, COALESCE(c.name, 'Uncategorized') as category_name,
+                      SUM(e.amount_eur) as total, COUNT(*) as count
+               FROM expenses e
+               LEFT JOIN categories c ON e.category_id = c.id
+               WHERE e.date >= $1 AND e.user_id = $2
+               GROUP BY e.category_id, c.name
+               ORDER BY total DESC LIMIT 10""",
+            month_start, current_user["id"],
+        )
+    spend_by_category = [
+        CategorySpend(category_id=r["category_id"], category_name=r["category_name"], total=r["total"], count=r["count"])
         for r in rows
     ]
 
-    rows = await db.fetch(
-        f"{EXPENSE_SELECT} ORDER BY e.created_at DESC LIMIT 10"
-    )
+    if is_org_wide:
+        rows = await db.fetch(f"{EXPENSE_SELECT} ORDER BY e.created_at DESC LIMIT 10")
+    else:
+        rows = await db.fetch(f"{EXPENSE_SELECT} WHERE e.user_id = $1 ORDER BY e.created_at DESC LIMIT 10", current_user["id"])
     recent = [dict(r) for r in rows]
 
     if recent:
         ids = [e["id"] for e in recent]
         rcpt_rows = await db.fetch(
-            "SELECT * FROM receipts WHERE expense_id = ANY($1::int[]) ORDER BY created_at",
-            ids,
+            "SELECT * FROM receipts WHERE expense_id = ANY($1::int[]) ORDER BY created_at", ids
         )
         all_rcpts = [dict(r) for r in rcpt_rows]
         by_exp: dict[int, list] = {}

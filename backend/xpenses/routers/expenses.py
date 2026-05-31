@@ -7,6 +7,7 @@ from ..database import get_db
 from ..models import ExpenseOut, ExpenseCreate, ExpenseUpdate
 from ..services.storage import save_receipt, delete_receipt, get_full_path
 from ..services.fx_service import get_rate
+from ..auth import get_current_user
 
 router = APIRouter(prefix="/api/expenses", tags=["expenses"])
 
@@ -42,9 +43,16 @@ async def list_expenses(
     status: str | None = Query(default=None),
     from_date: str | None = Query(default=None, alias="from"),
     to_date: str | None = Query(default=None, alias="to"),
+    current_user: dict = Depends(get_current_user),
     db: asyncpg.Connection = Depends(get_db)):
     conditions, params = [], []
     param_idx = 1
+
+    # Always filter by current user
+    conditions.append(f"e.user_id = ${param_idx}")
+    params.append(current_user["id"])
+    param_idx += 1
+
     if report_id is not None:
         conditions.append(f"e.report_id = ${param_idx}")
         params.append(report_id)
@@ -73,7 +81,7 @@ async def list_expenses(
 
 
 @router.post("", response_model=ExpenseOut, status_code=201)
-async def create_expense(body: ExpenseCreate, db: asyncpg.Connection = Depends(get_db)):
+async def create_expense(body: ExpenseCreate, current_user: dict = Depends(get_current_user), db: asyncpg.Connection = Depends(get_db)):
     try:
         fx_rate = await get_rate(body.currency, body.date)
     except Exception as e:
@@ -85,11 +93,11 @@ async def create_expense(body: ExpenseCreate, db: asyncpg.Connection = Depends(g
     row = await db.fetchrow(
         """INSERT INTO expenses
            (category_id, report_id, amount_original, currency_original, amount_eur, fx_rate,
-            date, description, merchant, created_at, updated_at)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+            date, description, merchant, user_id, created_at, updated_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
            RETURNING id""",
         body.category_id, body.report_id, body.amount, body.currency.upper(), amount_eur, fx_rate,
-        body.date, body.description, body.merchant, now, now,
+        body.date, body.description, body.merchant, current_user["id"], now, now,
     )
     new_id = row["id"]
     expense_row = await db.fetchrow(f"{EXPENSE_SELECT} WHERE e.id = $1", new_id)
@@ -98,19 +106,24 @@ async def create_expense(body: ExpenseCreate, db: asyncpg.Connection = Depends(g
 
 
 @router.get("/{expense_id}", response_model=ExpenseOut)
-async def get_expense(expense_id: int, db: asyncpg.Connection = Depends(get_db)):
+async def get_expense(expense_id: int, current_user: dict = Depends(get_current_user), db: asyncpg.Connection = Depends(get_db)):
     row = await db.fetchrow(f"{EXPENSE_SELECT} WHERE e.id = $1", expense_id)
     if not row:
         raise HTTPException(status_code=404, detail="Expense not found")
-    expenses = await _enrich_with_receipts(db, [dict(row)])
+    row_dict = dict(row)
+    if row_dict.get("user_id") is not None and row_dict["user_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Not your expense")
+    expenses = await _enrich_with_receipts(db, [row_dict])
     return expenses[0]
 
 
 @router.patch("/{expense_id}", response_model=ExpenseOut)
-async def update_expense(expense_id: int, body: ExpenseUpdate, db: asyncpg.Connection = Depends(get_db)):
+async def update_expense(expense_id: int, body: ExpenseUpdate, current_user: dict = Depends(get_current_user), db: asyncpg.Connection = Depends(get_db)):
     row = await db.fetchrow("SELECT * FROM expenses WHERE id = $1", expense_id)
     if not row:
         raise HTTPException(status_code=404, detail="Expense not found")
+    if row["user_id"] is not None and row["user_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Not your expense")
     if row["status"] != "draft":
         raise HTTPException(status_code=400, detail="Only draft expenses can be edited")
 
@@ -156,10 +169,12 @@ async def update_expense(expense_id: int, body: ExpenseUpdate, db: asyncpg.Conne
 
 
 @router.delete("/{expense_id}", status_code=204)
-async def delete_expense(expense_id: int, db: asyncpg.Connection = Depends(get_db)):
-    row = await db.fetchrow("SELECT status FROM expenses WHERE id = $1", expense_id)
+async def delete_expense(expense_id: int, current_user: dict = Depends(get_current_user), db: asyncpg.Connection = Depends(get_db)):
+    row = await db.fetchrow("SELECT status, user_id FROM expenses WHERE id = $1", expense_id)
     if not row:
         raise HTTPException(status_code=404, detail="Expense not found")
+    if row["user_id"] is not None and row["user_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Not your expense")
     if row["status"] != "draft":
         raise HTTPException(status_code=400, detail="Only draft expenses can be deleted")
     receipt_rows = await db.fetch("SELECT file_path FROM receipts WHERE expense_id = $1", expense_id)
@@ -170,10 +185,12 @@ async def delete_expense(expense_id: int, db: asyncpg.Connection = Depends(get_d
 
 
 @router.post("/{expense_id}/receipts")
-async def upload_receipts(expense_id: int, files: list[UploadFile] = File(...), db: asyncpg.Connection = Depends(get_db)):
-    row = await db.fetchrow("SELECT id FROM expenses WHERE id = $1", expense_id)
+async def upload_receipts(expense_id: int, files: list[UploadFile] = File(...), current_user: dict = Depends(get_current_user), db: asyncpg.Connection = Depends(get_db)):
+    row = await db.fetchrow("SELECT id, user_id FROM expenses WHERE id = $1", expense_id)
     if not row:
         raise HTTPException(status_code=404, detail="Expense not found")
+    if row["user_id"] is not None and row["user_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Not your expense")
 
     saved = []
     now = datetime.utcnow()
@@ -197,12 +214,18 @@ async def upload_receipts(expense_id: int, files: list[UploadFile] = File(...), 
 
 
 @router.post("/{expense_id}/receipt")
-async def upload_receipt_compat(expense_id: int, file: UploadFile = File(...), db: asyncpg.Connection = Depends(get_db)):
-    return await upload_receipts(expense_id, [file], db=db)
+async def upload_receipt_compat(expense_id: int, file: UploadFile = File(...), current_user: dict = Depends(get_current_user), db: asyncpg.Connection = Depends(get_db)):
+    return await upload_receipts(expense_id, [file], current_user=current_user, db=db)
 
 
 @router.delete("/{expense_id}/receipts/{receipt_id}", status_code=204)
-async def delete_single_receipt(expense_id: int, receipt_id: int, db: asyncpg.Connection = Depends(get_db)):
+async def delete_single_receipt(expense_id: int, receipt_id: int, current_user: dict = Depends(get_current_user), db: asyncpg.Connection = Depends(get_db)):
+    exp_row = await db.fetchrow("SELECT user_id FROM expenses WHERE id = $1", expense_id)
+    if not exp_row:
+        raise HTTPException(status_code=404, detail="Expense not found")
+    if exp_row["user_id"] is not None and exp_row["user_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Not your expense")
+
     row = await db.fetchrow(
         "SELECT file_path FROM receipts WHERE id = $1 AND expense_id = $2",
         receipt_id, expense_id,
@@ -218,7 +241,13 @@ async def delete_single_receipt(expense_id: int, receipt_id: int, db: asyncpg.Co
 
 
 @router.get("/{expense_id}/receipts/{receipt_id}")
-async def get_single_receipt(expense_id: int, receipt_id: int, db: asyncpg.Connection = Depends(get_db)):
+async def get_single_receipt(expense_id: int, receipt_id: int, current_user: dict = Depends(get_current_user), db: asyncpg.Connection = Depends(get_db)):
+    exp_row = await db.fetchrow("SELECT user_id FROM expenses WHERE id = $1", expense_id)
+    if not exp_row:
+        raise HTTPException(status_code=404, detail="Expense not found")
+    if exp_row["user_id"] is not None and exp_row["user_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Not your expense")
+
     row = await db.fetchrow(
         "SELECT file_path FROM receipts WHERE id = $1 AND expense_id = $2",
         receipt_id, expense_id,
@@ -231,16 +260,20 @@ async def get_single_receipt(expense_id: int, receipt_id: int, db: asyncpg.Conne
 
 
 @router.get("/{expense_id}/receipt")
-async def get_receipt_compat(expense_id: int, db: asyncpg.Connection = Depends(get_db)):
+async def get_receipt_compat(expense_id: int, current_user: dict = Depends(get_current_user), db: asyncpg.Connection = Depends(get_db)):
     row = await db.fetchrow(
         "SELECT id FROM receipts WHERE expense_id = $1 ORDER BY created_at LIMIT 1",
         expense_id,
     )
     if not row:
-        exp = await db.fetchrow("SELECT receipt_path FROM expenses WHERE id = $1", expense_id)
-        if not exp or not exp["receipt_path"]:
+        exp = await db.fetchrow("SELECT receipt_path, user_id FROM expenses WHERE id = $1", expense_id)
+        if not exp:
+            raise HTTPException(status_code=404, detail="Expense not found")
+        if exp["user_id"] is not None and exp["user_id"] != current_user["id"]:
+            raise HTTPException(status_code=403, detail="Not your expense")
+        if not exp["receipt_path"]:
             raise HTTPException(status_code=404, detail="No receipt found")
         full_path = get_full_path(exp["receipt_path"])
         mime, _ = mimetypes.guess_type(full_path)
         return FileResponse(full_path, media_type=mime or "application/octet-stream")
-    return await get_single_receipt(expense_id, row["id"], db=db)
+    return await get_single_receipt(expense_id, row["id"], current_user=current_user, db=db)

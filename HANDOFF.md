@@ -1,6 +1,6 @@
 # HANDOFF.md — xpenses_copy
 
-> Last updated: 2026-05-31  
+> Last updated: 2026-05-31 (session 2)  
 > Author: Claude (AI assistant session)
 
 ---
@@ -8,6 +8,27 @@
 ## What This Project Is
 
 Self-hosted expense management app (alternative to Zoho Expenses). FastAPI backend + Next.js frontend + PostgreSQL, running in Docker Compose on port 3001 (frontend) / 8001 (backend API).
+
+## Latest Session (2026-05-31, session 2)
+
+### What Was Done
+- **Phase 4 design spec completed and approved** — authentication & role-based access control
+- Design spec committed at `docs/superpowers/specs/2026-05-31-authentication-and-roles-design.md`
+
+### Design Summary
+- 4 roles: Technician, Manager, Chef of Finances, MOD (app admin)
+- JWT access tokens (15 min) + refresh tokens (7 days) in httpOnly cookies
+- Local test accounts (tech1/manager1/cfo1/mod1) for dev, AD/LDAP for production
+- LDAP authenticates identity, MOD assigns roles in-app
+- New tables: `users`, `refresh_tokens`; `user_id` column added to `expenses` and `expense_reports`
+- New report statuses: `approved`, `rejected` (Manager approval step between submitted and paid)
+- New frontend pages: Login, Approvals, Payments, User Management (/admin/users)
+- New backend routers: auth.py, users.py
+- New packages: PyJWT, bcrypt
+
+### What's Next
+- **Invoke `writing-plans` skill** to create the implementation plan from the approved spec
+- Then implement Phase 4
 
 ## Current State: OPERATIONAL
 

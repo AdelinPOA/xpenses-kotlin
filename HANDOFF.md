@@ -1,6 +1,6 @@
 # HANDOFF.md — xpenses_copy
 
-> Last updated: 2026-05-31 (session 3)  
+> Last updated: 2026-05-31 (session 4)  
 > Author: Claude (AI assistant session)
 
 ---
@@ -19,9 +19,22 @@ All 3 Docker containers running, all endpoints healthy:
 | FastAPI backend | `xpenses-backend` | 8001 → 8000 | `{"status":"ok"}` |
 | Next.js frontend | `xpenses-frontend` | 3001 → 3000 | Serving (307 redirect to /login if unauthenticated) |
 
-## Latest Session (2026-05-31, session 3)
+## Latest Session (2026-05-31, session 4)
 
 ### What Was Done
+- **Security hardening** (from automated security review):
+  - Added `COOKIE_SECURE` setting — cookies get `secure=True` in production (HTTPS-only)
+  - Changed refresh token cookie `samesite` from `lax` to `strict` (CSRF protection)
+  - Gated seed users behind `SEED_DEMO_USERS=true` flag — set `false` in production to prevent shipping known credentials
+- No functional changes — all existing features work identically
+
+### Production .env Requirements
+```
+COOKIE_SECURE=true
+SEED_DEMO_USERS=false
+```
+
+### Previous Session (2026-05-31, session 3)
 - **Phase 4 fully implemented and tested** — authentication & role-based access control
 - Full approval workflow verified: tech submits → manager approves → CFO pays
 - Security fix: removed fail-open IDOR on NULL user_id

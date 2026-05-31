@@ -1,4 +1,5 @@
 from .auth import hash_password
+from .config import settings
 from .database import get_pool
 
 SEED_USERS = [
@@ -10,6 +11,9 @@ SEED_USERS = [
 
 
 async def seed_users() -> None:
+    if not settings.seed_demo_users:
+        return
+
     pool = get_pool()
     async with pool.acquire() as conn:
         count = await conn.fetchval("SELECT COUNT(*) FROM users")

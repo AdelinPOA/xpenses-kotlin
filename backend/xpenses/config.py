@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     jwt_secret: str = secrets.token_hex(32)
     jwt_access_expires_minutes: int = 15
     jwt_refresh_expires_days: int = 7
+    cookie_secure: bool = False
+    seed_demo_users: bool = True
     ldap_enabled: bool = False
     ldap_host: str = ""
     ldap_base_dn: str = ""

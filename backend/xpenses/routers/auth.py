@@ -48,10 +48,12 @@ async def login(body: LoginRequest, response: Response, db: asyncpg.Connection =
 
     response.set_cookie(
         "access_token", access, httponly=True, samesite="lax",
+        secure=settings.cookie_secure,
         max_age=settings.jwt_access_expires_minutes * 60,
     )
     response.set_cookie(
-        "refresh_token", refresh, httponly=True, samesite="lax",
+        "refresh_token", refresh, httponly=True, samesite="strict",
+        secure=settings.cookie_secure,
         max_age=settings.jwt_refresh_expires_days * 86400,
     )
 
@@ -99,10 +101,12 @@ async def refresh_tokens(response: Response, refresh_token: Annotated[str | None
 
     response.set_cookie(
         "access_token", new_access, httponly=True, samesite="lax",
+        secure=settings.cookie_secure,
         max_age=settings.jwt_access_expires_minutes * 60,
     )
     response.set_cookie(
-        "refresh_token", new_refresh, httponly=True, samesite="lax",
+        "refresh_token", new_refresh, httponly=True, samesite="strict",
+        secure=settings.cookie_secure,
         max_age=settings.jwt_refresh_expires_days * 86400,
     )
 

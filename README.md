@@ -115,6 +115,9 @@ The PDF export matches Zoho Expenses quality:
 | `DATA_DIR` | `/app/data` | Receipts storage path |
 | `DEFAULT_CURRENCY` | `EUR` | Base currency |
 | `DATABASE_URL` | `postgresql://xpenses:xpenses@db:5432/xpenses` | PostgreSQL connection (set in docker-compose) |
+| `JWT_SECRET` | (random) | Secret for signing JWT tokens (set a stable value in prod) |
+| `COOKIE_SECURE` | `false` | Set `true` in production (HTTPS-only cookies) |
+| `SEED_DEMO_USERS` | `true` | Set `false` in production (disables test accounts) |
 | `COMPANY_NAME` | `Newtech Automation` | Company name in PDF exports |
 | `SUBMITTER_NAME` | `Popescu Adelin` | Submitter name in PDF exports |
 | `SUBMITTER_EMAIL` | `adelin.popescu@nt-automation.eu` | Submitter email in PDF exports |

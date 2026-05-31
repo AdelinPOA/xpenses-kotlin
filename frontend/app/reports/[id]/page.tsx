@@ -3,7 +3,7 @@
 import { use } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import api, { Report, Expense } from "@/lib/api";
+import api, { Report, Expense, API_BASE_URL } from "@/lib/api";
 import { reportKeys, expenseKeys, dashboardKeys } from "@/lib/queryKeys";
 import AppShell from "@/components/layout/AppShell";
 import Badge from "@/components/ui/Badge";
@@ -109,7 +109,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
               </Link>
             )}
             <a
-              href={`${process.env.NEXT_PUBLIC_API_URL}/reports/${id}/export`}
+              href={`${API_BASE_URL}/reports/${id}/export`}
               target="_blank"
               rel="noreferrer"
               className="flex items-center gap-2 px-3 py-1.5 border border-slate-300 text-slate-600 text-sm font-medium rounded-lg hover:bg-slate-50"
@@ -118,7 +118,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
               Export PDF
             </a>
             <a
-              href={`${process.env.NEXT_PUBLIC_API_URL}/reports/${id}/receipts-zip`}
+              href={`${API_BASE_URL}/reports/${id}/receipts-zip`}
               className="flex items-center gap-2 px-3 py-1.5 border border-slate-300 text-slate-600 text-sm font-medium rounded-lg hover:bg-slate-50"
             >
               <FolderDown className="w-4 h-4" />
@@ -154,12 +154,23 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
       </div>
 
       {/* Attach expenses */}
-      {report.status === "draft" && availableDrafts.length > 0 && (
+      {report.status === "draft" && (
         <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-6">
-          <p className="text-sm font-medium text-slate-700 mb-3">
-            Select draft expenses to attach to report:
-          </p>
-          <div className="space-y-2 mb-3">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-sm font-medium text-slate-700">
+              Attach existing draft expenses or add new:
+            </p>
+            <Link
+              href={`/expenses/new?reportId=${id}&currency=${report.currency}`}
+              className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white text-sm font-medium rounded-lg hover:bg-slate-800 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              Add New Expense
+            </Link>
+          </div>
+          {availableDrafts.length > 0 ? (
+            <>
+              <div className="space-y-2 mb-3">
             {availableDrafts.map((e) => (
               <label key={e.id} className="flex items-center gap-3 cursor-pointer">
                 <input
@@ -181,7 +192,11 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
           >
             <Plus className="w-4 h-4" />
             {attach.isPending ? "Adding..." : "Add to report"}
-          </button>
+              </button>
+            </>
+          ) : (
+            <p className="text-sm text-slate-500 italic">No unattached draft expenses available. You can add a new expense directly.</p>
+          )}
         </div>
       )}
 
@@ -267,7 +282,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
                         {e.receipts.map((r) => (
                           <a
                             key={r.id}
-                            href={`${process.env.NEXT_PUBLIC_API_URL}/expenses/${e.id}/receipts/${r.id}`}
+                            href={`${API_BASE_URL}/expenses/${e.id}/receipts/${r.id}`}
                             target="_blank"
                             rel="noreferrer"
                             className="text-blue-600 hover:underline text-xs"

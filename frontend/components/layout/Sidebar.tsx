@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutDashboard, Receipt, FileText, Tag } from "lucide-react";
@@ -17,7 +18,8 @@ export default function Sidebar() {
 
   return (
     <aside className="fixed top-0 left-0 h-full w-[220px] bg-slate-900 text-slate-200 flex flex-col z-20">
-      <div className="px-6 py-5 border-b border-slate-700">
+      <div className="px-6 py-4 border-b border-slate-700 flex flex-col items-center gap-2">
+        <Image src="/logo.png" alt="Newtech Automation" width={48} height={48} className="rounded-full" />
         <span className="text-lg font-bold text-white tracking-tight">xpenses</span>
       </div>
       <nav className="flex-1 py-4 px-3">

@@ -1,5 +1,5 @@
 import httpx
-from ..database import get_db
+from ..database import get_pool
 
 FRANKFURTER_URL = "https://api.frankfurter.dev/v1"
 FALLBACK_URL = "https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@{date}/v1/currencies/{currency}.min.json"
@@ -40,29 +40,34 @@ async def get_rate(from_currency: str, date: str) -> float:
     if from_currency == "EUR":
         return 1.0
 
-    db = await get_db()
-    try:
-        async with db.execute(
-            "SELECT rate FROM fx_rates WHERE from_currency = ? AND to_currency = 'EUR' AND rate_date = ?",
-            (from_currency, date),
-        ) as c:
-            row = await c.fetchone()
+    async with get_pool().acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT rate FROM fx_rates WHERE from_currency = $1 AND to_currency = 'EUR' AND rate_date = $2",
+            from_currency, date,
+        )
         if row:
             return row["rate"]
 
         async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
-            rate = await _fetch_frankfurter(client, from_currency, date)
+            rate = None
+            try:
+                rate = await _fetch_frankfurter(client, from_currency, date)
+            except httpx.HTTPError:
+                pass
+
             if rate is None:
-                rate = await _fetch_fallback(client, from_currency, date)
+                try:
+                    rate = await _fetch_fallback(client, from_currency, date)
+                except httpx.HTTPError as e:
+                    raise ValueError(f"Failed to fetch exchange rate from fallback: {e}")
 
         if rate is None:
             raise ValueError(f"Currency {from_currency} not supported by any exchange rate provider")
 
-        await db.execute(
-            "INSERT OR REPLACE INTO fx_rates (from_currency, to_currency, rate_date, rate) VALUES (?, 'EUR', ?, ?)",
-            (from_currency, date, rate),
+        await conn.execute(
+            """INSERT INTO fx_rates (from_currency, to_currency, rate_date, rate)
+               VALUES ($1, 'EUR', $2, $3)
+               ON CONFLICT (from_currency, to_currency, rate_date) DO UPDATE SET rate = EXCLUDED.rate""",
+            from_currency, date, rate,
         )
-        await db.commit()
         return rate
-    finally:
-        await db.close()

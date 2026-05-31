@@ -1,4 +1,21 @@
 services:
+  db:
+    image: postgres:16-alpine
+    container_name: xpenses-db
+    environment:
+      POSTGRES_USER: xpenses
+      POSTGRES_PASSWORD: xpenses
+      POSTGRES_DB: xpenses
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - xpenses-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U xpenses"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   backend:
     build:
       context: ./backend
@@ -7,6 +24,11 @@ services:
     ports:
       - "8001:8000"
     env_file: .env
+    environment:
+      - DATABASE_URL=postgresql://xpenses:xpenses@db:5432/xpenses
+    depends_on:
+      db:
+        condition: service_healthy
     volumes:
       - ./backend/xpenses:/app/xpenses
       - xpenses-data:/app/data
@@ -20,10 +42,11 @@ services:
       dockerfile: Dockerfile
     container_name: xpenses-frontend
     ports:
-      - "3000:3000"
+      - "3001:3000"
     environment:
       - NODE_ENV=development
       - NEXT_PUBLIC_API_URL=http://localhost:8001/api
+      - INTERNAL_API_URL=http://backend:8000/api
     volumes:
       - ./frontend:/app
       - /app/node_modules
@@ -38,4 +61,6 @@ networks:
 
 volumes:
   xpenses-data:
+    driver: local
+  pgdata:
     driver: local

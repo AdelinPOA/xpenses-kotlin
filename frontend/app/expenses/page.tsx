@@ -3,7 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import Link from "next/link";
-import api, { Expense } from "@/lib/api";
+import api, { Expense, API_BASE_URL } from "@/lib/api";
 import { expenseKeys, dashboardKeys } from "@/lib/queryKeys";
 import AppShell from "@/components/layout/AppShell";
 import Badge from "@/components/ui/Badge";
@@ -109,7 +109,7 @@ export default function ExpensesPage() {
                         {e.receipts.map((r) => (
                           <a
                             key={r.id}
-                            href={`${process.env.NEXT_PUBLIC_API_URL}/expenses/${e.id}/receipts/${r.id}`}
+                            href={`${API_BASE_URL}/expenses/${e.id}/receipts/${r.id}`}
                             target="_blank"
                             rel="noreferrer"
                             className="text-blue-600 hover:underline text-xs"

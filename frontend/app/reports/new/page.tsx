@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import api, { Expense } from "@/lib/api";
+import api, { Expense, CURRENCIES } from "@/lib/api";
 import { reportKeys, expenseKeys, dashboardKeys } from "@/lib/queryKeys";
 import AppShell from "@/components/layout/AppShell";
 import Badge from "@/components/ui/Badge";
@@ -21,6 +21,7 @@ export default function NewReportPage() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [currency, setCurrency] = useState("EUR");
   const [error, setError] = useState("");
 
   const { data: draftExpenses } = useQuery<Expense[]>({
@@ -36,6 +37,7 @@ export default function NewReportPage() {
           description: description || null,
           date_from: dateFrom || null,
           date_to: dateTo || null,
+          currency,
         })
         .then((r) => r.data);
 
@@ -109,6 +111,21 @@ export default function NewReportPage() {
                 className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Default Currency</label>
+            <select
+              value={currency}
+              onChange={(e) => setCurrency(e.target.value)}
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {CURRENCIES.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div>

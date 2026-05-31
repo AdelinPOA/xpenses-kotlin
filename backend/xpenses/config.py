@@ -9,17 +9,20 @@ class Settings(BaseSettings):
     cors_origins: list[str] = ["http://localhost:3000"]
     data_dir: str = "/app/data"
     default_currency: str = "EUR"
+    database_url: str = "postgresql://xpenses:xpenses@localhost:5432/xpenses"
+    company_name: str = "Newtech Automation"
+    submitter_name: str = "Popescu Adelin"
+    submitter_email: str = "adelin.popescu@nt-automation.eu"
 
     @field_validator("cors_origins", mode="before")
     @classmethod
     def parse_cors(cls, v: str | list) -> list[str]:
         if isinstance(v, str):
-            return json.loads(v)
+            v_stripped = v.strip()
+            if v_stripped.startswith("["):
+                return json.loads(v_stripped)
+            return [origin.strip() for origin in v_stripped.split(",") if origin.strip()]
         return v
-
-    @property
-    def db_path(self) -> str:
-        return f"{self.data_dir}/xpenses.db"
 
     @property
     def receipts_dir(self) -> str:

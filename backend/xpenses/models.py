@@ -59,6 +59,7 @@ class ExpenseOut(BaseModel):
 
 class ExpenseCreate(BaseModel):
     category_id: int | None = None
+    report_id: int | None = None
     amount: float
     currency: str = "EUR"
     date: str
@@ -99,6 +100,7 @@ class ReportCreate(BaseModel):
     description: str | None = None
     date_from: str | None = None
     date_to: str | None = None
+    currency: str = "EUR"
 
 
 class ReportUpdate(BaseModel):
@@ -106,6 +108,7 @@ class ReportUpdate(BaseModel):
     description: str | None = None
     date_from: str | None = None
     date_to: str | None = None
+    currency: str | None = None
 
 
 class ReportSubmit(BaseModel):

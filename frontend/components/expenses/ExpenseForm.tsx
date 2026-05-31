@@ -3,26 +3,28 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import api, { Category, Expense, CURRENCIES } from "@/lib/api";
+import api, { Category, Expense, CURRENCIES, API_BASE_URL } from "@/lib/api";
 import { categoryKeys, expenseKeys, dashboardKeys } from "@/lib/queryKeys";
 import { X } from "lucide-react";
 
 interface Props {
   expense?: Expense;
+  reportId?: number;
+  defaultCurrency?: string;
 }
 
 function formatEur(amount: number) {
   return new Intl.NumberFormat("en-EU", { style: "currency", currency: "EUR" }).format(amount);
 }
 
-export default function ExpenseForm({ expense }: Props) {
+export default function ExpenseForm({ expense, reportId, defaultCurrency }: Props) {
   const router = useRouter();
   const qc = useQueryClient();
   const isEdit = !!expense;
 
   const [form, setForm] = useState({
     amount: expense?.amount_original?.toString() ?? "",
-    currency: expense?.currency_original ?? "EUR",
+    currency: expense?.currency_original ?? defaultCurrency ?? "EUR",
     date: expense?.date ?? new Date().toISOString().slice(0, 10),
     merchant: expense?.merchant ?? "",
     description: expense?.description ?? "",
@@ -49,37 +51,49 @@ export default function ExpenseForm({ expense }: Props) {
         merchant: form.merchant || null,
         description: form.description || null,
         category_id: form.category_id ? parseInt(form.category_id) : null,
+        ...(reportId && !isEdit ? { report_id: reportId } : {}),
       };
       let result: Expense;
-      if (isEdit) {
-        result = await api.patch(`/expenses/${expense.id}`, payload).then((r) => r.data);
-      } else {
-        result = await api.post("/expenses", payload).then((r) => r.data);
-      }
-
-      for (const rid of deletedReceiptIds) {
-        await api.delete(`/expenses/${result.id}/receipts/${rid}`);
-      }
-
-      if (receiptFiles.length > 0) {
-        const fd = new FormData();
-        for (const file of receiptFiles) {
-          fd.append("files", file);
+      try {
+        if (isEdit) {
+          result = await api.patch(`/expenses/${expense.id}`, payload).then((r) => r.data);
+        } else {
+          result = await api.post("/expenses", payload).then((r) => r.data);
         }
-        await api.post(`/expenses/${result.id}/receipts`, fd, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
+      } catch (e: any) {
+        throw new Error(e.response?.data?.detail ?? "Failed to save expense details");
+      }
+
+      try {
+        for (const rid of deletedReceiptIds) {
+          await api.delete(`/expenses/${result.id}/receipts/${rid}`);
+        }
+
+        if (receiptFiles.length > 0) {
+          const fd = new FormData();
+          for (const file of receiptFiles) {
+            fd.append("files", file);
+          }
+          await api.post(`/expenses/${result.id}/receipts`, fd, {
+            headers: { "Content-Type": "multipart/form-data" },
+          });
+        }
+      } catch (e: any) {
+        qc.invalidateQueries({ queryKey: expenseKeys.all });
+        qc.invalidateQueries({ queryKey: dashboardKeys.all });
+        throw new Error("Expense saved, but failed to upload or delete some receipts.");
       }
       return result;
     },
     onSuccess: (result) => {
       qc.invalidateQueries({ queryKey: expenseKeys.all });
       qc.invalidateQueries({ queryKey: dashboardKeys.all });
+      const destination = reportId ? `/reports/${reportId}` : "/expenses";
       if (result.currency_original !== "EUR") {
         setSavedExpense(result);
-        setTimeout(() => router.push("/expenses"), 2000);
+        setTimeout(() => router.push(destination), 2000);
       } else {
-        router.push("/expenses");
+        router.push(destination);
       }
     },
     onError: (e: any) => setError(e.response?.data?.detail ?? "Failed to save"),
@@ -204,7 +218,7 @@ export default function ExpenseForm({ expense }: Props) {
             {existingReceipts.map((r) => (
               <div key={r.id} className="flex items-center gap-2 text-xs text-slate-500">
                 <a
-                  href={`${process.env.NEXT_PUBLIC_API_URL}/expenses/${expense!.id}/receipts/${r.id}`}
+                  href={`${API_BASE_URL}/expenses/${expense!.id}/receipts/${r.id}`}
                   target="_blank"
                   rel="noreferrer"
                   className="text-blue-600 hover:underline truncate max-w-[200px]"

@@ -111,7 +111,7 @@ async def get_expense(expense_id: int, current_user: dict = Depends(get_current_
     if not row:
         raise HTTPException(status_code=404, detail="Expense not found")
     row_dict = dict(row)
-    if row_dict.get("user_id") is not None and row_dict["user_id"] != current_user["id"]:
+    if row_dict.get("user_id") != current_user["id"]:
         raise HTTPException(status_code=403, detail="Not your expense")
     expenses = await _enrich_with_receipts(db, [row_dict])
     return expenses[0]
@@ -122,7 +122,7 @@ async def update_expense(expense_id: int, body: ExpenseUpdate, current_user: dic
     row = await db.fetchrow("SELECT * FROM expenses WHERE id = $1", expense_id)
     if not row:
         raise HTTPException(status_code=404, detail="Expense not found")
-    if row["user_id"] is not None and row["user_id"] != current_user["id"]:
+    if row["user_id"] != current_user["id"]:
         raise HTTPException(status_code=403, detail="Not your expense")
     if row["status"] != "draft":
         raise HTTPException(status_code=400, detail="Only draft expenses can be edited")
@@ -173,7 +173,7 @@ async def delete_expense(expense_id: int, current_user: dict = Depends(get_curre
     row = await db.fetchrow("SELECT status, user_id FROM expenses WHERE id = $1", expense_id)
     if not row:
         raise HTTPException(status_code=404, detail="Expense not found")
-    if row["user_id"] is not None and row["user_id"] != current_user["id"]:
+    if row["user_id"] != current_user["id"]:
         raise HTTPException(status_code=403, detail="Not your expense")
     if row["status"] != "draft":
         raise HTTPException(status_code=400, detail="Only draft expenses can be deleted")
@@ -189,7 +189,7 @@ async def upload_receipts(expense_id: int, files: list[UploadFile] = File(...), 
     row = await db.fetchrow("SELECT id, user_id FROM expenses WHERE id = $1", expense_id)
     if not row:
         raise HTTPException(status_code=404, detail="Expense not found")
-    if row["user_id"] is not None and row["user_id"] != current_user["id"]:
+    if row["user_id"] != current_user["id"]:
         raise HTTPException(status_code=403, detail="Not your expense")
 
     saved = []

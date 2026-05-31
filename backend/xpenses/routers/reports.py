@@ -101,7 +101,7 @@ async def update_report(report_id: int, body: ReportUpdate, current_user: dict =
     row = await db.fetchrow("SELECT * FROM expense_reports WHERE id = $1", report_id)
     if not row:
         raise HTTPException(status_code=404, detail="Report not found")
-    if row["user_id"] is not None and row["user_id"] != current_user["id"]:
+    if row["user_id"] != current_user["id"] and current_user["role"] not in ("chef_finance", "mod"):
         raise HTTPException(status_code=403, detail="Not your report")
     if row["status"] != "draft":
         raise HTTPException(status_code=400, detail="Only draft reports can be edited")
@@ -128,7 +128,7 @@ async def delete_report(report_id: int, current_user: dict = Depends(get_current
     row = await db.fetchrow("SELECT status, user_id FROM expense_reports WHERE id = $1", report_id)
     if not row:
         raise HTTPException(status_code=404, detail="Report not found")
-    if row["user_id"] is not None and row["user_id"] != current_user["id"]:
+    if row["user_id"] != current_user["id"] and current_user["role"] not in ("chef_finance", "mod"):
         raise HTTPException(status_code=403, detail="Not your report")
     if row["status"] != "draft":
         raise HTTPException(status_code=400, detail="Only draft reports can be deleted")
@@ -141,7 +141,7 @@ async def attach_expenses(report_id: int, body: ReportSubmit, current_user: dict
     row = await db.fetchrow("SELECT status, user_id FROM expense_reports WHERE id = $1", report_id)
     if not row:
         raise HTTPException(status_code=404, detail="Report not found")
-    if row["user_id"] is not None and row["user_id"] != current_user["id"]:
+    if row["user_id"] != current_user["id"] and current_user["role"] not in ("chef_finance", "mod"):
         raise HTTPException(status_code=403, detail="Not your report")
     if row["status"] != "draft":
         raise HTTPException(status_code=400, detail="Only draft reports can be modified")
@@ -175,7 +175,7 @@ async def submit_report(report_id: int, body: ReportSubmit | None = None, curren
     row = await db.fetchrow("SELECT status, user_id FROM expense_reports WHERE id = $1", report_id)
     if not row:
         raise HTTPException(status_code=404, detail="Report not found")
-    if row["user_id"] is not None and row["user_id"] != current_user["id"]:
+    if row["user_id"] != current_user["id"] and current_user["role"] not in ("chef_finance", "mod"):
         raise HTTPException(status_code=403, detail="Not your report")
     if row["status"] != "draft":
         raise HTTPException(status_code=400, detail="Report is not in draft status")
@@ -219,7 +219,7 @@ async def recall_report(report_id: int, current_user: dict = Depends(get_current
     row = await db.fetchrow("SELECT status, user_id FROM expense_reports WHERE id = $1", report_id)
     if not row:
         raise HTTPException(status_code=404, detail="Report not found")
-    if row["user_id"] is not None and row["user_id"] != current_user["id"]:
+    if row["user_id"] != current_user["id"] and current_user["role"] not in ("chef_finance", "mod"):
         raise HTTPException(status_code=403, detail="Not your report")
     if row["status"] != "submitted":
         raise HTTPException(status_code=400, detail="Only submitted reports can be recalled")

@@ -50,7 +50,7 @@ export default function ReportsPage() {
 
       <div className="bg-white rounded-xl shadow-sm">
         <div className="p-4 border-b border-slate-100 flex gap-2">
-          {["", "draft", "submitted", "paid"].map((s) => (
+          {["", "draft", "submitted", "approved", "rejected", "paid"].map((s) => (
             <button
               key={s}
               onClick={() => setStatusFilter(s)}

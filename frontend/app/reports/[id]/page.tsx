@@ -98,7 +98,19 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
             {report.description && <p className="text-slate-500 text-sm mt-1">{report.description}</p>}
           </div>
           <div className="flex items-center gap-3">
-            <Badge status={report.status} />
+            <div className="flex flex-col items-end gap-1">
+              <Badge status={report.status} />
+              {report.status === "approved" && report.approved_at && (
+                <span className="text-xs text-blue-600">
+                  Approved on {new Date(report.approved_at).toLocaleDateString()}
+                </span>
+              )}
+              {report.status === "rejected" && (
+                <span className="text-xs text-red-600">
+                  Rejected{report.rejected_reason ? `: ${report.rejected_reason}` : ""}
+                </span>
+              )}
+            </div>
             {report.status === "draft" && (
               <Link
                 href={`/reports/${id}/edit`}

@@ -4,12 +4,14 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
 from .database import init_db
-from .routers import categories, expenses, reports, dashboard
+from .seed import seed_users
+from .routers import categories, expenses, reports, dashboard, auth, users
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
+    await seed_users()
     yield
 
 
@@ -23,6 +25,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth.router)
+app.include_router(users.router)
 app.include_router(categories.router)
 app.include_router(expenses.router)
 app.include_router(reports.router)

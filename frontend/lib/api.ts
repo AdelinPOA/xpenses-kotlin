@@ -5,6 +5,7 @@ export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: { "Content-Type": "application/json" },
+  withCredentials: true,
 });
 
 export default api;
@@ -55,6 +56,10 @@ export interface Report {
   status: string;
   submitted_at: string | null;
   paid_at: string | null;
+  approved_by: number | null;
+  approved_at: string | null;
+  rejected_reason: string | null;
+  user_id: number | null;
   total_amount: number;
   currency: string;
   created_at: string;
@@ -76,6 +81,18 @@ export interface DashboardStats {
     count: number;
   }[];
   recent_expenses: Expense[];
+}
+
+export interface User {
+  id: number;
+  username: string;
+  display_name: string;
+  email: string | null;
+  role: "technician" | "manager" | "chef_finance" | "mod";
+  is_active: boolean;
+  auth_source: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export const CURRENCIES = [

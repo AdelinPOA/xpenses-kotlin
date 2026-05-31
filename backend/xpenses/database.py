@@ -91,8 +91,6 @@ CREATE INDEX IF NOT EXISTS idx_expenses_status ON expenses(status);
 CREATE INDEX IF NOT EXISTS idx_reports_status ON expense_reports(status);
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens(user_id);
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_hash ON refresh_tokens(token_hash);
-CREATE INDEX IF NOT EXISTS idx_expenses_user ON expenses(user_id);
-CREATE INDEX IF NOT EXISTS idx_reports_user ON expense_reports(user_id);
 """
 
 DEFAULT_CATEGORIES = [
@@ -135,6 +133,10 @@ async def init_db() -> None:
             )
             if not col_exists:
                 await conn.execute(f"ALTER TABLE {table} ADD COLUMN user_id INTEGER REFERENCES users(id)")
+
+        # Indexes on user_id (must come after column migration)
+        await conn.execute("CREATE INDEX IF NOT EXISTS idx_expenses_user ON expenses(user_id)")
+        await conn.execute("CREATE INDEX IF NOT EXISTS idx_reports_user ON expense_reports(user_id)")
 
         # Add approval columns to expense_reports if missing
         for col, col_type in [("approved_by", "INTEGER REFERENCES users(id)"), ("approved_at", "TIMESTAMPTZ"), ("rejected_reason", "TEXT")]:

@@ -1,6 +1,6 @@
 # HANDOFF.md — xpenses_copy
 
-> Last updated: 2026-05-31 (session 4)  
+> Last updated: 2026-06-01 (session 5)  
 > Author: Claude (AI assistant session)
 
 ---
@@ -9,7 +9,7 @@
 
 Self-hosted expense management app (alternative to Zoho Expenses). FastAPI backend + Next.js frontend + PostgreSQL, running in Docker Compose on port 3001 (frontend) / 8001 (backend API).
 
-## Current State: OPERATIONAL (Phase 4 Complete)
+## Current State: OPERATIONAL (Phase 7 Partial — Dark Mode + Mobile Responsive)
 
 All 3 Docker containers running, all endpoints healthy:
 
@@ -19,20 +19,36 @@ All 3 Docker containers running, all endpoints healthy:
 | FastAPI backend | `xpenses-backend` | 8001 → 8000 | `{"status":"ok"}` |
 | Next.js frontend | `xpenses-frontend` | 3001 → 3000 | Serving (307 redirect to /login if unauthenticated) |
 
-## Latest Session (2026-05-31, session 4)
+## Latest Session (2026-06-01, session 5)
 
 ### What Was Done
-- **Security hardening** (from automated security review):
-  - Added `COOKIE_SECURE` setting — cookies get `secure=True` in production (HTTPS-only)
-  - Changed refresh token cookie `samesite` from `lax` to `strict` (CSRF protection)
-  - Gated seed users behind `SEED_DEMO_USERS=true` flag — set `false` in production to prevent shipping known credentials
-- No functional changes — all existing features work identically
+- **Dark mode** — full dark theme across all 16 page/component files
+  - ThemeProvider with 3-state toggle: light / dark / system (follows OS preference)
+  - Persisted in localStorage, toggles `.dark` class on `<html>`
+  - Tailwind CSS v4 `@custom-variant dark` for class-based dark mode
+  - Theme toggle button in sidebar (Sun/Moon/Monitor icon cycle)
+- **Mobile responsive layout**
+  - Sidebar collapses into a drawer overlay below `lg` breakpoint (1024px)
+  - Mobile header bar with hamburger menu + "xpenses" title
+  - All tables wrapped in `overflow-x-auto` for horizontal scroll
+  - Status filter pills wrap on narrow screens (`flex-wrap`)
+  - Page headers stack vertically on mobile (`flex-col sm:flex-row`)
+  - Stat cards: `grid-cols-1 sm:grid-cols-2 lg:grid-cols-4`
+- **No backend changes** — purely frontend
 
-### Production .env Requirements
-```
-COOKIE_SECURE=true
-SEED_DEMO_USERS=false
-```
+### New Files
+- `frontend/components/ThemeProvider.tsx` — theme state + localStorage + system preference detection
+
+### Modified Files (20)
+- `globals.css`, `layout.tsx`, `Providers.tsx` — dark mode infrastructure
+- `AppShell.tsx` — mobile header, responsive margin
+- `Sidebar.tsx` — drawer behavior, theme toggle
+- `StatCard.tsx`, `Badge.tsx`, `EmptyState.tsx` — dark: variants
+- `ExpenseForm.tsx` — dark form inputs
+- All 11 page files — dark: classes + responsive improvements
+
+### Previous Session (2026-05-31, session 4)
+- Security hardening: COOKIE_SECURE, strict samesite, SEED_DEMO_USERS gate
 
 ### Previous Session (2026-05-31, session 3)
 - **Phase 4 fully implemented and tested** — authentication & role-based access control
@@ -118,7 +134,7 @@ curl -b /tmp/cookies.txt http://localhost:8001/api/expenses
 
 - **Phase 5**: Approval Workflow enhancements (email notifications, delegation)
 - **Phase 6**: Analytics & Reporting (trends, budgets, CSV export)
-- **Phase 7**: Quality of Life (dark mode, mobile, OCR)
+- **Phase 7 remaining**: Expense duplication, recurring expenses, OCR receipt scanning
 - **Production**: Set `LDAP_ENABLED=true`, implement LDAP bind, deploy on company server
 
 ---

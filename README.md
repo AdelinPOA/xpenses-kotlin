@@ -124,7 +124,7 @@ The PDF export matches Zoho Expenses quality:
 
 ## Current Status
 
-**Phase 4 complete** — Authentication and role-based access control implemented.
+**Phase 7 partial** — Dark mode and mobile responsive implemented.
 
 - [x] Expenses CRUD with multi-currency FX conversion
 - [x] Multiple receipt uploads per expense
@@ -143,6 +143,8 @@ The PDF export matches Zoho Expenses quality:
 - [x] Data isolation: users only see their own expenses/reports
 - [x] Local test accounts (tech1, manager1, cfo1, mod1) for development
 - [x] LDAP preparation (config flags, auth_source column — not active yet)
+- [x] Dark mode with system preference detection + manual toggle (light/dark/system)
+- [x] Mobile responsive layout (collapsible sidebar drawer, responsive tables, flex-wrap filters)
 
 ## Roadmap
 
@@ -164,8 +166,8 @@ The PDF export matches Zoho Expenses quality:
 - CSV/Excel export
 
 ### Phase 7 — Quality of Life
-- Dark mode
-- Mobile-responsive improvements
+- ~~Dark mode~~ ✅
+- ~~Mobile-responsive improvements~~ ✅
 - Expense duplication
 - Recurring expenses
 - OCR receipt scanning (auto-fill merchant, amount, date)

@@ -119,19 +119,19 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
   return (
     <form
       onSubmit={(e) => { e.preventDefault(); save.mutate(); }}
-      className="bg-white rounded-xl shadow-sm p-6 max-w-lg space-y-5"
+      className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-6 max-w-lg space-y-5"
     >
       {error && <p className="text-red-600 text-sm">{error}</p>}
 
       {savedExpense && savedExpense.currency_original !== "EUR" && (
-        <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 text-sm text-emerald-800">
+        <div className="bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 rounded-lg p-3 text-sm text-emerald-800 dark:text-emerald-400">
           {savedExpense.amount_original} {savedExpense.currency_original} → {formatEur(savedExpense.amount_eur)} (rate: {savedExpense.fx_rate.toFixed(4)})
         </div>
       )}
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">Amount *</label>
+          <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Amount *</label>
           <input
             type="number"
             step="0.01"
@@ -139,15 +139,15 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
             required
             value={form.amount}
             onChange={set("amount")}
-            className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:text-slate-100"
           />
         </div>
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">Currency *</label>
+          <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Currency *</label>
           <select
             value={form.currency}
             onChange={set("currency")}
-            className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:text-slate-100"
           >
             {CURRENCIES.map((c) => (
               <option key={c} value={c}>{c}</option>
@@ -157,33 +157,33 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
       </div>
 
       <div>
-        <label className="block text-xs font-medium text-slate-600 mb-1">Date *</label>
+        <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Date *</label>
         <input
           type="date"
           required
           value={form.date}
           onChange={set("date")}
-          className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:text-slate-100"
         />
       </div>
 
       <div>
-        <label className="block text-xs font-medium text-slate-600 mb-1">Merchant</label>
+        <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Merchant</label>
         <input
           type="text"
           value={form.merchant}
           onChange={set("merchant")}
           placeholder="e.g. McDonald's, Uber"
-          className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:text-slate-100"
         />
       </div>
 
       <div>
-        <label className="block text-xs font-medium text-slate-600 mb-1">Category</label>
+        <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Category</label>
         <select
           value={form.category_id}
           onChange={set("category_id")}
-          className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:text-slate-100"
         >
           <option value="">— Select category —</option>
           {categories?.map((c) => (
@@ -193,42 +193,42 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
       </div>
 
       <div>
-        <label className="block text-xs font-medium text-slate-600 mb-1">Description</label>
+        <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Description</label>
         <textarea
           value={form.description}
           onChange={set("description")}
           rows={2}
           placeholder="Brief description..."
-          className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+          className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none dark:bg-slate-800 dark:text-slate-100"
         />
       </div>
 
       <div>
-        <label className="block text-xs font-medium text-slate-600 mb-1">Receipts</label>
+        <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Receipts</label>
         <input
           type="file"
           accept=".jpg,.jpeg,.png,.pdf,.webp"
           multiple
           onChange={addFiles}
-          className="w-full text-sm text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:border file:border-slate-300 file:rounded-lg file:text-xs file:bg-slate-50 hover:file:bg-slate-100"
+          className="w-full text-sm text-slate-600 dark:text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:border file:border-slate-300 dark:file:border-slate-600 file:rounded-lg file:text-xs file:bg-slate-50 dark:file:bg-slate-800 hover:file:bg-slate-100 dark:hover:file:bg-slate-700"
         />
 
         {existingReceipts.length > 0 && (
           <div className="mt-2 space-y-1">
             {existingReceipts.map((r) => (
-              <div key={r.id} className="flex items-center gap-2 text-xs text-slate-500">
+              <div key={r.id} className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
                 <a
                   href={`${API_BASE_URL}/expenses/${expense!.id}/receipts/${r.id}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="text-blue-600 hover:underline truncate max-w-[200px]"
+                  className="text-blue-600 dark:text-blue-400 hover:underline truncate max-w-[200px]"
                 >
                   {r.original_name || r.file_path.split("/").pop()}
                 </a>
                 <button
                   type="button"
                   onClick={() => markDeleteReceipt(r.id)}
-                  className="text-slate-400 hover:text-red-500"
+                  className="text-slate-400 dark:text-slate-500 hover:text-red-500"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -240,13 +240,13 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
         {receiptFiles.length > 0 && (
           <div className="mt-2 space-y-1">
             {receiptFiles.map((f, i) => (
-              <div key={i} className="flex items-center gap-2 text-xs text-slate-500">
+              <div key={i} className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
                 <span className="truncate max-w-[200px]">{f.name}</span>
-                <span className="text-slate-300">({(f.size / 1024).toFixed(0)} KB)</span>
+                <span className="text-slate-300 dark:text-slate-600">({(f.size / 1024).toFixed(0)} KB)</span>
                 <button
                   type="button"
                   onClick={() => removeNewFile(i)}
-                  className="text-slate-400 hover:text-red-500"
+                  className="text-slate-400 dark:text-slate-500 hover:text-red-500"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -267,7 +267,7 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
         <button
           type="button"
           onClick={() => router.back()}
-          className="px-5 py-2 border border-slate-300 text-slate-600 text-sm font-medium rounded-lg hover:bg-slate-50"
+          className="px-5 py-2 border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 text-sm font-medium rounded-lg hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700"
         >
           Cancel
         </button>

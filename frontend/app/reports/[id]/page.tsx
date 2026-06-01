@@ -76,7 +76,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
     });
   };
 
-  if (isLoading) return <AppShell><p className="text-slate-400 text-sm mt-8">Loading...</p></AppShell>;
+  if (isLoading) return <AppShell><p className="text-slate-400 dark:text-slate-500 text-sm mt-8">Loading...</p></AppShell>;
   if (!report) return <AppShell><p className="text-red-500 text-sm">Report not found</p></AppShell>;
 
   const availableDrafts = draftExpenses?.filter((e) => !e.report_id) ?? [];
@@ -87,24 +87,24 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
   return (
     <AppShell>
       <div className="mb-6">
-        <Link href="/reports" className="flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800 mb-4">
+        <Link href="/reports" className="flex items-center gap-1 text-sm text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 mb-4">
           <ArrowLeft className="w-4 h-4" /> Back to reports
         </Link>
-        <div className="flex items-start justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">{report.title}</h1>
-            {report.description && <p className="text-slate-500 text-sm mt-1">{report.description}</p>}
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{report.title}</h1>
+            {report.description && <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">{report.description}</p>}
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
             <div className="flex flex-col items-end gap-1">
               <Badge status={report.status} />
               {report.status === "approved" && report.approved_at && (
-                <span className="text-xs text-blue-600">
+                <span className="text-xs text-blue-600 dark:text-blue-400">
                   Approved on {new Date(report.approved_at).toLocaleDateString()}
                 </span>
               )}
               {report.status === "rejected" && (
-                <span className="text-xs text-red-600">
+                <span className="text-xs text-red-600 dark:text-red-400">
                   Rejected{report.rejected_reason ? `: ${report.rejected_reason}` : ""}
                 </span>
               )}
@@ -112,7 +112,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
             {report.status === "draft" && (
               <Link
                 href={`/reports/${id}/edit`}
-                className="flex items-center gap-2 px-3 py-1.5 border border-slate-300 text-slate-600 text-sm font-medium rounded-lg hover:bg-slate-50"
+                className="flex items-center gap-2 px-3 py-1.5 border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 text-sm font-medium rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800"
               >
                 <Pencil className="w-4 h-4" />
                 Edit
@@ -122,14 +122,14 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
               href={`${API_BASE_URL}/reports/${id}/export`}
               target="_blank"
               rel="noreferrer"
-              className="flex items-center gap-2 px-3 py-1.5 border border-slate-300 text-slate-600 text-sm font-medium rounded-lg hover:bg-slate-50"
+              className="flex items-center gap-2 px-3 py-1.5 border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 text-sm font-medium rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800"
             >
               <FileDown className="w-4 h-4" />
               Export PDF
             </a>
             <a
               href={`${API_BASE_URL}/reports/${id}/receipts-zip`}
-              className="flex items-center gap-2 px-3 py-1.5 border border-slate-300 text-slate-600 text-sm font-medium rounded-lg hover:bg-slate-50"
+              className="flex items-center gap-2 px-3 py-1.5 border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 text-sm font-medium rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800"
             >
               <FolderDown className="w-4 h-4" />
               Download receipts
@@ -139,25 +139,25 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white rounded-xl shadow-sm p-4">
-          <p className="text-xs text-slate-400 uppercase mb-1">Total</p>
-          <p className="text-xl font-bold text-slate-900">{formatAmount(displayTotal, "EUR")}</p>
+        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4">
+          <p className="text-xs text-slate-400 dark:text-slate-500 uppercase mb-1">Total</p>
+          <p className="text-xl font-bold text-slate-900 dark:text-slate-100">{formatAmount(displayTotal, "EUR")}</p>
         </div>
-        <div className="bg-white rounded-xl shadow-sm p-4">
-          <p className="text-xs text-slate-400 uppercase mb-1">Expenses</p>
-          <p className="text-xl font-bold text-slate-900">{report.expenses.length}</p>
+        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4">
+          <p className="text-xs text-slate-400 dark:text-slate-500 uppercase mb-1">Expenses</p>
+          <p className="text-xl font-bold text-slate-900 dark:text-slate-100">{report.expenses.length}</p>
         </div>
-        <div className="bg-white rounded-xl shadow-sm p-4">
-          <p className="text-xs text-slate-400 uppercase mb-1">Period</p>
-          <p className="text-sm font-medium text-slate-700">
+        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4">
+          <p className="text-xs text-slate-400 dark:text-slate-500 uppercase mb-1">Period</p>
+          <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
             {report.date_from && report.date_to
               ? `${report.date_from} — ${report.date_to}`
               : "—"}
           </p>
         </div>
-        <div className="bg-white rounded-xl shadow-sm p-4">
-          <p className="text-xs text-slate-400 uppercase mb-1">Submitted</p>
-          <p className="text-sm font-medium text-slate-700">
+        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4">
+          <p className="text-xs text-slate-400 dark:text-slate-500 uppercase mb-1">Submitted</p>
+          <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
             {report.submitted_at ? new Date(report.submitted_at).toLocaleDateString() : "—"}
           </p>
         </div>
@@ -165,14 +165,14 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
 
       {/* Attach expenses */}
       {report.status === "draft" && (
-        <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-6">
+        <div className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4 mb-6">
           <div className="flex items-center justify-between mb-3">
-            <p className="text-sm font-medium text-slate-700">
+            <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
               Attach existing draft expenses or add new:
             </p>
             <Link
               href={`/expenses/new?reportId=${id}&currency=${report.currency}`}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white text-sm font-medium rounded-lg hover:bg-slate-800 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-slate-900 dark:bg-slate-700 text-white text-sm font-medium rounded-lg hover:bg-slate-800 dark:hover:bg-slate-600 transition-colors"
             >
               <Plus className="w-4 h-4" />
               Add New Expense
@@ -189,7 +189,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
                   onChange={() => toggleExpense(e.id)}
                   className="w-4 h-4 accent-blue-600"
                 />
-                <span className="text-sm text-slate-700">
+                <span className="text-sm text-slate-700 dark:text-slate-300">
                   {e.merchant || e.description || "—"} — {e.date} — {formatAmount(e.amount_eur, "EUR")}
                 </span>
               </label>
@@ -205,15 +205,15 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
               </button>
             </>
           ) : (
-            <p className="text-sm text-slate-500 italic">No unattached draft expenses available. You can add a new expense directly.</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400 italic">No unattached draft expenses available. You can add a new expense directly.</p>
           )}
         </div>
       )}
 
       {/* Submit report */}
       {report.status === "draft" && report.expenses.length > 0 && (
-        <div className="bg-white border border-slate-200 rounded-xl p-4 mb-6 flex items-center justify-between">
-          <p className="text-sm text-slate-600">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-4 mb-6 flex items-center justify-between">
+          <p className="text-sm text-slate-600 dark:text-slate-400">
             {report.expenses.length} expense{report.expenses.length !== 1 ? "s" : ""} attached — ready to submit?
           </p>
           <button
@@ -228,8 +228,8 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
       )}
 
       {report.status === "submitted" && (
-        <div className="bg-white border border-slate-200 rounded-xl p-4 mb-6 flex items-center justify-between">
-          <p className="text-sm text-slate-600">This report is awaiting payment.</p>
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-4 mb-6 flex items-center justify-between">
+          <p className="text-sm text-slate-600 dark:text-slate-400">This report is awaiting payment.</p>
           <div className="flex items-center gap-3">
             <button
               onClick={() => recall.mutate()}
@@ -252,63 +252,65 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
       )}
 
       {/* Expense list */}
-      <div className="bg-white rounded-xl shadow-sm">
-        <div className="p-4 border-b border-slate-100">
-          <h2 className="text-sm font-semibold text-slate-700">Expenses ({report.expenses.length})</h2>
+      <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm">
+        <div className="p-4 border-b border-slate-100 dark:border-slate-700">
+          <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Expenses ({report.expenses.length})</h2>
         </div>
         {!report.expenses.length ? (
           <EmptyState message="No expenses attached to this report" />
         ) : (
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-xs text-slate-500 uppercase">
-              <tr>
-                <th className="text-left px-4 py-3">Date</th>
-                <th className="text-left px-4 py-3">Merchant</th>
-                <th className="text-left px-4 py-3">Category</th>
-                <th className="text-left px-4 py-3">Description</th>
-                <th className="text-right px-4 py-3">Original</th>
-                <th className="text-right px-4 py-3">EUR</th>
-                <th className="text-right px-4 py-3">Receipt</th>
-              </tr>
-            </thead>
-            <tbody>
-              {report.expenses.map((e) => (
-                <tr key={e.id} className="border-t border-slate-100">
-                  <td className="px-4 py-3 text-slate-600">{e.date}</td>
-                  <td className="px-4 py-3 font-medium text-slate-800">{e.merchant || "—"}</td>
-                  <td className="px-4 py-3 text-slate-500">{e.category_name || "—"}</td>
-                  <td className="px-4 py-3 text-slate-500">{e.description || "—"}</td>
-                  <td className="px-4 py-3 text-right text-slate-500">
-                    {e.currency_original !== "EUR"
-                      ? formatAmount(e.amount_original, e.currency_original)
-                      : "—"}
-                  </td>
-                  <td className="px-4 py-3 text-right font-semibold text-slate-900">
-                    {formatAmount(e.amount_eur, "EUR")}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    {e.receipts?.length > 0 ? (
-                      <div className="flex items-center justify-end gap-1">
-                        {e.receipts.map((r) => (
-                          <a
-                            key={r.id}
-                            href={`${API_BASE_URL}/expenses/${e.id}/receipts/${r.id}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-blue-600 hover:underline text-xs"
-                          >
-                            {e.receipts.length === 1 ? "View" : (r.original_name?.split(".").pop()?.toUpperCase() || "View")}
-                          </a>
-                        ))}
-                      </div>
-                    ) : (
-                      <span className="text-slate-300 text-xs">—</span>
-                    )}
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 dark:bg-slate-800 text-xs text-slate-500 dark:text-slate-400 uppercase">
+                <tr>
+                  <th className="text-left px-4 py-3">Date</th>
+                  <th className="text-left px-4 py-3">Merchant</th>
+                  <th className="text-left px-4 py-3">Category</th>
+                  <th className="text-left px-4 py-3">Description</th>
+                  <th className="text-right px-4 py-3">Original</th>
+                  <th className="text-right px-4 py-3">EUR</th>
+                  <th className="text-right px-4 py-3">Receipt</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {report.expenses.map((e) => (
+                  <tr key={e.id} className="border-t border-slate-100 dark:border-slate-700">
+                    <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{e.date}</td>
+                    <td className="px-4 py-3 font-medium text-slate-800 dark:text-slate-200">{e.merchant || "—"}</td>
+                    <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{e.category_name || "—"}</td>
+                    <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{e.description || "—"}</td>
+                    <td className="px-4 py-3 text-right text-slate-500 dark:text-slate-400">
+                      {e.currency_original !== "EUR"
+                        ? formatAmount(e.amount_original, e.currency_original)
+                        : "—"}
+                    </td>
+                    <td className="px-4 py-3 text-right font-semibold text-slate-900 dark:text-slate-100">
+                      {formatAmount(e.amount_eur, "EUR")}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      {e.receipts?.length > 0 ? (
+                        <div className="flex items-center justify-end gap-1">
+                          {e.receipts.map((r) => (
+                            <a
+                              key={r.id}
+                              href={`${API_BASE_URL}/expenses/${e.id}/receipts/${r.id}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-blue-600 dark:text-blue-400 hover:underline text-xs"
+                            >
+                              {e.receipts.length === 1 ? "View" : (r.original_name?.split(".").pop()?.toUpperCase() || "View")}
+                            </a>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-slate-300 dark:text-slate-600 text-xs">—</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </AppShell>

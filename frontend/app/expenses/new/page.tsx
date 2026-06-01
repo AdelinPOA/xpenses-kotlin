@@ -13,7 +13,7 @@ export default async function NewExpensePage({
   return (
     <AppShell>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">New Expense</h1>
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">New Expense</h1>
       </div>
       <ExpenseForm reportId={reportId} defaultCurrency={currency} />
     </AppShell>

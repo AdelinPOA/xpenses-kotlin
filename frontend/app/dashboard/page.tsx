@@ -22,7 +22,7 @@ export default function DashboardPage() {
   if (isLoading) {
     return (
       <AppShell>
-        <div className="text-slate-400 text-sm mt-8">Loading...</div>
+        <div className="text-slate-400 dark:text-slate-500 text-sm mt-8">Loading...</div>
       </AppShell>
     );
   }
@@ -30,11 +30,11 @@ export default function DashboardPage() {
   return (
     <AppShell>
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
-        <p className="text-slate-500 text-sm mt-1">Overview of your expenses this month</p>
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Dashboard</h1>
+        <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Overview of your expenses this month</p>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <StatCard
           label="Spent this month"
           value={formatEur(data?.total_month_eur ?? 0)}
@@ -59,40 +59,40 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Spend by category */}
-        <div className="bg-white rounded-xl shadow-sm p-6">
-          <h2 className="text-sm font-semibold text-slate-700 mb-4">Spend by Category (this month)</h2>
+        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-6">
+          <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">Spend by Category (this month)</h2>
           {!data?.spend_by_category.length ? (
             <EmptyState message="No expenses this month" />
           ) : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-xs text-slate-400 uppercase">
-                  <th className="text-left pb-2">Category</th>
-                  <th className="text-right pb-2">Count</th>
-                  <th className="text-right pb-2">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.spend_by_category.map((s, i) => (
-                  <tr key={i} className="border-t border-slate-100">
-                    <td className="py-2 text-slate-700">{s.category_name}</td>
-                    <td className="py-2 text-right text-slate-500">{s.count}</td>
-                    <td className="py-2 text-right font-medium text-slate-900">
-                      {formatEur(s.total)}
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-xs text-slate-400 dark:text-slate-500 uppercase">
+                    <th className="text-left pb-2">Category</th>
+                    <th className="text-right pb-2">Count</th>
+                    <th className="text-right pb-2">Total</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {data.spend_by_category.map((s, i) => (
+                    <tr key={i} className="border-t border-slate-100 dark:border-slate-700">
+                      <td className="py-2 text-slate-700 dark:text-slate-300">{s.category_name}</td>
+                      <td className="py-2 text-right text-slate-500 dark:text-slate-400">{s.count}</td>
+                      <td className="py-2 text-right font-medium text-slate-900 dark:text-slate-100">
+                        {formatEur(s.total)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
 
-        {/* Recent expenses */}
-        <div className="bg-white rounded-xl shadow-sm p-6">
+        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-slate-700">Recent Expenses</h2>
-            <Link href="/expenses" className="text-xs text-blue-600 hover:underline">
+            <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Recent Expenses</h2>
+            <Link href="/expenses" className="text-xs text-blue-600 dark:text-blue-400 hover:underline">
               View all
             </Link>
           </div>
@@ -101,21 +101,21 @@ export default function DashboardPage() {
           ) : (
             <div className="space-y-2">
               {data.recent_expenses.map((e) => (
-                <div key={e.id} className="flex items-center justify-between py-2 border-t border-slate-100">
+                <div key={e.id} className="flex items-center justify-between py-2 border-t border-slate-100 dark:border-slate-700">
                   <div>
-                    <p className="text-sm font-medium text-slate-800">
+                    <p className="text-sm font-medium text-slate-800 dark:text-slate-200">
                       {e.merchant || e.description || "—"}
                     </p>
-                    <p className="text-xs text-slate-400">
+                    <p className="text-xs text-slate-400 dark:text-slate-500">
                       {e.date} · {e.category_name || "Uncategorized"}
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-semibold text-slate-900">
+                    <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
                       {formatEur(e.amount_eur)}
                     </p>
                     {e.currency_original !== "EUR" && (
-                      <p className="text-xs text-slate-400">
+                      <p className="text-xs text-slate-400 dark:text-slate-500">
                         {e.amount_original} {e.currency_original}
                       </p>
                     )}

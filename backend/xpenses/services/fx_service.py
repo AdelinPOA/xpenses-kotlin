@@ -1,4 +1,5 @@
 import httpx
+
 from ..database import get_pool
 
 FRANKFURTER_URL = "https://api.frankfurter.dev/v1"

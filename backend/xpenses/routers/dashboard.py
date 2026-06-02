@@ -1,9 +1,11 @@
 from datetime import datetime
-from fastapi import Depends, APIRouter
+
 import asyncpg
-from ..database import get_db
-from ..models import DashboardStats, CategorySpend, ExpenseOut
+from fastapi import APIRouter, Depends
+
 from ..auth import get_current_user
+from ..database import get_db
+from ..models import CategorySpend, DashboardStats
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 

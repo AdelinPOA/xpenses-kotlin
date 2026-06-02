@@ -33,7 +33,26 @@ curl -b /tmp/cookies.txt http://localhost:8001/api/expenses
 curl http://localhost:8001/api/health
 ```
 
-No test framework is configured for either backend or frontend. No linter scripts are wired up (ruff is configured in pyproject.toml but no `lint` script exists).
+## Testing & Linting
+
+```bash
+# Run all tests (49 tests, ~15s)
+make test
+
+# Run tests with stop-on-first-failure
+make test-quick
+
+# Run specific test file
+docker compose exec backend pytest tests/test_auth.py -v
+
+# Lint check
+make lint
+
+# Lint auto-fix (import sorting)
+make lint-fix
+```
+
+Tests run inside the backend container against a `xpenses_test` PostgreSQL database (created/dropped per session). `conftest.py` provides fixtures: `client` (httpx AsyncClient), `pool` (asyncpg), and helpers `login()`, `create_expense()`, `create_report()`, `new_client()`.
 
 ## Ports
 

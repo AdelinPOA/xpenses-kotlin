@@ -1,8 +1,9 @@
-from fastapi import Depends, APIRouter, HTTPException
 import asyncpg
-from ..database import get_db
-from ..models import CategoryOut, CategoryCreate, CategoryUpdate
+from fastapi import APIRouter, Depends, HTTPException
+
 from ..auth import get_current_user, require_role
+from ..database import get_db
+from ..models import CategoryCreate, CategoryOut, CategoryUpdate
 
 router = APIRouter(prefix="/api/categories", tags=["categories"])
 

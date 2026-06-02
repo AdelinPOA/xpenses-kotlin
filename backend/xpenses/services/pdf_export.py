@@ -1,16 +1,22 @@
 import os
+from collections import defaultdict
+from datetime import datetime
 from io import BytesIO
 from pathlib import Path
-from datetime import datetime
-from collections import defaultdict
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
 from reportlab.platypus import (
-    SimpleDocTemplate, Table, TableStyle, Paragraph,
-    Spacer, Image, PageBreak, HRFlowable,
+    HRFlowable,
+    Image,
+    PageBreak,
+    Paragraph,
+    SimpleDocTemplate,
+    Spacer,
+    Table,
+    TableStyle,
 )
 
 from ..config import settings
@@ -394,7 +400,7 @@ def _fit_image(path: str, max_w: float, max_h: float) -> Image:
 
 
 def _merge_pdf_receipts(main_buf: BytesIO, pdf_receipts: list[tuple[int, str, str]]) -> bytes:
-    from pypdf import PdfWriter, PdfReader
+    from pypdf import PdfReader, PdfWriter
 
     writer = PdfWriter()
     main_reader = PdfReader(main_buf)

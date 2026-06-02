@@ -1,11 +1,12 @@
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
 from .database import init_db
+from .routers import auth, categories, dashboard, expenses, reports, users
 from .seed import seed_users
-from .routers import categories, expenses, reports, dashboard, auth, users
 
 
 @asynccontextmanager

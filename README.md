@@ -124,7 +124,7 @@ The PDF export matches Zoho Expenses quality:
 
 ## Current Status
 
-**Phase 7 partial** — Dark mode and mobile responsive implemented.
+**Phase 7 partial + test suite** — Dark mode, mobile responsive, and 49 backend tests.
 
 - [x] Expenses CRUD with multi-currency FX conversion
 - [x] Multiple receipt uploads per expense
@@ -145,6 +145,8 @@ The PDF export matches Zoho Expenses quality:
 - [x] LDAP preparation (config flags, auth_source column — not active yet)
 - [x] Dark mode with system preference detection + manual toggle (light/dark/system)
 - [x] Mobile responsive layout (collapsible sidebar drawer, responsive tables, flex-wrap filters)
+- [x] Backend test suite (49 tests: auth, expenses, reports, categories, users)
+- [x] Linting with ruff + Makefile workflow
 
 ## Roadmap
 

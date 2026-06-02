@@ -31,6 +31,8 @@ services:
         condition: service_healthy
     volumes:
       - ./backend/xpenses:/app/xpenses
+      - ./backend/tests:/app/tests
+      - ./backend/pyproject.toml:/app/pyproject.toml
       - xpenses-data:/app/data
     command: uvicorn xpenses.main:app --host 0.0.0.0 --port 8000 --reload
     networks:

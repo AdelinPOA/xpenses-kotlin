@@ -1,8 +1,10 @@
 import os
-from pathlib import Path
-import aiofiles
 from datetime import datetime
+from pathlib import Path
+
+import aiofiles
 from fastapi import UploadFile
+
 from ..config import settings
 
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".pdf", ".webp"}

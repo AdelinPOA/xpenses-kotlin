@@ -1,10 +1,11 @@
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException
-import asyncpg
 
-from ..auth import get_current_user, require_role
+import asyncpg
+from fastapi import APIRouter, Depends, HTTPException
+
+from ..auth import require_role
 from ..database import get_db
-from ..models import UserOut, RoleUpdate, ActiveUpdate
+from ..models import ActiveUpdate, RoleUpdate, UserOut
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 

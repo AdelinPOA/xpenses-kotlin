@@ -1,6 +1,6 @@
 # HANDOFF.md — xpenses_copy
 
-> Last updated: 2026-06-01 (session 5)  
+> Last updated: 2026-06-02 (session 6)  
 > Author: Claude (AI assistant session)
 
 ---
@@ -9,7 +9,7 @@
 
 Self-hosted expense management app (alternative to Zoho Expenses). FastAPI backend + Next.js frontend + PostgreSQL, running in Docker Compose on port 3001 (frontend) / 8001 (backend API).
 
-## Current State: OPERATIONAL (Phase 7 Partial — Dark Mode + Mobile Responsive)
+## Current State: OPERATIONAL (Phase 7 Partial + Test Suite)
 
 All 3 Docker containers running, all endpoints healthy:
 
@@ -19,9 +19,31 @@ All 3 Docker containers running, all endpoints healthy:
 | FastAPI backend | `xpenses-backend` | 8001 → 8000 | `{"status":"ok"}` |
 | Next.js frontend | `xpenses-frontend` | 3001 → 3000 | Serving (307 redirect to /login if unauthenticated) |
 
-## Latest Session (2026-06-01, session 5)
+## Latest Session (2026-06-02, session 6)
 
 ### What Was Done
+- **Backend test suite** — 49 tests across 4 files, all passing
+  - `test_auth.py` (12) — login, refresh, logout, role gating, deactivated user
+  - `test_reports.py` (13) — full state machine: draft→submitted→approved→paid, rejection, recall, self-approval prevention
+  - `test_expenses.py` (12) — CRUD, ownership isolation, draft-only edit/delete, FX recalculation
+  - `test_categories_users.py` (12) — categories CRUD + MOD role gating, user management
+- **Test infrastructure** — conftest.py with session-scoped test DB, auto-cleanup, login/create helpers
+- **Linting** — ruff wired up via Makefile (`make lint`, `make lint-fix`)
+- **Makefile** — test, lint, up, down, rebuild, logs targets
+- **No backend code changes** — tests validate existing behavior
+
+### New Files
+- `backend/tests/conftest.py` — fixtures, helpers, test DB lifecycle
+- `backend/tests/test_auth.py`, `test_reports.py`, `test_expenses.py`, `test_categories_users.py`
+- `Makefile` — developer workflow targets
+
+### Modified Files
+- `backend/pyproject.toml` — test deps (pytest, pytest-asyncio, ruff), pytest config
+- `backend/Dockerfile` — installs test deps (`.[test]`)
+- `docker-compose.yml` — volume mounts for tests/ and pyproject.toml
+- `backend/xpenses/routers/reports.py` — ruff auto-fix: removed unused ExpenseOut import, sorted imports
+
+### Previous Session (2026-06-01, session 5)
 - **Dark mode** — full dark theme across all 16 page/component files
   - ThemeProvider with 3-state toggle: light / dark / system (follows OS preference)
   - Persisted in localStorage, toggles `.dark` class on `<html>`

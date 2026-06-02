@@ -1,16 +1,18 @@
 import os
 import zipfile
-from io import BytesIO
 from datetime import datetime
-from fastapi import Depends, APIRouter, HTTPException
-from fastapi.responses import Response
+from io import BytesIO
+
 import asyncpg
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import Response
 from pydantic import BaseModel
+
+from ..auth import get_current_user, require_role
 from ..config import settings
 from ..database import get_db
-from ..models import ReportOut, ReportCreate, ReportUpdate, ReportSubmit, ExpenseOut
+from ..models import ReportCreate, ReportOut, ReportSubmit, ReportUpdate
 from ..services.pdf_export import generate_report_pdf
-from ..auth import get_current_user, require_role
 
 router = APIRouter(prefix="/api/reports", tags=["reports"])
 

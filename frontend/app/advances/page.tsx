@@ -1,0 +1,181 @@
+"use client";
+
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import api, { PendingAdvance, CURRENCIES } from "@/lib/api";
+import { advanceKeys, reportKeys } from "@/lib/queryKeys";
+import AppShell from "@/components/layout/AppShell";
+import { Check, X } from "lucide-react";
+import Link from "next/link";
+
+function formatAmount(amount: number, currency: string) {
+  return new Intl.NumberFormat("en-EU", { style: "currency", currency }).format(amount);
+}
+
+export default function GlobalAdvancesPage() {
+  const qc = useQueryClient();
+
+  const [payingId, setPayingId] = useState<number | null>(null);
+  const [payReportId, setPayReportId] = useState<number | null>(null);
+  const [payAmount, setPayAmount] = useState("");
+  const [payCurrency, setPayCurrency] = useState("EUR");
+  const [payDate, setPayDate] = useState("");
+
+  const { data: pending = [], isLoading } = useQuery<PendingAdvance[]>({
+    queryKey: advanceKeys.pending(),
+    queryFn: () => api.get("/advances/pending").then((r) => r.data),
+  });
+
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: advanceKeys.all });
+    qc.invalidateQueries({ queryKey: reportKeys.all });
+  };
+
+  const payAdvance = useMutation({
+    mutationFn: ({ reportId, advanceId, ...body }: { reportId: number; advanceId: number; amount: number; currency: string; date: string }) =>
+      api.post(`/reports/${reportId}/advances/${advanceId}/pay`, body),
+    onSuccess: () => {
+      invalidate();
+      setPayingId(null);
+      setPayReportId(null);
+      setPayAmount("");
+      setPayCurrency("EUR");
+      setPayDate("");
+    },
+  });
+
+  const rejectAdvance = useMutation({
+    mutationFn: ({ reportId, advanceId }: { reportId: number; advanceId: number }) =>
+      api.post(`/reports/${reportId}/advances/${advanceId}/reject`, { reason: "" }),
+    onSuccess: invalidate,
+  });
+
+  const handlePay = () => {
+    if (!payingId || !payReportId) return;
+    const amt = parseFloat(payAmount);
+    if (isNaN(amt) || amt <= 0 || !payDate) return;
+    payAdvance.mutate({ reportId: payReportId, advanceId: payingId, amount: amt, currency: payCurrency, date: payDate });
+  };
+
+  return (
+    <AppShell>
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Advance Requests</h1>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Pending advance payment requests from technicians</p>
+      </div>
+
+      {isLoading ? (
+        <p className="text-slate-400 dark:text-slate-500 text-sm">Loading...</p>
+      ) : pending.length === 0 ? (
+        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-8 text-center">
+          <p className="text-slate-400 dark:text-slate-500 text-sm">No pending advance requests</p>
+        </div>
+      ) : (
+        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 dark:bg-slate-800 text-xs text-slate-500 dark:text-slate-400 uppercase">
+                <tr>
+                  <th className="text-left px-4 py-3">Technician</th>
+                  <th className="text-left px-4 py-3">Report</th>
+                  <th className="text-right px-4 py-3">Requested Amount</th>
+                  <th className="text-left px-4 py-3">Description</th>
+                  <th className="text-left px-4 py-3">Date Requested</th>
+                  <th className="text-right px-4 py-3">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pending.map((a) => (
+                  <tr key={a.id} className="border-t border-slate-100 dark:border-slate-700">
+                    <td className="px-4 py-3 font-medium text-slate-800 dark:text-slate-200">{a.user_display_name}</td>
+                    <td className="px-4 py-3">
+                      <Link href={`/reports/${a.report_id}/advances`} className="text-blue-600 dark:text-blue-400 hover:underline">
+                        {a.report_title}
+                      </Link>
+                    </td>
+                    <td className="px-4 py-3 text-right font-semibold text-orange-600 dark:text-orange-400">
+                      {formatAmount(a.requested_amount || 0, a.requested_currency || "EUR")}
+                    </td>
+                    <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{a.description || "—"}</td>
+                    <td className="px-4 py-3 text-slate-500 dark:text-slate-400">
+                      {new Date(a.created_at).toLocaleDateString()}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => {
+                            setPayingId(a.id);
+                            setPayReportId(a.report_id);
+                            setPayAmount(String(a.requested_amount || ""));
+                            setPayCurrency(a.requested_currency || "EUR");
+                          }}
+                          className="text-xs px-2 py-1 bg-emerald-600 text-white rounded hover:bg-emerald-700"
+                        >
+                          Pay
+                        </button>
+                        <button
+                          onClick={() => rejectAdvance.mutate({ reportId: a.report_id, advanceId: a.id })}
+                          disabled={rejectAdvance.isPending}
+                          className="text-xs px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Inline pay form */}
+      {payingId && (
+        <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50 rounded-xl p-4 mt-4">
+          <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">
+            Set payment amount:
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <input
+              type="date"
+              value={payDate}
+              onChange={(e) => setPayDate(e.target.value)}
+              className="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+            />
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              placeholder="Final amount"
+              value={payAmount}
+              onChange={(e) => setPayAmount(e.target.value)}
+              className="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 w-32"
+            />
+            <select
+              value={payCurrency}
+              onChange={(e) => setPayCurrency(e.target.value)}
+              className="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+            >
+              {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+            <button
+              onClick={handlePay}
+              disabled={payAdvance.isPending || !payAmount || !payDate}
+              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 disabled:opacity-50"
+            >
+              <Check className="w-4 h-4" />
+              {payAdvance.isPending ? "Paying..." : "Confirm payment"}
+            </button>
+            <button
+              onClick={() => { setPayingId(null); setPayReportId(null); }}
+              className="flex items-center gap-2 px-4 py-2 border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 text-sm rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800"
+            >
+              <X className="w-4 h-4" /> Cancel
+            </button>
+          </div>
+        </div>
+      )}
+    </AppShell>
+  );
+}

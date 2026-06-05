@@ -2,12 +2,12 @@
 
 import { use, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import api, { Report, Expense, API_BASE_URL, CURRENCIES } from "@/lib/api";
+import api, { Report, Expense, API_BASE_URL } from "@/lib/api";
 import { reportKeys, expenseKeys, dashboardKeys } from "@/lib/queryKeys";
 import AppShell from "@/components/layout/AppShell";
 import Badge from "@/components/ui/Badge";
 import EmptyState from "@/components/ui/EmptyState";
-import { ArrowLeft, DollarSign, FileDown, FolderDown, Pencil, Plus, Send, Trash2, Undo2 } from "lucide-react";
+import { ArrowLeft, DollarSign, FileDown, FolderDown, Pencil, Plus, Send, Undo2 } from "lucide-react";
 import Link from "next/link";
 
 function formatAmount(amount: number, currency: string) {
@@ -18,11 +18,6 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
   const { id } = use(params);
   const qc = useQueryClient();
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
-
-  const [advDate, setAdvDate] = useState("");
-  const [advAmount, setAdvAmount] = useState("");
-  const [advCurrency, setAdvCurrency] = useState("EUR");
-  const [advDescription, setAdvDescription] = useState("");
 
   const { data: report, isLoading } = useQuery<Report>({
     queryKey: reportKeys.detail(parseInt(id)),
@@ -72,42 +67,11 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
     },
   });
 
-  const addAdvance = useMutation({
-    mutationFn: (data: { amount: number; currency: string; date: string; description: string | null }) =>
-      api.post(`/reports/${id}/advances`, data),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: reportKeys.detail(parseInt(id)) });
-      setAdvDate("");
-      setAdvAmount("");
-      setAdvCurrency("EUR");
-      setAdvDescription("");
-    },
-  });
-
-  const deleteAdvance = useMutation({
-    mutationFn: (advanceId: number) =>
-      api.delete(`/reports/${id}/advances/${advanceId}`),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: reportKeys.detail(parseInt(id)) });
-    },
-  });
-
   const toggleExpense = (eid: number) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
       next.has(eid) ? next.delete(eid) : next.add(eid);
       return next;
-    });
-  };
-
-  const handleAddAdvance = () => {
-    const amount = parseFloat(advAmount);
-    if (!advDate || isNaN(amount) || amount <= 0) return;
-    addAdvance.mutate({
-      amount,
-      currency: advCurrency,
-      date: advDate,
-      description: advDescription || null,
     });
   };
 
@@ -182,10 +146,11 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
           <p className="text-xs text-slate-400 dark:text-slate-500 uppercase mb-1">Expenses</p>
           <p className="text-xl font-bold text-slate-900 dark:text-slate-100">{report.expenses.length}</p>
         </div>
-        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4">
+        <Link href={`/reports/${id}/advances`} className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4 hover:ring-2 hover:ring-orange-300 dark:hover:ring-orange-700 transition-all">
           <p className="text-xs text-orange-400 dark:text-orange-500 uppercase mb-1">Advances</p>
           <p className="text-xl font-bold text-orange-600 dark:text-orange-400">{formatAmount(report.total_advances, "EUR")}</p>
-        </div>
+          <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">View details →</p>
+        </Link>
         <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4">
           <p className="text-xs text-emerald-400 dark:text-emerald-500 uppercase mb-1">Reimbursable</p>
           <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400">{formatAmount(report.total_reimbursable, "EUR")}</p>
@@ -250,56 +215,6 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
           ) : (
             <p className="text-sm text-slate-500 dark:text-slate-400 italic">No unattached draft expenses available. You can add a new expense directly.</p>
           )}
-        </div>
-      )}
-
-      {/* Add advance payments */}
-      {report.status === "draft" && (
-        <div className="bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800/50 rounded-xl p-4 mb-6">
-          <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">
-            Add advance payment received from company:
-          </p>
-          <div className="flex flex-col sm:flex-row gap-3">
-            <input
-              type="date"
-              value={advDate}
-              onChange={(e) => setAdvDate(e.target.value)}
-              className="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
-            />
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              placeholder="Amount"
-              value={advAmount}
-              onChange={(e) => setAdvAmount(e.target.value)}
-              className="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 w-32"
-            />
-            <select
-              value={advCurrency}
-              onChange={(e) => setAdvCurrency(e.target.value)}
-              className="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
-            >
-              {CURRENCIES.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
-            <input
-              type="text"
-              placeholder="Description (optional)"
-              value={advDescription}
-              onChange={(e) => setAdvDescription(e.target.value)}
-              className="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 flex-1"
-            />
-            <button
-              onClick={handleAddAdvance}
-              disabled={addAdvance.isPending || !advDate || !advAmount}
-              className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white text-sm font-medium rounded-lg hover:bg-orange-700 disabled:opacity-50 whitespace-nowrap"
-            >
-              <Plus className="w-4 h-4" />
-              {addAdvance.isPending ? "Adding..." : "Add advance"}
-            </button>
-          </div>
         </div>
       )}
 
@@ -407,55 +322,6 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
         )}
       </div>
 
-      {/* Advance payments list */}
-      {report.advances.length > 0 && (
-        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm mt-6">
-          <div className="p-4 border-b border-slate-100 dark:border-slate-700">
-            <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-              Advance Payments ({report.advances.length})
-            </h2>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 dark:bg-slate-800 text-xs text-slate-500 dark:text-slate-400 uppercase">
-                <tr>
-                  <th className="text-left px-4 py-3">Date</th>
-                  <th className="text-left px-4 py-3">Description</th>
-                  <th className="text-right px-4 py-3">Original</th>
-                  <th className="text-right px-4 py-3">EUR</th>
-                  {report.status === "draft" && <th className="px-4 py-3"></th>}
-                </tr>
-              </thead>
-              <tbody>
-                {report.advances.map((a) => (
-                  <tr key={a.id} className="border-t border-slate-100 dark:border-slate-700">
-                    <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{a.date}</td>
-                    <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{a.description || "—"}</td>
-                    <td className="px-4 py-3 text-right text-slate-500 dark:text-slate-400">
-                      {a.currency_original !== "EUR"
-                        ? formatAmount(a.amount_original, a.currency_original)
-                        : "—"}
-                    </td>
-                    <td className="px-4 py-3 text-right font-semibold text-orange-600 dark:text-orange-400">
-                      {formatAmount(a.amount_eur, "EUR")}
-                    </td>
-                    {report.status === "draft" && (
-                      <td className="px-4 py-3 text-right">
-                        <button
-                          onClick={() => deleteAdvance.mutate(a.id)}
-                          disabled={deleteAdvance.isPending}
-                        >
-                          <Trash2 className="w-4 h-4 text-slate-400 hover:text-red-500" />
-                        </button>
-                      </td>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
     </AppShell>
   );
 }

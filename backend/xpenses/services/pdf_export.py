@@ -227,7 +227,8 @@ def _build_main_pdf(report: dict, expenses: list[dict], advances: list[dict] | N
     story.append(Spacer(1, 8 * mm))
 
     # ── Advance Payments table ───────────────────────────────────────────────
-    if advances:
+    paid_advances = [a for a in (advances or []) if a.get("status", "paid") == "paid"]
+    if paid_advances:
         story.append(Paragraph("ADVANCE PAYMENTS", h2_style))
         adv_header = ["S.No", "Date", "Description", "Amount", "Amount (EUR)"]
         adv_col_widths = [10 * mm, 25 * mm, None, 30 * mm, 30 * mm]
@@ -235,7 +236,7 @@ def _build_main_pdf(report: dict, expenses: list[dict], advances: list[dict] | N
         adv_col_widths[2] = CONTENT_W - adv_fixed
 
         adv_data = [adv_header]
-        for adv_idx, a in enumerate(advances, start=1):
+        for adv_idx, a in enumerate(paid_advances, start=1):
             date_str = _fmt_date(a.get("date", ""))
             orig = _currency_fmt(a["amount_original"], a["currency_original"])
             eur = _currency_fmt(a["amount_eur"], "EUR")
@@ -315,7 +316,7 @@ def _build_main_pdf(report: dict, expenses: list[dict], advances: list[dict] | N
     story.append(HRFlowable(width="100%", thickness=0.5, color=MUTED))
     story.append(Spacer(1, 3 * mm))
 
-    total_advances_eur = sum(a["amount_eur"] for a in (advances or []))
+    total_advances_eur = sum(a["amount_eur"] for a in (advances or []) if a.get("status", "paid") == "paid")
     total_reimbursable = total_eur - total_advances_eur
 
     summary_items = [

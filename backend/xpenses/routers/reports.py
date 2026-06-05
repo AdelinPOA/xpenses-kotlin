@@ -58,7 +58,7 @@ async def _fetch_report(db: asyncpg.Connection, report_id: int) -> dict:
         report_id,
     )
     report["advances"] = [dict(a) for a in advances]
-    report["total_advances"] = sum(a["amount_eur"] for a in report["advances"])
+    report["total_advances"] = sum(a["amount_eur"] for a in report["advances"] if a.get("status", "paid") == "paid")
     total_expenses = sum(e["amount_eur"] for e in report["expenses"])
     report["total_reimbursable"] = total_expenses - report["total_advances"]
 

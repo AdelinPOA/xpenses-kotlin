@@ -32,6 +32,7 @@ app.include_router(categories.router)
 app.include_router(expenses.router)
 app.include_router(reports.router)
 app.include_router(advances.router)
+app.include_router(advances.global_router)
 app.include_router(dashboard.router)
 
 

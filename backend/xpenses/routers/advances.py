@@ -4,7 +4,7 @@ import asyncpg
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from ..auth import get_current_user, require_role
-from ..database import get_db, get_pool
+from ..database import get_db
 from ..models import (
     AdvancePayBody,
     AdvancePaymentCreate,

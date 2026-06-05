@@ -24,34 +24,36 @@ All 3 Docker containers running, all endpoints healthy:
 ## Latest Session (2026-06-05, session 8)
 
 ### What Was Done
-- **Advance payments redesign — design + plan** (NOT YET IMPLEMENTED)
-  - Designed a full request/pay/reject workflow for advance payments
+- **Advance payments v2 — full request/pay/reject workflow** (IMPLEMENTED + TESTED)
   - Two advance types: self-paid (instant `paid`) and requested (`requested` → `paid`/`rejected`)
   - Technicians can add self-paid advances and request advances from the company
   - Managers/chef_finance can approve requests (setting final amount), reject, and add paid advances to any report
   - Dedicated page at `/reports/[id]/advances` replaces inline advances UI
   - Global manager page at `/advances` for all pending requests across users
   - Only `paid` advances count in `total_advances` and `total_reimbursable`
+  - 67 tests passing (49 original + 18 advance tests)
 
 ### Design & Plan Documents
 - **Spec:** `docs/superpowers/specs/2026-06-05-advance-payments-redesign.md`
 - **Implementation Plan:** `docs/superpowers/plans/2026-06-05-advance-payments-redesign.md`
 
-### Implementation Plan Summary (11 tasks)
-1. Database migration — add `status`, `requested_amount`, `paid_by`, etc. columns
-2. Backend models — update Pydantic models for workflow
-3. Advances router — rewrite create, add pay/reject/pending endpoints
-4. Report calculations + PDF — filter to paid-only
-5. Update test infrastructure
-6. New workflow tests (~9 tests)
-7. Frontend types + query keys
-8. Dedicated advances page (`/reports/[id]/advances`)
-9. Global advances page (`/advances`)
-10. Report detail page cleanup + sidebar update
-11. Rebuild, test, verify
+### New Files
+- `frontend/app/reports/[id]/advances/page.tsx` — dedicated report-scoped advances page
+- `frontend/app/advances/page.tsx` — global manager advances dashboard
 
-### Status: READY FOR IMPLEMENTATION
-The plan is approved and ready to execute. Start with Task 1 (database migration).
+### Modified Files
+- `backend/xpenses/database.py` — 7 new columns on advance_payments + status index
+- `backend/xpenses/models.py` — AdvancePayBody, AdvanceRejectBody, PendingAdvanceOut + updated existing models
+- `backend/xpenses/routers/advances.py` — complete rewrite: type=paid/request, pay/reject endpoints, global pending
+- `backend/xpenses/main.py` — registered global_router for /api/advances/pending
+- `backend/xpenses/routers/reports.py` — filter total_advances to paid-only
+- `backend/xpenses/services/pdf_export.py` — filter PDF advances to paid-only
+- `backend/tests/conftest.py` — updated create_advance helper with advance_type param
+- `backend/tests/test_advances.py` — 18 tests (9 original updated + 9 new workflow tests)
+- `frontend/lib/api.ts` — updated AdvancePayment interface + PendingAdvance
+- `frontend/lib/queryKeys.ts` — added advanceKeys.pending
+- `frontend/app/reports/[id]/page.tsx` — removed inline advances, clickable metric card
+- `frontend/components/layout/Sidebar.tsx` — added Advances nav for managers
 
 ### Previous Session (2026-06-04, session 7)
 - **Advance payments v1 implemented** — basic inline CRUD within reports

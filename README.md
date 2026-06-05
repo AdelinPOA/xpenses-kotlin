@@ -25,6 +25,7 @@ Self-hosted expense management app for internal company use. Built as a lightwei
 | Data fetching | TanStack Query v5 |
 | PDF generation | reportlab + pypdf |
 | Containerization | Docker Compose (3 services: db, backend, frontend) |
+| AI Workflow | Opus 4.6 (planning, orchestration, code review) + Sonnet agents (coding) |
 
 ## Quick Start
 

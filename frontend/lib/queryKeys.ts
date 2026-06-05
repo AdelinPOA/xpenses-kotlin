@@ -15,6 +15,11 @@ export const reportKeys = {
   detail: (id: number) => [...reportKeys.all, "detail", id] as const,
 };
 
+export const advanceKeys = {
+  all: ["advances"] as const,
+  list: (reportId: number) => [...advanceKeys.all, "list", reportId] as const,
+};
+
 export const dashboardKeys = {
   all: ["dashboard"] as const,
 };

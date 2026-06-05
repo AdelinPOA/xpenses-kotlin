@@ -52,6 +52,16 @@ async def _fetch_report(db: asyncpg.Connection, report_id: int) -> dict:
     report = dict(row)
     expenses = await db.fetch(f"{EXPENSE_SELECT} WHERE e.report_id = $1", report_id)
     report["expenses"] = await _enrich_expenses_receipts(db, [dict(e) for e in expenses])
+
+    advances = await db.fetch(
+        "SELECT * FROM advance_payments WHERE report_id = $1 ORDER BY date",
+        report_id,
+    )
+    report["advances"] = [dict(a) for a in advances]
+    report["total_advances"] = sum(a["amount_eur"] for a in report["advances"])
+    total_expenses = sum(e["amount_eur"] for e in report["expenses"])
+    report["total_reimbursable"] = total_expenses - report["total_advances"]
+
     return report
 
 
@@ -283,7 +293,13 @@ async def export_report_pdf(report_id: int, current_user: dict = Depends(get_cur
     expenses = [dict(r) for r in expenses_rows]
     expenses = await _enrich_expenses_receipts(db, expenses)
 
-    pdf_bytes = await generate_report_pdf(report, expenses)
+    advance_rows = await db.fetch(
+        "SELECT * FROM advance_payments WHERE report_id = $1 ORDER BY date",
+        report_id,
+    )
+    advances = [dict(r) for r in advance_rows]
+
+    pdf_bytes = await generate_report_pdf(report, expenses, advances)
     safe_title = "".join(c if c.isalnum() or c in "-_ " else "_" for c in report["title"])
     filename = f"report_{report_id}_{safe_title[:40].strip()}.pdf"
 

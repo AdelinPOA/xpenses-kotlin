@@ -84,6 +84,20 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS advance_payments (
+    id SERIAL PRIMARY KEY,
+    report_id INTEGER NOT NULL REFERENCES expense_reports(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    amount_original DOUBLE PRECISION NOT NULL,
+    currency_original TEXT NOT NULL DEFAULT 'EUR',
+    amount_eur DOUBLE PRECISION NOT NULL,
+    fx_rate DOUBLE PRECISION NOT NULL DEFAULT 1.0,
+    date TEXT NOT NULL,
+    description TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 CREATE INDEX IF NOT EXISTS idx_receipts_expense ON receipts(expense_id);
 CREATE INDEX IF NOT EXISTS idx_expenses_report ON expenses(report_id);
 CREATE INDEX IF NOT EXISTS idx_expenses_category ON expenses(category_id);
@@ -92,6 +106,8 @@ CREATE INDEX IF NOT EXISTS idx_expenses_status ON expenses(status);
 CREATE INDEX IF NOT EXISTS idx_reports_status ON expense_reports(status);
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens(user_id);
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_hash ON refresh_tokens(token_hash);
+CREATE INDEX IF NOT EXISTS idx_advance_payments_report ON advance_payments(report_id);
+CREATE INDEX IF NOT EXISTS idx_advance_payments_user ON advance_payments(user_id);
 """
 
 DEFAULT_CATEGORIES = [

@@ -58,7 +58,7 @@ def _currency_fmt(amount: float, currency: str) -> str:
     return f"{amount:,.2f} {currency}"
 
 
-def _build_main_pdf(report: dict, expenses: list[dict]) -> tuple[BytesIO, list]:
+def _build_main_pdf(report: dict, expenses: list[dict], advances: list[dict] | None = None) -> tuple[BytesIO, list]:
     buf = BytesIO()
     doc = SimpleDocTemplate(
         buf, pagesize=A4,
@@ -226,6 +226,47 @@ def _build_main_pdf(report: dict, expenses: list[dict]) -> tuple[BytesIO, list]:
     story.append(expense_table)
     story.append(Spacer(1, 8 * mm))
 
+    # ── Advance Payments table ───────────────────────────────────────────────
+    if advances:
+        story.append(Paragraph("ADVANCE PAYMENTS", h2_style))
+        adv_header = ["S.No", "Date", "Description", "Amount", "Amount (EUR)"]
+        adv_col_widths = [10 * mm, 25 * mm, None, 30 * mm, 30 * mm]
+        adv_fixed = sum(w for w in adv_col_widths if w)
+        adv_col_widths[2] = CONTENT_W - adv_fixed
+
+        adv_data = [adv_header]
+        for adv_idx, a in enumerate(advances, start=1):
+            date_str = _fmt_date(a.get("date", ""))
+            orig = _currency_fmt(a["amount_original"], a["currency_original"])
+            eur = _currency_fmt(a["amount_eur"], "EUR")
+            adv_data.append([
+                f"{adv_idx}.",
+                date_str,
+                a.get("description") or "—",
+                orig,
+                eur,
+            ])
+
+        adv_table = Table(adv_data, colWidths=adv_col_widths, repeatRows=1)
+        adv_table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), DARK),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, 0), 8),
+            ("TOPPADDING", (0, 0), (-1, 0), 6),
+            ("BOTTOMPADDING", (0, 0), (-1, 0), 6),
+            ("FONTSIZE", (0, 1), (-1, -1), 8),
+            ("TOPPADDING", (0, 1), (-1, -1), 5),
+            ("BOTTOMPADDING", (0, 1), (-1, -1), 5),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, LIGHT_BG]),
+            ("GRID", (0, 0), (-1, -1), 0.5, BORDER),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("ALIGN", (0, 0), (0, -1), "CENTER"),
+            ("ALIGN", (3, 1), (4, -1), "RIGHT"),
+        ]))
+        story.append(adv_table)
+        story.append(Spacer(1, 8 * mm))
+
     # ── Report Summary by Currency ────────────────────────────────────────────
     by_currency: dict[str, list[dict]] = defaultdict(list)
     for e in expenses:
@@ -274,6 +315,9 @@ def _build_main_pdf(report: dict, expenses: list[dict]) -> tuple[BytesIO, list]:
     story.append(HRFlowable(width="100%", thickness=0.5, color=MUTED))
     story.append(Spacer(1, 3 * mm))
 
+    total_advances_eur = sum(a["amount_eur"] for a in (advances or []))
+    total_reimbursable = total_eur - total_advances_eur
+
     summary_items = [
         [Paragraph("Total Expense", caption_style),
          Paragraph(f"<b>€{total_eur:,.2f}</b>", body_style)],
@@ -282,10 +326,10 @@ def _build_main_pdf(report: dict, expenses: list[dict]) -> tuple[BytesIO, list]:
          Paragraph("<b>€0,00</b>", body_style)],
         [Paragraph("( - )", caption_style), Paragraph("", body_style)],
         [Paragraph("Advance Received", caption_style),
-         Paragraph("<b>€0,00</b>", body_style)],
+         Paragraph(f"<b>€{total_advances_eur:,.2f}</b>", body_style)],
         [Paragraph("( = )", caption_style), Paragraph("", body_style)],
         [Paragraph("Total Reimbursable", caption_style),
-         Paragraph(f"<b>€{total_eur:,.2f}</b>", body_style)],
+         Paragraph(f"<b>€{total_reimbursable:,.2f}</b>", body_style)],
     ]
     summary_flow = Table(
         [summary_items],
@@ -424,8 +468,8 @@ def _merge_pdf_receipts(main_buf: BytesIO, pdf_receipts: list[tuple[int, str, st
     return out.read()
 
 
-async def generate_report_pdf(report: dict, expenses: list[dict]) -> bytes:
-    main_buf, pdf_receipts = _build_main_pdf(report, expenses)
+async def generate_report_pdf(report: dict, expenses: list[dict], advances: list[dict] | None = None) -> bytes:
+    main_buf, pdf_receipts = _build_main_pdf(report, expenses, advances)
 
     if pdf_receipts:
         return _merge_pdf_receipts(main_buf, pdf_receipts)

@@ -58,6 +58,7 @@ async def clean_tables():
     async with pool.acquire() as conn:
         await conn.execute("DELETE FROM refresh_tokens")
         await conn.execute("DELETE FROM receipts")
+        await conn.execute("DELETE FROM advance_payments")
         await conn.execute("DELETE FROM expenses")
         await conn.execute("DELETE FROM expense_reports")
 
@@ -135,4 +136,22 @@ async def create_report(
         json={"title": title, "date_from": date_from, "date_to": date_to},
     )
     assert resp.status_code == 201, f"Create report failed: {resp.text}"
+    return resp.json()
+
+
+async def create_advance(
+    client: AsyncClient,
+    report_id: int,
+    *,
+    amount: float = 100.0,
+    currency: str = "EUR",
+    date: str = "2026-01-10",
+    description: str = "Cash advance",
+) -> dict:
+    """Create an advance payment and return the response JSON."""
+    resp = await client.post(
+        f"/api/reports/{report_id}/advances",
+        json={"amount": amount, "currency": currency, "date": date, "description": description},
+    )
+    assert resp.status_code == 201, f"Create advance failed: {resp.text}"
     return resp.json()

@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## AI Workflow
+
+Use **Opus 4.6** for planning, coordination, orchestration, and code review. Use **Sonnet agents** for coding implementation tasks.
+
 ## Project Tracking (MANDATORY)
 
 At the START of every session, read `HANDOFF.md` and `README.md` for current state. At the END, update both and push to GitHub. GitHub is the single source of truth — see HANDOFF.md for session-by-session history.
@@ -9,7 +13,7 @@ At the START of every session, read `HANDOFF.md` and `README.md` for current sta
 ## Commands
 
 ```bash
-# Start all services
+# Start all services (frontend + backend + PostgreSQL)
 docker compose up -d --build
 
 # Rebuild single service
@@ -17,86 +21,108 @@ docker compose up -d --build backend
 
 # View logs
 docker compose logs -f backend
-docker compose logs -f frontend
 
 # Access PostgreSQL
 docker exec -it xpenses-db psql -U xpenses
 
-# Test login
+# Run all tests (49 tests, ~15s, inside backend container)
+make test
+
+# Run tests with stop-on-first-failure
+make test-quick
+
+# Run a single test file
+docker compose exec backend pytest tests/test_auth.py -v
+
+# Run a single test function
+docker compose exec backend pytest tests/test_auth.py::test_login_success -v
+
+# Lint check / auto-fix
+make lint
+make lint-fix
+
+# Test login (get cookies)
 curl -c /tmp/cookies.txt -X POST http://localhost:8001/api/auth/login \
   -H "Content-Type: application/json" -d '{"username":"tech1","password":"tech1"}'
 
 # Test authenticated endpoint
 curl -b /tmp/cookies.txt http://localhost:8001/api/expenses
 
-# Backend health check
+# Health check
 curl http://localhost:8001/api/health
 ```
 
-## Testing & Linting
-
-```bash
-# Run all tests (49 tests, ~15s)
-make test
-
-# Run tests with stop-on-first-failure
-make test-quick
-
-# Run specific test file
-docker compose exec backend pytest tests/test_auth.py -v
-
-# Lint check
-make lint
-
-# Lint auto-fix (import sorting)
-make lint-fix
-```
-
-Tests run inside the backend container against a `xpenses_test` PostgreSQL database (created/dropped per session). `conftest.py` provides fixtures: `client` (httpx AsyncClient), `pool` (asyncpg), and helpers `login()`, `create_expense()`, `create_report()`, `new_client()`.
-
 ## Ports
 
-- Frontend: `3001` (host) → `3000` (container)
-- Backend API: `8001` (host) → `8000` (container)
-- PostgreSQL: `5432` (internal only, not exposed to host)
+| Service | Host Port | Container Port |
+|---------|-----------|----------------|
+| Frontend (Next.js) | 3001 | 3000 |
+| Backend (FastAPI) | 8001 | 8000 |
+| PostgreSQL | not exposed | 5432 |
 
 ## Architecture
 
 ### Backend (FastAPI + asyncpg)
 
-**No ORM.** All database access is raw SQL via asyncpg. Use `$1, $2` placeholders (not `?`). asyncpg requires native Python `datetime` objects for TIMESTAMPTZ columns — never pass `.isoformat()` strings.
+**No ORM.** All database access is raw SQL via asyncpg. Use `$1, $2` positional placeholders — never `?` or `%s`. asyncpg requires native Python `datetime` objects for TIMESTAMPTZ columns — never pass `.isoformat()` strings.
 
 **Two DB access patterns:**
-- `get_db()` — FastAPI dependency, yields a connection from the pool. Used in routers.
-- `get_pool().acquire()` — direct pool access. Used in services outside FastAPI DI (e.g., `fx_service.py`, `auth.py`).
+- `get_db()` — FastAPI dependency, yields a connection. Used in route handlers.
+- `get_pool().acquire()` — direct pool access. Used in services outside FastAPI DI (`fx_service.py`, `auth.py`, `seed.py`).
 
-**Auth flow:** JWT access tokens (15 min) + refresh tokens (7 days), both in httpOnly cookies. `get_current_user()` is a FastAPI dependency that reads the `access_token` cookie. `require_role(*roles)` stacks on it for role gating. Four roles: `technician`, `manager`, `chef_finance`, `mod`.
+**Auth:** JWT access tokens (15 min) + refresh tokens (7 days), both in httpOnly cookies. `get_current_user()` dependency reads the `access_token` cookie. `require_role(*roles)` stacks on it for role gating. Four roles: `technician`, `manager`, `chef_finance`, `mod`.
 
-**Schema management:** `database.py` runs DDL on startup via `init_db()`. No migration tool — schema changes are `CREATE TABLE IF NOT EXISTS` + `ALTER TABLE ADD COLUMN` with existence checks. Seed users created by `seed.py` (gated behind `SEED_DEMO_USERS` env var).
+**Schema:** `database.py` runs DDL on startup via `init_db()`. No migration tool — uses `CREATE TABLE IF NOT EXISTS` + `ALTER TABLE ADD COLUMN` with existence checks. Seed users created by `seed.py` (gated behind `SEED_DEMO_USERS` env var).
 
-**Router prefix:** All API routes are prefixed with `/api/` (e.g., `/api/expenses`, `/api/auth/login`).
+**Router prefix:** All API routes are under `/api/` (e.g., `/api/expenses`, `/api/auth/login`).
+
+### Report State Machine
+
+```
+draft → submitted → approved → paid
+                  → rejected (expenses detached back to draft)
+submitted → draft (via recall, by owner)
+```
+
+- Approval requires `manager` or `chef_finance` role, and you cannot approve your own report.
+- Payment requires `chef_finance` role.
+- Only `draft` reports/expenses can be edited or deleted.
+- Rejecting a report detaches its expenses and resets them to `draft`.
 
 ### Frontend (Next.js 15 + React 19)
 
-**Tailwind CSS v4** with CSS-first config (`@import "tailwindcss"` in globals.css). No `tailwind.config.js`. Dark mode uses `@custom-variant dark (&:where(.dark, .dark *))`.
+**Tailwind CSS v4** with CSS-first config (`@import "tailwindcss"` in `globals.css`). No `tailwind.config.js`. Dark mode uses `@custom-variant dark (&:where(.dark, .dark *))` with `.dark` class on `<html>`.
 
-**Data fetching:** TanStack Query v5 with axios. The axios instance (`lib/api.ts`) has `withCredentials: true` for cookie-based auth. Query keys are centralized in `lib/queryKeys.ts`.
+**Data fetching:** TanStack Query v5 + axios. The axios instance (`lib/api.ts`) sets `withCredentials: true` for cookie auth. Query keys centralized in `lib/queryKeys.ts`.
 
-**Auth:** `AuthProvider` context wraps the app. `useAuth()` hook provides `user`, `logout`, `setUser`. Next.js middleware (`middleware.ts`) redirects unauthenticated users to `/login`.
+**Auth flow:** `AuthProvider` context wraps the app via `Providers.tsx`. `useAuth()` hook provides `user`, `logout`, `setUser`. Next.js middleware (`middleware.ts`) redirects unauthenticated users to `/login` by checking the `access_token` cookie.
 
-**Layout:** `AppShell` component provides the sidebar + main content area. All authenticated pages import `AppShell`. The sidebar is a responsive drawer (overlay on mobile, fixed on desktop at `lg` breakpoint).
+**Layout:** `AppShell` provides sidebar + main content. Sidebar is a responsive drawer (overlay on mobile, fixed on desktop at `lg` breakpoint). `ThemeProvider` manages light/dark/system, persisted in localStorage.
 
-**Theme:** `ThemeProvider` manages light/dark/system preference, persisted in localStorage, applies `.dark` class on `<html>`.
+### Docker Networking (dual-URL pattern)
 
-### Docker Networking
+Frontend uses two different URLs to reach the backend:
+- **Server-side (SSR/rewrites):** `INTERNAL_API_URL=http://backend:8000/api` — container-to-container via Docker network.
+- **Client-side (browser):** `NEXT_PUBLIC_API_URL=http://localhost:8001/api` — via host port mapping.
 
-Frontend server-side uses `INTERNAL_API_URL=http://backend:8000/api` to reach the backend (container-to-container). `next.config.ts` has a rewrite rule that proxies `/api/*` to the backend. Client-side uses `NEXT_PUBLIC_API_URL=http://localhost:8001/api`.
+`next.config.ts` has a rewrite rule that proxies `/api/*` to the backend using `INTERNAL_API_URL`.
 
 ## Key Patterns
 
-- **Expense FX conversion:** Primary: Frankfurter API (ECB, ~30 currencies). Fallback: fawazahmed0/currency-api (200+ currencies). Rates cached per `(currency, date)` in `fx_rates` table.
-- **Report workflow:** `draft → submitted → approved → paid` (or `→ rejected`). Approval requires `manager` or `chef_finance` role. Payment requires `chef_finance`.
-- **Receipt storage:** Files stored in `/app/data/receipts/` (Docker volume). Multiple receipts per expense. Supported: JPG, PNG, PDF, WEBP.
+- **FX conversion:** Primary: Frankfurter API (ECB rates). Fallback: fawazahmed0/currency-api. Rates cached per `(currency, date)` in `fx_rates` table. Changing amount/currency/date on an expense triggers automatic FX recalculation.
+- **Receipt storage:** Files in `/app/data/receipts/` (Docker volume), organized by `YYYY/MM/`. Multiple receipts per expense. Path traversal protection in `storage.py`. Allowed: JPG, PNG, GIF, PDF, WEBP (max 10MB).
+- **PDF export:** `reportlab` generates the main report PDF. Receipt PDFs are appended via `pypdf`. Receipt images rendered 2-per-row.
+- **Dashboard scoping:** `chef_finance` and `mod` see org-wide data; other roles see only their own.
+
+## Testing
+
+Tests run inside the backend container against a `xpenses_test` PostgreSQL database (created/dropped per session). `conftest.py` provides:
+- `client` — httpx `AsyncClient` with ASGI transport (no real HTTP)
+- `pool` — asyncpg pool to the test DB
+- `login(client, username)` — sets auth cookies on client (password defaults to username)
+- `create_expense(client, **kwargs)` / `create_report(client, **kwargs)` — quick data creation
+- `new_client()` — fresh `AsyncClient` for multi-user tests
+- `clean_tables` fixture truncates transactional data after each test; users + categories persist across session
 
 ## Environment Variables
 

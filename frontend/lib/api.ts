@@ -47,6 +47,19 @@ export interface Expense {
   updated_at: string;
 }
 
+export interface AdvancePayment {
+  id: number;
+  report_id: number;
+  amount_original: number;
+  currency_original: string;
+  amount_eur: number;
+  fx_rate: number;
+  date: string;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Report {
   id: number;
   title: string;
@@ -65,6 +78,9 @@ export interface Report {
   created_at: string;
   updated_at: string;
   expenses: Expense[];
+  advances: AdvancePayment[];
+  total_advances: number;
+  total_reimbursable: number;
 }
 
 export interface DashboardStats {

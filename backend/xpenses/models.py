@@ -124,6 +124,9 @@ class ReportOut(BaseModel):
     created_at: datetime
     updated_at: datetime
     expenses: list[ExpenseOut] = []
+    advances: list["AdvancePaymentOut"] = []
+    total_advances: float = 0.0
+    total_reimbursable: float = 0.0
 
 
 class ReportCreate(BaseModel):
@@ -144,6 +147,36 @@ class ReportUpdate(BaseModel):
 
 class ReportSubmit(BaseModel):
     expense_ids: list[int]
+
+
+# ── Advance Payments ─────────────────────────────────────────────────────────
+
+class AdvancePaymentOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    report_id: int
+    amount_original: float
+    currency_original: str
+    amount_eur: float
+    fx_rate: float
+    date: str
+    description: str | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class AdvancePaymentCreate(BaseModel):
+    amount: float
+    currency: str = "EUR"
+    date: str
+    description: str | None = None
+
+
+class AdvancePaymentUpdate(BaseModel):
+    amount: float | None = None
+    currency: str | None = None
+    date: str | None = None
+    description: str | None = None
 
 
 # ── Dashboard ─────────────────────────────────────────────────────────────────

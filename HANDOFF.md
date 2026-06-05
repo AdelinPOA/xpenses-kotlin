@@ -1,6 +1,6 @@
 # HANDOFF.md — xpenses_copy
 
-> Last updated: 2026-06-02 (session 6)  
+> Last updated: 2026-06-05 (session 8)  
 > Author: Claude (AI assistant session)
 
 ---
@@ -9,7 +9,9 @@
 
 Self-hosted expense management app (alternative to Zoho Expenses). FastAPI backend + Next.js frontend + PostgreSQL, running in Docker Compose on port 3001 (frontend) / 8001 (backend API).
 
-## Current State: OPERATIONAL (Phase 7 Partial + Test Suite)
+**AI Workflow:** Opus 4.6 for planning, coordination, orchestration, and code review. Sonnet agents for coding implementation tasks.
+
+## Current State: OPERATIONAL (Phase 7 Partial + Advance Payments v1 + Test Suite)
 
 All 3 Docker containers running, all endpoints healthy:
 
@@ -19,7 +21,48 @@ All 3 Docker containers running, all endpoints healthy:
 | FastAPI backend | `xpenses-backend` | 8001 → 8000 | `{"status":"ok"}` |
 | Next.js frontend | `xpenses-frontend` | 3001 → 3000 | Serving (307 redirect to /login if unauthenticated) |
 
-## Latest Session (2026-06-02, session 6)
+## Latest Session (2026-06-05, session 8)
+
+### What Was Done
+- **Advance payments redesign — design + plan** (NOT YET IMPLEMENTED)
+  - Designed a full request/pay/reject workflow for advance payments
+  - Two advance types: self-paid (instant `paid`) and requested (`requested` → `paid`/`rejected`)
+  - Technicians can add self-paid advances and request advances from the company
+  - Managers/chef_finance can approve requests (setting final amount), reject, and add paid advances to any report
+  - Dedicated page at `/reports/[id]/advances` replaces inline advances UI
+  - Global manager page at `/advances` for all pending requests across users
+  - Only `paid` advances count in `total_advances` and `total_reimbursable`
+
+### Design & Plan Documents
+- **Spec:** `docs/superpowers/specs/2026-06-05-advance-payments-redesign.md`
+- **Implementation Plan:** `docs/superpowers/plans/2026-06-05-advance-payments-redesign.md`
+
+### Implementation Plan Summary (11 tasks)
+1. Database migration — add `status`, `requested_amount`, `paid_by`, etc. columns
+2. Backend models — update Pydantic models for workflow
+3. Advances router — rewrite create, add pay/reject/pending endpoints
+4. Report calculations + PDF — filter to paid-only
+5. Update test infrastructure
+6. New workflow tests (~9 tests)
+7. Frontend types + query keys
+8. Dedicated advances page (`/reports/[id]/advances`)
+9. Global advances page (`/advances`)
+10. Report detail page cleanup + sidebar update
+11. Rebuild, test, verify
+
+### Status: READY FOR IMPLEMENTATION
+The plan is approved and ready to execute. Start with Task 1 (database migration).
+
+### Previous Session (2026-06-04, session 7)
+- **Advance payments v1 implemented** — basic inline CRUD within reports
+  - `advance_payments` table with FX conversion
+  - CRUD router at `/api/reports/{id}/advances`
+  - Inline form + table on report detail page
+  - PDF export with advance payments table and real summary values
+  - 10 tests for advances (59 total tests passing)
+  - Updated CLAUDE.md, HANDOFF.md, README.md with AI workflow docs
+
+## Previous Session (2026-06-02, session 6)
 
 ### What Was Done
 - **Backend test suite** — 49 tests across 4 files, all passing
@@ -108,6 +151,7 @@ All 3 Docker containers running, all endpoints healthy:
 | `fx_rates` | Cached ECB rates |
 | `users` | 4 seeded test users |
 | `refresh_tokens` | JWT refresh token hashes |
+| `advance_payments` | Cash advances per report (v1: basic CRUD; v2 plan: request/pay workflow) |
 
 ---
 
@@ -152,8 +196,9 @@ curl -b /tmp/cookies.txt http://localhost:8001/api/expenses
 - PostgreSQL credentials hardcoded in docker-compose.yml (dev-only concern)
 - `datetime.utcnow()` deprecation warnings in Pyright (works fine, pre-existing pattern)
 
-## What's Next (from README roadmap)
+## What's Next
 
+- **IMMEDIATE**: Execute advance payments redesign plan (`docs/superpowers/plans/2026-06-05-advance-payments-redesign.md`)
 - **Phase 5**: Approval Workflow enhancements (email notifications, delegation)
 - **Phase 6**: Analytics & Reporting (trends, budgets, CSV export)
 - **Phase 7 remaining**: Expense duplication, recurring expenses, OCR receipt scanning

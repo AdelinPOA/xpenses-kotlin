@@ -155,20 +155,31 @@ class AdvancePaymentOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
     report_id: int
+    user_id: int
+    status: str
     amount_original: float
     currency_original: str
     amount_eur: float
     fx_rate: float
     date: str
     description: str | None
+    requested_amount: float | None = None
+    requested_currency: str | None = None
+    paid_by: int | None = None
+    paid_by_name: str | None = None
+    paid_at: datetime | None = None
+    rejected_by: int | None = None
+    rejected_by_name: str | None = None
+    rejected_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
 
 
 class AdvancePaymentCreate(BaseModel):
+    type: str = "paid"
     amount: float
     currency: str = "EUR"
-    date: str
+    date: str | None = None
     description: str | None = None
 
 
@@ -177,6 +188,21 @@ class AdvancePaymentUpdate(BaseModel):
     currency: str | None = None
     date: str | None = None
     description: str | None = None
+
+
+class AdvancePayBody(BaseModel):
+    amount: float
+    currency: str = "EUR"
+    date: str
+
+
+class AdvanceRejectBody(BaseModel):
+    reason: str = ""
+
+
+class PendingAdvanceOut(AdvancePaymentOut):
+    user_display_name: str = ""
+    report_title: str = ""
 
 
 # ── Dashboard ─────────────────────────────────────────────────────────────────

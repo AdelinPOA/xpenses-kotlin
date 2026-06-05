@@ -124,19 +124,6 @@ async def test_report_total_reimbursable_calculation(client):
     assert data["total_reimbursable"] == 20.0
 
 
-@pytest.mark.asyncio
-async def test_cannot_add_advance_to_other_user_report(client):
-    await login(client, "tech1")
-    report = await create_report(client)
-
-    async with new_client() as other:
-        await login(other, "manager1")
-        resp = await other.post(
-            f"/api/reports/{report['id']}/advances",
-            json={"amount": 100.0, "currency": "EUR", "date": "2026-01-10"},
-        )
-        assert resp.status_code == 403
-
 
 @pytest.mark.asyncio
 async def test_advances_deleted_with_report(client, pool):

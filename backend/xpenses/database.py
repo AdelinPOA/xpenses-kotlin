@@ -108,7 +108,6 @@ CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens(user_id);
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_hash ON refresh_tokens(token_hash);
 CREATE INDEX IF NOT EXISTS idx_advance_payments_report ON advance_payments(report_id);
 CREATE INDEX IF NOT EXISTS idx_advance_payments_user ON advance_payments(user_id);
-CREATE INDEX IF NOT EXISTS idx_advance_payments_status ON advance_payments(status);
 """
 
 DEFAULT_CATEGORIES = [
@@ -184,6 +183,7 @@ async def init_db() -> None:
 
         # Backfill status for existing rows that have NULL status
         await conn.execute("UPDATE advance_payments SET status = 'paid' WHERE status IS NULL")
+        await conn.execute("CREATE INDEX IF NOT EXISTS idx_advance_payments_status ON advance_payments(status)")
 
         # Seed default categories
         for name, limit in DEFAULT_CATEGORIES:

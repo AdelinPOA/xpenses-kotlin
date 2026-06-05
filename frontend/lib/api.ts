@@ -50,14 +50,29 @@ export interface Expense {
 export interface AdvancePayment {
   id: number;
   report_id: number;
+  user_id: number;
+  status: "paid" | "requested" | "rejected";
   amount_original: number;
   currency_original: string;
   amount_eur: number;
   fx_rate: number;
   date: string;
   description: string | null;
+  requested_amount: number | null;
+  requested_currency: string | null;
+  paid_by: number | null;
+  paid_by_name: string | null;
+  paid_at: string | null;
+  rejected_by: number | null;
+  rejected_by_name: string | null;
+  rejected_at: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface PendingAdvance extends AdvancePayment {
+  user_display_name: string;
+  report_title: string;
 }
 
 export interface Report {

@@ -18,6 +18,7 @@ export const reportKeys = {
 export const advanceKeys = {
   all: ["advances"] as const,
   list: (reportId: number) => [...advanceKeys.all, "list", reportId] as const,
+  pending: () => [...advanceKeys.all, "pending"] as const,
 };
 
 export const dashboardKeys = {

@@ -147,11 +147,20 @@ async def create_advance(
     currency: str = "EUR",
     date: str = "2026-01-10",
     description: str = "Cash advance",
+    advance_type: str = "paid",
 ) -> dict:
     """Create an advance payment and return the response JSON."""
+    body: dict = {
+        "type": advance_type,
+        "amount": amount,
+        "currency": currency,
+        "description": description,
+    }
+    if advance_type == "paid":
+        body["date"] = date
     resp = await client.post(
         f"/api/reports/{report_id}/advances",
-        json={"amount": amount, "currency": currency, "date": date, "description": description},
+        json=body,
     )
     assert resp.status_code == 201, f"Create advance failed: {resp.text}"
     return resp.json()

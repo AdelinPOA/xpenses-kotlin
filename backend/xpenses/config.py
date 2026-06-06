@@ -24,6 +24,8 @@ class Settings(BaseSettings):
     ldap_enabled: bool = False
     ldap_host: str = ""
     ldap_base_dn: str = ""
+    ocr_enabled: bool = True
+    ocr_languages: str = "en,ro"
 
     @field_validator("cors_origins", mode="before")
     @classmethod

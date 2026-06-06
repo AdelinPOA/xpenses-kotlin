@@ -206,6 +206,18 @@ class PendingAdvanceOut(AdvancePaymentOut):
     report_title: str = ""
 
 
+# ── OCR ──────────────────────────────────────────────────────────────────────
+
+class OCRScanResponse(BaseModel):
+    amount: float | None = None
+    currency: str | None = None
+    date: str | None = None
+    merchant: str | None = None
+    raw_text: str = ""
+    confidence: float = 0.0
+    warnings: list[str] = []
+
+
 # ── Dashboard ─────────────────────────────────────────────────────────────────
 
 class CategorySpend(BaseModel):

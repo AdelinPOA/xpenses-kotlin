@@ -1,6 +1,6 @@
 # HANDOFF.md — xpenses_copy
 
-> Last updated: 2026-06-05 (session 8)  
+> Last updated: 2026-06-06 (session 9)  
 > Author: Claude (AI assistant session)
 
 ---
@@ -11,7 +11,7 @@ Self-hosted expense management app (alternative to Zoho Expenses). FastAPI backe
 
 **AI Workflow:** Opus 4.6 for planning, coordination, orchestration, and code review. Sonnet agents for coding implementation tasks.
 
-## Current State: OPERATIONAL (Phase 7 Partial + Advance Payments v1 + Test Suite)
+## Current State: OPERATIONAL (Advance Payments v2 + OCR Receipt Scanning + 87 Tests)
 
 All 3 Docker containers running, all endpoints healthy:
 
@@ -21,39 +21,40 @@ All 3 Docker containers running, all endpoints healthy:
 | FastAPI backend | `xpenses-backend` | 8001 → 8000 | `{"status":"ok"}` |
 | Next.js frontend | `xpenses-frontend` | 3001 → 3000 | Serving (307 redirect to /login if unauthenticated) |
 
-## Latest Session (2026-06-05, session 8)
+## Latest Session (2026-06-06, session 9)
 
 ### What Was Done
-- **Advance payments v2 — full request/pay/reject workflow** (IMPLEMENTED + TESTED)
-  - Two advance types: self-paid (instant `paid`) and requested (`requested` → `paid`/`rejected`)
-  - Technicians can add self-paid advances and request advances from the company
-  - Managers/chef_finance can approve requests (setting final amount), reject, and add paid advances to any report
-  - Dedicated page at `/reports/[id]/advances` replaces inline advances UI
-  - Global manager page at `/advances` for all pending requests across users
-  - Only `paid` advances count in `total_advances` and `total_reimbursable`
-  - 67 tests passing (49 original + 18 advance tests)
-
-### Design & Plan Documents
-- **Spec:** `docs/superpowers/specs/2026-06-05-advance-payments-redesign.md`
-- **Implementation Plan:** `docs/superpowers/plans/2026-06-05-advance-payments-redesign.md`
+- **OCR receipt scanning** (IMPLEMENTED + TESTED)
+  - EasyOCR engine (local, free, EN+RO support)
+  - `POST /api/ocr/scan` endpoint — accepts image/PDF, returns extracted amount/currency/date/merchant
+  - "Scan receipt to auto-fill" button on New Expense form — uploads receipt, pre-fills form fields
+  - Regex + heuristic text parsing: TOTAL keyword matching, European number formats (1.234,56), currency detection
+  - Security hardened: PIL decompression bomb protection, image size limits (2000px), PDF DPI cap (150), streaming upload size check
+  - EasyOCR models cached in Docker volume (`ocr-models`) for fast subsequent loads
+  - Configurable via `OCR_ENABLED` and `OCR_LANGUAGES` env vars
+  - 87 tests passing (67 existing + 20 OCR tests)
+- **Fix: ReportOut missing user_id** — frontend ownership detection for advance payment buttons
 
 ### New Files
-- `frontend/app/reports/[id]/advances/page.tsx` — dedicated report-scoped advances page
-- `frontend/app/advances/page.tsx` — global manager advances dashboard
+- `backend/xpenses/services/ocr_service.py` — EasyOCR singleton reader, text parsing (amount/date/merchant extraction)
+- `backend/xpenses/routers/ocr.py` — scan endpoint with file validation
+- `backend/tests/test_ocr.py` — 20 tests (16 unit + 4 integration)
 
 ### Modified Files
-- `backend/xpenses/database.py` — 7 new columns on advance_payments + status index
-- `backend/xpenses/models.py` — AdvancePayBody, AdvanceRejectBody, PendingAdvanceOut + updated existing models
-- `backend/xpenses/routers/advances.py` — complete rewrite: type=paid/request, pay/reject endpoints, global pending
-- `backend/xpenses/main.py` — registered global_router for /api/advances/pending
-- `backend/xpenses/routers/reports.py` — filter total_advances to paid-only
-- `backend/xpenses/services/pdf_export.py` — filter PDF advances to paid-only
-- `backend/tests/conftest.py` — updated create_advance helper with advance_type param
-- `backend/tests/test_advances.py` — 18 tests (9 original updated + 9 new workflow tests)
-- `frontend/lib/api.ts` — updated AdvancePayment interface + PendingAdvance
-- `frontend/lib/queryKeys.ts` — added advanceKeys.pending
-- `frontend/app/reports/[id]/page.tsx` — removed inline advances, clickable metric card
-- `frontend/components/layout/Sidebar.tsx` — added Advances nav for managers
+- `backend/pyproject.toml` — added easyocr, pdf2image dependencies
+- `backend/Dockerfile` — added poppler-utils, libgl1, libglib2.0-0
+- `docker-compose.yml` — added ocr-models volume
+- `backend/xpenses/config.py` — ocr_enabled, ocr_languages settings
+- `backend/xpenses/models.py` — OCRScanResponse model + ReportOut user_id fix
+- `backend/xpenses/main.py` — registered ocr router
+- `frontend/lib/api.ts` — OCRScanResult interface
+- `frontend/components/expenses/ExpenseForm.tsx` — scan button, loading state, auto-fill logic
+
+### Previous Session (2026-06-05, session 8)
+- **Advance payments v2 — full request/pay/reject workflow** (IMPLEMENTED + TESTED)
+  - Two advance types: self-paid (instant `paid`) and requested (`requested` → `paid`/`rejected`)
+  - Dedicated page at `/reports/[id]/advances` + global `/advances` for managers
+  - 67 tests passing
 
 ### Previous Session (2026-06-04, session 7)
 - **Advance payments v1 implemented** — basic inline CRUD within reports

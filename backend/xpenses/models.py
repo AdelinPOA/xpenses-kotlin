@@ -109,6 +109,7 @@ class ExpenseUpdate(BaseModel):
 class ReportOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
+    user_id: int | None = None
     title: str
     description: str | None
     date_from: str | None

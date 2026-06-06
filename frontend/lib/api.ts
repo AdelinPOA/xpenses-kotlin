@@ -126,6 +126,16 @@ export interface User {
   updated_at: string;
 }
 
+export interface OCRScanResult {
+  amount: number | null;
+  currency: string | null;
+  date: string | null;
+  merchant: string | null;
+  raw_text: string;
+  confidence: number;
+  warnings: string[];
+}
+
 export const CURRENCIES = [
   "EUR", "USD", "GBP", "RON", "CHF", "SEK", "NOK", "DKK", "PLN", "CZK",
   "HUF", "BGN", "HRK", "TRY", "JPY", "CNY", "KRW", "AUD", "CAD", "NZD",

@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import api, { Category, Expense, CURRENCIES, API_BASE_URL } from "@/lib/api";
+import api, { Category, Expense, CURRENCIES, API_BASE_URL, OCRScanResult } from "@/lib/api";
 import { categoryKeys, expenseKeys, dashboardKeys } from "@/lib/queryKeys";
-import { X } from "lucide-react";
+import { X, Camera } from "lucide-react";
 
 interface Props {
   expense?: Expense;
@@ -34,6 +34,9 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
   const [deletedReceiptIds, setDeletedReceiptIds] = useState<Set<number>>(new Set());
   const [error, setError] = useState("");
   const [savedExpense, setSavedExpense] = useState<Expense | null>(null);
+  const [isScanning, setIsScanning] = useState(false);
+  const [scanResult, setScanResult] = useState<OCRScanResult | null>(null);
+  const scanInputRef = useRef<HTMLInputElement>(null);
 
   const { data: categories } = useQuery<Category[]>({
     queryKey: categoryKeys.list(),
@@ -116,6 +119,42 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
     setDeletedReceiptIds((prev) => new Set(prev).add(receiptId));
   };
 
+  const handleScan = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+
+    setIsScanning(true);
+    setScanResult(null);
+    setError("");
+
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await api.post<OCRScanResult>("/ocr/scan", fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      const result = res.data;
+      setScanResult(result);
+
+      // Pre-fill empty fields only
+      setForm((f) => ({
+        ...f,
+        amount: f.amount || (result.amount?.toString() ?? ""),
+        currency: result.currency && !f.amount ? result.currency : f.currency,
+        date: f.date === new Date().toISOString().slice(0, 10) && result.date ? result.date : f.date,
+        merchant: f.merchant || result.merchant || "",
+      }));
+
+      // Add scanned file to receipt list
+      setReceiptFiles((prev) => [...prev, file]);
+    } catch (e: any) {
+      setError(e.response?.data?.detail ?? "OCR scan failed");
+    } finally {
+      setIsScanning(false);
+    }
+  };
+
   return (
     <form
       onSubmit={(e) => { e.preventDefault(); save.mutate(); }}
@@ -126,6 +165,54 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
       {savedExpense && savedExpense.currency_original !== "EUR" && (
         <div className="bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 rounded-lg p-3 text-sm text-emerald-800 dark:text-emerald-400">
           {savedExpense.amount_original} {savedExpense.currency_original} → {formatEur(savedExpense.amount_eur)} (rate: {savedExpense.fx_rate.toFixed(4)})
+        </div>
+      )}
+
+      {/* OCR Scan */}
+      {!isEdit && (
+        <div className="border border-dashed border-slate-300 dark:border-slate-600 rounded-lg p-4">
+          <input
+            ref={scanInputRef}
+            type="file"
+            accept=".jpg,.jpeg,.png,.pdf,.webp"
+            onChange={handleScan}
+            className="hidden"
+          />
+          <button
+            type="button"
+            onClick={() => scanInputRef.current?.click()}
+            disabled={isScanning}
+            className="w-full flex items-center justify-center gap-2 py-2.5 text-sm font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors disabled:opacity-50"
+          >
+            {isScanning ? (
+              <>
+                <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+                Analyzing receipt...
+              </>
+            ) : (
+              <>
+                <Camera className="w-4 h-4" />
+                Scan receipt to auto-fill
+              </>
+            )}
+          </button>
+
+          {scanResult && (
+            <div className={`mt-3 text-xs rounded-lg p-2.5 ${
+              scanResult.warnings.length === 0
+                ? "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400"
+                : "bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400"
+            }`}>
+              {scanResult.amount !== null && (
+                <span>Found: {scanResult.currency ?? ""}{scanResult.amount.toFixed(2)}</span>
+              )}
+              {scanResult.merchant && <span> at {scanResult.merchant}</span>}
+              {scanResult.date && <span> on {scanResult.date}</span>}
+              {scanResult.warnings.length > 0 && (
+                <div className="mt-1 opacity-75">{scanResult.warnings.join(", ")}</div>
+              )}
+            </div>
+          )}
         </div>
       )}
 

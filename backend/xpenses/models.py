@@ -75,6 +75,9 @@ class ExpenseOut(BaseModel):
     currency_original: str
     amount_eur: float
     fx_rate: float
+    tax_amount: float = 0.0
+    tax_rate: float | None = None
+    tax_amount_eur: float = 0.0
     date: str
     description: str | None
     merchant: str | None
@@ -90,6 +93,8 @@ class ExpenseCreate(BaseModel):
     report_id: int | None = None
     amount: float
     currency: str = "EUR"
+    tax_amount: float = 0.0
+    tax_rate: float | None = None
     date: str
     description: str | None = None
     merchant: str | None = None
@@ -99,6 +104,8 @@ class ExpenseUpdate(BaseModel):
     category_id: int | None = None
     amount: float | None = None
     currency: str | None = None
+    tax_amount: float | None = None
+    tax_rate: float | None = None
     date: str | None = None
     description: str | None = None
     merchant: str | None = None
@@ -127,6 +134,7 @@ class ReportOut(BaseModel):
     expenses: list[ExpenseOut] = []
     advances: list["AdvancePaymentOut"] = []
     total_advances: float = 0.0
+    daily_allowance: float = 0.0
     total_reimbursable: float = 0.0
 
 
@@ -211,6 +219,8 @@ class PendingAdvanceOut(AdvancePaymentOut):
 class OCRScanResponse(BaseModel):
     amount: float | None = None
     currency: str | None = None
+    tax_amount: float | None = None
+    tax_rate: float | None = None
     date: str | None = None
     merchant: str | None = None
     raw_text: str = ""

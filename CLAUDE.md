@@ -25,7 +25,7 @@ docker compose logs -f backend
 # Access PostgreSQL
 docker exec -it xpenses-db psql -U xpenses
 
-# Run all tests (49 tests, ~15s, inside backend container)
+# Run all tests (87 tests, ~35s, inside backend container)
 make test
 
 # Run tests with stop-on-first-failure
@@ -110,6 +110,7 @@ Frontend uses two different URLs to reach the backend:
 ## Key Patterns
 
 - **FX conversion:** Primary: Frankfurter API (ECB rates). Fallback: fawazahmed0/currency-api. Rates cached per `(currency, date)` in `fx_rates` table. Changing amount/currency/date on an expense triggers automatic FX recalculation.
+- **OCR Scanning:** Integrated EasyOCR for receipts (`POST /api/ocr/scan`). Automatically extracts date, merchant, amount and currency. Validates languages via `ocr_languages` setting. Fallbacks to lookahead on total amounts.
 - **Receipt storage:** Files in `/app/data/receipts/` (Docker volume), organized by `YYYY/MM/`. Multiple receipts per expense. Path traversal protection in `storage.py`. Allowed: JPG, PNG, GIF, PDF, WEBP (max 10MB).
 - **PDF export:** `reportlab` generates the main report PDF. Receipt PDFs are appended via `pypdf`. Receipt images rendered 2-per-row.
 - **Dashboard scoping:** `chef_finance` and `mod` see org-wide data; other roles see only their own.

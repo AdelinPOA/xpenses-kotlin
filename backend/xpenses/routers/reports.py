@@ -60,7 +60,20 @@ async def _fetch_report(db: asyncpg.Connection, report_id: int) -> dict:
     report["advances"] = [dict(a) for a in advances]
     report["total_advances"] = sum(a["amount_eur"] for a in report["advances"] if a.get("status", "paid") == "paid")
     total_expenses = sum(e["amount_eur"] for e in report["expenses"])
-    report["total_reimbursable"] = total_expenses - report["total_advances"]
+
+    allowance = 0.0
+    if report.get("date_from") and report.get("date_to"):
+        try:
+            d_from = datetime.strptime(report["date_from"][:10], "%Y-%m-%d")
+            d_to = datetime.strptime(report["date_to"][:10], "%Y-%m-%d")
+            days = (d_to - d_from).days + 1
+            if days > 0:
+                allowance = days * 50.0
+        except ValueError:
+            pass
+    report["daily_allowance"] = allowance
+
+    report["total_reimbursable"] = total_expenses + allowance - report["total_advances"]
 
     return report
 

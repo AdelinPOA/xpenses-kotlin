@@ -37,6 +37,9 @@ export interface Expense {
   currency_original: string;
   amount_eur: number;
   fx_rate: number;
+  tax_amount: number;
+  tax_rate: number | null;
+  tax_amount_eur: number;
   date: string;
   description: string | null;
   merchant: string | null;
@@ -95,6 +98,7 @@ export interface Report {
   expenses: Expense[];
   advances: AdvancePayment[];
   total_advances: number;
+  daily_allowance: number;
   total_reimbursable: number;
 }
 
@@ -129,6 +133,8 @@ export interface User {
 export interface OCRScanResult {
   amount: number | null;
   currency: string | null;
+  tax_amount: number | null;
+  tax_rate: number | null;
   date: string | null;
   merchant: string | null;
   raw_text: string;

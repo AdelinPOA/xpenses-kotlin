@@ -13,8 +13,8 @@ _reader = None
 
 def _empty_result(warnings: list[str]) -> dict:
     return {
-        "amount": None, "currency": None, "date": None, "merchant": None,
-        "raw_text": "", "confidence": 0.0, "warnings": warnings,
+        "amount": None, "currency": None, "tax_amount": None, "tax_rate": None,
+        "date": None, "merchant": None, "raw_text": "", "confidence": 0.0, "warnings": warnings,
     }
 
 
@@ -80,6 +80,7 @@ async def scan_receipt(file_bytes: bytes, filename: str) -> dict:
     mean_confidence = float(np.mean(confidences)) if confidences else 0.0
 
     amount, currency = extract_amount(lines)
+    tax_amount, tax_rate = extract_tax(lines)
     date = extract_date(lines)
     merchant = extract_merchant(lines)
 
@@ -93,6 +94,8 @@ async def scan_receipt(file_bytes: bytes, filename: str) -> dict:
     return {
         "amount": amount,
         "currency": currency,
+        "tax_amount": tax_amount,
+        "tax_rate": tax_rate,
         "date": date,
         "merchant": merchant,
         "raw_text": raw_text,
@@ -198,6 +201,23 @@ def extract_amount(lines: list[str]) -> tuple[float | None, str | None]:
         final_cur = _guess_global_currency()
 
     return final_amt, final_cur
+
+
+def extract_tax(lines: list[str]) -> tuple[float | None, float | None]:
+    """Extract tax amount and rate from OCR text lines."""
+    TAX_KEYWORDS = {"tax", "vat", "tva", "taxa"}
+    for line in lines:
+        lower = line.lower()
+        if any(kw in lower for kw in TAX_KEYWORDS):
+            pct_match = re.search(r"(\d+(?:[.,]\d+)?)\s*%", line)
+            rate = float(pct_match.group(1).replace(",", ".")) if pct_match else None
+            
+            amt_match = re.search(r"(\d+(?:[.,]\d{2}))", line)
+            amt = float(amt_match.group(1).replace(",", ".")) if amt_match else None
+            
+            if amt is not None or rate is not None:
+                return amt, rate
+    return None, None
 
 
 def extract_date(lines: list[str]) -> str | None:

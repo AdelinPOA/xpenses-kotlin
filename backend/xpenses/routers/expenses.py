@@ -90,15 +90,18 @@ async def create_expense(body: ExpenseCreate, current_user: dict = Depends(get_c
         raise HTTPException(status_code=502, detail=f"Failed to fetch exchange rate: {e}")
 
     amount_eur = round(body.amount * fx_rate, 2)
+    tax_amount_eur = round(body.tax_amount / fx_rate, 2) if fx_rate else 0.0
 
     now = datetime.utcnow()
     row = await db.fetchrow(
         """INSERT INTO expenses
            (category_id, report_id, amount_original, currency_original, amount_eur, fx_rate,
+            tax_amount, tax_rate, tax_amount_eur,
             date, description, merchant, user_id, created_at, updated_at)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
            RETURNING id""",
         body.category_id, body.report_id, body.amount, body.currency.upper(), amount_eur, fx_rate,
+        body.tax_amount, body.tax_rate, tax_amount_eur,
         body.date, body.description, body.merchant, current_user["id"], now, now,
     )
     new_id = row["id"]
@@ -132,11 +135,19 @@ async def update_expense(expense_id: int, body: ExpenseUpdate, current_user: dic
     raw = body.model_dump(exclude_unset=True)
     fields = {}
 
-    need_fx_recalc = any(k in raw for k in ("amount", "currency", "date"))
+    need_fx_recalc = any(k in raw for k in ("amount", "currency", "date", "tax_amount", "tax_rate"))
     if need_fx_recalc:
         eff_amount = raw.get("amount", row["amount_original"])
         eff_currency = raw.get("currency", row["currency_original"]).upper()
         eff_date = raw.get("date", row["date"])
+        
+        # Use existing values if not provided; handle potential None
+        row_tax_amount = row.get("tax_amount")
+        if row_tax_amount is None: row_tax_amount = 0.0
+        eff_tax_amount = raw.get("tax_amount", row_tax_amount)
+        if eff_tax_amount is None: eff_tax_amount = 0.0
+        
+        eff_tax_rate = raw.get("tax_rate", row.get("tax_rate"))
 
         try:
             fx_rate = await get_rate(eff_currency, eff_date)
@@ -147,6 +158,9 @@ async def update_expense(expense_id: int, body: ExpenseUpdate, current_user: dic
         fields["currency_original"] = eff_currency
         fields["amount_eur"] = round(eff_amount * fx_rate, 2)
         fields["fx_rate"] = fx_rate
+        fields["tax_amount"] = eff_tax_amount
+        fields["tax_rate"] = eff_tax_rate
+        fields["tax_amount_eur"] = round(float(eff_tax_amount) / fx_rate, 2) if fx_rate else 0.0
 
     for k in ("date", "description", "merchant", "category_id"):
         if k in raw:

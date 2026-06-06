@@ -29,6 +29,8 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
     merchant: expense?.merchant ?? "",
     description: expense?.description ?? "",
     category_id: expense?.category_id?.toString() ?? "",
+    tax_amount: expense?.tax_amount?.toString() ?? "0",
+    tax_rate: expense?.tax_rate?.toString() ?? "",
   });
   const [receiptFiles, setReceiptFiles] = useState<File[]>([]);
   const [deletedReceiptIds, setDeletedReceiptIds] = useState<Set<number>>(new Set());
@@ -54,6 +56,8 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
         merchant: form.merchant || null,
         description: form.description || null,
         category_id: form.category_id ? parseInt(form.category_id) : null,
+        tax_amount: form.tax_amount ? parseFloat(form.tax_amount) : 0,
+        tax_rate: form.tax_rate ? parseFloat(form.tax_rate) : null,
         ...(reportId && !isEdit ? { report_id: reportId } : {}),
       };
       let result: Expense;
@@ -142,6 +146,8 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
         ...f,
         amount: f.amount || (result.amount?.toString() ?? ""),
         currency: result.currency && !f.amount ? result.currency : f.currency,
+        tax_amount: f.tax_amount === "0" || !f.tax_amount ? (result.tax_amount?.toString() ?? "0") : f.tax_amount,
+        tax_rate: f.tax_rate || (result.tax_rate?.toString() ?? ""),
         date: f.date === new Date().toISOString().slice(0, 10) && result.date ? result.date : f.date,
         merchant: f.merchant || result.merchant || "",
       }));
@@ -242,7 +248,34 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
           </select>
         </div>
       </div>
-
+      {/* Tax fields hidden for now
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Tax Amount</label>
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            value={form.tax_amount}
+            onChange={set("tax_amount")}
+            className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:text-slate-100"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Tax Rate (%)</label>
+          <input
+            type="number"
+            step="0.1"
+            min="0"
+            max="100"
+            value={form.tax_rate}
+            onChange={set("tax_rate")}
+            placeholder="e.g. 19"
+            className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:text-slate-100"
+          />
+        </div>
+      </div>
+      */}
       <div>
         <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Date *</label>
         <input

@@ -11,7 +11,7 @@ Self-hosted expense management app (alternative to Zoho Expenses). FastAPI backe
 
 **AI Workflow:** Opus 4.6 for planning, coordination, orchestration, and code review. Sonnet agents for coding implementation tasks.
 
-## Current State: OPERATIONAL (Advance Payments v2 + OCR Receipt Scanning + 87 Tests)
+## Current State: OPERATIONAL (Phase 7 Partial + Advance Payments v2 + OCR + Test Suite)
 
 All 3 Docker containers running, all endpoints healthy:
 
@@ -22,6 +22,23 @@ All 3 Docker containers running, all endpoints healthy:
 | Next.js frontend | `xpenses-frontend` | 3001 → 3000 | Serving (307 redirect to /login if unauthenticated) |
 
 ## Latest Session (2026-06-06, session 9)
+
+### What Was Done
+- **OCR Receipt Scanning Validation & Fixes** (IMPLEMENTED + TESTED)
+  - Validated that `easyocr` is fully operational in the backend container (`/api/ocr/scan`).
+  - Validated frontend UI integration exists in `ExpenseForm.tsx`.
+  - Improved `ocr_service.py` (`extract_amount`): added 2-line lookahead for total amounts on tabular receipts (like PDFs).
+  - Added global currency fallback in OCR to detect '€' or 'EUR' anywhere in the receipt text.
+  - Test suite grew to 87 passing tests (including `test_ocr.py` and `test_advances.py`).
+  - Updated all documentation (`README.md`, `CLAUDE.md`, `HANDOFF.md`) to reflect the real state of the project.
+
+### Modified Files
+- `backend/xpenses/services/ocr_service.py` — added lookahead for amounts and `_guess_global_currency()`.
+- `README.md` — marked OCR as completed, added Advance payments to features, updated test counts (87).
+- `CLAUDE.md` — updated test count, added OCR to Key Patterns.
+- `HANDOFF.md` — added session 9 log.
+
+## Previous Session (2026-06-05, session 8)
 
 ### What Was Done
 - **OCR receipt scanning** (IMPLEMENTED + TESTED)
@@ -201,10 +218,10 @@ curl -b /tmp/cookies.txt http://localhost:8001/api/expenses
 
 ## What's Next
 
-- **IMMEDIATE**: Execute advance payments redesign plan (`docs/superpowers/plans/2026-06-05-advance-payments-redesign.md`)
+- **IMMEDIATE**: Execute Advance payments UI polish or start Analytics (Phase 6).
 - **Phase 5**: Approval Workflow enhancements (email notifications, delegation)
 - **Phase 6**: Analytics & Reporting (trends, budgets, CSV export)
-- **Phase 7 remaining**: Expense duplication, recurring expenses, OCR receipt scanning
+- **Phase 7 remaining**: Expense duplication, recurring expenses, manual FX overrides
 - **Production**: Set `LDAP_ENABLED=true`, implement LDAP bind, deploy on company server
 
 ---

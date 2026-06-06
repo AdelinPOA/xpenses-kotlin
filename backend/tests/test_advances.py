@@ -121,7 +121,8 @@ async def test_report_total_reimbursable_calculation(client):
     resp = await client.get(f"/api/reports/{report['id']}")
     data = resp.json()
     assert data["total_advances"] == 30.0
-    assert data["total_reimbursable"] == 20.0
+    assert data["daily_allowance"] == 1550.0
+    assert data["total_reimbursable"] == 1570.0
 
 
 

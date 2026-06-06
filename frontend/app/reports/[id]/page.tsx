@@ -137,7 +137,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
         </div>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-4 mb-6">
         <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4">
           <p className="text-xs text-slate-400 dark:text-slate-500 uppercase mb-1">Total Expenses</p>
           <p className="text-xl font-bold text-slate-900 dark:text-slate-100">{formatAmount(displayTotal, "EUR")}</p>
@@ -145,6 +145,10 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
         <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4">
           <p className="text-xs text-slate-400 dark:text-slate-500 uppercase mb-1">Expenses</p>
           <p className="text-xl font-bold text-slate-900 dark:text-slate-100">{report.expenses.length}</p>
+        </div>
+        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4">
+          <p className="text-xs text-purple-400 dark:text-purple-500 uppercase mb-1">Daily Allowance</p>
+          <p className="text-xl font-bold text-purple-600 dark:text-purple-400">{formatAmount(report.daily_allowance || 0, "EUR")}</p>
         </div>
         <Link href={`/reports/${id}/advances`} className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4 hover:ring-2 hover:ring-orange-300 dark:hover:ring-orange-700 transition-all">
           <p className="text-xs text-orange-400 dark:text-orange-500 uppercase mb-1">Advances</p>

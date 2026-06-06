@@ -317,11 +317,33 @@ def _build_main_pdf(report: dict, expenses: list[dict], advances: list[dict] | N
     story.append(Spacer(1, 3 * mm))
 
     total_advances_eur = sum(a["amount_eur"] for a in (advances or []) if a.get("status", "paid") == "paid")
-    total_reimbursable = total_eur - total_advances_eur
+    
+    allowance = 0.0
+    if report.get("date_from") and report.get("date_to"):
+        try:
+            d_from = datetime.strptime(report["date_from"][:10], "%Y-%m-%d")
+            d_to = datetime.strptime(report["date_to"][:10], "%Y-%m-%d")
+            days = (d_to - d_from).days + 1
+            if days > 0:
+                allowance = days * 50.0
+        except ValueError:
+            pass
+
+    total_reimbursable = total_eur + allowance - total_advances_eur
 
     summary_items = [
         [Paragraph("Total Expense", caption_style),
          Paragraph(f"<b>€{total_eur:,.2f}</b>", body_style)],
+    ]
+    
+    if allowance > 0:
+        summary_items.extend([
+            [Paragraph("( + )", caption_style), Paragraph("", body_style)],
+            [Paragraph("Daily Allowance", caption_style),
+             Paragraph(f"<b>€{allowance:,.2f}</b>", body_style)],
+        ])
+
+    summary_items.extend([
         [Paragraph("( - )", caption_style), Paragraph("", body_style)],
         [Paragraph("Non Reimbursable", caption_style),
          Paragraph("<b>€0,00</b>", body_style)],
@@ -331,7 +353,7 @@ def _build_main_pdf(report: dict, expenses: list[dict], advances: list[dict] | N
         [Paragraph("( = )", caption_style), Paragraph("", body_style)],
         [Paragraph("Total Reimbursable", caption_style),
          Paragraph(f"<b>€{total_reimbursable:,.2f}</b>", body_style)],
-    ]
+    ])
     summary_flow = Table(
         [summary_items],
         colWidths=[CONTENT_W / len(summary_items)] * len(summary_items),

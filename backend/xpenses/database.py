@@ -155,6 +155,11 @@ async def init_db() -> None:
         await conn.execute("CREATE INDEX IF NOT EXISTS idx_expenses_user ON expenses(user_id)")
         await conn.execute("CREATE INDEX IF NOT EXISTS idx_reports_user ON expense_reports(user_id)")
 
+        # Tax columns migration
+        await conn.execute("ALTER TABLE expenses ADD COLUMN IF NOT EXISTS tax_amount NUMERIC NOT NULL DEFAULT 0.0;")
+        await conn.execute("ALTER TABLE expenses ADD COLUMN IF NOT EXISTS tax_rate NUMERIC;")
+        await conn.execute("ALTER TABLE expenses ADD COLUMN IF NOT EXISTS tax_amount_eur NUMERIC NOT NULL DEFAULT 0.0;")
+
         # Add approval columns to expense_reports if missing
         for col, col_type in [("approved_by", "INTEGER REFERENCES users(id)"), ("approved_at", "TIMESTAMPTZ"), ("rejected_reason", "TEXT")]:
             col_exists = await conn.fetchval(

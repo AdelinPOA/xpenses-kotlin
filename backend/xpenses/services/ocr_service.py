@@ -5,7 +5,17 @@ import re
 import numpy as np
 from PIL import Image
 
+Image.MAX_IMAGE_PIXELS = 25_000_000
+MAX_EDGE = 2000
+
 _reader = None
+
+
+def _empty_result(warnings: list[str]) -> dict:
+    return {
+        "amount": None, "currency": None, "date": None, "merchant": None,
+        "raw_text": "", "confidence": 0.0, "warnings": warnings,
+    }
 
 
 def _get_reader():
@@ -28,41 +38,27 @@ async def scan_receipt(file_bytes: bytes, filename: str) -> dict:
         try:
             from pdf2image import convert_from_bytes
 
-            pages = convert_from_bytes(file_bytes, first_page=1, last_page=1)
+            pages = convert_from_bytes(file_bytes, first_page=1, last_page=1, dpi=150, size=(MAX_EDGE, None))
             if not pages:
-                return {
-                    "amount": None,
-                    "currency": None,
-                    "date": None,
-                    "merchant": None,
-                    "raw_text": "",
-                    "confidence": 0.0,
-                    "warnings": ["Could not extract page from PDF"],
-                }
+                return _empty_result(["Could not extract page from PDF"])
             pil_image = pages[0]
+        except MemoryError:
+            return _empty_result(["PDF too large to render"])
         except Exception as exc:
-            return {
-                "amount": None,
-                "currency": None,
-                "date": None,
-                "merchant": None,
-                "raw_text": "",
-                "confidence": 0.0,
-                "warnings": [f"PDF conversion failed: {exc}"],
-            }
+            return _empty_result([f"PDF conversion failed: {exc}"])
     else:
         try:
+            pil_image = Image.open(io.BytesIO(file_bytes))
+            pil_image.verify()
             pil_image = Image.open(io.BytesIO(file_bytes)).convert("RGB")
+            w, h = pil_image.size
+            if max(w, h) > MAX_EDGE:
+                ratio = MAX_EDGE / max(w, h)
+                pil_image = pil_image.resize((int(w * ratio), int(h * ratio)), Image.LANCZOS)
+        except Image.DecompressionBombError:
+            return _empty_result(["Image too large (possible decompression bomb)"])
         except Exception as exc:
-            return {
-                "amount": None,
-                "currency": None,
-                "date": None,
-                "merchant": None,
-                "raw_text": "",
-                "confidence": 0.0,
-                "warnings": [f"Image open failed: {exc}"],
-            }
+            return _empty_result([f"Image open failed: {exc}"])
 
     image_np = np.array(pil_image)
 
@@ -71,15 +67,7 @@ async def scan_receipt(file_bytes: bytes, filename: str) -> dict:
         reader = _get_reader()
         results = await asyncio.to_thread(reader.readtext, image_np)
     except Exception as exc:
-        return {
-            "amount": None,
-            "currency": None,
-            "date": None,
-            "merchant": None,
-            "raw_text": "",
-            "confidence": 0.0,
-            "warnings": [f"OCR failed: {exc}"],
-        }
+        return _empty_result([f"OCR failed: {exc}"])
 
     # Extract text lines and compute mean confidence
     lines: list[str] = []
@@ -123,12 +111,12 @@ def extract_amount(lines: list[str]) -> tuple[float | None, str | None]:
 
     # Patterns: (regex, group_amount, group_currency_or_None)
     PATTERNS = [
-        # Currency symbol before amount: €12.50  $1,234.56
-        (re.compile(r"([€$])\s*(\d{1,6}[.,]\d{2})"), 2, 1),
-        # Currency code after amount: 12.50 EUR  1,234.56 RON
-        (re.compile(r"(\d{1,6}[.,]\d{2})\s*(EUR|RON|USD|GBP|lei)", re.IGNORECASE), 1, 2),
-        # Plain decimal number: 12.50  1,234.56
-        (re.compile(r"(\d{1,6}[.,]\d{2})"), 1, None),
+        # Currency symbol before amount: €12.50  $1,234.56  €1.234,56
+        (re.compile(r"([€$])\s*([\d.,]+\d{2})"), 2, 1),
+        # Currency code after amount: 12.50 EUR  1.234,56 RON
+        (re.compile(r"([\d.,]+\d{2})\s*(EUR|RON|USD|GBP|lei)", re.IGNORECASE), 1, 2),
+        # Plain decimal number: 12.50  1.234,56
+        (re.compile(r"((?:\d{1,3}\.)*\d{1,6}[,]\d{2}|\d{1,6}\.\d{2})"), 1, None),
     ]
 
     def _parse_amount(raw: str) -> float:
@@ -161,30 +149,55 @@ def extract_amount(lines: list[str]) -> tuple[float | None, str | None]:
                 return amount, currency
         return None, None
 
+    def _guess_global_currency() -> str | None:
+        full_text = " ".join(lines).upper()
+        if "€" in full_text or "EUR" in full_text:
+            return "EUR"
+        if "$" in full_text or "USD" in full_text:
+            return "USD"
+        if "RON" in full_text or "LEI" in full_text:
+            return "RON"
+        return None
+
     # First pass: look on lines that contain total keywords
     keyword_results: list[tuple[float, str | None]] = []
-    for line in lines:
+    for i, line in enumerate(lines):
         lower = line.lower()
         if any(kw in lower for kw in TOTAL_KEYWORDS):
+            # Check current line
             amt, cur = _find_in_line(line)
             if amt is not None:
                 keyword_results.append((amt, cur))
+                continue
+            
+            # Look ahead up to 2 lines
+            for j in range(1, 3):
+                if i + j < len(lines):
+                    lookahead_amt, lookahead_cur = _find_in_line(lines[i + j])
+                    if lookahead_amt is not None:
+                        keyword_results.append((lookahead_amt, lookahead_cur))
+                        break
+
+    final_amt, final_cur = None, None
 
     if keyword_results:
         # Return the last keyword match (usually the grand total at the bottom)
-        return keyword_results[-1]
+        final_amt, final_cur = keyword_results[-1]
+    else:
+        # Second pass: find largest amount across all lines
+        all_results: list[tuple[float, str | None]] = []
+        for line in lines:
+            amt, cur = _find_in_line(line)
+            if amt is not None:
+                all_results.append((amt, cur))
 
-    # Second pass: find largest amount across all lines
-    all_results: list[tuple[float, str | None]] = []
-    for line in lines:
-        amt, cur = _find_in_line(line)
-        if amt is not None:
-            all_results.append((amt, cur))
+        if all_results:
+            final_amt, final_cur = max(all_results, key=lambda x: x[0])
 
-    if all_results:
-        return max(all_results, key=lambda x: x[0])
+    if final_amt is not None and final_cur is None:
+        final_cur = _guess_global_currency()
 
-    return None, None
+    return final_amt, final_cur
 
 
 def extract_date(lines: list[str]) -> str | None:

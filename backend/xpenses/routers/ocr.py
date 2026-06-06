@@ -8,7 +8,7 @@ from ..models import OCRScanResponse
 from ..services import ocr_service
 
 SCAN_EXTENSIONS = {".jpg", ".jpeg", ".png", ".pdf", ".webp"}
-MAX_SIZE_MB = 10
+MAX_SIZE_BYTES = 10 * 1024 * 1024
 
 router = APIRouter(prefix="/api/ocr", tags=["ocr"])
 
@@ -16,7 +16,7 @@ router = APIRouter(prefix="/api/ocr", tags=["ocr"])
 @router.post("/scan", response_model=OCRScanResponse)
 async def scan_receipt_endpoint(
     file: UploadFile = File(...),
-    current_user: dict = Depends(get_current_user),
+    _current_user: dict = Depends(get_current_user),
 ):
     if not settings.ocr_enabled:
         raise HTTPException(503, "OCR is disabled")
@@ -26,9 +26,17 @@ async def scan_receipt_endpoint(
     if ext not in SCAN_EXTENSIONS:
         raise HTTPException(400, f"File type {ext} not supported for OCR")
 
-    content = await file.read()
-    if len(content) > MAX_SIZE_MB * 1024 * 1024:
-        raise HTTPException(400, f"File exceeds {MAX_SIZE_MB}MB limit")
+    if file.size and file.size > MAX_SIZE_BYTES:
+        raise HTTPException(400, "File exceeds 10MB limit")
+
+    chunks = []
+    total = 0
+    while chunk := await file.read(1024 * 256):
+        total += len(chunk)
+        if total > MAX_SIZE_BYTES:
+            raise HTTPException(400, "File exceeds 10MB limit")
+        chunks.append(chunk)
+    content = b"".join(chunks)
 
     result = await ocr_service.scan_receipt(content, filename)
     return result

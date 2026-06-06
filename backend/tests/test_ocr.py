@@ -62,12 +62,9 @@ async def test_extract_amount_comma_decimal():
 
 @pytest.mark.asyncio
 async def test_extract_amount_european_thousands():
-    # The regex pattern \d{1,6}[.,]\d{2} matches "234,56" from "1.234,56"
-    # (the leading "1." thousands prefix is not captured by the current pattern).
-    # The test documents actual behavior: 234.56 is extracted, not 1234.56.
     lines = ["TOTAL 1.234,56 EUR"]
     amount, currency = extract_amount(lines)
-    assert amount == 234.56
+    assert amount == 1234.56
     assert currency == "EUR"
 
 

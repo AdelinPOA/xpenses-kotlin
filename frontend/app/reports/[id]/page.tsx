@@ -7,7 +7,7 @@ import { reportKeys, expenseKeys, dashboardKeys } from "@/lib/queryKeys";
 import AppShell from "@/components/layout/AppShell";
 import Badge from "@/components/ui/Badge";
 import EmptyState from "@/components/ui/EmptyState";
-import { ArrowLeft, DollarSign, FileDown, FolderDown, PenLine, Pencil, Plus, Send, Undo2 } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Check, DollarSign, FileDown, FolderDown, PenLine, Pencil, Plus, Send, Undo2, X } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/components/AuthProvider";
 
@@ -20,6 +20,12 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
   const qc = useQueryClient();
   const { user } = useAuth();
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [mutationError, setMutationError] = useState("");
+  const [showRejectInput, setShowRejectInput] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState("");
+
+  const clearError = () => setMutationError("");
+  const onError = (msg: string) => () => setMutationError(msg);
 
   const { data: report, isLoading } = useQuery<Report>({
     queryKey: reportKeys.detail(parseInt(id)),
@@ -39,7 +45,9 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
       qc.invalidateQueries({ queryKey: reportKeys.all });
       qc.invalidateQueries({ queryKey: expenseKeys.all });
       setSelectedIds(new Set());
+      clearError();
     },
+    onError: onError("Failed to attach expenses. Please try again."),
   });
 
   const submit = useMutation({
@@ -48,7 +56,9 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
       qc.invalidateQueries({ queryKey: reportKeys.all });
       qc.invalidateQueries({ queryKey: expenseKeys.all });
       qc.invalidateQueries({ queryKey: dashboardKeys.all });
+      clearError();
     },
+    onError: onError("Failed to submit report. Please try again."),
   });
 
   const pay = useMutation({
@@ -57,7 +67,9 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
       qc.invalidateQueries({ queryKey: reportKeys.all });
       qc.invalidateQueries({ queryKey: expenseKeys.all });
       qc.invalidateQueries({ queryKey: dashboardKeys.all });
+      clearError();
     },
+    onError: onError("Failed to mark as paid. You may not have permission."),
   });
 
   const recall = useMutation({
@@ -66,14 +78,41 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
       qc.invalidateQueries({ queryKey: reportKeys.all });
       qc.invalidateQueries({ queryKey: expenseKeys.all });
       qc.invalidateQueries({ queryKey: dashboardKeys.all });
+      clearError();
     },
+    onError: onError("Failed to recall report. Please try again."),
   });
 
   const sign = useMutation({
     mutationFn: () => api.post(`/reports/${id}/sign`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: reportKeys.all });
+      clearError();
     },
+    onError: onError("Failed to sign report. Please try again."),
+  });
+
+  const approve = useMutation({
+    mutationFn: () => api.post(`/reports/${id}/approve`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: reportKeys.all });
+      qc.invalidateQueries({ queryKey: dashboardKeys.all });
+      clearError();
+    },
+    onError: onError("Failed to approve report. You may not have permission or cannot approve your own report."),
+  });
+
+  const reject = useMutation({
+    mutationFn: () => api.post(`/reports/${id}/reject`, { reason: rejectionReason }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: reportKeys.all });
+      qc.invalidateQueries({ queryKey: expenseKeys.all });
+      qc.invalidateQueries({ queryKey: dashboardKeys.all });
+      setShowRejectInput(false);
+      setRejectionReason("");
+      clearError();
+    },
+    onError: onError("Failed to reject report. You may not have permission or cannot reject your own report."),
   });
 
   const toggleExpense = (eid: number) => {
@@ -84,13 +123,36 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
     });
   };
 
-  if (isLoading) return <AppShell><p className="text-slate-400 dark:text-slate-500 text-sm mt-8">Loading...</p></AppShell>;
+  const toggleSelectAll = () => {
+    if (selectedIds.size === availableDrafts.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(availableDrafts.map((e) => e.id)));
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <AppShell>
+        <div role="status" aria-live="polite" className="animate-pulse space-y-4 mt-8">
+          <div className="h-8 bg-slate-200 dark:bg-slate-700 rounded w-64" />
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {[...Array(4)].map((_, i) => <div key={i} className="h-20 bg-slate-200 dark:bg-slate-700 rounded-xl" />)}
+          </div>
+          <div className="h-48 bg-slate-200 dark:bg-slate-700 rounded-xl" />
+        </div>
+      </AppShell>
+    );
+  }
   if (!report) return <AppShell><p className="text-red-500 text-sm">Report not found</p></AppShell>;
 
   const availableDrafts = draftExpenses?.filter((e) => !e.report_id) ?? [];
-
   const computedTotal = report.expenses.reduce((sum, e) => sum + e.amount_eur, 0);
   const displayTotal = computedTotal || report.total_amount;
+
+  const canApproveOrReject =
+    (user?.role === "manager" || user?.role === "chef_finance") &&
+    report.user_id !== user?.id;
 
   return (
     <AppShell>
@@ -103,20 +165,13 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
             <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{report.title}</h1>
             {report.description && <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">{report.description}</p>}
           </div>
-          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-            <div className="flex flex-col items-end gap-1">
-              <Badge status={report.status} />
-              {report.status === "approved" && report.approved_at && (
-                <span className="text-xs text-blue-600 dark:text-blue-400">
-                  Approved on {new Date(report.approved_at).toLocaleDateString()}
-                </span>
-              )}
-              {report.status === "rejected" && (
-                <span className="text-xs text-red-600 dark:text-red-400">
-                  Rejected{report.rejected_reason ? `: ${report.rejected_reason}` : ""}
-                </span>
-              )}
-            </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge status={report.status} />
+            {report.status === "approved" && report.approved_at && (
+              <span className="text-xs text-blue-600 dark:text-blue-400">
+                Approved on {new Date(report.approved_at).toLocaleDateString()}
+              </span>
+            )}
             {report.status === "draft" && (
               <Link
                 href={`/reports/${id}/edit`}
@@ -142,11 +197,65 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
               <FolderDown className="w-4 h-4" />
               Download receipts
             </a>
+            {!report.signed_at && user && report.user_id === user.id && (
+              user.signature_path ? (
+                <button
+                  onClick={() => sign.mutate()}
+                  disabled={sign.isPending}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                >
+                  <PenLine className="w-4 h-4" />
+                  {sign.isPending ? "Signing..." : "Sign Report"}
+                </button>
+              ) : (
+                <Link
+                  href="/profile/signature"
+                  className="flex items-center gap-2 px-3 py-1.5 border border-indigo-300 dark:border-indigo-600 text-indigo-600 dark:text-indigo-400 text-sm font-medium rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
+                >
+                  <PenLine className="w-4 h-4" />
+                  Record Signature
+                </Link>
+              )
+            )}
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-4 mb-6">
+      {/* Mutation error banner */}
+      {mutationError && (
+        <div className="mb-4 flex items-center gap-2 px-4 py-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg text-sm text-red-700 dark:text-red-400">
+          <AlertTriangle className="w-4 h-4 shrink-0" />
+          <span className="flex-1">{mutationError}</span>
+          <button type="button" onClick={clearError} aria-label="Dismiss error"><X className="w-4 h-4" /></button>
+        </div>
+      )}
+
+      {/* Rejection banner */}
+      {report.status === "rejected" && (
+        <div className="mb-4 flex flex-col sm:flex-row sm:items-center gap-3 px-4 py-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 rounded-lg">
+          <div className="flex items-start gap-2 flex-1">
+            <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">Report rejected</p>
+              {report.rejected_reason && (
+                <p className="text-sm text-amber-700 dark:text-amber-400 mt-0.5">{report.rejected_reason}</p>
+              )}
+            </div>
+          </div>
+          {report.user_id === user?.id && (
+            <button
+              onClick={() => recall.mutate()}
+              disabled={recall.isPending}
+              className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white text-sm font-medium rounded-lg hover:bg-amber-600 disabled:opacity-50 shrink-0"
+            >
+              <Undo2 className="w-4 h-4" />
+              {recall.isPending ? "Recalling..." : "Recall to draft"}
+            </button>
+          )}
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mb-6">
         <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4">
           <p className="text-xs text-slate-400 dark:text-slate-500 uppercase mb-1">Total Expenses</p>
           <p className="text-xl font-bold text-slate-900 dark:text-slate-100">{formatAmount(displayTotal, "EUR")}</p>
@@ -206,28 +315,39 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
           </div>
           {availableDrafts.length > 0 ? (
             <>
-              <div className="space-y-2 mb-3">
-            {availableDrafts.map((e) => (
-              <label key={e.id} className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={selectedIds.has(e.id)}
-                  onChange={() => toggleExpense(e.id)}
-                  className="w-4 h-4 accent-blue-600"
-                />
-                <span className="text-sm text-slate-700 dark:text-slate-300">
-                  {e.merchant || e.description || "—"} — {e.date} — {formatAmount(e.amount_eur, "EUR")}
-                </span>
-              </label>
-            ))}
-          </div>
-          <button
-            onClick={() => attach.mutate(Array.from(selectedIds))}
-            disabled={attach.isPending || selectedIds.size === 0}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50"
-          >
-            <Plus className="w-4 h-4" />
-            {attach.isPending ? "Adding..." : "Add to report"}
+              <div className="space-y-1 mb-3">
+                <label className="flex items-center gap-3 cursor-pointer py-1 border-b border-slate-200 dark:border-slate-700 mb-2">
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.size === availableDrafts.length && availableDrafts.length > 0}
+                    onChange={toggleSelectAll}
+                    className="w-4 h-4 accent-blue-600"
+                  />
+                  <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">
+                    {selectedIds.size === availableDrafts.length ? "Deselect all" : "Select all"}
+                  </span>
+                </label>
+                {availableDrafts.map((e) => (
+                  <label key={e.id} className="flex items-center gap-3 cursor-pointer py-2">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(e.id)}
+                      onChange={() => toggleExpense(e.id)}
+                      className="w-4 h-4 accent-blue-600"
+                    />
+                    <span className="text-sm text-slate-700 dark:text-slate-300">
+                      {e.merchant || e.description || "—"} — {e.date} — {formatAmount(e.amount_eur, "EUR")}
+                    </span>
+                  </label>
+                ))}
+              </div>
+              <button
+                onClick={() => attach.mutate(Array.from(selectedIds))}
+                disabled={attach.isPending || selectedIds.size === 0}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              >
+                <Plus className="w-4 h-4" />
+                {attach.isPending ? "Adding..." : "Add to report"}
               </button>
             </>
           ) : (
@@ -253,18 +373,74 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
         </div>
       )}
 
+      {/* Submitted: awaiting approval */}
       {report.status === "submitted" && (
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-4 mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+            <p className="text-sm text-slate-600 dark:text-slate-400 flex-1">
+              This report is awaiting manager approval.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {report.user_id === user?.id && (
+                <button
+                  onClick={() => recall.mutate()}
+                  disabled={recall.isPending}
+                  className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white text-sm font-medium rounded-lg hover:bg-amber-600 disabled:opacity-50"
+                >
+                  <Undo2 className="w-4 h-4" />
+                  {recall.isPending ? "Recalling..." : "Recall to draft"}
+                </button>
+              )}
+              {canApproveOrReject && (
+                <>
+                  <button
+                    onClick={() => approve.mutate()}
+                    disabled={approve.isPending}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    <Check className="w-4 h-4" />
+                    {approve.isPending ? "Approving..." : "Approve"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowRejectInput((v) => !v)}
+                    className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700"
+                  >
+                    <X className="w-4 h-4" />
+                    Reject
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+          {showRejectInput && (
+            <div className="mt-3 flex flex-col sm:flex-row gap-2">
+              <input
+                type="text"
+                placeholder="Rejection reason (optional)"
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                className="flex-1 px-3 py-2 border border-slate-200 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 outline-none focus:ring-2 focus:ring-red-400"
+              />
+              <button
+                onClick={() => reject.mutate()}
+                disabled={reject.isPending}
+                className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 disabled:opacity-50 shrink-0"
+              >
+                {reject.isPending ? "Rejecting..." : "Confirm Reject"}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Approved: awaiting payment */}
+      {report.status === "approved" && (
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-4 mb-6 flex items-center justify-between">
-          <p className="text-sm text-slate-600 dark:text-slate-400">This report is awaiting payment.</p>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => recall.mutate()}
-              disabled={recall.isPending}
-              className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white text-sm font-medium rounded-lg hover:bg-amber-600 disabled:opacity-50"
-            >
-              <Undo2 className="w-4 h-4" />
-              {recall.isPending ? "Recalling..." : "Recall to draft"}
-            </button>
+          <p className="text-sm text-slate-600 dark:text-slate-400">
+            This report has been approved and is awaiting payment.
+          </p>
+          {user?.role === "chef_finance" && (
             <button
               onClick={() => pay.mutate()}
               disabled={pay.isPending}
@@ -273,43 +449,17 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
               <DollarSign className="w-4 h-4" />
               {pay.isPending ? "Processing..." : "Mark as paid"}
             </button>
-          </div>
+          )}
         </div>
       )}
 
       {/* Signature */}
-      {report.signed_at ? (
+      {report.signed_at && (
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-4 mb-6">
           <p className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Signed</p>
           <p className="text-sm text-slate-600 dark:text-slate-400">
             Signed on {new Date(report.signed_at).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}
           </p>
-        </div>
-      ) : user && report.user_id === user.id && (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-4 mb-6 flex items-center justify-between">
-          <p className="text-sm text-slate-600 dark:text-slate-400">
-            {user.signature_path
-              ? "Sign this report with your saved signature."
-              : "Record your signature in profile settings to sign reports."}
-          </p>
-          {user.signature_path ? (
-            <button
-              onClick={() => sign.mutate()}
-              disabled={sign.isPending}
-              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50"
-            >
-              <PenLine className="w-4 h-4" />
-              {sign.isPending ? "Signing..." : "Sign Report"}
-            </button>
-          ) : (
-            <Link
-              href="/profile/signature"
-              className="flex items-center gap-2 px-4 py-2 border border-indigo-300 dark:border-indigo-600 text-indigo-600 dark:text-indigo-400 text-sm font-medium rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
-            >
-              <PenLine className="w-4 h-4" />
-              Record Signature
-            </Link>
-          )}
         </div>
       )}
 
@@ -327,9 +477,9 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
                 <tr>
                   <th className="text-left px-4 py-3">Date</th>
                   <th className="text-left px-4 py-3">Merchant</th>
-                  <th className="text-left px-4 py-3">Category</th>
-                  <th className="text-left px-4 py-3">Description</th>
-                  <th className="text-right px-4 py-3">Original</th>
+                  <th className="text-left px-4 py-3 hidden sm:table-cell">Category</th>
+                  <th className="text-left px-4 py-3 hidden md:table-cell">Description</th>
+                  <th className="text-right px-4 py-3 hidden sm:table-cell">Original</th>
                   <th className="text-right px-4 py-3">EUR</th>
                   <th className="text-right px-4 py-3">Receipt</th>
                 </tr>
@@ -339,9 +489,9 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
                   <tr key={e.id} className="border-t border-slate-100 dark:border-slate-700">
                     <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{e.date}</td>
                     <td className="px-4 py-3 font-medium text-slate-800 dark:text-slate-200">{e.merchant || "—"}</td>
-                    <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{e.category_name || "—"}</td>
-                    <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{e.description || "—"}</td>
-                    <td className="px-4 py-3 text-right text-slate-500 dark:text-slate-400">
+                    <td className="px-4 py-3 text-slate-500 dark:text-slate-400 hidden sm:table-cell">{e.category_name || "—"}</td>
+                    <td className="px-4 py-3 text-slate-500 dark:text-slate-400 hidden md:table-cell">{e.description || "—"}</td>
+                    <td className="px-4 py-3 text-right text-slate-500 dark:text-slate-400 hidden sm:table-cell">
                       {e.currency_original !== "EUR"
                         ? formatAmount(e.amount_original, e.currency_original)
                         : "—"}

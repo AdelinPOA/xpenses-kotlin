@@ -17,9 +17,10 @@ from ..services.pdf_export import generate_report_pdf
 router = APIRouter(prefix="/api/reports", tags=["reports"])
 
 EXPENSE_SELECT = """
-    SELECT e.*, c.name as category_name
+    SELECT e.*, c.name as category_name, u.display_name as user_display_name
     FROM expenses e
     LEFT JOIN categories c ON e.category_id = c.id
+    LEFT JOIN users u ON e.user_id = u.id
 """
 
 
@@ -46,7 +47,10 @@ async def _enrich_expenses_receipts(db: asyncpg.Connection, expenses: list[dict]
 
 
 async def _fetch_report(db: asyncpg.Connection, report_id: int) -> dict:
-    row = await db.fetchrow("SELECT * FROM expense_reports WHERE id = $1", report_id)
+    row = await db.fetchrow(
+        "SELECT r.*, u.display_name as user_display_name FROM expense_reports r LEFT JOIN users u ON r.user_id = u.id WHERE r.id = $1",
+        report_id
+    )
     if not row:
         raise HTTPException(status_code=404, detail="Report not found")
     report = dict(row)
@@ -87,20 +91,27 @@ async def _fetch_report(db: asyncpg.Connection, report_id: int) -> dict:
 
 
 @router.get("", response_model=list[ReportOut])
-async def list_reports(status: str | None = None, current_user: dict = Depends(get_current_user), db: asyncpg.Connection = Depends(get_db)):
-    if current_user["role"] in ("chef_finance", "mod"):
-        query = "SELECT * FROM expense_reports"
-        params: list = []
+async def list_reports(
+    status: str | None = None,
+    all: bool = False,
+    current_user: dict = Depends(get_current_user),
+    db: asyncpg.Connection = Depends(get_db)
+):
+    params: list = []
+    
+    if all and current_user["role"] in ("chef_finance", "mod", "manager"):
+        query = "SELECT r.*, u.display_name as user_display_name FROM expense_reports r LEFT JOIN users u ON r.user_id = u.id"
         if status:
-            query += " WHERE status = $1"
+            query += " WHERE r.status = $1"
             params.append(status)
     else:
-        query = "SELECT * FROM expense_reports WHERE user_id = $1"
+        query = "SELECT r.*, u.display_name as user_display_name FROM expense_reports r LEFT JOIN users u ON r.user_id = u.id WHERE r.user_id = $1"
         params = [current_user["id"]]
         if status:
-            query += " AND status = $2"
+            query += " AND r.status = $2"
             params.append(status)
-    query += " ORDER BY created_at DESC"
+            
+    query += " ORDER BY r.created_at DESC"
     rows = await db.fetch(query, *params)
     result = []
     for row in rows:
@@ -124,7 +135,8 @@ async def create_report(body: ReportCreate, current_user: dict = Depends(get_cur
 @router.get("/{report_id}", response_model=ReportOut)
 async def get_report(report_id: int, current_user: dict = Depends(get_current_user), db: asyncpg.Connection = Depends(get_db)):
     report = await _fetch_report(db, report_id)
-    if current_user["role"] not in ("chef_finance", "mod") and report.get("user_id") != current_user["id"]:
+    # Managers, chef_finance and mod can view any report
+    if current_user["role"] not in ("chef_finance", "mod", "manager") and report.get("user_id") != current_user["id"]:
         raise HTTPException(status_code=403, detail="Not your report")
     return report
 
@@ -134,8 +146,9 @@ async def update_report(report_id: int, body: ReportUpdate, current_user: dict =
     row = await db.fetchrow("SELECT * FROM expense_reports WHERE id = $1", report_id)
     if not row:
         raise HTTPException(status_code=404, detail="Report not found")
-    if row["user_id"] != current_user["id"] and current_user["role"] not in ("chef_finance", "mod"):
-        raise HTTPException(status_code=403, detail="Not your report")
+    # ONLY the owner can update a report
+    if row["user_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Only the owner can update a report")
     if row["status"] != "draft":
         raise HTTPException(status_code=400, detail="Only draft reports can be edited")
 
@@ -161,8 +174,9 @@ async def delete_report(report_id: int, current_user: dict = Depends(get_current
     row = await db.fetchrow("SELECT status, user_id FROM expense_reports WHERE id = $1", report_id)
     if not row:
         raise HTTPException(status_code=404, detail="Report not found")
-    if row["user_id"] != current_user["id"] and current_user["role"] not in ("chef_finance", "mod"):
-        raise HTTPException(status_code=403, detail="Not your report")
+    # ONLY the owner can delete a report
+    if row["user_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Only the owner can delete a report")
     if row["status"] != "draft":
         raise HTTPException(status_code=400, detail="Only draft reports can be deleted")
     await db.execute("UPDATE expenses SET report_id = NULL, status = 'draft' WHERE report_id = $1", report_id)
@@ -174,22 +188,23 @@ async def attach_expenses(report_id: int, body: ReportSubmit, current_user: dict
     row = await db.fetchrow("SELECT status, user_id FROM expense_reports WHERE id = $1", report_id)
     if not row:
         raise HTTPException(status_code=404, detail="Report not found")
-    if row["user_id"] != current_user["id"] and current_user["role"] not in ("chef_finance", "mod"):
-        raise HTTPException(status_code=403, detail="Not your report")
+    # ONLY the owner can attach expenses
+    if row["user_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Only the owner can modify report expenses")
     if row["status"] != "draft":
         raise HTTPException(status_code=400, detail="Only draft reports can be modified")
     if not body.expense_ids:
         raise HTTPException(status_code=400, detail="At least one expense is required")
 
     rows = await db.fetch(
-        "SELECT id FROM expenses WHERE id = ANY($1::int[]) AND status = 'draft'",
-        body.expense_ids,
+        "SELECT id FROM expenses WHERE id = ANY($1::int[]) AND status = 'draft' AND user_id = $2",
+        body.expense_ids, current_user["id"]
     )
     valid = {r["id"] for r in rows}
 
     invalid = set(body.expense_ids) - valid
     if invalid:
-        raise HTTPException(status_code=400, detail=f"Invalid or non-draft expense IDs: {invalid}")
+        raise HTTPException(status_code=400, detail=f"Invalid, non-draft, or not-owned expense IDs: {invalid}")
 
     now = datetime.utcnow()
     await db.execute(
@@ -208,16 +223,17 @@ async def submit_report(report_id: int, body: ReportSubmit | None = None, curren
     row = await db.fetchrow("SELECT status, user_id FROM expense_reports WHERE id = $1", report_id)
     if not row:
         raise HTTPException(status_code=404, detail="Report not found")
-    if row["user_id"] != current_user["id"] and current_user["role"] not in ("chef_finance", "mod"):
-        raise HTTPException(status_code=403, detail="Not your report")
+    # ONLY the owner can submit
+    if row["user_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Only the owner can submit a report")
     if row["status"] != "draft":
         raise HTTPException(status_code=400, detail="Report is not in draft status")
 
     if body and body.expense_ids:
         now = datetime.utcnow()
         await db.execute(
-            "UPDATE expenses SET report_id = $1, updated_at = $2 WHERE id = ANY($3::int[]) AND status = 'draft'",
-            report_id, now, body.expense_ids,
+            "UPDATE expenses SET report_id = $1, updated_at = $2 WHERE id = ANY($3::int[]) AND status = 'draft' AND user_id = $4",
+            report_id, now, body.expense_ids, current_user["id"]
         )
 
     rows = await db.fetch(
@@ -252,8 +268,9 @@ async def recall_report(report_id: int, current_user: dict = Depends(get_current
     row = await db.fetchrow("SELECT status, user_id FROM expense_reports WHERE id = $1", report_id)
     if not row:
         raise HTTPException(status_code=404, detail="Report not found")
-    if row["user_id"] != current_user["id"] and current_user["role"] not in ("chef_finance", "mod"):
-        raise HTTPException(status_code=403, detail="Not your report")
+    # ONLY the owner can recall
+    if row["user_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Only the owner can recall a report")
     if row["status"] != "submitted":
         raise HTTPException(status_code=400, detail="Only submitted reports can be recalled")
 
@@ -299,7 +316,8 @@ async def export_report_pdf(report_id: int, current_user: dict = Depends(get_cur
     row = await db.fetchrow("SELECT * FROM expense_reports WHERE id = $1", report_id)
     if not row:
         raise HTTPException(status_code=404, detail="Report not found")
-    if current_user["role"] not in ("chef_finance", "mod") and row["user_id"] != current_user["id"]:
+    # Viewers can export
+    if current_user["role"] not in ("chef_finance", "mod", "manager") and row["user_id"] != current_user["id"]:
         raise HTTPException(status_code=403, detail="Not your report")
 
     report = dict(row)
@@ -351,7 +369,8 @@ async def download_receipts_zip(report_id: int, current_user: dict = Depends(get
     row = await db.fetchrow("SELECT title, user_id FROM expense_reports WHERE id = $1", report_id)
     if not row:
         raise HTTPException(status_code=404, detail="Report not found")
-    if current_user["role"] not in ("chef_finance", "mod") and row["user_id"] != current_user["id"]:
+    # Viewers can download
+    if current_user["role"] not in ("chef_finance", "mod", "manager") and row["user_id"] != current_user["id"]:
         raise HTTPException(status_code=403, detail="Not your report")
     report_title = row["title"]
 

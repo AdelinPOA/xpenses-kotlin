@@ -28,13 +28,19 @@ async def test_list_reports_own_only(client):
 
 
 @pytest.mark.asyncio
-async def test_cfo_sees_all_reports(client):
+async def test_privileged_sees_all_reports_with_param(client):
     await login(client, "tech1")
     await create_report(client, title="Tech1 Private Report")
 
     async with new_client() as cfo_client:
         await login(cfo_client, "cfo1")
+        # By default, CFO sees only their own (empty)
         resp = await cfo_client.get("/api/reports")
+        assert resp.status_code == 200
+        assert "Tech1 Private Report" not in [r["title"] for r in resp.json()]
+
+        # With all=true, CFO sees everything
+        resp = await cfo_client.get("/api/reports?all=true")
         assert resp.status_code == 200
         titles = [r["title"] for r in resp.json()]
         assert "Tech1 Private Report" in titles

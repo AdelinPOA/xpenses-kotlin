@@ -14,9 +14,10 @@ from ..services.storage import delete_receipt, get_full_path, save_receipt
 router = APIRouter(prefix="/api/expenses", tags=["expenses"])
 
 EXPENSE_SELECT = """
-    SELECT e.*, c.name as category_name
+    SELECT e.*, c.name as category_name, u.display_name as user_display_name
     FROM expenses e
     LEFT JOIN categories c ON e.category_id = c.id
+    LEFT JOIN users u ON e.user_id = u.id
 """
 
 
@@ -45,15 +46,19 @@ async def list_expenses(
     status: str | None = Query(default=None),
     from_date: str | None = Query(default=None, alias="from"),
     to_date: str | None = Query(default=None, alias="to"),
+    all: bool = Query(default=False),
     current_user: dict = Depends(get_current_user),
     db: asyncpg.Connection = Depends(get_db)):
     conditions, params = [], []
     param_idx = 1
 
-    # Always filter by current user
-    conditions.append(f"e.user_id = ${param_idx}")
-    params.append(current_user["id"])
-    param_idx += 1
+    if all and current_user["role"] in ("chef_finance", "mod"):
+        # No user_id filter
+        pass
+    else:
+        conditions.append(f"e.user_id = ${param_idx}")
+        params.append(current_user["id"])
+        param_idx += 1
 
     if report_id is not None:
         conditions.append(f"e.report_id = ${param_idx}")
@@ -116,7 +121,7 @@ async def get_expense(expense_id: int, current_user: dict = Depends(get_current_
     if not row:
         raise HTTPException(status_code=404, detail="Expense not found")
     row_dict = dict(row)
-    if row_dict.get("user_id") != current_user["id"]:
+    if current_user["role"] not in ("chef_finance", "mod") and row_dict.get("user_id") != current_user["id"]:
         raise HTTPException(status_code=403, detail="Not your expense")
     expenses = await _enrich_with_receipts(db, [row_dict])
     return expenses[0]
@@ -128,7 +133,7 @@ async def update_expense(expense_id: int, body: ExpenseUpdate, current_user: dic
     if not row:
         raise HTTPException(status_code=404, detail="Expense not found")
     if row["user_id"] != current_user["id"]:
-        raise HTTPException(status_code=403, detail="Not your expense")
+        raise HTTPException(status_code=403, detail="Only the owner can perform this action")
     if row["status"] != "draft":
         raise HTTPException(status_code=400, detail="Only draft expenses can be edited")
 
@@ -190,7 +195,7 @@ async def delete_expense(expense_id: int, current_user: dict = Depends(get_curre
     if not row:
         raise HTTPException(status_code=404, detail="Expense not found")
     if row["user_id"] != current_user["id"]:
-        raise HTTPException(status_code=403, detail="Not your expense")
+        raise HTTPException(status_code=403, detail="Only the owner can perform this action")
     if row["status"] != "draft":
         raise HTTPException(status_code=400, detail="Only draft expenses can be deleted")
     receipt_rows = await db.fetch("SELECT file_path FROM receipts WHERE expense_id = $1", expense_id)
@@ -206,7 +211,7 @@ async def upload_receipts(expense_id: int, files: list[UploadFile] = File(...), 
     if not row:
         raise HTTPException(status_code=404, detail="Expense not found")
     if row["user_id"] != current_user["id"]:
-        raise HTTPException(status_code=403, detail="Not your expense")
+        raise HTTPException(status_code=403, detail="Only the owner can perform this action")
 
     saved = []
     now = datetime.utcnow()
@@ -239,8 +244,8 @@ async def delete_single_receipt(expense_id: int, receipt_id: int, current_user: 
     exp_row = await db.fetchrow("SELECT user_id FROM expenses WHERE id = $1", expense_id)
     if not exp_row:
         raise HTTPException(status_code=404, detail="Expense not found")
-    if exp_row["user_id"] is not None and exp_row["user_id"] != current_user["id"]:
-        raise HTTPException(status_code=403, detail="Not your expense")
+    if exp_row["user_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Only the owner can delete receipts")
 
     row = await db.fetchrow(
         "SELECT file_path FROM receipts WHERE id = $1 AND expense_id = $2",
@@ -261,7 +266,7 @@ async def get_single_receipt(expense_id: int, receipt_id: int, current_user: dic
     exp_row = await db.fetchrow("SELECT user_id FROM expenses WHERE id = $1", expense_id)
     if not exp_row:
         raise HTTPException(status_code=404, detail="Expense not found")
-    if exp_row["user_id"] is not None and exp_row["user_id"] != current_user["id"]:
+    if exp_row["user_id"] != current_user["id"] and current_user["role"] not in ("chef_finance", "mod"):
         raise HTTPException(status_code=403, detail="Not your expense")
 
     row = await db.fetchrow(
@@ -285,7 +290,7 @@ async def get_receipt_compat(expense_id: int, current_user: dict = Depends(get_c
         exp = await db.fetchrow("SELECT receipt_path, user_id FROM expenses WHERE id = $1", expense_id)
         if not exp:
             raise HTTPException(status_code=404, detail="Expense not found")
-        if exp["user_id"] is not None and exp["user_id"] != current_user["id"]:
+        if exp["user_id"] != current_user["id"] and current_user["role"] not in ("chef_finance", "mod"):
             raise HTTPException(status_code=403, detail="Not your expense")
         if not exp["receipt_path"]:
             raise HTTPException(status_code=404, detail="No receipt found")

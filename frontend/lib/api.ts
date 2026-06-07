@@ -46,6 +46,7 @@ export interface Expense {
   receipt_path: string | null;
   receipts: Receipt[];
   status: string;
+  user_display_name?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -117,6 +118,7 @@ export interface Report {
   signer_id: number | null;
   signed_at: string | null;
   user_id: number | null;
+  user_display_name?: string | null;
   total_amount: number;
   currency: string;
   created_at: string;
@@ -137,6 +139,8 @@ export interface DashboardStats {
   draft_count: number;
   submitted_count: number;
   paid_count: number;
+  pending_approval_count: number;
+  pending_payment_count: number;
   spend_by_category: {
     category_id: number | null;
     category_name: string;

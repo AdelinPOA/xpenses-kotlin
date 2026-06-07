@@ -68,12 +68,38 @@ export default function SignaturePad({
     isDrawingRef.current = false;
   }
 
+  function getCoordinates(e: React.MouseEvent | React.TouchEvent) {
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
+
+    const rect = canvas.getBoundingClientRect();
+    let clientX, clientY;
+
+    if ("touches" in e) {
+      const touch = e.touches[0];
+      if (!touch) return { x: 0, y: 0 };
+      clientX = touch.clientX;
+      clientY = touch.clientY;
+    } else {
+      clientX = e.clientX;
+      clientY = e.clientY;
+    }
+
+    // Scale coordinates to match internal canvas resolution
+    return {
+      x: (clientX - rect.left) * (canvas.width / rect.width),
+      y: (clientY - rect.top) * (canvas.height / rect.height),
+    };
+  }
+
   function handleMouseDown(e: React.MouseEvent<HTMLCanvasElement>) {
-    startDrawing(e.nativeEvent.offsetX, e.nativeEvent.offsetY);
+    const { x, y } = getCoordinates(e);
+    startDrawing(x, y);
   }
 
   function handleMouseMove(e: React.MouseEvent<HTMLCanvasElement>) {
-    draw(e.nativeEvent.offsetX, e.nativeEvent.offsetY);
+    const { x, y } = getCoordinates(e);
+    draw(x, y);
   }
 
   function handleMouseUp() {
@@ -84,31 +110,20 @@ export default function SignaturePad({
     stopDrawing();
   }
 
-  function getTouchCoords(e: React.TouchEvent<HTMLCanvasElement>) {
-    const canvas = canvasRef.current;
-    if (!canvas) return { x: 0, y: 0 };
-    const rect = canvas.getBoundingClientRect();
-    const touch = e.touches[0];
-    return {
-      x: touch.clientX - rect.left,
-      y: touch.clientY - rect.top,
-    };
-  }
-
   function handleTouchStart(e: React.TouchEvent<HTMLCanvasElement>) {
-    e.preventDefault();
-    const { x, y } = getTouchCoords(e);
+    if (e.cancelable) e.preventDefault();
+    const { x, y } = getCoordinates(e);
     startDrawing(x, y);
   }
 
   function handleTouchMove(e: React.TouchEvent<HTMLCanvasElement>) {
-    e.preventDefault();
-    const { x, y } = getTouchCoords(e);
+    if (e.cancelable) e.preventDefault();
+    const { x, y } = getCoordinates(e);
     draw(x, y);
   }
 
   function handleTouchEnd(e: React.TouchEvent<HTMLCanvasElement>) {
-    e.preventDefault();
+    if (e.cancelable) e.preventDefault();
     stopDrawing();
   }
 
@@ -134,7 +149,7 @@ export default function SignaturePad({
         ref={canvasRef}
         width={width}
         height={height}
-        className="border border-slate-300 dark:border-slate-600 rounded-lg cursor-crosshair bg-white dark:bg-slate-800"
+        className="border border-slate-300 dark:border-slate-600 rounded-lg cursor-crosshair bg-white dark:bg-slate-800 max-w-full h-auto"
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}

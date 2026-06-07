@@ -1,6 +1,6 @@
 # HANDOFF.md — xpenses_copy
 
-> Last updated: 2026-06-08 (session 13)  
+> Last updated: 2026-06-08 (session 14)  
 > Author: Claude Sonnet 4.6
 
 ---
@@ -19,7 +19,17 @@ All 3 Docker containers running, all endpoints healthy:
 | FastAPI backend | `xpenses-backend` | 8001 → 8000 | `{"status":"ok"}` |
 | Next.js frontend | `xpenses-frontend` | 3001 → 3000 | Serving (307 redirect to /login if unauthenticated) |
 
-## Latest Session (2026-06-08, session 13)
+## Latest Session (2026-06-08, session 14)
+
+### What Was Done
+- **Role-based testing** — app tested end-to-end from manager and CFO perspectives via parallel agents. Found and fixed 2 access-control bugs + 1 UX gap.
+- **Manager report list bug fixed** — `GET /reports?all=true` now includes `manager` role in the org-wide branch (`reports.py`). Previously managers could not discover submitted reports from employees — approval queue was invisible in the UI.
+- **CFO dashboard org-wide default** — `GET /api/dashboard` now returns org-wide data for `chef_finance`/`mod` without requiring `?all=true`. Explicit flag still works; managers remain opt-in.
+- **Manager reports UX** — reports page now defaults to org-wide view for managers on load. Added employee filter chips (one per unique employee in the returned data) so managers can isolate a specific person's reports. Search extended to match both title and employee name. Owner column always visible in org-wide view.
+
+---
+
+## Previous Session (2026-06-08, session 13)
 
 ### What Was Done
 - **UI/UX Audit & Fixes** (IMPLEMENTED) — 4 parallel agents audited the frontend across 4 domains (dashboard/nav, report flows, mobile/accessibility, tables/empty states). 26 issues identified, all fixed.

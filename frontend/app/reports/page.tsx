@@ -30,10 +30,15 @@ export default function ReportsPage() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("submitted_at");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [ownerFilter, setOwnerFilter] = useState("");
   const [delError, setDelError] = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const isPrivileged = user?.role === "chef_finance" || user?.role === "mod";
+  const isPrivileged = user?.role === "chef_finance" || user?.role === "mod" || user?.role === "manager";
+
+  useEffect(() => {
+    if (isPrivileged && user?.role === "manager") setShowAll(true);
+  }, [user?.role]);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -83,9 +88,16 @@ export default function ReportsPage() {
       : <ChevronDown className="w-3 h-3 inline ml-1" />;
   };
 
-  const filtered = (reports ?? []).filter((r) =>
-    debouncedSearch === "" || r.title.toLowerCase().includes(debouncedSearch.toLowerCase())
-  );
+  const uniqueOwners = Array.from(
+    new Set((reports ?? []).map((r) => r.user_display_name).filter(Boolean))
+  ).sort() as string[];
+
+  const filtered = (reports ?? []).filter((r) => {
+    if (ownerFilter && r.user_display_name !== ownerFilter) return false;
+    if (debouncedSearch === "") return true;
+    const q = debouncedSearch.toLowerCase();
+    return r.title.toLowerCase().includes(q) || (r.user_display_name ?? "").toLowerCase().includes(q);
+  });
 
   const sorted = [...filtered].sort((a, b) => {
     let cmp = 0;
@@ -159,13 +171,41 @@ export default function ReportsPage() {
             <Search className="w-3.5 h-3.5 text-slate-400" />
             <input
               type="text"
-              placeholder="Search reports..."
+              placeholder="Search reports…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="outline-none bg-transparent text-slate-700 dark:text-slate-300 placeholder-slate-400 w-40"
             />
           </div>
         </div>
+        {showAll && uniqueOwners.length > 1 && (
+          <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-700 flex flex-wrap gap-2 items-center">
+            <span className="text-xs text-slate-400 dark:text-slate-500 font-medium mr-1">Employee:</span>
+            <button
+              onClick={() => setOwnerFilter("")}
+              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                ownerFilter === ""
+                  ? "bg-blue-600 text-white"
+                  : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700"
+              }`}
+            >
+              All
+            </button>
+            {uniqueOwners.map((name) => (
+              <button
+                key={name}
+                onClick={() => setOwnerFilter(ownerFilter === name ? "" : name)}
+                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                  ownerFilter === name
+                    ? "bg-blue-600 text-white"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700"
+                }`}
+              >
+                {name}
+              </button>
+            ))}
+          </div>
+        )}
 
         {isLoading ? (
           <div role="status" aria-live="polite" className="animate-pulse p-4 space-y-3">
@@ -179,9 +219,22 @@ export default function ReportsPage() {
           </div>
         ) : !sorted.length ? (
           <EmptyState
-            message={debouncedSearch ? `No reports matching "${debouncedSearch}"` : statusFilter ? "No reports with this status" : "No reports found"}
-            actionLabel={debouncedSearch ? "Clear search" : statusFilter ? "Clear filter" : "Create your first report"}
-            onAction={debouncedSearch ? () => setSearch("") : statusFilter ? () => setStatusFilter("") : () => router.push("/reports/new")}
+            message={
+              debouncedSearch ? `No reports matching "${debouncedSearch}"` :
+              ownerFilter ? `No reports from ${ownerFilter}` :
+              statusFilter ? "No reports with this status" : "No reports found"
+            }
+            actionLabel={
+              debouncedSearch ? "Clear search" :
+              ownerFilter ? "Clear employee filter" :
+              statusFilter ? "Clear filter" : "Create your first report"
+            }
+            onAction={
+              debouncedSearch ? () => setSearch("") :
+              ownerFilter ? () => setOwnerFilter("") :
+              statusFilter ? () => setStatusFilter("") :
+              () => router.push("/reports/new")
+            }
           />
         ) : (
           <div className="overflow-x-auto">

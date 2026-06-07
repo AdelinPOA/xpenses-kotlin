@@ -108,6 +108,25 @@ CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens(user_id);
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_hash ON refresh_tokens(token_hash);
 CREATE INDEX IF NOT EXISTS idx_advance_payments_report ON advance_payments(report_id);
 CREATE INDEX IF NOT EXISTS idx_advance_payments_user ON advance_payments(user_id);
+
+CREATE TABLE IF NOT EXISTS mileage_records (
+    id SERIAL PRIMARY KEY,
+    report_id INTEGER NOT NULL REFERENCES expense_reports(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    origin TEXT NOT NULL,
+    destination TEXT NOT NULL,
+    distance_km DOUBLE PRECISION NOT NULL,
+    rate_before_tax DOUBLE PRECISION NOT NULL,
+    rate_after_tax DOUBLE PRECISION NOT NULL,
+    amount_before_tax DOUBLE PRECISION NOT NULL,
+    amount_eur DOUBLE PRECISION NOT NULL,
+    date TEXT NOT NULL,
+    description TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_mileage_records_report ON mileage_records(report_id);
 """
 
 DEFAULT_CATEGORIES = [

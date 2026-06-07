@@ -59,6 +59,14 @@ async def _fetch_report(db: asyncpg.Connection, report_id: int) -> dict:
     )
     report["advances"] = [dict(a) for a in advances]
     report["total_advances"] = sum(a["amount_eur"] for a in report["advances"] if a.get("status", "paid") == "paid")
+
+    mileage_rows = await db.fetch(
+        "SELECT * FROM mileage_records WHERE report_id = $1 ORDER BY date",
+        report_id,
+    )
+    report["mileage_records"] = [dict(m) for m in mileage_rows]
+    report["total_mileage_eur"] = sum(m["amount_eur"] for m in report["mileage_records"])
+
     total_expenses = sum(e["amount_eur"] for e in report["expenses"])
 
     allowance = 0.0
@@ -73,7 +81,7 @@ async def _fetch_report(db: asyncpg.Connection, report_id: int) -> dict:
             pass
     report["daily_allowance"] = allowance
 
-    report["total_reimbursable"] = total_expenses + allowance - report["total_advances"]
+    report["total_reimbursable"] = total_expenses + allowance + report["total_mileage_eur"] - report["total_advances"]
 
     return report
 
@@ -312,7 +320,13 @@ async def export_report_pdf(report_id: int, current_user: dict = Depends(get_cur
     )
     advances = [dict(r) for r in advance_rows]
 
-    pdf_bytes = await generate_report_pdf(report, expenses, advances)
+    mileage_rows = await db.fetch(
+        "SELECT * FROM mileage_records WHERE report_id = $1 ORDER BY date",
+        report_id,
+    )
+    mileage = [dict(m) for m in mileage_rows]
+
+    pdf_bytes = await generate_report_pdf(report, expenses, advances, mileage)
     safe_title = "".join(c if c.isalnum() or c in "-_ " else "_" for c in report["title"])
     filename = f"report_{report_id}_{safe_title[:40].strip()}.pdf"
 

@@ -58,7 +58,7 @@ def _currency_fmt(amount: float, currency: str) -> str:
     return f"{amount:,.2f} {currency}"
 
 
-def _build_main_pdf(report: dict, expenses: list[dict], advances: list[dict] | None = None) -> tuple[BytesIO, list]:
+def _build_main_pdf(report: dict, expenses: list[dict], advances: list[dict] | None = None, mileage: list[dict] | None = None) -> tuple[BytesIO, list]:
     buf = BytesIO()
     doc = SimpleDocTemplate(
         buf, pagesize=A4,
@@ -268,6 +268,60 @@ def _build_main_pdf(report: dict, expenses: list[dict], advances: list[dict] | N
         story.append(adv_table)
         story.append(Spacer(1, 8 * mm))
 
+    # ── Mileage Records table ────────────────────────────────────────────────
+    if mileage:
+        story.append(Paragraph("MILEAGE", h2_style))
+        mil_header = ["S.No", "Date", "Route", "km", "Rate BT (€)", "Gross (€)", "Rate AT (€)", "Net (€)"]
+        mil_col_widths = [10 * mm, 22 * mm, None, 16 * mm, 20 * mm, 22 * mm, 20 * mm, 22 * mm]
+        mil_fixed = sum(w for w in mil_col_widths if w)
+        mil_col_widths[2] = CONTENT_W - mil_fixed
+
+        mil_data = [mil_header]
+        total_km = 0.0
+        total_gross = 0.0
+        total_net = 0.0
+        for mil_idx, m in enumerate(mileage, start=1):
+            total_km += m["distance_km"]
+            total_gross += m["amount_before_tax"]
+            total_net += m["amount_eur"]
+            route = f"{m['origin']} → {m['destination']}"
+            mil_data.append([
+                f"{mil_idx}.",
+                _fmt_date(m.get("date", "")),
+                Paragraph(route, small_style),
+                f"{m['distance_km']:.1f}",
+                f"{m['rate_before_tax']:.2f}",
+                f"€{m['amount_before_tax']:,.2f}",
+                f"{m['rate_after_tax']:.2f}",
+                f"€{m['amount_eur']:,.2f}",
+            ])
+        mil_data.append([
+            "", "", Paragraph("<b>TOTAL</b>", small_style),
+            f"{total_km:.1f}", "", f"€{total_gross:,.2f}", "", f"€{total_net:,.2f}",
+        ])
+
+        mil_table = Table(mil_data, colWidths=mil_col_widths, repeatRows=1)
+        mil_table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), DARK),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, 0), 7),
+            ("TOPPADDING", (0, 0), (-1, 0), 6),
+            ("BOTTOMPADDING", (0, 0), (-1, 0), 6),
+            ("FONTSIZE", (0, 1), (-1, -1), 8),
+            ("TOPPADDING", (0, 1), (-1, -1), 5),
+            ("BOTTOMPADDING", (0, 1), (-1, -1), 5),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -2), [colors.white, LIGHT_BG]),
+            ("BACKGROUND", (0, -1), (-1, -1), LIGHT_BG),
+            ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+            ("GRID", (0, 0), (-1, -1), 0.5, BORDER),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("ALIGN", (0, 0), (0, -1), "CENTER"),
+            ("ALIGN", (3, 1), (-1, -1), "RIGHT"),
+        ]))
+        story.append(mil_table)
+        story.append(Spacer(1, 8 * mm))
+
     # ── Report Summary by Currency ────────────────────────────────────────────
     by_currency: dict[str, list[dict]] = defaultdict(list)
     for e in expenses:
@@ -329,18 +383,26 @@ def _build_main_pdf(report: dict, expenses: list[dict], advances: list[dict] | N
         except ValueError:
             pass
 
-    total_reimbursable = total_eur + allowance - total_advances_eur
+    total_mileage_eur = sum(m["amount_eur"] for m in (mileage or []))
+    total_reimbursable = total_eur + allowance + total_mileage_eur - total_advances_eur
 
     summary_items = [
         [Paragraph("Total Expense", caption_style),
          Paragraph(f"<b>€{total_eur:,.2f}</b>", body_style)],
     ]
-    
+
     if allowance > 0:
         summary_items.extend([
             [Paragraph("( + )", caption_style), Paragraph("", body_style)],
             [Paragraph("Daily Allowance", caption_style),
              Paragraph(f"<b>€{allowance:,.2f}</b>", body_style)],
+        ])
+
+    if total_mileage_eur > 0:
+        summary_items.extend([
+            [Paragraph("( + )", caption_style), Paragraph("", body_style)],
+            [Paragraph("Mileage", caption_style),
+             Paragraph(f"<b>€{total_mileage_eur:,.2f}</b>", body_style)],
         ])
 
     summary_items.extend([
@@ -491,8 +553,8 @@ def _merge_pdf_receipts(main_buf: BytesIO, pdf_receipts: list[tuple[int, str, st
     return out.read()
 
 
-async def generate_report_pdf(report: dict, expenses: list[dict], advances: list[dict] | None = None) -> bytes:
-    main_buf, pdf_receipts = _build_main_pdf(report, expenses, advances)
+async def generate_report_pdf(report: dict, expenses: list[dict], advances: list[dict] | None = None, mileage: list[dict] | None = None) -> bytes:
+    main_buf, pdf_receipts = _build_main_pdf(report, expenses, advances, mileage)
 
     if pdf_receipts:
         return _merge_pdf_receipts(main_buf, pdf_receipts)

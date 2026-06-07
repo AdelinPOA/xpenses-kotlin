@@ -1,0 +1,239 @@
+"use client";
+
+import { use, useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import api, { Report, MileageRecord } from "@/lib/api";
+import { reportKeys, mileageKeys } from "@/lib/queryKeys";
+import AppShell from "@/components/layout/AppShell";
+import Badge from "@/components/ui/Badge";
+import { ArrowLeft, Plus, Trash2 } from "lucide-react";
+import Link from "next/link";
+
+function formatAmount(amount: number, currency: string) {
+  return new Intl.NumberFormat("en-EU", { style: "currency", currency }).format(amount);
+}
+
+export default function MileagePage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
+  const reportId = parseInt(id);
+  const qc = useQueryClient();
+
+  const [showForm, setShowForm] = useState(false);
+  const [origin, setOrigin] = useState("");
+  const [destination, setDestination] = useState("");
+  const [distanceKm, setDistanceKm] = useState("");
+  const [date, setDate] = useState("");
+  const [description, setDescription] = useState("");
+
+  const { data: report, isLoading } = useQuery<Report>({
+    queryKey: reportKeys.detail(reportId),
+    queryFn: () => api.get(`/reports/${id}`).then((r) => r.data),
+  });
+
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: reportKeys.detail(reportId) });
+    qc.invalidateQueries({ queryKey: mileageKeys.all });
+  };
+
+  const addMileage = useMutation({
+    mutationFn: (data: { origin: string; destination: string; distance_km: number; date: string; description?: string }) =>
+      api.post(`/reports/${id}/mileage`, data),
+    onSuccess: () => {
+      invalidate();
+      setShowForm(false);
+      setOrigin("");
+      setDestination("");
+      setDistanceKm("");
+      setDate("");
+      setDescription("");
+    },
+  });
+
+  const deleteMileage = useMutation({
+    mutationFn: (mileageId: number) => api.delete(`/reports/${id}/mileage/${mileageId}`),
+    onSuccess: invalidate,
+  });
+
+  const handleAdd = () => {
+    const km = parseFloat(distanceKm);
+    if (isNaN(km) || km <= 0 || !origin || !destination || !date) return;
+    addMileage.mutate({
+      origin,
+      destination,
+      distance_km: km,
+      date,
+      ...(description ? { description } : {}),
+    });
+  };
+
+  if (isLoading) return <AppShell><p className="text-slate-400 dark:text-slate-500 text-sm mt-8">Loading...</p></AppShell>;
+  if (!report) return <AppShell><p className="text-red-500 text-sm">Report not found</p></AppShell>;
+
+  const records = report.mileage_records || [];
+  const totalKm = records.reduce((s, m) => s + m.distance_km, 0);
+  const totalNet = records.reduce((s, m) => s + m.amount_eur, 0);
+  const totalGross = records.reduce((s, m) => s + m.amount_before_tax, 0);
+
+  return (
+    <AppShell>
+      <div className="mb-6">
+        <Link href={`/reports/${id}`} className="flex items-center gap-1 text-sm text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 mb-4">
+          <ArrowLeft className="w-4 h-4" /> Back to report
+        </Link>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Mileage Records</h1>
+          <Badge status={report.status} />
+        </div>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{report.title}</p>
+      </div>
+
+      {/* Summary cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
+        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4">
+          <p className="text-xs text-teal-500 uppercase mb-1">Total Distance</p>
+          <p className="text-xl font-bold text-teal-600 dark:text-teal-400">{totalKm.toFixed(1)} km</p>
+        </div>
+        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4">
+          <p className="text-xs text-slate-500 uppercase mb-1">Gross (Before Tax)</p>
+          <p className="text-xl font-bold text-slate-700 dark:text-slate-300">{formatAmount(totalGross, "EUR")}</p>
+        </div>
+        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4">
+          <p className="text-xs text-emerald-500 uppercase mb-1">Net (Reimbursable)</p>
+          <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400">{formatAmount(totalNet, "EUR")}</p>
+        </div>
+      </div>
+
+      {/* Add button */}
+      {report.status === "draft" && (
+        <div className="mb-6">
+          <button
+            onClick={() => setShowForm(!showForm)}
+            className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+              showForm
+                ? "bg-teal-600 text-white"
+                : "border border-teal-300 dark:border-teal-700 text-teal-700 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-950/30"
+            }`}
+          >
+            <Plus className="w-4 h-4" /> Add trip
+          </button>
+        </div>
+      )}
+
+      {/* Add form */}
+      {showForm && (
+        <div className="bg-teal-50 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-800/50 rounded-xl p-4 mb-6">
+          <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">Record a trip:</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+            <input
+              type="text"
+              placeholder="Origin (e.g. Bucharest)"
+              value={origin}
+              onChange={(e) => setOrigin(e.target.value)}
+              className="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+            />
+            <input
+              type="text"
+              placeholder="Destination (e.g. Ploiesti)"
+              value={destination}
+              onChange={(e) => setDestination(e.target.value)}
+              className="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+            />
+          </div>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+            />
+            <input
+              type="number"
+              step="0.1"
+              min="0"
+              placeholder="Distance (km)"
+              value={distanceKm}
+              onChange={(e) => setDistanceKm(e.target.value)}
+              className="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 w-36"
+            />
+            <input
+              type="text"
+              placeholder="Description (optional)"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 flex-1"
+            />
+            <button
+              onClick={handleAdd}
+              disabled={addMileage.isPending || !origin || !destination || !distanceKm || !date}
+              className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 disabled:opacity-50 whitespace-nowrap"
+            >
+              <Plus className="w-4 h-4" />
+              {addMileage.isPending ? "Adding..." : "Add trip"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Mileage table */}
+      <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm">
+        <div className="p-4 border-b border-slate-100 dark:border-slate-700">
+          <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+            Trips ({records.length})
+          </h2>
+        </div>
+        {records.length === 0 ? (
+          <p className="p-6 text-sm text-slate-400 dark:text-slate-500 text-center">No mileage records yet</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 dark:bg-slate-800 text-xs text-slate-500 dark:text-slate-400 uppercase">
+                <tr>
+                  <th className="text-left px-4 py-3">Date</th>
+                  <th className="text-left px-4 py-3">Route</th>
+                  <th className="text-right px-4 py-3">km</th>
+                  <th className="text-right px-4 py-3">Rate BT</th>
+                  <th className="text-right px-4 py-3">Gross</th>
+                  <th className="text-right px-4 py-3">Rate AT</th>
+                  <th className="text-right px-4 py-3">Net</th>
+                  {report.status === "draft" && <th className="text-right px-4 py-3">Actions</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {records.map((m) => (
+                  <tr key={m.id} className="border-t border-slate-100 dark:border-slate-700">
+                    <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{m.date}</td>
+                    <td className="px-4 py-3 font-medium text-slate-800 dark:text-slate-200">
+                      {m.origin} → {m.destination}
+                      {m.description && <span className="block text-xs text-slate-400 dark:text-slate-500">{m.description}</span>}
+                    </td>
+                    <td className="px-4 py-3 text-right text-slate-600 dark:text-slate-400">{m.distance_km.toFixed(1)}</td>
+                    <td className="px-4 py-3 text-right text-slate-400 dark:text-slate-500">€{m.rate_before_tax.toFixed(2)}</td>
+                    <td className="px-4 py-3 text-right text-slate-600 dark:text-slate-400">{formatAmount(m.amount_before_tax, "EUR")}</td>
+                    <td className="px-4 py-3 text-right text-slate-400 dark:text-slate-500">€{m.rate_after_tax.toFixed(2)}</td>
+                    <td className="px-4 py-3 text-right font-semibold text-slate-900 dark:text-slate-100">{formatAmount(m.amount_eur, "EUR")}</td>
+                    {report.status === "draft" && (
+                      <td className="px-4 py-3 text-right">
+                        <button onClick={() => deleteMileage.mutate(m.id)} className="text-slate-400 hover:text-red-500">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+                <tr className="border-t-2 border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-800">
+                  <td className="px-4 py-3 font-bold text-slate-700 dark:text-slate-300" colSpan={2}>Total</td>
+                  <td className="px-4 py-3 text-right font-bold text-slate-700 dark:text-slate-300">{totalKm.toFixed(1)}</td>
+                  <td className="px-4 py-3"></td>
+                  <td className="px-4 py-3 text-right font-bold text-slate-700 dark:text-slate-300">{formatAmount(totalGross, "EUR")}</td>
+                  <td className="px-4 py-3"></td>
+                  <td className="px-4 py-3 text-right font-bold text-emerald-600 dark:text-emerald-400">{formatAmount(totalNet, "EUR")}</td>
+                  {report.status === "draft" && <td></td>}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </AppShell>
+  );
+}

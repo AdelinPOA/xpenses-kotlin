@@ -155,6 +155,11 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
           <p className="text-xl font-bold text-orange-600 dark:text-orange-400">{formatAmount(report.total_advances, "EUR")}</p>
           <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">View details →</p>
         </Link>
+        <Link href={`/reports/${id}/mileage`} className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4 hover:ring-2 hover:ring-teal-300 dark:hover:ring-teal-700 transition-all">
+          <p className="text-xs text-teal-400 dark:text-teal-500 uppercase mb-1">Mileage</p>
+          <p className="text-xl font-bold text-teal-600 dark:text-teal-400">{formatAmount(report.total_mileage_eur || 0, "EUR")}</p>
+          <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">View details →</p>
+        </Link>
         <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4">
           <p className="text-xs text-emerald-400 dark:text-emerald-500 uppercase mb-1">Reimbursable</p>
           <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400">{formatAmount(report.total_reimbursable, "EUR")}</p>

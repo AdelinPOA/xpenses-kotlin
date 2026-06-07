@@ -78,6 +78,23 @@ export interface PendingAdvance extends AdvancePayment {
   report_title: string;
 }
 
+export interface MileageRecord {
+  id: number;
+  report_id: number;
+  user_id: number;
+  origin: string;
+  destination: string;
+  distance_km: number;
+  rate_before_tax: number;
+  rate_after_tax: number;
+  amount_before_tax: number;
+  amount_eur: number;
+  date: string;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Report {
   id: number;
   title: string;
@@ -98,6 +115,8 @@ export interface Report {
   expenses: Expense[];
   advances: AdvancePayment[];
   total_advances: number;
+  mileage_records: MileageRecord[];
+  total_mileage_eur: number;
   daily_allowance: number;
   total_reimbursable: number;
 }

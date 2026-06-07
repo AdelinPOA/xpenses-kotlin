@@ -21,6 +21,11 @@ export const advanceKeys = {
   pending: () => [...advanceKeys.all, "pending"] as const,
 };
 
+export const mileageKeys = {
+  all: ["mileage"] as const,
+  list: (reportId: number) => [...mileageKeys.all, "list", reportId] as const,
+};
+
 export const dashboardKeys = {
   all: ["dashboard"] as const,
 };

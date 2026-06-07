@@ -26,6 +26,8 @@ class Settings(BaseSettings):
     ldap_base_dn: str = ""
     ocr_enabled: bool = True
     ocr_languages: str = "en,ro"
+    mileage_rate_before_tax: float = 0.30
+    mileage_rate_after_tax: float = 0.22
 
     @field_validator("cors_origins", mode="before")
     @classmethod

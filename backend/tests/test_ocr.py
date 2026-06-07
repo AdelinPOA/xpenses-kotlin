@@ -20,10 +20,13 @@ if "numpy" not in sys.modules:
 if "easyocr" not in sys.modules:
     sys.modules["easyocr"] = types.ModuleType("easyocr")
 
-from xpenses.services.ocr_service import extract_amount, extract_date, extract_merchant  # noqa: E402
+from xpenses.services.ocr_service import (  # noqa: E402
+    extract_amount,
+    extract_date,
+    extract_merchant,
+)
 
 from .conftest import login  # noqa: E402
-
 
 # ── Unit tests: extract_amount ───────────────────────────────────────────────
 

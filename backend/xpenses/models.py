@@ -134,6 +134,8 @@ class ReportOut(BaseModel):
     expenses: list[ExpenseOut] = []
     advances: list["AdvancePaymentOut"] = []
     total_advances: float = 0.0
+    mileage_records: list["MileageRecordOut"] = []
+    total_mileage_eur: float = 0.0
     daily_allowance: float = 0.0
     total_reimbursable: float = 0.0
 
@@ -212,6 +214,42 @@ class AdvanceRejectBody(BaseModel):
 class PendingAdvanceOut(AdvancePaymentOut):
     user_display_name: str = ""
     report_title: str = ""
+
+
+# ── Mileage Records ─────────────────────────────────────────────────────────
+
+class MileageRecordOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    report_id: int
+    user_id: int
+    origin: str
+    destination: str
+    distance_km: float
+    rate_before_tax: float
+    rate_after_tax: float
+    amount_before_tax: float
+    amount_eur: float
+    date: str
+    description: str | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class MileageRecordCreate(BaseModel):
+    origin: str
+    destination: str
+    distance_km: float
+    date: str
+    description: str | None = None
+
+
+class MileageRecordUpdate(BaseModel):
+    origin: str | None = None
+    destination: str | None = None
+    distance_km: float | None = None
+    date: str | None = None
+    description: str | None = None
 
 
 # ── OCR ──────────────────────────────────────────────────────────────────────

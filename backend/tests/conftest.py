@@ -58,6 +58,7 @@ async def clean_tables():
     async with pool.acquire() as conn:
         await conn.execute("DELETE FROM refresh_tokens")
         await conn.execute("DELETE FROM receipts")
+        await conn.execute("DELETE FROM mileage_records")
         await conn.execute("DELETE FROM advance_payments")
         await conn.execute("DELETE FROM expenses")
         await conn.execute("DELETE FROM expense_reports")
@@ -163,4 +164,27 @@ async def create_advance(
         json=body,
     )
     assert resp.status_code == 201, f"Create advance failed: {resp.text}"
+    return resp.json()
+
+
+async def create_mileage(
+    client: AsyncClient,
+    report_id: int,
+    *,
+    origin: str = "Bucharest",
+    destination: str = "Ploiesti",
+    distance_km: float = 60.0,
+    date: str = "2026-01-10",
+    description: str | None = None,
+) -> dict:
+    body = {
+        "origin": origin,
+        "destination": destination,
+        "distance_km": distance_km,
+        "date": date,
+    }
+    if description is not None:
+        body["description"] = description
+    resp = await client.post(f"/api/reports/{report_id}/mileage", json=body)
+    assert resp.status_code == 201, f"Create mileage failed: {resp.text}"
     return resp.json()

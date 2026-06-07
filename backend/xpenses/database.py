@@ -24,6 +24,8 @@ CREATE TABLE IF NOT EXISTS expense_reports (
     paid_at TIMESTAMPTZ,
     total_amount DOUBLE PRECISION NOT NULL DEFAULT 0,
     currency TEXT NOT NULL DEFAULT 'EUR',
+    signer_id INTEGER,
+    signed_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -72,6 +74,7 @@ CREATE TABLE IF NOT EXISTS users (
     auth_source   VARCHAR(20) NOT NULL DEFAULT 'local',
     role          VARCHAR(20) NOT NULL DEFAULT 'technician',
     is_active     BOOLEAN NOT NULL DEFAULT true,
+    signature_path TEXT,
     created_at    TIMESTAMPTZ DEFAULT NOW(),
     updated_at    TIMESTAMPTZ DEFAULT NOW()
 );
@@ -153,6 +156,7 @@ DEFAULT_CATEGORIES = [
 async def init_db() -> None:
     import os
     os.makedirs(settings.receipts_dir, exist_ok=True)
+    os.makedirs(settings.signatures_dir, exist_ok=True)
 
     global _pool
     _pool = await asyncpg.create_pool(
@@ -185,6 +189,22 @@ async def init_db() -> None:
         await conn.execute("ALTER TABLE expenses ADD COLUMN IF NOT EXISTS tax_amount NUMERIC NOT NULL DEFAULT 0.0;")
         await conn.execute("ALTER TABLE expenses ADD COLUMN IF NOT EXISTS tax_rate NUMERIC;")
         await conn.execute("ALTER TABLE expenses ADD COLUMN IF NOT EXISTS tax_amount_eur NUMERIC NOT NULL DEFAULT 0.0;")
+
+        # Add signature columns to expense_reports if missing
+        for col, col_type in [("signer_id", "INTEGER REFERENCES users(id)"), ("signed_at", "TIMESTAMPTZ")]:
+            col_exists = await conn.fetchval(
+                "SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name='expense_reports' AND column_name=$1)",
+                col,
+            )
+            if not col_exists:
+                await conn.execute(f"ALTER TABLE expense_reports ADD COLUMN {col} {col_type}")
+
+        # Add signature_path to users if missing
+        sig_exists = await conn.fetchval(
+            "SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='signature_path')",
+        )
+        if not sig_exists:
+            await conn.execute("ALTER TABLE users ADD COLUMN signature_path TEXT")
 
         # Add approval columns to expense_reports if missing
         for col, col_type in [("approved_by", "INTEGER REFERENCES users(id)"), ("approved_at", "TIMESTAMPTZ"), ("rejected_reason", "TEXT")]:

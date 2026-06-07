@@ -326,7 +326,16 @@ async def export_report_pdf(report_id: int, current_user: dict = Depends(get_cur
     )
     mileage = [dict(m) for m in mileage_rows]
 
-    pdf_bytes = await generate_report_pdf(report, expenses, advances, mileage)
+    signer = None
+    if report.get("signer_id"):
+        signer_row = await db.fetchrow(
+            "SELECT id, display_name, signature_path FROM users WHERE id = $1",
+            report["signer_id"],
+        )
+        if signer_row:
+            signer = dict(signer_row)
+
+    pdf_bytes = await generate_report_pdf(report, expenses, advances, mileage, signer)
     safe_title = "".join(c if c.isalnum() or c in "-_ " else "_" for c in report["title"])
     filename = f"report_{report_id}_{safe_title[:40].strip()}.pdf"
 
@@ -441,5 +450,35 @@ async def reject_report(
     await db.execute(
         "UPDATE expenses SET status = 'draft', report_id = NULL, updated_at = $1 WHERE report_id = $2",
         now, report_id,
+    )
+    return await _fetch_report(db, report_id)
+
+
+@router.post("/{report_id}/sign")
+async def sign_report(
+    report_id: int,
+    current_user: dict = Depends(get_current_user),
+    db: asyncpg.Connection = Depends(get_db),
+):
+    row = await db.fetchrow("SELECT * FROM expense_reports WHERE id = $1", report_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Report not found")
+    if row["user_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Only the report owner can sign")
+
+    sig_path = await db.fetchval(
+        "SELECT signature_path FROM users WHERE id = $1",
+        current_user["id"],
+    )
+    if not sig_path:
+        raise HTTPException(
+            status_code=400,
+            detail="No signature saved. Record your signature first.",
+        )
+
+    now = datetime.utcnow()
+    await db.execute(
+        "UPDATE expense_reports SET signer_id = $1, signed_at = $2, updated_at = $3 WHERE id = $4",
+        current_user["id"], now, now, report_id,
     )
     return await _fetch_report(db, report_id)

@@ -72,7 +72,13 @@ def _currency_fmt(amount: float, currency: str) -> str:
     return f"{amount:,.2f} {currency}"
 
 
-def _build_main_pdf(report: dict, expenses: list[dict], advances: list[dict] | None = None, mileage: list[dict] | None = None) -> tuple[BytesIO, list]:
+def _build_main_pdf(
+    report: dict,
+    expenses: list[dict],
+    advances: list[dict] | None = None,
+    mileage: list[dict] | None = None,
+    signer: dict | None = None,
+) -> tuple[BytesIO, list]:
     buf = BytesIO()
     doc = SimpleDocTemplate(
         buf, pagesize=A4,
@@ -451,9 +457,19 @@ def _build_main_pdf(report: dict, expenses: list[dict], advances: list[dict] | N
     # ── Signature area ────────────────────────────────────────────────────────
     story.append(Spacer(1, 20 * mm))
     story.append(Paragraph("<b><u>Submitted By</u></b>", body_style))
-    story.append(Spacer(1, 15 * mm))
-    story.append(HRFlowable(width=50 * mm, thickness=0.5, color=DARK))
-    story.append(Paragraph(f"<b>{settings.submitter_name}</b>", body_style))
+
+    if signer and signer.get("signature_path") and os.path.exists(signer["signature_path"]):
+        story.append(Spacer(1, 5 * mm))
+        story.append(Image(signer["signature_path"], width=40 * mm, height=15 * mm))
+        story.append(HRFlowable(width=50 * mm, thickness=0.5, color=DARK))
+        signer_name = signer.get("display_name", settings.submitter_name)
+        signed_at = report.get("signed_at")
+        signed_str = f" — signed {_fmt_datetime(signed_at)}" if signed_at else ""
+        story.append(Paragraph(f"<b>{signer_name}</b>{signed_str}", body_style))
+    else:
+        story.append(Spacer(1, 15 * mm))
+        story.append(HRFlowable(width=50 * mm, thickness=0.5, color=DARK))
+        story.append(Paragraph(f"<b>{settings.submitter_name}</b>", body_style))
 
     story.append(Spacer(1, 10 * mm))
     story.append(Paragraph(
@@ -573,8 +589,14 @@ def _merge_pdf_receipts(main_buf: BytesIO, pdf_receipts: list[tuple[int, str, st
     return out.read()
 
 
-async def generate_report_pdf(report: dict, expenses: list[dict], advances: list[dict] | None = None, mileage: list[dict] | None = None) -> bytes:
-    main_buf, pdf_receipts = _build_main_pdf(report, expenses, advances, mileage)
+async def generate_report_pdf(
+    report: dict,
+    expenses: list[dict],
+    advances: list[dict] | None = None,
+    mileage: list[dict] | None = None,
+    signer: dict | None = None,
+) -> bytes:
+    main_buf, pdf_receipts = _build_main_pdf(report, expenses, advances, mileage, signer)
 
     if pdf_receipts:
         return _merge_pdf_receipts(main_buf, pdf_receipts)

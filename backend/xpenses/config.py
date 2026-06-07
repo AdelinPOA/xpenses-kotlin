@@ -43,5 +43,9 @@ class Settings(BaseSettings):
     def receipts_dir(self) -> str:
         return f"{self.data_dir}/receipts"
 
+    @property
+    def signatures_dir(self) -> str:
+        return f"{self.data_dir}/signatures"
+
 
 settings = Settings()

@@ -65,6 +65,14 @@ async def clean_tables():
         # Reset mileage rates to defaults after each test
         await conn.execute("UPDATE app_settings SET value = '0.60' WHERE key = 'mileage_rate_before_tax'")
         await conn.execute("UPDATE app_settings SET value = '0.40' WHERE key = 'mileage_rate_after_tax'")
+        await conn.execute("UPDATE users SET signature_path = NULL WHERE signature_path IS NOT NULL")
+
+    import glob
+    import os
+
+    from xpenses.config import settings
+    for f in glob.glob(os.path.join(settings.signatures_dir, "*.png")):
+        os.remove(f)
 
 
 @pytest_asyncio.fixture

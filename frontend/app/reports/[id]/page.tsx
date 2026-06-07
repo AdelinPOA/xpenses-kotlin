@@ -7,8 +7,9 @@ import { reportKeys, expenseKeys, dashboardKeys } from "@/lib/queryKeys";
 import AppShell from "@/components/layout/AppShell";
 import Badge from "@/components/ui/Badge";
 import EmptyState from "@/components/ui/EmptyState";
-import { ArrowLeft, DollarSign, FileDown, FolderDown, Pencil, Plus, Send, Undo2 } from "lucide-react";
+import { ArrowLeft, DollarSign, FileDown, FolderDown, PenLine, Pencil, Plus, Send, Undo2 } from "lucide-react";
 import Link from "next/link";
+import { useAuth } from "@/components/AuthProvider";
 
 function formatAmount(amount: number, currency: string) {
   return new Intl.NumberFormat("en-EU", { style: "currency", currency }).format(amount);
@@ -17,6 +18,7 @@ function formatAmount(amount: number, currency: string) {
 export default function ReportDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const qc = useQueryClient();
+  const { user } = useAuth();
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
   const { data: report, isLoading } = useQuery<Report>({
@@ -64,6 +66,13 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
       qc.invalidateQueries({ queryKey: reportKeys.all });
       qc.invalidateQueries({ queryKey: expenseKeys.all });
       qc.invalidateQueries({ queryKey: dashboardKeys.all });
+    },
+  });
+
+  const sign = useMutation({
+    mutationFn: () => api.post(`/reports/${id}/sign`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: reportKeys.all });
     },
   });
 
@@ -265,6 +274,42 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
               {pay.isPending ? "Processing..." : "Mark as paid"}
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Signature */}
+      {report.signed_at ? (
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-4 mb-6">
+          <p className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Signed</p>
+          <p className="text-sm text-slate-600 dark:text-slate-400">
+            Signed on {new Date(report.signed_at).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+          </p>
+        </div>
+      ) : user && report.user_id === user.id && (
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-4 mb-6 flex items-center justify-between">
+          <p className="text-sm text-slate-600 dark:text-slate-400">
+            {user.signature_path
+              ? "Sign this report with your saved signature."
+              : "Record your signature in profile settings to sign reports."}
+          </p>
+          {user.signature_path ? (
+            <button
+              onClick={() => sign.mutate()}
+              disabled={sign.isPending}
+              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+            >
+              <PenLine className="w-4 h-4" />
+              {sign.isPending ? "Signing..." : "Sign Report"}
+            </button>
+          ) : (
+            <Link
+              href="/profile/signature"
+              className="flex items-center gap-2 px-4 py-2 border border-indigo-300 dark:border-indigo-600 text-indigo-600 dark:text-indigo-400 text-sm font-medium rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
+            >
+              <PenLine className="w-4 h-4" />
+              Record Signature
+            </Link>
+          )}
         </div>
       )}
 

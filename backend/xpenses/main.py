@@ -5,7 +5,19 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
 from .database import init_db
-from .routers import advances, app_settings, auth, categories, dashboard, expenses, mileage, ocr, reports, users
+from .routers import (
+    advances,
+    app_settings,
+    auth,
+    categories,
+    dashboard,
+    expenses,
+    mileage,
+    ocr,
+    reports,
+    signature,
+    users,
+)
 from .seed import seed_users
 
 
@@ -37,6 +49,7 @@ app.include_router(mileage.router)
 app.include_router(app_settings.router)
 app.include_router(dashboard.router)
 app.include_router(ocr.router)
+app.include_router(signature.router)
 
 
 @app.get("/api/health")

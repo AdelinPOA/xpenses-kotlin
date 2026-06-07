@@ -18,6 +18,7 @@ class UserOut(BaseModel):
     auth_source: str
     role: str
     is_active: bool
+    signature_path: str | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -127,6 +128,8 @@ class ReportOut(BaseModel):
     approved_by: int | None = None
     approved_at: datetime | None = None
     rejected_reason: str | None = None
+    signer_id: int | None = None
+    signed_at: datetime | None = None
     total_amount: float
     currency: str
     created_at: datetime

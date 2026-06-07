@@ -114,6 +114,8 @@ export interface Report {
   approved_by: number | null;
   approved_at: string | null;
   rejected_reason: string | null;
+  signer_id: number | null;
+  signed_at: string | null;
   user_id: number | null;
   total_amount: number;
   currency: string;
@@ -152,6 +154,7 @@ export interface User {
   role: "technician" | "manager" | "chef_finance" | "mod";
   is_active: boolean;
   auth_source: string;
+  signature_path: string | null;
   created_at: string;
   updated_at: string;
 }

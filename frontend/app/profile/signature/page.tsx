@@ -1,0 +1,121 @@
+"use client";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import api, { API_BASE_URL } from "@/lib/api";
+import AppShell from "@/components/layout/AppShell";
+import SignaturePad from "@/components/signature/SignaturePad";
+import { ArrowLeft, Trash2 } from "lucide-react";
+import Link from "next/link";
+
+export default function SignaturePage() {
+  const queryClient = useQueryClient();
+  const [message, setMessage] = useState<string | null>(null);
+  const [cacheBuster, setCacheBuster] = useState(() => Date.now());
+
+  const signatureQuery = useQuery({
+    queryKey: ["signature"],
+    queryFn: () => api.get("/users/me/signature"),
+    retry: false,
+  });
+
+  const hasSignature = signatureQuery.isSuccess;
+
+  function showMessage(text: string) {
+    setMessage(text);
+    setTimeout(() => setMessage(null), 3000);
+  }
+
+  const saveMutation = useMutation({
+    mutationFn: (dataUrl: string) =>
+      api.put("/users/me/signature", { image: dataUrl }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["signature"] });
+      setCacheBuster(Date.now());
+      showMessage("Signature saved!");
+    },
+    onError: () => {
+      showMessage("Failed to save signature.");
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => api.delete("/users/me/signature"),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["signature"] });
+      setCacheBuster(Date.now());
+      showMessage("Signature deleted.");
+    },
+    onError: () => {
+      showMessage("Failed to delete signature.");
+    },
+  });
+
+  return (
+    <AppShell>
+      <div className="max-w-2xl mx-auto">
+        {/* Header */}
+        <div className="mb-6">
+          <Link
+            href="/dashboard"
+            className="inline-flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-colors mb-4"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Dashboard
+          </Link>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+            My Signature
+          </h1>
+        </div>
+
+        {/* Feedback message */}
+        {message && (
+          <div className="mb-4 px-4 py-3 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-sm font-medium">
+            {message}
+          </div>
+        )}
+
+        {/* Current signature */}
+        {hasSignature && (
+          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-6 mb-6">
+            <p className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">
+              Current Signature
+            </p>
+            <div className="border border-slate-200 dark:border-slate-700 rounded-lg p-4 bg-slate-50 dark:bg-slate-800 inline-block mb-4">
+              <img
+                src={`${API_BASE_URL}/users/me/signature?${cacheBuster}`}
+                alt="Your signature"
+                className="max-h-40 max-w-full"
+              />
+            </div>
+            <div>
+              <button
+                type="button"
+                onClick={() => deleteMutation.mutate()}
+                disabled={deleteMutation.isPending}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Trash2 className="w-4 h-4" />
+                {deleteMutation.isPending ? "Deleting..." : "Delete Signature"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Draw new signature */}
+        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-6">
+          <p className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">
+            {hasSignature ? "Draw a New Signature" : "Draw Your Signature"}
+          </p>
+          <SignaturePad
+            onSave={(dataUrl) => saveMutation.mutate(dataUrl)}
+          />
+          {saveMutation.isPending && (
+            <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">
+              Saving...
+            </p>
+          )}
+        </div>
+      </div>
+    </AppShell>
+  );
+}

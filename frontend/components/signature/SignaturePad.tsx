@@ -1,0 +1,165 @@
+"use client";
+
+import { useRef, useState, useEffect } from "react";
+
+interface SignaturePadProps {
+  onSave: (dataUrl: string) => void;
+  width?: number;
+  height?: number;
+}
+
+export default function SignaturePad({
+  onSave,
+  width = 400,
+  height = 200,
+}: SignaturePadProps) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const isDrawingRef = useRef(false);
+  const [isEmpty, setIsEmpty] = useState(true);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.lineWidth = 2;
+
+    const isDark = document.documentElement.classList.contains("dark");
+    ctx.strokeStyle = isDark ? "#ffffff" : "#1e293b";
+  }, []);
+
+  function getContext() {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+
+    const isDark = document.documentElement.classList.contains("dark");
+    ctx.strokeStyle = isDark ? "#ffffff" : "#1e293b";
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.lineWidth = 2;
+
+    return ctx;
+  }
+
+  function startDrawing(x: number, y: number) {
+    const ctx = getContext();
+    if (!ctx) return;
+    isDrawingRef.current = true;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+  }
+
+  function draw(x: number, y: number) {
+    if (!isDrawingRef.current) return;
+    const ctx = getContext();
+    if (!ctx) return;
+    ctx.lineTo(x, y);
+    ctx.stroke();
+    setIsEmpty(false);
+  }
+
+  function stopDrawing() {
+    isDrawingRef.current = false;
+  }
+
+  function handleMouseDown(e: React.MouseEvent<HTMLCanvasElement>) {
+    startDrawing(e.nativeEvent.offsetX, e.nativeEvent.offsetY);
+  }
+
+  function handleMouseMove(e: React.MouseEvent<HTMLCanvasElement>) {
+    draw(e.nativeEvent.offsetX, e.nativeEvent.offsetY);
+  }
+
+  function handleMouseUp() {
+    stopDrawing();
+  }
+
+  function handleMouseLeave() {
+    stopDrawing();
+  }
+
+  function getTouchCoords(e: React.TouchEvent<HTMLCanvasElement>) {
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
+    const rect = canvas.getBoundingClientRect();
+    const touch = e.touches[0];
+    return {
+      x: touch.clientX - rect.left,
+      y: touch.clientY - rect.top,
+    };
+  }
+
+  function handleTouchStart(e: React.TouchEvent<HTMLCanvasElement>) {
+    e.preventDefault();
+    const { x, y } = getTouchCoords(e);
+    startDrawing(x, y);
+  }
+
+  function handleTouchMove(e: React.TouchEvent<HTMLCanvasElement>) {
+    e.preventDefault();
+    const { x, y } = getTouchCoords(e);
+    draw(x, y);
+  }
+
+  function handleTouchEnd(e: React.TouchEvent<HTMLCanvasElement>) {
+    e.preventDefault();
+    stopDrawing();
+  }
+
+  function handleClear() {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    setIsEmpty(true);
+  }
+
+  function handleSave() {
+    const canvas = canvasRef.current;
+    if (!canvas || isEmpty) return;
+    const dataUrl = canvas.toDataURL("image/png");
+    onSave(dataUrl);
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      <canvas
+        ref={canvasRef}
+        width={width}
+        height={height}
+        className="border border-slate-300 dark:border-slate-600 rounded-lg cursor-crosshair bg-white dark:bg-slate-800"
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseLeave}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      />
+      <div className="flex gap-3">
+        <button
+          type="button"
+          onClick={handleClear}
+          className="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-sm font-medium"
+        >
+          Clear
+        </button>
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={isEmpty}
+          className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          Save
+        </button>
+      </div>
+    </div>
+  );
+}

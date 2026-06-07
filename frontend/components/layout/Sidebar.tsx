@@ -7,6 +7,7 @@ import { LayoutDashboard, Receipt, FileText, Tag, Users, CheckSquare, Banknote, 
 import clsx from "clsx";
 import { useAuth } from "@/components/AuthProvider";
 import { useTheme } from "@/components/ThemeProvider";
+import { ROLE_BG_COLORS } from "@/lib/themes";
 
 interface NavItem {
   href: string;
@@ -19,11 +20,11 @@ const NAV: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["technician", "manager", "chef_finance", "mod"] },
   { href: "/expenses", label: "Expenses", icon: Receipt, roles: ["technician", "manager", "chef_finance", "mod"] },
   { href: "/reports", label: "Reports", icon: FileText, roles: ["technician", "manager", "chef_finance", "mod"] },
-  { href: "/approvals", label: "Approvals", icon: CheckSquare, roles: ["manager", "chef_finance"] },
+  { href: "/approvals", label: "Review Reports", icon: CheckSquare, roles: ["manager", "chef_finance"] },
   { href: "/advances", label: "Advances", icon: Wallet, roles: ["manager", "chef_finance", "mod"] },
-  { href: "/payments", label: "Payments", icon: Banknote, roles: ["chef_finance"] },
-  { href: "/categories", label: "Categories", icon: Tag, roles: ["mod"] },
-  { href: "/admin/users", label: "Users", icon: Users, roles: ["mod"] },
+  { href: "/payments", label: "Process Payments", icon: Banknote, roles: ["chef_finance"] },
+  { href: "/categories", label: "Expense Categories", icon: Tag, roles: ["mod"] },
+  { href: "/admin/users", label: "User Management", icon: Users, roles: ["mod"] },
   { href: "/admin/settings", label: "Settings", icon: Settings, roles: ["chef_finance"] },
   { href: "/profile/signature", label: "Signature", icon: PenLine, roles: ["technician", "manager", "chef_finance", "mod"] },
 ];
@@ -31,8 +32,8 @@ const NAV: NavItem[] = [
 const ROLE_LABELS: Record<string, string> = {
   technician: "Technician",
   manager: "Manager",
-  chef_finance: "Chef of Finances",
-  mod: "Moderator",
+  chef_finance: "Finance Lead",
+  mod: "Administrator",
 };
 
 const THEME_CYCLE: Array<"light" | "dark" | "system"> = ["light", "dark", "system"];
@@ -78,15 +79,24 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
       >
         <div className="px-6 py-4 border-b border-slate-700 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Image src="/logo.png" alt="Newtech Automation" width={36} height={36} className="rounded-full" />
+            <Image 
+              src="/logo.png" 
+              alt="Newtech Automation" 
+              width={36} 
+              height={36} 
+              className={clsx(
+                "rounded-full border-2",
+                user ? ROLE_BG_COLORS[user.role] : "border-transparent"
+              )} 
+            />
             <span className="text-lg font-bold text-white tracking-tight">xpenses</span>
           </div>
-          <button onClick={onClose} className="lg:hidden p-1 text-slate-400 hover:text-white">
+          <button onClick={onClose} aria-label="Close navigation" className="lg:hidden p-1 text-slate-400 hover:text-white">
             <X className="w-5 h-5" />
           </button>
         </div>
         <nav className="flex-1 py-4 px-3 overflow-y-auto">
-          {visibleNav.map(({ href, label, icon: Icon }) => {
+          {visibleNav.filter(({ href }) => href !== "/profile/signature").map(({ href, label, icon: Icon }) => {
             const active = pathname.startsWith(href);
             return (
               <Link
@@ -96,7 +106,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                 className={clsx(
                   "flex items-center gap-3 px-3 py-2.5 rounded-lg mb-1 text-sm font-medium transition-colors",
                   active
-                    ? "bg-slate-700 text-white"
+                    ? clsx("text-white", user ? ROLE_BG_COLORS[user.role] : "bg-slate-700")
                     : "text-slate-400 hover:bg-slate-800 hover:text-white"
                 )}
               >
@@ -105,6 +115,30 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
               </Link>
             );
           })}
+          {visibleNav.some(({ href }) => href === "/profile/signature") && (
+            <>
+              <hr className="my-2 border-slate-700" />
+              {visibleNav.filter(({ href }) => href === "/profile/signature").map(({ href, label, icon: Icon }) => {
+                const active = pathname.startsWith(href);
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    onClick={onClose}
+                    className={clsx(
+                      "flex items-center gap-3 px-3 py-2.5 rounded-lg mb-1 text-sm font-medium transition-colors",
+                      active
+                        ? clsx("text-white", user ? ROLE_BG_COLORS[user.role] : "bg-slate-700")
+                        : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                    )}
+                  >
+                    <Icon className="w-4 h-4" />
+                    {label}
+                  </Link>
+                );
+              })}
+            </>
+          )}
         </nav>
         <div className="px-4 py-4 border-t border-slate-700">
           {user && (
@@ -123,10 +157,11 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
             </button>
             <button
               onClick={cycleTheme}
-              title={`Theme: ${THEME_LABELS[theme]}`}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+              aria-label={`Current theme: ${THEME_LABELS[theme]}. Click to cycle.`}
+              className="flex items-center gap-1 p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors text-xs"
             >
               <ThemeIcon className="w-4 h-4" />
+              <span>{THEME_LABELS[theme]}</span>
             </button>
           </div>
         </div>

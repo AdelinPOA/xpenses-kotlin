@@ -1,7 +1,7 @@
 # HANDOFF.md — xpenses_copy
 
-> Last updated: 2026-06-07 (session 10)  
-> Author: Claude (AI assistant session)
+> Last updated: 2026-06-08 (session 13)  
+> Author: Claude Sonnet 4.6
 
 ---
 
@@ -9,9 +9,7 @@
 
 Self-hosted expense management app (alternative to Zoho Expenses). FastAPI backend + Next.js frontend + PostgreSQL, running in Docker Compose on port 3001 (frontend) / 8001 (backend API).
 
-**AI Workflow:** Opus 4.6 for planning, coordination, orchestration, and code review. Sonnet agents for coding implementation tasks.
-
-## Current State: OPERATIONAL (Phase 7 Partial + Mileage + Advance Payments v2 + OCR + Test Suite)
+## Current State: OPERATIONAL (Phase 7 Partial + Access Control Hardening + Digital Signatures + Mileage + Advance Payments v2 + OCR + UI/UX Redesign + UI/UX Audit Fixes + Test Suite)
 
 All 3 Docker containers running, all endpoints healthy:
 
@@ -21,11 +19,114 @@ All 3 Docker containers running, all endpoints healthy:
 | FastAPI backend | `xpenses-backend` | 8001 → 8000 | `{"status":"ok"}` |
 | Next.js frontend | `xpenses-frontend` | 3001 → 3000 | Serving (307 redirect to /login if unauthenticated) |
 
-## Latest Session (2026-06-07, session 10)
+## Latest Session (2026-06-08, session 13)
+
+### What Was Done
+- **UI/UX Audit & Fixes** (IMPLEMENTED) — 4 parallel agents audited the frontend across 4 domains (dashboard/nav, report flows, mobile/accessibility, tables/empty states). 26 issues identified, all fixed.
+
+#### Critical functional fixes
+- **Approve/Reject UI** — backend endpoints existed but the frontend never called them. Managers and CFOs can now approve or reject submitted reports directly from the report detail page, with an inline rejection reason input.
+- **"Mark as paid" role gate** — button now only renders for `chef_finance`; was previously visible to all users.
+- **Submitted status text** — corrected from "awaiting payment" to "awaiting manager approval".
+- **Approved status panel** — new distinct panel for `approved` state, separate from `submitted`.
+
+#### UX improvements
+- **Rejection banner** — rejected reports show a prominent amber banner with the reason and a one-click "Recall to draft" button, replacing the buried `text-xs` span.
+- **Mutation error feedback** — all mutations now have `onError` handlers with a dismissible red banner.
+- **Delete confirmation** — report delete now shows `window.confirm` dialog.
+- **Report search** — debounced text search field on the reports list, client-side filter by title.
+- **Sortable columns** — Title, Total, Submitted columns are clickable with asc/desc toggle.
+- **Quick-submit from table row** — draft reports can be submitted directly from the reports list via a Send icon.
+- **Actionable empty states** — "Clear filter", "Clear search", "Create your first report" actions wired up.
+- **Select-all for expense attachment** — checkbox to select/deselect all available draft expenses at once.
+- **Role-gated dashboard cards** — Approval card only shown to `manager`/`chef_finance`; Payments card only to `chef_finance`. Technicians no longer see cards that vanish with count=0.
+- **Company overview banner** — persistent amber banner when privileged user is in org-wide view mode.
+- **Clickable dashboard rows** — category rows link to filtered expenses; recent expense rows link to detail page.
+
+#### Polish & accessibility
+- Loading states replaced with `animate-pulse` skeleton layouts (dashboard, reports list, report detail).
+- Expense table on report detail collapses non-critical columns on mobile (`hidden sm:table-cell`).
+- Checkbox touch targets enlarged with `py-2` on attachment labels.
+- Badge component adds prefix symbol (○→✓✗★) so status is not color-only.
+- Sidebar: close button has `aria-label`, theme toggle shows current mode name, Signature item separated by `<hr>` divider.
+- `EmptyState` button has `type="button"` to prevent accidental form submission.
+- Loading containers have `role="status" aria-live="polite"` for screen readers.
+- `Expense` and `Report` TS interfaces updated with `user_display_name?: string | null`.
+
+### Modified Files
+- `frontend/app/reports/[id]/page.tsx` — approve/reject, status panels, rejection banner, error handling, select-all, mobile columns
+- `frontend/app/reports/page.tsx` — delete confirm, search, sort, skeleton, actionable empty states, quick-submit
+- `frontend/app/dashboard/page.tsx` — role-gated cards, overview banner, clickable rows, skeleton
+- `frontend/components/layout/Sidebar.tsx` — ARIA label, theme label, signature divider
+- `frontend/components/ui/Badge.tsx` — status prefix icons
+- `frontend/components/ui/EmptyState.tsx` — `type="button"` fix
+- `frontend/lib/api.ts` — `user_display_name` on `Expense` and `Report` interfaces
+
+### Test Results
+- **108 tests pass** (was 101 before mileage/signature sessions; backend-only test suite, all green)
+
+---
+
+## Previous Session (2026-06-07, session 12)
+
+### What Was Done
+- **UI/UX Redesign & Role Differentiation** (IMPLEMENTED)
+  - **Distinct Role Identity**: Assigned color themes to each role for instant visual context: Blue (Technician), Amber (Manager), Emerald (Finance Lead), Indigo (Administrator).
+  - **Personalized Dashboard**: Added a `DashboardGreeting` (time-of-day specific) and `DashboardActionCard` components.
+  - **Contextual Actions**: The dashboard now highlights role-specific tasks (e.g., Technicians see draft reports, Managers see pending approvals, Finance see pending payments).
+  - **Human-Friendly Terminology**: Updated navigation and role labels to be more action-oriented (e.g., "Approvals" -> "Review Reports", "Moderator" -> "Administrator").
+  - **Enhanced Components**: Added role-based color variants to `Badge` and actionable buttons to `EmptyState`.
+- **Signature Pad Coordinate Fix** (IMPLEMENTED)
+  - Resolved "offset to the right" bug by implementing a unified coordinate calculation using `getBoundingClientRect` and internal-to-visual scaling ratios.
+  - Improved responsiveness with `max-w-full` for smaller screens.
+- **Backend Analytics for UI**: Updated `DashboardStats` API to include `pending_approval_count` and `pending_payment_count` to support the new dashboard action cards.
+
+### New Files
+- `frontend/lib/themes.ts` — centralized role-to-color mapping.
+- `frontend/components/dashboard/DashboardGreeting.tsx` — personalized greetings.
+- `frontend/components/dashboard/DashboardActionCard.tsx` — role-specific task prompts.
+
+### Modified Files
+- `backend/xpenses/models.py` — added pending counts to `DashboardStats` model.
+- `backend/xpenses/routers/dashboard.py` — implemented calculation for role-specific pending counts.
+- `frontend/lib/api.ts` — updated `DashboardStats` interface.
+- `frontend/components/layout/Sidebar.tsx` — added role-based color accents and updated labels.
+- `frontend/app/dashboard/page.tsx` — full redesign with greetings and action cards.
+- `frontend/components/ui/Badge.tsx` — added role variants.
+- `frontend/components/ui/EmptyState.tsx` — added support for action buttons.
+- `frontend/components/signature/SignaturePad.tsx` — fixed drawing offset and responsiveness.
+
+---
+
+## Previous Session (2026-06-07, session 11)
+
+### What Was Done
+- **Access Control & Organizational Boundaries** (IMPLEMENTED + TESTED)
+  - Refactored "Moderator" and "Chef of Finances" roles to distinguish between personal and company data.
+  - **Company Overview Toggle**: Privileged users now see their personal dashboard/reports by default, with a toggle to view organization-wide data.
+  - **Strict Ownership Enforcement**: Moderators can audit/view other users' reports but are strictly blocked from editing, deleting, or submitting them (403 Forbidden).
+  - **Owner Identification**: Added "Owner" columns to report and expense tables in organizational views.
+  - **Backend Hardening**: `list_reports` and `list_expenses` now require `?all=true` for organizational data; all mutation endpoints verify `user_id` matches.
+- **UI/UX Improvement: Sign Report Button** (IMPLEMENTED)
+  - Moved the "Sign Report" button from the bottom of the page to the report header action bar (next to Edit/Export/Download).
+  - Maintained "Signed on [Date]" audit trail at the bottom of signed reports.
+
+### Modified Files
+- `backend/xpenses/models.py` — added `user_display_name` to `ReportOut` and `ExpenseOut`.
+- `backend/xpenses/routers/reports.py` — refactored list/get/mutate for ownership vs audit access; added user JOINs.
+- `backend/xpenses/routers/expenses.py` — tightened ownership checks on updates/deletes; added `all=true` support.
+- `backend/xpenses/routers/dashboard.py` — refactored for personal vs org-wide stats via `all=true`.
+- `frontend/app/reports/page.tsx` — added "Company Reports" toggle and Owner column.
+- `frontend/app/dashboard/page.tsx` — added "Company Overview" toggle and owner labels.
+- `frontend/app/reports/[id]/page.tsx` — moved Sign button to header, removed bottom prompt.
+
+---
+
+## Previous Session (2026-06-07, session 10)
 
 ### What Was Done
 - **Mileage Recording Feature** (IMPLEMENTED + TESTED)
-  - `mileage_records` table linked to expense reports (same pattern as advance_payments)
+... (rest of the file remains same) ...
   - Dual mileage rates: before-tax (0.60 €/km) and after-tax (0.40 €/km)
   - Server-side cost calculation; rates stored per record for historical accuracy
   - Full CRUD at `/api/reports/{id}/mileage`

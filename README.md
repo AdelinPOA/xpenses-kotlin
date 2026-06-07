@@ -7,14 +7,17 @@ Self-hosted expense management app for internal company use. Built as a lightwei
 - **Expenses CRUD** — create, edit, delete expenses with merchant, category, date, description
 - **Multi-currency** — supports 50+ currencies with automatic EUR conversion using ECB rates (Frankfurter API + fallback provider for exotic currencies like UAH, GEL, HUF, etc.)
 - **Multiple receipts** — attach multiple photos/PDFs per expense (JPG, PNG, PDF, WEBP)
-- **Expense reports** — group expenses into reports with date range (draft → submitted → paid)
-- **Report recall** — retract a submitted report back to draft
+- **Expense reports** — group expenses into reports with date range; full state machine: `draft → submitted → approved → paid`, with recall and reject
+- **Report approval workflow** — managers and CFOs approve/reject submitted reports; rejection reason captured and displayed prominently; cannot approve your own report
+- **Report recall** — retract a submitted or rejected report back to draft
 - **PDF export** — Zoho-style PDF with company branding, FX rates per expense, currency summary, reimbursable summary, signature area, and 2-per-row receipt grid with merged PDF receipts
 - **Receipts ZIP download** — download all receipts from a report as a ZIP file
 - **Advance payments** — full workflow for requesting, approving, and attaching cash advances to reports
 - **Mileage recording** — km tracking with driving time (start/end), dual tax rates (before/after), CFO-editable rates via settings
+- **Digital signatures** — canvas-based signature pad; sign reports with one click
 - **Categories** — with optional EUR spending limits
-- **Dashboard** — monthly totals, spend by category, recent expenses
+- **Dashboard** — monthly totals, spend by category (clickable, links to filtered expenses), recent expenses (clickable), role-specific action cards
+- **Role-differentiated UX** — color themes per role; each role sees only the actions relevant to them; managers see approval queue, CFO sees payment queue
 
 ## Tech Stack
 
@@ -55,8 +58,9 @@ xpenses/
 │       ├── routers/
 │       │   ├── expenses.py      # CRUD + receipt upload
 │       │   ├── reports.py       # Reports + attach/submit/recall/export
-│       │   ├── categories.py    # Categories CRUD
-│       │   └── dashboard.py     # Dashboard stats
+│           ├── categories.py    # Categories CRUD
+│           └── dashboard.py     # Dashboard stats (with role-based pending counts)
+
 │       └── services/
 │           ├── fx_service.py    # FX rate fetching + caching (asyncpg)
 │           ├── pdf_export.py    # PDF report generation (Zoho-style)
@@ -64,7 +68,10 @@ xpenses/
 ├── frontend/
 │   ├── app/                     # Next.js App Router pages
 │   ├── components/              # React components
-│   ├── lib/                     # API client, types, query keys
+│   │   ├── dashboard/           # Greeting and ActionCard components
+│   │   ├── layout/              # Sidebar with role-based themes
+│   │   └── signature/           # Signature pad with coordinate scaling
+│   ├── lib/                     # API client, types, themes (role colors)
 │   └── public/
 │       └── logo.png             # NT logo for sidebar
 └── docker-compose.yml           # PostgreSQL + backend + frontend
@@ -127,7 +134,7 @@ The PDF export matches Zoho Expenses quality:
 
 ## Current Status
 
-**Phase 7 partial + test suite** — Mileage, dark mode, OCR, mobile responsive, and 101 backend tests.
+**Phase 7 partial + test suite** — UI/UX Redesign, Mileage, dark mode, OCR, mobile responsive, and 101 backend tests.
 
 - [x] Expenses CRUD with multi-currency FX conversion
 - [x] Multiple receipt uploads per expense
@@ -150,6 +157,8 @@ The PDF export matches Zoho Expenses quality:
 - [x] Mobile responsive layout (collapsible sidebar drawer, responsive tables, flex-wrap filters)
 - [x] OCR receipt scanning (auto-fill merchant, amount, date)
 - [x] Mileage recording with driving time tracking + dual tax rates (CFO-editable)
+- [x] UI/UX Redesign: Role-based color themes, personalized dashboard with time-of-day greetings and contextual action cards
+- [x] Signature Pad: Fixed drawing offset via coordinate scaling; full responsiveness
 - [x] Backend test suite (101 tests: auth, expenses, reports, advances, mileage, settings, categories, users, ocr)
 - [x] Linting with ruff + Makefile workflow
 

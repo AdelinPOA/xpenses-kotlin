@@ -17,11 +17,15 @@ EXPENSE_SELECT = """
 
 
 @router.get("", response_model=DashboardStats)
-async def get_dashboard(current_user: dict = Depends(get_current_user), db: asyncpg.Connection = Depends(get_db)):
+async def get_dashboard(
+    all: bool = False,
+    current_user: dict = Depends(get_current_user),
+    db: asyncpg.Connection = Depends(get_db)
+):
     now = datetime.utcnow()
     month_start = f"{now.year}-{now.month:02d}-01"
 
-    is_org_wide = current_user["role"] in ("chef_finance", "mod")
+    is_org_wide = current_user["role"] in ("chef_finance", "mod") or (all and current_user["role"] == "manager")
 
     if is_org_wide:
         row = await db.fetchrow("SELECT COUNT(*) as cnt FROM expenses")
@@ -59,6 +63,20 @@ async def get_dashboard(current_user: dict = Depends(get_current_user), db: asyn
         row = await db.fetchrow("SELECT COUNT(*) as cnt FROM expense_reports WHERE status = 'paid' AND user_id = $1", current_user["id"])
     paid_count = row["cnt"]
 
+    # Pending counts for action cards
+    pending_approval_count = 0
+    if current_user["role"] in ("manager", "chef_finance", "mod"):
+        row = await db.fetchrow(
+            "SELECT COUNT(*) as cnt FROM expense_reports WHERE status = 'submitted' AND user_id != $1",
+            current_user["id"]
+        )
+        pending_approval_count = row["cnt"]
+
+    pending_payment_count = 0
+    if current_user["role"] in ("chef_finance", "mod"):
+        row = await db.fetchrow("SELECT COUNT(*) as cnt FROM expense_reports WHERE status = 'approved'")
+        pending_payment_count = row["cnt"]
+
     if is_org_wide:
         rows = await db.fetch(
             """SELECT e.category_id, COALESCE(c.name, 'Uncategorized') as category_name,
@@ -86,10 +104,17 @@ async def get_dashboard(current_user: dict = Depends(get_current_user), db: asyn
         for r in rows
     ]
 
+    EXPENSE_SELECT_WITH_USER = """
+        SELECT e.*, c.name as category_name, u.display_name as user_display_name
+        FROM expenses e
+        LEFT JOIN categories c ON e.category_id = c.id
+        LEFT JOIN users u ON e.user_id = u.id
+    """
+
     if is_org_wide:
-        rows = await db.fetch(f"{EXPENSE_SELECT} ORDER BY e.created_at DESC LIMIT 10")
+        rows = await db.fetch(f"{EXPENSE_SELECT_WITH_USER} ORDER BY e.created_at DESC LIMIT 10")
     else:
-        rows = await db.fetch(f"{EXPENSE_SELECT} WHERE e.user_id = $1 ORDER BY e.created_at DESC LIMIT 10", current_user["id"])
+        rows = await db.fetch(f"{EXPENSE_SELECT_WITH_USER} WHERE e.user_id = $1 ORDER BY e.created_at DESC LIMIT 10", current_user["id"])
     recent = [dict(r) for r in rows]
 
     if recent:
@@ -111,6 +136,8 @@ async def get_dashboard(current_user: dict = Depends(get_current_user), db: asyn
         draft_count=draft_count,
         submitted_count=submitted_count,
         paid_count=paid_count,
+        pending_approval_count=pending_approval_count,
+        pending_payment_count=pending_payment_count,
         spend_by_category=spend_by_category,
         recent_expenses=recent,
     )

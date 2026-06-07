@@ -69,6 +69,8 @@ class ReceiptOut(BaseModel):
 class ExpenseOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
+    user_id: int | None = None
+    user_display_name: str | None = None
     category_id: int | None
     category_name: str | None = None
     report_id: int | None
@@ -118,6 +120,7 @@ class ReportOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
     user_id: int | None = None
+    user_display_name: str | None = None
     title: str
     description: str | None
     date_from: str | None
@@ -319,5 +322,7 @@ class DashboardStats(BaseModel):
     draft_count: int
     submitted_count: int
     paid_count: int
+    pending_approval_count: int = 0
+    pending_payment_count: int = 0
     spend_by_category: list[CategorySpend]
     recent_expenses: list[ExpenseOut]

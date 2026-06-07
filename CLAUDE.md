@@ -25,7 +25,7 @@ docker compose logs -f backend
 # Access PostgreSQL
 docker exec -it xpenses-db psql -U xpenses
 
-# Run all tests (101 tests, ~40s, inside backend container)
+# Run all tests (109 tests, ~40s, inside backend container)
 make test
 
 # Run tests with stop-on-first-failure
@@ -97,6 +97,8 @@ submitted → draft (via recall, by owner)
 
 **Auth flow:** `AuthProvider` context wraps the app via `Providers.tsx`. `useAuth()` hook provides `user`, `logout`, `setUser`. Next.js middleware (`middleware.ts`) redirects unauthenticated users to `/login` by checking the `access_token` cookie.
 
+**Role-gated UI:** Check `user?.role` from `useAuth()`. Pattern used across pages: `const isPrivileged = user?.role === "chef_finance" || user?.role === "mod" || user?.role === "manager"`. Pay button renders only for `chef_finance`; approve/reject for `manager | chef_finance`.
+
 **Layout:** `AppShell` provides sidebar + main content. Sidebar is a responsive drawer (overlay on mobile, fixed on desktop at `lg` breakpoint). `ThemeProvider` manages light/dark/system, persisted in localStorage.
 
 ### Docker Networking (dual-URL pattern)
@@ -113,7 +115,10 @@ Frontend uses two different URLs to reach the backend:
 - **OCR Scanning:** Integrated EasyOCR for receipts (`POST /api/ocr/scan`). Automatically extracts date, merchant, amount and currency. Validates languages via `ocr_languages` setting. Fallbacks to lookahead on total amounts.
 - **Receipt storage:** Files in `/app/data/receipts/` (Docker volume), organized by `YYYY/MM/`. Multiple receipts per expense. Path traversal protection in `storage.py`. Allowed: JPG, PNG, GIF, PDF, WEBP (max 10MB).
 - **PDF export:** `reportlab` generates the main report PDF. Receipt PDFs are appended via `pypdf`. Receipt images rendered 2-per-row.
-- **Dashboard scoping:** `chef_finance` and `mod` see org-wide data; other roles see only their own.
+- **Dashboard scoping:** `chef_finance` and `mod` always see org-wide data (no flag needed). `manager` sees org-wide when `?all=true` is passed. All other roles see only their own data regardless of flags.
+- **Mileage:** `POST/GET/DELETE /api/reports/{id}/mileage` — per-report km records with dual tax rates (before/after). Rates are CFO-editable via `PATCH /api/settings/mileage-rates` (stored in `app_settings` DB table, not env vars).
+- **Digital signatures:** `POST /api/users/me/signature` stores a base64 PNG. `POST /api/reports/{id}/sign` stamps the report. Signature is stored per-user in the `users` table.
+- **Advance payments:** Two routers — `APIRouter` at `/api/reports/{id}/advances` for per-report CRUD, and `global_router` at `/api/advances/pending` for the org-wide manager/CFO queue. Manager direct-pay creates an advance already marked `paid`; employee requests create `status=requested` advances that CFO pays separately.
 
 ## Testing
 

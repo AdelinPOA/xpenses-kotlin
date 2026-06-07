@@ -1,6 +1,6 @@
 # HANDOFF.md — xpenses_copy
 
-> Last updated: 2026-06-06 (session 9)  
+> Last updated: 2026-06-07 (session 10)  
 > Author: Claude (AI assistant session)
 
 ---
@@ -11,7 +11,7 @@ Self-hosted expense management app (alternative to Zoho Expenses). FastAPI backe
 
 **AI Workflow:** Opus 4.6 for planning, coordination, orchestration, and code review. Sonnet agents for coding implementation tasks.
 
-## Current State: OPERATIONAL (Phase 7 Partial + Advance Payments v2 + OCR + Test Suite)
+## Current State: OPERATIONAL (Phase 7 Partial + Mileage + Advance Payments v2 + OCR + Test Suite)
 
 All 3 Docker containers running, all endpoints healthy:
 
@@ -21,7 +21,54 @@ All 3 Docker containers running, all endpoints healthy:
 | FastAPI backend | `xpenses-backend` | 8001 → 8000 | `{"status":"ok"}` |
 | Next.js frontend | `xpenses-frontend` | 3001 → 3000 | Serving (307 redirect to /login if unauthenticated) |
 
-## Latest Session (2026-06-06, session 9)
+## Latest Session (2026-06-07, session 10)
+
+### What Was Done
+- **Mileage Recording Feature** (IMPLEMENTED + TESTED)
+  - `mileage_records` table linked to expense reports (same pattern as advance_payments)
+  - Dual mileage rates: before-tax (0.60 €/km) and after-tax (0.40 €/km)
+  - Server-side cost calculation; rates stored per record for historical accuracy
+  - Full CRUD at `/api/reports/{id}/mileage`
+  - Frontend page at `/reports/[id]/mileage` with add/delete/totals
+  - Teal metric card on report detail linking to mileage page
+  - PDF export with mileage table and updated reimbursable summary
+- **Driving Time Tracking** (IMPLEMENTED + TESTED)
+  - Replaced `date TEXT` with `start_time`/`end_time` TIMESTAMPTZ columns
+  - Computed `duration_minutes` field (Pydantic `@computed_field`)
+  - DB migration backfills existing records
+  - Frontend datetime-local inputs, duration display in table + summary card
+  - PDF export shows date/time + duration columns
+- **CFO-Editable Mileage Rates** (IMPLEMENTED + TESTED)
+  - `app_settings` DB table (key-value, seeded with defaults)
+  - `GET/PATCH /api/settings/mileage-rates` endpoints (PATCH is `chef_finance` only)
+  - Mileage router reads rates from DB instead of config
+  - Frontend settings page at `/admin/settings` (CFO-gated)
+  - Sidebar "Settings" nav item for CFO role
+- **Test suite grew to 101 passing tests** (from 94)
+
+### New Files
+- `backend/xpenses/routers/app_settings.py` — settings router + `get_mileage_rates` helper
+- `backend/tests/test_settings.py` — 5 tests (read, update, forbidden, validation, integration)
+- `frontend/app/admin/settings/page.tsx` — CFO mileage rates management page
+
+### Modified Files
+- `backend/xpenses/database.py` — `app_settings` table, `mileage_records` time columns, migration
+- `backend/xpenses/config.py` — updated default rates to 0.60/0.40
+- `backend/xpenses/models.py` — time fields, computed duration, settings models, validator
+- `backend/xpenses/routers/mileage.py` — time fields, DB rates, time validation
+- `backend/xpenses/routers/reports.py` — ORDER BY start_time
+- `backend/xpenses/services/pdf_export.py` — date/time + duration columns, helpers
+- `backend/xpenses/main.py` — registered app_settings router
+- `backend/tests/conftest.py` — time-based create_mileage, app_settings reset
+- `backend/tests/test_mileage.py` — updated for time fields + new rate values
+- `frontend/lib/api.ts` — MileageRates interface, time fields on MileageRecord
+- `frontend/lib/queryKeys.ts` — settingsKeys
+- `frontend/components/layout/Sidebar.tsx` — Settings nav item
+- `frontend/app/reports/[id]/mileage/page.tsx` — time inputs, duration display
+
+---
+
+## Previous Session (2026-06-06, session 9)
 
 ### What Was Done
 - **OCR Receipt Scanning Validation & Fixes** (IMPLEMENTED + TESTED)
@@ -171,7 +218,9 @@ All 3 Docker containers running, all endpoints healthy:
 | `fx_rates` | Cached ECB rates |
 | `users` | 4 seeded test users |
 | `refresh_tokens` | JWT refresh token hashes |
-| `advance_payments` | Cash advances per report (v1: basic CRUD; v2 plan: request/pay workflow) |
+| `advance_payments` | Cash advances per report (v2: request/pay/reject workflow) |
+| `mileage_records` | Km/mileage records per report with dual rates + driving time |
+| `app_settings` | Key-value config (mileage rates, CFO-editable) |
 
 ---
 

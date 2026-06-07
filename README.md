@@ -12,6 +12,7 @@ Self-hosted expense management app for internal company use. Built as a lightwei
 - **PDF export** — Zoho-style PDF with company branding, FX rates per expense, currency summary, reimbursable summary, signature area, and 2-per-row receipt grid with merged PDF receipts
 - **Receipts ZIP download** — download all receipts from a report as a ZIP file
 - **Advance payments** — full workflow for requesting, approving, and attaching cash advances to reports
+- **Mileage recording** — km tracking with driving time (start/end), dual tax rates (before/after), CFO-editable rates via settings
 - **Categories** — with optional EUR spending limits
 - **Dashboard** — monthly totals, spend by category, recent expenses
 
@@ -126,7 +127,7 @@ The PDF export matches Zoho Expenses quality:
 
 ## Current Status
 
-**Phase 7 partial + test suite** — Dark mode, OCR, mobile responsive, and 87 backend tests.
+**Phase 7 partial + test suite** — Mileage, dark mode, OCR, mobile responsive, and 101 backend tests.
 
 - [x] Expenses CRUD with multi-currency FX conversion
 - [x] Multiple receipt uploads per expense
@@ -148,7 +149,8 @@ The PDF export matches Zoho Expenses quality:
 - [x] Dark mode with system preference detection + manual toggle (light/dark/system)
 - [x] Mobile responsive layout (collapsible sidebar drawer, responsive tables, flex-wrap filters)
 - [x] OCR receipt scanning (auto-fill merchant, amount, date)
-- [x] Backend test suite (87 tests: auth, expenses, reports, advances, categories, users, ocr)
+- [x] Mileage recording with driving time tracking + dual tax rates (CFO-editable)
+- [x] Backend test suite (101 tests: auth, expenses, reports, advances, mileage, settings, categories, users, ocr)
 - [x] Linting with ruff + Makefile workflow
 
 ## Roadmap

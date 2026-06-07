@@ -48,6 +48,20 @@ def _fmt_date(val) -> str:
     return str(val) if val else ""
 
 
+def _fmt_datetime(val) -> str:
+    if isinstance(val, datetime):
+        return val.strftime("%d.%m.%Y %H:%M")
+    return _fmt_date(val)
+
+
+def _fmt_duration(start, end) -> str:
+    if isinstance(start, datetime) and isinstance(end, datetime):
+        total_min = int((end - start).total_seconds() / 60)
+        h, m = divmod(total_min, 60)
+        return f"{h}h {m:02d}m"
+    return ""
+
+
 def _currency_fmt(amount: float, currency: str) -> str:
     if currency == "EUR":
         return f"€{amount:,.2f}"
@@ -271,23 +285,28 @@ def _build_main_pdf(report: dict, expenses: list[dict], advances: list[dict] | N
     # ── Mileage Records table ────────────────────────────────────────────────
     if mileage:
         story.append(Paragraph("MILEAGE", h2_style))
-        mil_header = ["S.No", "Date", "Route", "km", "Rate BT (€)", "Gross (€)", "Rate AT (€)", "Net (€)"]
-        mil_col_widths = [10 * mm, 22 * mm, None, 16 * mm, 20 * mm, 22 * mm, 20 * mm, 22 * mm]
+        mil_header = ["S.No", "Date/Time", "Duration", "Route", "km", "Rate BT", "Gross (€)", "Rate AT", "Net (€)"]
+        mil_col_widths = [10 * mm, 28 * mm, 16 * mm, None, 14 * mm, 16 * mm, 20 * mm, 16 * mm, 20 * mm]
         mil_fixed = sum(w for w in mil_col_widths if w)
-        mil_col_widths[2] = CONTENT_W - mil_fixed
+        mil_col_widths[3] = CONTENT_W - mil_fixed
 
         mil_data = [mil_header]
         total_km = 0.0
         total_gross = 0.0
         total_net = 0.0
+        total_duration_min = 0
         for mil_idx, m in enumerate(mileage, start=1):
             total_km += m["distance_km"]
             total_gross += m["amount_before_tax"]
             total_net += m["amount_eur"]
             route = f"{m['origin']} → {m['destination']}"
+            duration_str = _fmt_duration(m.get("start_time"), m.get("end_time"))
+            if isinstance(m.get("start_time"), datetime) and isinstance(m.get("end_time"), datetime):
+                total_duration_min += int((m["end_time"] - m["start_time"]).total_seconds() / 60)
             mil_data.append([
                 f"{mil_idx}.",
-                _fmt_date(m.get("date", "")),
+                _fmt_datetime(m.get("start_time", "")),
+                duration_str,
                 Paragraph(route, small_style),
                 f"{m['distance_km']:.1f}",
                 f"{m['rate_before_tax']:.2f}",
@@ -295,8 +314,9 @@ def _build_main_pdf(report: dict, expenses: list[dict], advances: list[dict] | N
                 f"{m['rate_after_tax']:.2f}",
                 f"€{m['amount_eur']:,.2f}",
             ])
+        total_h, total_m = divmod(total_duration_min, 60)
         mil_data.append([
-            "", "", Paragraph("<b>TOTAL</b>", small_style),
+            "", "", f"{total_h}h {total_m:02d}m", Paragraph("<b>TOTAL</b>", small_style),
             f"{total_km:.1f}", "", f"€{total_gross:,.2f}", "", f"€{total_net:,.2f}",
         ])
 
@@ -317,7 +337,7 @@ def _build_main_pdf(report: dict, expenses: list[dict], advances: list[dict] | N
             ("GRID", (0, 0), (-1, -1), 0.5, BORDER),
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
             ("ALIGN", (0, 0), (0, -1), "CENTER"),
-            ("ALIGN", (3, 1), (-1, -1), "RIGHT"),
+            ("ALIGN", (4, 1), (-1, -1), "RIGHT"),
         ]))
         story.append(mil_table)
         story.append(Spacer(1, 8 * mm))

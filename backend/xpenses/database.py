@@ -120,13 +120,20 @@ CREATE TABLE IF NOT EXISTS mileage_records (
     rate_after_tax DOUBLE PRECISION NOT NULL,
     amount_before_tax DOUBLE PRECISION NOT NULL,
     amount_eur DOUBLE PRECISION NOT NULL,
-    date TEXT NOT NULL,
+    start_time TIMESTAMPTZ NOT NULL,
+    end_time TIMESTAMPTZ NOT NULL,
     description TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_mileage_records_report ON mileage_records(report_id);
+
+CREATE TABLE IF NOT EXISTS app_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
 """
 
 DEFAULT_CATEGORIES = [
@@ -214,6 +221,30 @@ async def init_db() -> None:
             await conn.execute(
                 "INSERT INTO categories (name, limit_amount) VALUES ($1, $2) ON CONFLICT (name) DO NOTHING",
                 name, limit,
+            )
+
+        # Migrate mileage_records: date TEXT → start_time/end_time TIMESTAMPTZ
+        date_col_exists = await conn.fetchval(
+            "SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name='mileage_records' AND column_name='date')",
+        )
+        if date_col_exists:
+            st_exists = await conn.fetchval(
+                "SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name='mileage_records' AND column_name='start_time')",
+            )
+            if not st_exists:
+                await conn.execute("ALTER TABLE mileage_records ADD COLUMN start_time TIMESTAMPTZ")
+                await conn.execute("ALTER TABLE mileage_records ADD COLUMN end_time TIMESTAMPTZ")
+                await conn.execute("UPDATE mileage_records SET start_time = (date || 'T08:00:00Z')::timestamptz WHERE start_time IS NULL AND date IS NOT NULL")
+                await conn.execute("UPDATE mileage_records SET end_time = start_time + interval '1 hour' WHERE end_time IS NULL AND start_time IS NOT NULL")
+                await conn.execute("ALTER TABLE mileage_records ALTER COLUMN start_time SET NOT NULL")
+                await conn.execute("ALTER TABLE mileage_records ALTER COLUMN end_time SET NOT NULL")
+            await conn.execute("ALTER TABLE mileage_records DROP COLUMN IF EXISTS date")
+
+        # Seed default mileage rates
+        for key, val in [("mileage_rate_before_tax", "0.60"), ("mileage_rate_after_tax", "0.40")]:
+            await conn.execute(
+                "INSERT INTO app_settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO NOTHING",
+                key, val,
             )
 
 

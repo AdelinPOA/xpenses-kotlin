@@ -61,7 +61,7 @@ async def _fetch_report(db: asyncpg.Connection, report_id: int) -> dict:
     report["total_advances"] = sum(a["amount_eur"] for a in report["advances"] if a.get("status", "paid") == "paid")
 
     mileage_rows = await db.fetch(
-        "SELECT * FROM mileage_records WHERE report_id = $1 ORDER BY date",
+        "SELECT * FROM mileage_records WHERE report_id = $1 ORDER BY start_time",
         report_id,
     )
     report["mileage_records"] = [dict(m) for m in mileage_rows]
@@ -321,7 +321,7 @@ async def export_report_pdf(report_id: int, current_user: dict = Depends(get_cur
     advances = [dict(r) for r in advance_rows]
 
     mileage_rows = await db.fetch(
-        "SELECT * FROM mileage_records WHERE report_id = $1 ORDER BY date",
+        "SELECT * FROM mileage_records WHERE report_id = $1 ORDER BY start_time",
         report_id,
     )
     mileage = [dict(m) for m in mileage_rows]

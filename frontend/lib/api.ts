@@ -89,10 +89,17 @@ export interface MileageRecord {
   rate_after_tax: number;
   amount_before_tax: number;
   amount_eur: number;
-  date: string;
+  start_time: string;
+  end_time: string;
+  duration_minutes: number;
   description: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface MileageRates {
+  mileage_rate_before_tax: number;
+  mileage_rate_after_tax: number;
 }
 
 export interface Report {

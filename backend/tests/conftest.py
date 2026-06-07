@@ -62,6 +62,9 @@ async def clean_tables():
         await conn.execute("DELETE FROM advance_payments")
         await conn.execute("DELETE FROM expenses")
         await conn.execute("DELETE FROM expense_reports")
+        # Reset mileage rates to defaults after each test
+        await conn.execute("UPDATE app_settings SET value = '0.60' WHERE key = 'mileage_rate_before_tax'")
+        await conn.execute("UPDATE app_settings SET value = '0.40' WHERE key = 'mileage_rate_after_tax'")
 
 
 @pytest_asyncio.fixture
@@ -174,14 +177,16 @@ async def create_mileage(
     origin: str = "Bucharest",
     destination: str = "Ploiesti",
     distance_km: float = 60.0,
-    date: str = "2026-01-10",
+    start_time: str = "2026-01-10T08:00:00Z",
+    end_time: str = "2026-01-10T09:30:00Z",
     description: str | None = None,
 ) -> dict:
     body = {
         "origin": origin,
         "destination": destination,
         "distance_km": distance_km,
-        "date": date,
+        "start_time": start_time,
+        "end_time": end_time,
     }
     if description is not None:
         body["description"] = description

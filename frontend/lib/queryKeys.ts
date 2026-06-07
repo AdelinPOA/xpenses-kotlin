@@ -26,6 +26,11 @@ export const mileageKeys = {
   list: (reportId: number) => [...mileageKeys.all, "list", reportId] as const,
 };
 
+export const settingsKeys = {
+  all: ["settings"] as const,
+  mileageRates: () => [...settingsKeys.all, "mileage-rates"] as const,
+};
+
 export const dashboardKeys = {
   all: ["dashboard"] as const,
 };

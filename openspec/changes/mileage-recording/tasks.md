@@ -173,9 +173,9 @@ export interface MileageRecord {
   - Table: Date | Origin → Destination | Distance | Rate | Amount | Actions (delete button if draft)
   - Total row at bottom
   - TanStack Query for data fetching, mutations for create/delete
-- [ ] 9.2 Test in browser: create report → navigate to mileage tab → add record → verify total updates → delete record
+- [x] 9.2 Test in browser: create report → navigate to mileage tab → add record → verify total updates → delete record
 
 ## 10. Commit + Verify
 
-- [ ] 10.1 Run `make lint-fix` then `make test` — all tests pass
-- [ ] 10.2 Commit and push
+- [x] 10.1 Run `make lint-fix` then `make test` — all tests pass
+- [x] 10.2 Commit and push

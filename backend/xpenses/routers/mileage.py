@@ -1,12 +1,12 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 import asyncpg
 from fastapi import APIRouter, Depends, HTTPException
 
 from ..auth import get_current_user
-from ..config import settings
 from ..database import get_db
 from ..models import MileageRecordCreate, MileageRecordOut, MileageRecordUpdate
+from .app_settings import get_mileage_rates
 
 router = APIRouter(prefix="/api/reports/{report_id}/mileage", tags=["mileage"])
 
@@ -32,7 +32,7 @@ async def list_mileage(
 ):
     await _verify_report_ownership(db, report_id, current_user)
     rows = await db.fetch(
-        "SELECT * FROM mileage_records WHERE report_id = $1 ORDER BY date",
+        "SELECT * FROM mileage_records WHERE report_id = $1 ORDER BY start_time",
         report_id,
     )
     return [dict(r) for r in rows]
@@ -49,22 +49,21 @@ async def create_mileage(
     if report["status"] != "draft":
         raise HTTPException(status_code=400, detail="Only draft reports can be modified")
 
-    rate_bt = settings.mileage_rate_before_tax
-    rate_at = settings.mileage_rate_after_tax
+    rate_bt, rate_at = await get_mileage_rates(db)
     amount_before_tax = round(body.distance_km * rate_bt, 2)
     amount_eur = round(body.distance_km * rate_at, 2)
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     row = await db.fetchrow(
         """INSERT INTO mileage_records
            (report_id, user_id, origin, destination, distance_km,
             rate_before_tax, rate_after_tax, amount_before_tax, amount_eur,
-            date, description, created_at, updated_at)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+            start_time, end_time, description, created_at, updated_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
            RETURNING *""",
         report_id, current_user["id"], body.origin, body.destination, body.distance_km,
         rate_bt, rate_at, amount_before_tax, amount_eur,
-        body.date, body.description, now, now,
+        body.start_time, body.end_time, body.description, now, now,
     )
     return dict(row)
 
@@ -93,16 +92,22 @@ async def update_mileage(
         return dict(rec)
 
     fields = {}
-    for k in ("origin", "destination", "date", "description"):
+    for k in ("origin", "destination", "start_time", "end_time", "description"):
         if k in raw:
             fields[k] = raw[k]
+
+    # Validate time range if either time is being updated
+    new_start = fields.get("start_time", rec["start_time"])
+    new_end = fields.get("end_time", rec["end_time"])
+    if new_end <= new_start:
+        raise HTTPException(status_code=422, detail="end_time must be after start_time")
 
     if "distance_km" in raw:
         fields["distance_km"] = raw["distance_km"]
         fields["amount_before_tax"] = round(raw["distance_km"] * rec["rate_before_tax"], 2)
         fields["amount_eur"] = round(raw["distance_km"] * rec["rate_after_tax"], 2)
 
-    fields["updated_at"] = datetime.utcnow()
+    fields["updated_at"] = datetime.now(timezone.utc)
     set_parts = [f"{k} = ${i}" for i, k in enumerate(fields, 1)]
     values = list(fields.values()) + [mileage_id]
     await db.execute(

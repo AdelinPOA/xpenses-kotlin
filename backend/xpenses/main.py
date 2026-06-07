@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
 from .database import init_db
-from .routers import advances, auth, categories, dashboard, expenses, mileage, ocr, reports, users
+from .routers import advances, app_settings, auth, categories, dashboard, expenses, mileage, ocr, reports, users
 from .seed import seed_users
 
 
@@ -34,6 +34,7 @@ app.include_router(reports.router)
 app.include_router(advances.router)
 app.include_router(advances.global_router)
 app.include_router(mileage.router)
+app.include_router(app_settings.router)
 app.include_router(dashboard.router)
 app.include_router(ocr.router)
 

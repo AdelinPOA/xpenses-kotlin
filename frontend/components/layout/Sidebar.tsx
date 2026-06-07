@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Receipt, FileText, Tag, Users, CheckSquare, Banknote, Wallet, LogOut, Sun, Moon, Monitor, X } from "lucide-react";
+import { LayoutDashboard, Receipt, FileText, Tag, Users, CheckSquare, Banknote, Wallet, Settings, LogOut, Sun, Moon, Monitor, X } from "lucide-react";
 import clsx from "clsx";
 import { useAuth } from "@/components/AuthProvider";
 import { useTheme } from "@/components/ThemeProvider";
@@ -24,6 +24,7 @@ const NAV: NavItem[] = [
   { href: "/payments", label: "Payments", icon: Banknote, roles: ["chef_finance"] },
   { href: "/categories", label: "Categories", icon: Tag, roles: ["mod"] },
   { href: "/admin/users", label: "Users", icon: Users, roles: ["mod"] },
+  { href: "/admin/settings", label: "Settings", icon: Settings, roles: ["chef_finance"] },
 ];
 
 const ROLE_LABELS: Record<string, string> = {

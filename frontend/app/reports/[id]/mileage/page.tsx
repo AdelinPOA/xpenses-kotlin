@@ -2,7 +2,7 @@
 
 import { use, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import api, { Report, MileageRecord } from "@/lib/api";
+import api, { Report } from "@/lib/api";
 import { reportKeys, mileageKeys } from "@/lib/queryKeys";
 import AppShell from "@/components/layout/AppShell";
 import Badge from "@/components/ui/Badge";
@@ -11,6 +11,19 @@ import Link from "next/link";
 
 function formatAmount(amount: number, currency: string) {
   return new Intl.NumberFormat("en-EU", { style: "currency", currency }).format(amount);
+}
+
+function formatDuration(minutes: number) {
+  const h = Math.floor(minutes / 60);
+  const m = Math.round(minutes % 60);
+  return `${h}h ${m.toString().padStart(2, "0")}m`;
+}
+
+function formatDateTime(iso: string) {
+  return new Date(iso).toLocaleString("en-GB", {
+    day: "2-digit", month: "2-digit", year: "numeric",
+    hour: "2-digit", minute: "2-digit",
+  });
 }
 
 export default function MileagePage({ params }: { params: Promise<{ id: string }> }) {
@@ -22,7 +35,8 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
   const [origin, setOrigin] = useState("");
   const [destination, setDestination] = useState("");
   const [distanceKm, setDistanceKm] = useState("");
-  const [date, setDate] = useState("");
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
   const [description, setDescription] = useState("");
 
   const { data: report, isLoading } = useQuery<Report>({
@@ -36,7 +50,7 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
   };
 
   const addMileage = useMutation({
-    mutationFn: (data: { origin: string; destination: string; distance_km: number; date: string; description?: string }) =>
+    mutationFn: (data: { origin: string; destination: string; distance_km: number; start_time: string; end_time: string; description?: string }) =>
       api.post(`/reports/${id}/mileage`, data),
     onSuccess: () => {
       invalidate();
@@ -44,7 +58,8 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
       setOrigin("");
       setDestination("");
       setDistanceKm("");
-      setDate("");
+      setStartTime("");
+      setEndTime("");
       setDescription("");
     },
   });
@@ -56,12 +71,14 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
 
   const handleAdd = () => {
     const km = parseFloat(distanceKm);
-    if (isNaN(km) || km <= 0 || !origin || !destination || !date) return;
+    if (isNaN(km) || km <= 0 || !origin || !destination || !startTime || !endTime) return;
+    if (new Date(endTime) <= new Date(startTime)) return;
     addMileage.mutate({
       origin,
       destination,
       distance_km: km,
-      date,
+      start_time: new Date(startTime).toISOString(),
+      end_time: new Date(endTime).toISOString(),
       ...(description ? { description } : {}),
     });
   };
@@ -73,6 +90,7 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
   const totalKm = records.reduce((s, m) => s + m.distance_km, 0);
   const totalNet = records.reduce((s, m) => s + m.amount_eur, 0);
   const totalGross = records.reduce((s, m) => s + m.amount_before_tax, 0);
+  const totalDuration = records.reduce((s, m) => s + m.duration_minutes, 0);
 
   return (
     <AppShell>
@@ -88,10 +106,14 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
         <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4">
           <p className="text-xs text-teal-500 uppercase mb-1">Total Distance</p>
           <p className="text-xl font-bold text-teal-600 dark:text-teal-400">{totalKm.toFixed(1)} km</p>
+        </div>
+        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4">
+          <p className="text-xs text-blue-500 uppercase mb-1">Driving Time</p>
+          <p className="text-xl font-bold text-blue-600 dark:text-blue-400">{formatDuration(totalDuration)}</p>
         </div>
         <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4">
           <p className="text-xs text-slate-500 uppercase mb-1">Gross (Before Tax)</p>
@@ -139,13 +161,27 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
               className="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
             />
           </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+            <div>
+              <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Start Time</label>
+              <input
+                type="datetime-local"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">End Time</label>
+              <input
+                type="datetime-local"
+                value={endTime}
+                onChange={(e) => setEndTime(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+              />
+            </div>
+          </div>
           <div className="flex flex-col sm:flex-row gap-3">
-            <input
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              className="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
-            />
             <input
               type="number"
               step="0.1"
@@ -164,7 +200,7 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
             />
             <button
               onClick={handleAdd}
-              disabled={addMileage.isPending || !origin || !destination || !distanceKm || !date}
+              disabled={addMileage.isPending || !origin || !destination || !distanceKm || !startTime || !endTime}
               className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 disabled:opacity-50 whitespace-nowrap"
             >
               <Plus className="w-4 h-4" />
@@ -188,7 +224,8 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
             <table className="w-full text-sm">
               <thead className="bg-slate-50 dark:bg-slate-800 text-xs text-slate-500 dark:text-slate-400 uppercase">
                 <tr>
-                  <th className="text-left px-4 py-3">Date</th>
+                  <th className="text-left px-4 py-3">Start Time</th>
+                  <th className="text-left px-4 py-3">Duration</th>
                   <th className="text-left px-4 py-3">Route</th>
                   <th className="text-right px-4 py-3">km</th>
                   <th className="text-right px-4 py-3">Rate BT</th>
@@ -201,7 +238,8 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
               <tbody>
                 {records.map((m) => (
                   <tr key={m.id} className="border-t border-slate-100 dark:border-slate-700">
-                    <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{m.date}</td>
+                    <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{formatDateTime(m.start_time)}</td>
+                    <td className="px-4 py-3 text-blue-600 dark:text-blue-400 font-medium">{formatDuration(m.duration_minutes)}</td>
                     <td className="px-4 py-3 font-medium text-slate-800 dark:text-slate-200">
                       {m.origin} → {m.destination}
                       {m.description && <span className="block text-xs text-slate-400 dark:text-slate-500">{m.description}</span>}
@@ -221,7 +259,9 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
                   </tr>
                 ))}
                 <tr className="border-t-2 border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-800">
-                  <td className="px-4 py-3 font-bold text-slate-700 dark:text-slate-300" colSpan={2}>Total</td>
+                  <td className="px-4 py-3 font-bold text-slate-700 dark:text-slate-300">Total</td>
+                  <td className="px-4 py-3 font-bold text-blue-600 dark:text-blue-400">{formatDuration(totalDuration)}</td>
+                  <td className="px-4 py-3"></td>
                   <td className="px-4 py-3 text-right font-bold text-slate-700 dark:text-slate-300">{totalKm.toFixed(1)}</td>
                   <td className="px-4 py-3"></td>
                   <td className="px-4 py-3 text-right font-bold text-slate-700 dark:text-slate-300">{formatAmount(totalGross, "EUR")}</td>

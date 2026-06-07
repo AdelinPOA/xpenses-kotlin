@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, computed_field, field_validator
 
 # ── Auth ─────────────────────────────────────────────────────────────────────
 
@@ -230,26 +230,60 @@ class MileageRecordOut(BaseModel):
     rate_after_tax: float
     amount_before_tax: float
     amount_eur: float
-    date: str
+    start_time: datetime
+    end_time: datetime
     description: str | None
     created_at: datetime
     updated_at: datetime
+
+    @computed_field
+    @property
+    def duration_minutes(self) -> float:
+        return (self.end_time - self.start_time).total_seconds() / 60
 
 
 class MileageRecordCreate(BaseModel):
     origin: str
     destination: str
     distance_km: float
-    date: str
+    start_time: datetime
+    end_time: datetime
     description: str | None = None
+
+    @field_validator("end_time")
+    @classmethod
+    def end_after_start(cls, v, info):
+        if info.data.get("start_time") and v <= info.data["start_time"]:
+            raise ValueError("end_time must be after start_time")
+        return v
 
 
 class MileageRecordUpdate(BaseModel):
     origin: str | None = None
     destination: str | None = None
     distance_km: float | None = None
-    date: str | None = None
+    start_time: datetime | None = None
+    end_time: datetime | None = None
     description: str | None = None
+
+
+# ── Settings ────────────────────────────────────────────────────────────────
+
+class MileageRatesOut(BaseModel):
+    mileage_rate_before_tax: float
+    mileage_rate_after_tax: float
+
+
+class MileageRatesUpdate(BaseModel):
+    mileage_rate_before_tax: float | None = None
+    mileage_rate_after_tax: float | None = None
+
+    @field_validator("mileage_rate_before_tax", "mileage_rate_after_tax", mode="before")
+    @classmethod
+    def must_be_positive(cls, v):
+        if v is not None and v <= 0:
+            raise ValueError("Rate must be positive")
+        return v
 
 
 # ── OCR ──────────────────────────────────────────────────────────────────────

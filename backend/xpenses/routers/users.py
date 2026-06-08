@@ -5,11 +5,43 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from ..auth import require_role
 from ..database import get_db
+from pydantic import BaseModel
+
 from ..models import ActiveUpdate, RoleUpdate, UserOut
+
+
+class UserCreate(BaseModel):
+    username: str
+    display_name: str
+    password: str
+    role: str
+    email: str | None = None
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 
 VALID_ROLES = ("technician", "manager", "chef_finance", "mod")
+
+
+@router.post("", response_model=UserOut, status_code=201)
+async def create_user(
+    body: UserCreate,
+    current_user: dict = require_role("mod"),
+    db: asyncpg.Connection = Depends(get_db),
+):
+    if body.role not in VALID_ROLES:
+        raise HTTPException(400, f"Invalid role. Must be one of: {VALID_ROLES}")
+    existing = await db.fetchrow("SELECT id FROM users WHERE username = $1", body.username)
+    if existing:
+        raise HTTPException(409, "Username already taken")
+    from ..auth import hash_password
+    pw_hash = hash_password(body.password)
+    now = datetime.now(timezone.utc)
+    row = await db.fetchrow(
+        """INSERT INTO users (username, display_name, email, password_hash, auth_source, role, is_active, created_at, updated_at)
+           VALUES ($1, $2, $3, $4, 'local', $5, true, $6, $6) RETURNING *""",
+        body.username, body.display_name, body.email, pw_hash, body.role, now,
+    )
+    return dict(row)
 
 
 @router.get("", response_model=list[UserOut])

@@ -21,9 +21,6 @@ class Settings(BaseSettings):
     jwt_refresh_expires_days: int = 7
     cookie_secure: bool = True
     seed_demo_users: bool = False
-    ldap_enabled: bool = False
-    ldap_host: str = ""
-    ldap_base_dn: str = ""
     ocr_enabled: bool = True
     ocr_languages: str = "en,ro"
     mileage_rate_before_tax: float = 0.60

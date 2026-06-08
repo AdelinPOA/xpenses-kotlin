@@ -1,11 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api, { User } from "@/lib/api";
 import AppShell from "@/components/layout/AppShell";
 import EmptyState from "@/components/ui/EmptyState";
 import { useAuth } from "@/components/AuthProvider";
-import { Shield, ShieldOff, XCircle } from "lucide-react";
+import { Shield, ShieldOff, XCircle, Plus } from "lucide-react";
 
 const ROLE_OPTIONS: { value: User["role"]; label: string }[] = [
   { value: "technician", label: "Technician" },
@@ -19,9 +20,27 @@ const userKeys = {
   list: () => [...userKeys.all, "list"] as const,
 };
 
+interface CreateUserForm {
+  username: string;
+  display_name: string;
+  password: string;
+  role: User["role"];
+  email: string;
+}
+
 export default function AdminUsersPage() {
   const { user: currentUser } = useAuth();
   const qc = useQueryClient();
+
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [createForm, setCreateForm] = useState<CreateUserForm>({
+    username: "",
+    display_name: "",
+    password: "",
+    role: "technician",
+    email: "",
+  });
+  const [createError, setCreateError] = useState<string | null>(null);
 
   const { data: users, isLoading } = useQuery<User[]>({
     queryKey: userKeys.list(),
@@ -45,6 +64,33 @@ export default function AdminUsersPage() {
     },
   });
 
+  const createMutation = useMutation({
+    mutationFn: (data: CreateUserForm) =>
+      api.post("/users", {
+        username: data.username,
+        display_name: data.display_name,
+        password: data.password,
+        role: data.role,
+        ...(data.email ? { email: data.email } : {}),
+      }),
+    onSuccess: () => {
+      setShowCreateForm(false);
+      setCreateForm({ username: "", display_name: "", password: "", role: "technician", email: "" });
+      setCreateError(null);
+      qc.invalidateQueries({ queryKey: userKeys.all });
+    },
+    onError: (err: unknown) => {
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 409) {
+        setCreateError("Username already taken");
+      } else if (status === 400) {
+        setCreateError("Invalid role");
+      } else {
+        setCreateError("Failed to create user");
+      }
+    },
+  });
+
   if (!currentUser || currentUser.role !== "mod") {
     return (
       <AppShell>
@@ -61,12 +107,112 @@ export default function AdminUsersPage() {
 
   return (
     <AppShell>
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">User Management</h1>
-        <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
-          Manage user roles and access
-        </p>
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">User Management</h1>
+          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
+            Manage user roles and access
+          </p>
+        </div>
+        <button
+          onClick={() => { setShowCreateForm((v) => !v); setCreateError(null); }}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+        >
+          <Plus className="w-4 h-4" />
+          Create User
+        </button>
       </div>
+
+      {showCreateForm && (
+        <div className="mb-6 bg-white dark:bg-slate-900 rounded-xl shadow-sm p-6 border border-slate-200 dark:border-slate-700">
+          <h2 className="text-base font-semibold text-slate-800 dark:text-slate-100 mb-4">New User</h2>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              setCreateError(null);
+              createMutation.mutate(createForm);
+            }}
+            className="grid grid-cols-1 sm:grid-cols-2 gap-4"
+          >
+            <div>
+              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
+                Username <span className="text-red-500">*</span>
+              </label>
+              <input
+                required
+                type="text"
+                value={createForm.username}
+                onChange={(e) => setCreateForm((f) => ({ ...f, username: e.target.value }))}
+                className="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-300"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
+                Display Name <span className="text-red-500">*</span>
+              </label>
+              <input
+                required
+                type="text"
+                value={createForm.display_name}
+                onChange={(e) => setCreateForm((f) => ({ ...f, display_name: e.target.value }))}
+                className="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-300"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
+                Password <span className="text-red-500">*</span>
+              </label>
+              <input
+                required
+                type="password"
+                value={createForm.password}
+                onChange={(e) => setCreateForm((f) => ({ ...f, password: e.target.value }))}
+                className="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-300"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Role <span className="text-red-500">*</span></label>
+              <select
+                value={createForm.role}
+                onChange={(e) => setCreateForm((f) => ({ ...f, role: e.target.value as User["role"] }))}
+                className="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-300"
+              >
+                {ROLE_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Email (optional)</label>
+              <input
+                type="email"
+                value={createForm.email}
+                onChange={(e) => setCreateForm((f) => ({ ...f, email: e.target.value }))}
+                className="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-300"
+              />
+            </div>
+            {createError && (
+              <div className="sm:col-span-2 text-sm text-red-600 dark:text-red-400">{createError}</div>
+            )}
+            <div className="sm:col-span-2 flex gap-3">
+              <button
+                type="submit"
+                disabled={createMutation.isPending}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors"
+              >
+                {createMutation.isPending ? "Creating..." : "Create User"}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setShowCreateForm(false); setCreateError(null); }}
+                className="px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 text-sm font-medium rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {isLoading ? (
         <div className="text-slate-400 dark:text-slate-500 text-sm mt-8">Loading...</div>
@@ -81,6 +227,7 @@ export default function AdminUsersPage() {
                   <th className="text-left px-4 py-3">User</th>
                   <th className="text-left px-4 py-3">Username</th>
                   <th className="text-left px-4 py-3">Role</th>
+                  <th className="text-left px-4 py-3">Auth Source</th>
                   <th className="text-center px-4 py-3">Status</th>
                   <th className="text-center px-4 py-3">Actions</th>
                 </tr>
@@ -120,6 +267,15 @@ export default function AdminUsersPage() {
                             </option>
                           ))}
                         </select>
+                      </td>
+
+                      {/* Auth Source badge */}
+                      <td className="px-4 py-3">
+                        {u.auth_source === "ldap" ? (
+                          <span className="px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">ldap</span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300">local</span>
+                        )}
                       </td>
 
                       {/* Status badge */}

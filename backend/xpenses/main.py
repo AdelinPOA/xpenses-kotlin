@@ -12,6 +12,7 @@ from .routers import (
     categories,
     dashboard,
     expenses,
+    ldap as ldap_router,
     mileage,
     ocr,
     reports,
@@ -50,6 +51,7 @@ app.include_router(app_settings.router)
 app.include_router(dashboard.router)
 app.include_router(ocr.router)
 app.include_router(signature.router)
+app.include_router(ldap_router.router)
 
 
 @app.get("/api/health")

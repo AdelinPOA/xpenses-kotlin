@@ -5,7 +5,6 @@ from datetime import datetime, timezone
 import pytest
 from httpx import AsyncClient
 
-from tests.conftest import login
 
 
 async def _insert_ldap_user(pool, username: str, display_name: str = "LDAP User"):

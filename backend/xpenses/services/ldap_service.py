@@ -1,11 +1,12 @@
-import asyncpg  # noqa: F401 (used via pool.acquire())
 import base64
 import dataclasses
 import datetime
 import json
 
+import asyncpg  # noqa: F401 (used via pool.acquire())
 import ldap3
 import ldap3.core.exceptions
+import ldap3.utils.conv
 from cryptography.fernet import Fernet, InvalidToken
 
 from ..config import settings
@@ -285,14 +286,17 @@ async def sync_users(config: LdapConfig, pool) -> dict:
             used_default = role == config.default_role
 
             row = await conn_db.fetchrow(
-                "SELECT id, username, display_name, email, role, is_active, auth_source FROM users WHERE username = $1",
+                "SELECT id, username, display_name, email, role, is_active, auth_source"
+                " FROM users WHERE username = $1",
                 username,
             )
 
             if not row:
                 await conn_db.execute(
                     """
-                    INSERT INTO users (username, display_name, email, password_hash, auth_source, role, is_active, created_at, updated_at)
+                    INSERT INTO users
+                        (username, display_name, email, password_hash,
+                         auth_source, role, is_active, created_at, updated_at)
                     VALUES ($1, $2, $3, NULL, 'ldap', $4, true, $5, $5)
                     """,
                     username,
@@ -318,7 +322,9 @@ async def sync_users(config: LdapConfig, pool) -> dict:
                 if changed:
                     await conn_db.execute(
                         """
-                        UPDATE users SET display_name=$1, email=$2, role=$3, is_active=true, updated_at=$4
+                        UPDATE users
+                        SET display_name=$1, email=$2, role=$3,
+                            is_active=true, updated_at=$4
                         WHERE username=$5
                         """,
                         display_name,

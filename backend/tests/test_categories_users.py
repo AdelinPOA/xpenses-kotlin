@@ -189,3 +189,72 @@ async def test_cannot_deactivate_self(client: AsyncClient):
 
     resp = await client.put(f"/api/users/{mod1['id']}/active", json={"is_active": False})
     assert resp.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# POST /api/users — local user creation (mod-only)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_mod_can_create_local_user(client: AsyncClient, pool):
+    await login(client, "mod1")
+    payload = {
+        "username": "newuser_test",
+        "display_name": "New User",
+        "password": "password123",
+        "role": "technician",
+    }
+    resp = await client.post("/api/users", json=payload)
+    assert resp.status_code == 201
+    data = resp.json()
+    assert "id" in data
+    assert data["username"] == "newuser_test"
+    assert data["auth_source"] == "local"
+    async with pool.acquire() as conn:
+        await conn.execute("DELETE FROM users WHERE username = 'newuser_test'")
+
+
+@pytest.mark.asyncio
+async def test_duplicate_username_returns_409(client: AsyncClient, pool):
+    await login(client, "mod1")
+    payload = {
+        "username": "dup_user_test",
+        "display_name": "Dup User",
+        "password": "password123",
+        "role": "technician",
+    }
+    resp = await client.post("/api/users", json=payload)
+    assert resp.status_code == 201
+
+    resp2 = await client.post("/api/users", json=payload)
+    assert resp2.status_code == 409
+    async with pool.acquire() as conn:
+        await conn.execute("DELETE FROM users WHERE username = 'dup_user_test'")
+
+
+@pytest.mark.asyncio
+async def test_non_mod_cannot_create_user(client: AsyncClient):
+    await login(client, "tech1")
+    payload = {
+        "username": "shouldfail_test",
+        "display_name": "Should Fail",
+        "password": "password123",
+        "role": "technician",
+    }
+    resp = await client.post("/api/users", json=payload)
+    assert resp.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_create_user_invalid_role(client: AsyncClient, pool):
+    await login(client, "mod1")
+    payload = {
+        "username": "badrole_test",
+        "display_name": "Bad Role User",
+        "password": "password123",
+        "role": "invalid",
+    }
+    resp = await client.post("/api/users", json=payload)
+    assert resp.status_code == 400
+    async with pool.acquire() as conn:
+        await conn.execute("DELETE FROM users WHERE username = 'badrole_test'")

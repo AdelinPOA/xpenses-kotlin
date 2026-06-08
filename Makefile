@@ -23,3 +23,10 @@ rebuild:
 
 logs:
 	docker compose logs -f backend
+
+# Coverage and formatting
+test-cov:
+	docker compose exec backend pytest tests/ --cov=xpenses --cov-report=term-missing
+
+format:
+	docker compose exec backend pre-commit run --all-files

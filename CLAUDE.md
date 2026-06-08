@@ -41,6 +41,12 @@ docker compose exec backend pytest tests/test_auth.py::test_login_success -v
 make lint
 make lint-fix
 
+# Tests with coverage report
+make test-cov
+
+# Run pre-commit hooks on all files (ruff + trailing-whitespace + end-of-file)
+make format
+
 # Test login (get cookies)
 curl -c /tmp/cookies.txt -X POST http://localhost:8001/api/auth/login \
   -H "Content-Type: application/json" -d '{"username":"tech1","password":"tech1"}'
@@ -147,3 +153,12 @@ Test accounts (when `SEED_DEMO_USERS=true`): `tech1/tech1`, `manager1/manager1`,
 - **Repo:** `AdelinPOA/xpenses`
 - **Branch:** `main`
 - Always commit and push after completing work
+
+## CI/CD
+
+`.github/workflows/ci.yml` runs on every push/PR to `main`:
+1. PostgreSQL service spun up, dependencies installed, lint (`ruff`) + pre-commit hooks run.
+2. Tests with coverage executed; report uploaded to Codecov.
+3. Docker images built for both backend and frontend.
+
+`pytest-cov` and `pre-commit` are in `[project.optional-dependencies] test` in `pyproject.toml`.

@@ -10,10 +10,12 @@ import { useAuth } from "@/components/AuthProvider";
 
 const ROLE_OPTIONS = ["technician", "manager", "chef_finance", "mod"];
 
-const DEFAULT_FORM: LdapConfig = {
+type FormState = Omit<LdapConfig, "port"> & { port: string };
+
+const DEFAULT_FORM: FormState = {
   enabled: false,
   host: "",
-  port: 389,
+  port: "389",
   use_tls: false,
   bind_dn: "",
   bind_password: "",
@@ -43,7 +45,8 @@ export default function LdapAdminPage() {
   const router = useRouter();
   const qc = useQueryClient();
 
-  const [form, setForm] = useState<LdapConfig>(DEFAULT_FORM);
+  const [form, setForm] = useState<FormState>(DEFAULT_FORM);
+  const [isDirty, setIsDirty] = useState(false);
   const [pwChanged, setPwChanged] = useState(false);
   const [roleEntries, setRoleEntries] = useState<RoleMapEntry[]>([]);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -66,9 +69,10 @@ export default function LdapAdminPage() {
 
   useEffect(() => {
     if (data) {
-      setForm({ ...data, bind_password: "" });
+      setForm({ ...data, port: String(data.port), bind_password: "" });
       setRoleEntries(roleMapToEntries(data.role_map));
       setPwChanged(false);
+      setIsDirty(false);
     }
   }, [data]);
 
@@ -84,6 +88,8 @@ export default function LdapAdminPage() {
       setToast({ msg: "Configuration saved", ok: true });
       setSaveError(null);
       setPwChanged(false);
+      setIsDirty(false);
+      setSyncResult(null);
       qc.invalidateQueries({ queryKey: ldapKeys.all });
     },
     onError: (e: unknown) => {
@@ -96,6 +102,7 @@ export default function LdapAdminPage() {
     setSaveError(null);
     const payload: LdapConfig = {
       ...form,
+      port: parseInt(form.port) || 389,
       bind_password: pwChanged ? form.bind_password : "",
       role_map: entriesToRoleMap(roleEntries),
     };
@@ -106,7 +113,12 @@ export default function LdapAdminPage() {
     setTesting(true);
     setTestResult(null);
     try {
-      const payload: LdapConfig = { ...form, role_map: entriesToRoleMap(roleEntries) };
+      const payload = {
+        ...form,
+        port: parseInt(form.port) || 389,
+        role_map: entriesToRoleMap(roleEntries),
+        use_stored_password: !pwChanged,
+      };
       const res = await api.post<LdapTestResult>("/settings/ldap/test", payload);
       setTestResult(res.data);
     } catch {
@@ -129,6 +141,11 @@ export default function LdapAdminPage() {
     } finally {
       setSyncing(false);
     }
+  }
+
+  function updateForm(patch: Partial<FormState>) {
+    setForm((prev) => ({ ...prev, ...patch }));
+    setIsDirty(true);
   }
 
   if (!user || user.role !== "mod") return null;
@@ -156,24 +173,30 @@ export default function LdapAdminPage() {
           </div>
         )}
 
+        {isDirty && (
+          <div className="bg-yellow-50 border border-yellow-300 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300 rounded p-3 text-sm">
+            You have unsaved changes.
+          </div>
+        )}
+
         <section className="space-y-4">
           <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Connection</h2>
           <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={form.enabled} onChange={(e) => setForm({ ...form, enabled: e.target.checked })} />
+            <input type="checkbox" checked={form.enabled} onChange={(e) => updateForm({ enabled: e.target.checked })} />
             <span className="text-slate-700 dark:text-slate-300">Enable LDAP authentication</span>
           </label>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs text-slate-500 mb-1">Host</label>
-              <input className="w-full border rounded px-2 py-1 text-sm bg-white dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100" value={form.host} onChange={(e) => setForm({ ...form, host: e.target.value })} placeholder="ldap.example.com" />
+              <input className="w-full border rounded px-2 py-1 text-sm bg-white dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100" value={form.host} onChange={(e) => updateForm({ host: e.target.value })} placeholder="ldap.example.com" />
             </div>
             <div>
               <label className="block text-xs text-slate-500 mb-1">Port</label>
-              <input type="number" className="w-full border rounded px-2 py-1 text-sm bg-white dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100" value={form.port} onChange={(e) => setForm({ ...form, port: parseInt(e.target.value) || 389 })} />
+              <input type="text" inputMode="numeric" pattern="[0-9]*" className="w-full border rounded px-2 py-1 text-sm bg-white dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100" value={form.port} onChange={(e) => updateForm({ port: e.target.value })} />
             </div>
           </div>
           <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={form.use_tls} onChange={(e) => setForm({ ...form, use_tls: e.target.checked })} />
+            <input type="checkbox" checked={form.use_tls} onChange={(e) => updateForm({ use_tls: e.target.checked })} />
             <span className="text-slate-700 dark:text-slate-300">Use TLS (LDAPS)</span>
           </label>
         </section>
@@ -182,11 +205,11 @@ export default function LdapAdminPage() {
           <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Bind Credentials</h2>
           <div>
             <label className="block text-xs text-slate-500 mb-1">Bind DN</label>
-            <input className="w-full border rounded px-2 py-1 text-sm bg-white dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100" value={form.bind_dn} onChange={(e) => setForm({ ...form, bind_dn: e.target.value })} placeholder="cn=admin,dc=example,dc=com" />
+            <input className="w-full border rounded px-2 py-1 text-sm bg-white dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100" value={form.bind_dn} onChange={(e) => updateForm({ bind_dn: e.target.value })} placeholder="cn=admin,dc=example,dc=com" />
           </div>
           <div>
             <label className="block text-xs text-slate-500 mb-1">Bind Password</label>
-            <input type="password" className="w-full border rounded px-2 py-1 text-sm bg-white dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100" value={form.bind_password} onChange={(e) => { setForm({ ...form, bind_password: e.target.value }); setPwChanged(true); }} placeholder="Leave blank to keep stored password" />
+            <input type="password" className="w-full border rounded px-2 py-1 text-sm bg-white dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100" value={form.bind_password} onChange={(e) => { updateForm({ bind_password: e.target.value }); setPwChanged(true); }} placeholder="Leave blank to keep stored password" />
           </div>
         </section>
 
@@ -194,11 +217,11 @@ export default function LdapAdminPage() {
           <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Directory</h2>
           <div>
             <label className="block text-xs text-slate-500 mb-1">Base DN</label>
-            <input className="w-full border rounded px-2 py-1 text-sm bg-white dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100" value={form.base_dn} onChange={(e) => setForm({ ...form, base_dn: e.target.value })} placeholder="dc=example,dc=com" />
+            <input className="w-full border rounded px-2 py-1 text-sm bg-white dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100" value={form.base_dn} onChange={(e) => updateForm({ base_dn: e.target.value })} placeholder="dc=example,dc=com" />
           </div>
           <div>
             <label className="block text-xs text-slate-500 mb-1">User Filter</label>
-            <input className="w-full border rounded px-2 py-1 text-sm bg-white dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100" value={form.user_filter} onChange={(e) => setForm({ ...form, user_filter: e.target.value })} />
+            <input className="w-full border rounded px-2 py-1 text-sm bg-white dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100" value={form.user_filter} onChange={(e) => updateForm({ user_filter: e.target.value })} />
           </div>
         </section>
 
@@ -208,13 +231,13 @@ export default function LdapAdminPage() {
             {([["attr_username","Username attr"],["attr_email","Email attr"],["attr_display_name","Display name attr"],["attr_role","Role/group attr"]] as [keyof LdapConfig, string][]).map(([field, label]) => (
               <div key={field}>
                 <label className="block text-xs text-slate-500 mb-1">{label}</label>
-                <input className="w-full border rounded px-2 py-1 text-sm bg-white dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100" value={form[field] as string} onChange={(e) => setForm({ ...form, [field]: e.target.value })} />
+                <input className="w-full border rounded px-2 py-1 text-sm bg-white dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100" value={form[field] as string} onChange={(e) => updateForm({ [field]: e.target.value })} />
               </div>
             ))}
           </div>
           <div>
             <label className="block text-xs text-slate-500 mb-1">Default role for unmapped groups</label>
-            <select className="border rounded px-2 py-1 text-sm bg-white dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100" value={form.default_role} onChange={(e) => setForm({ ...form, default_role: e.target.value })}>
+            <select className="border rounded px-2 py-1 text-sm bg-white dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100" value={form.default_role} onChange={(e) => updateForm({ default_role: e.target.value })}>
               {ROLE_OPTIONS.map((r) => <option key={r} value={r}>{r}</option>)}
             </select>
           </div>
@@ -224,15 +247,15 @@ export default function LdapAdminPage() {
           <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Role Map</h2>
           {roleEntries.map((entry, i) => (
             <div key={i} className="flex items-center gap-2">
-              <input className="flex-1 border rounded px-2 py-1 text-sm bg-white dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100" placeholder="Directory group value" value={entry.dir} onChange={(e) => { const n = [...roleEntries]; n[i] = { ...n[i], dir: e.target.value }; setRoleEntries(n); }} />
+              <input className="flex-1 border rounded px-2 py-1 text-sm bg-white dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100" placeholder="Directory group value" value={entry.dir} onChange={(e) => { const n = [...roleEntries]; n[i] = { ...n[i], dir: e.target.value }; setRoleEntries(n); setIsDirty(true); }} />
               <span className="text-slate-400">→</span>
-              <select className="border rounded px-2 py-1 text-sm bg-white dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100" value={entry.role} onChange={(e) => { const n = [...roleEntries]; n[i] = { ...n[i], role: e.target.value }; setRoleEntries(n); }}>
+              <select className="border rounded px-2 py-1 text-sm bg-white dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100" value={entry.role} onChange={(e) => { const n = [...roleEntries]; n[i] = { ...n[i], role: e.target.value }; setRoleEntries(n); setIsDirty(true); }}>
                 {ROLE_OPTIONS.map((r) => <option key={r} value={r}>{r}</option>)}
               </select>
-              <button type="button" className="text-red-500 hover:text-red-700 text-sm px-1" onClick={() => setRoleEntries(roleEntries.filter((_, j) => j !== i))}>✕</button>
+              <button type="button" className="text-red-500 hover:text-red-700 text-sm px-1" onClick={() => { setRoleEntries(roleEntries.filter((_, j) => j !== i)); setIsDirty(true); }}>✕</button>
             </div>
           ))}
-          <button type="button" className="text-sm text-blue-600 hover:underline dark:text-blue-400" onClick={() => setRoleEntries([...roleEntries, { dir: "", role: "technician" }])}>+ Add mapping</button>
+          <button type="button" className="text-sm text-blue-600 hover:underline dark:text-blue-400" onClick={() => { setRoleEntries([...roleEntries, { dir: "", role: "technician" }]); setIsDirty(true); }}>+ Add mapping</button>
         </section>
 
         <div className="flex flex-wrap gap-3 pt-2">

@@ -25,7 +25,7 @@ docker compose logs -f backend
 # Access PostgreSQL
 docker exec -it xpenses-db psql -U xpenses
 
-# Run all tests (109 tests, ~40s, inside backend container)
+# Run all tests (128 tests, ~40s, inside backend container)
 make test
 
 # Run tests with stop-on-first-failure
@@ -76,7 +76,7 @@ curl http://localhost:8001/api/health
 - `get_db()` — FastAPI dependency, yields a connection. Used in route handlers.
 - `get_pool().acquire()` — direct pool access. Used in services outside FastAPI DI (`fx_service.py`, `auth.py`, `seed.py`).
 
-**Auth:** JWT access tokens (15 min) + refresh tokens (7 days), both in httpOnly cookies. `get_current_user()` dependency reads the `access_token` cookie. `require_role(*roles)` stacks on it for role gating. Four roles: `technician`, `manager`, `chef_finance`, `mod`.
+**Auth:** JWT access tokens (15 min) + refresh tokens (7 days), both in httpOnly cookies. `get_current_user()` dependency reads the `access_token` cookie. `require_role(*roles)` stacks on it for role gating. Four roles: `technician`, `manager`, `chef_finance`, `mod`. The `mod` role is a superuser: can create local users (`POST /api/users`), manage LDAP/AD config, and access all admin pages. It does not participate in the expense/report workflow.
 
 **Schema:** `database.py` runs DDL on startup via `init_db()`. No migration tool — uses `CREATE TABLE IF NOT EXISTS` + `ALTER TABLE ADD COLUMN` with existence checks. Seed users created by `seed.py` (gated behind `SEED_DEMO_USERS` env var).
 
@@ -125,6 +125,8 @@ Frontend uses two different URLs to reach the backend:
 - **Mileage:** `POST/GET/DELETE /api/reports/{id}/mileage` — per-report km records with dual tax rates (before/after). Rates are CFO-editable via `PATCH /api/settings/mileage-rates` (stored in `app_settings` DB table, not env vars).
 - **Digital signatures:** `POST /api/users/me/signature` stores a base64 PNG. `POST /api/reports/{id}/sign` stamps the report. Signature is stored per-user in the `users` table.
 - **Advance payments:** Two routers — `APIRouter` at `/api/reports/{id}/advances` for per-report CRUD, and `global_router` at `/api/advances/pending` for the org-wide manager/CFO queue. Manager direct-pay creates an advance already marked `paid`; employee requests create `status=requested` advances that CFO pays separately.
+- **LDAP/AD authentication:** Config stored as JSON in `app_settings` key `ldap_config` (DB-authoritative, not env vars). Bind password Fernet-encrypted with HKDF-SHA256 key derived from `jwt_secret`. `ldap_service.py` provides `get_ldap_config()`, `save_ldap_config()`, `test_connection()`, `sync_users()`, and `authenticate_ldap()`. Login handler in `auth.py` reads DB config and calls `authenticate_ldap()` for `auth_source='ldap'` users. Sync deactivates directory-absent users and revokes their refresh tokens.
+- **App settings:** Generic `app_settings` table (key/value JSON rows) stores both mileage tax rates and LDAP config. `app_settings.py` router at `/api/settings/` handles mileage rates; `ldap.py` router at `/api/settings/ldap/` handles LDAP config. Both use upsert on the `key` column.
 
 ## Testing
 

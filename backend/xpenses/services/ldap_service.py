@@ -1,3 +1,4 @@
+import asyncio
 import base64
 import dataclasses
 import datetime
@@ -146,7 +147,11 @@ async def save_ldap_config(config: LdapConfig, pool) -> None:
         )
 
 
-def test_connection(config: LdapConfig) -> dict:
+async def test_connection(config: LdapConfig) -> dict:
+    return await asyncio.to_thread(_test_connection_sync, config)
+
+
+def _test_connection_sync(config: LdapConfig) -> dict:
     if not config.host:
         return {"ok": False, "preview": [], "error": "No host configured"}
 
@@ -218,10 +223,7 @@ def test_connection(config: LdapConfig) -> dict:
         return {"ok": False, "preview": [], "error": str(e)}
 
 
-async def sync_users(config: LdapConfig, pool) -> dict:
-    if not config.enabled:
-        raise ValueError("LDAP is not enabled")
-
+def _fetch_directory_entries(config: LdapConfig) -> list:
     server = ldap3.Server(
         config.host,
         port=config.port,
@@ -245,9 +247,16 @@ async def sync_users(config: LdapConfig, pool) -> dict:
             config.attr_role,
         ],
     )
-
     entries = list(conn.entries)
     conn.unbind()
+    return entries
+
+
+async def sync_users(config: LdapConfig, pool) -> dict:
+    if not config.enabled:
+        raise ValueError("LDAP is not enabled")
+
+    entries = await asyncio.to_thread(_fetch_directory_entries, config)
 
     stats = {
         "created": 0,

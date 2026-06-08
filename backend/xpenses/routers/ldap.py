@@ -29,6 +29,7 @@ class LdapConfigIn(BaseModel):
     attr_role: str = "memberOf"
     role_map: dict = Field(default_factory=dict)
     default_role: str = "technician"
+    use_stored_password: bool = False
 
 
 class LdapConfigOut(LdapConfigIn):
@@ -111,13 +112,18 @@ async def update_ldap(body: LdapConfigIn, current_user: dict = require_role("mod
 
 @router.post("/test")
 async def test_ldap(body: LdapConfigIn, current_user: dict = require_role("mod")):
+    bind_password = body.bind_password
+    if body.use_stored_password:
+        existing = await get_ldap_config(get_pool())
+        bind_password = existing.bind_password
+
     config = LdapConfig(
         enabled=body.enabled,
         host=body.host,
         port=body.port,
         use_tls=body.use_tls,
         bind_dn=body.bind_dn,
-        bind_password=body.bind_password,
+        bind_password=bind_password,
         base_dn=body.base_dn,
         user_filter=body.user_filter,
         attr_username=body.attr_username,
@@ -127,7 +133,7 @@ async def test_ldap(body: LdapConfigIn, current_user: dict = require_role("mod")
         role_map=body.role_map,
         default_role=body.default_role,
     )
-    return test_connection(config)
+    return await test_connection(config)
 
 
 @router.post("/sync")

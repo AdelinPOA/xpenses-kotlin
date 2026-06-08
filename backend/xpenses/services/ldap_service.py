@@ -8,6 +8,8 @@ import ldap3
 import ldap3.core.exceptions
 import ldap3.utils.conv
 from cryptography.fernet import Fernet, InvalidToken
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
 from ..config import settings
 
@@ -43,9 +45,16 @@ class LdapConfig:
 
 
 def _make_fernet() -> Fernet:
-    hex_key = settings.jwt_secret[:32].ljust(32, "0")
-    raw = bytes.fromhex(hex_key)[:16].ljust(32, b"\0")
-    key = base64.urlsafe_b64encode(raw)
+    # Derive a 32-byte key from jwt_secret using HKDF-SHA256 with a fixed info label.
+    # This is safe even when jwt_secret is short or has low entropy in parts of it.
+    secret = settings.jwt_secret.encode()
+    derived = HKDF(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=None,
+        info=b"xpenses-ldap-bind-pw",
+    ).derive(secret)
+    key = base64.urlsafe_b64encode(derived)
     return Fernet(key)
 
 
@@ -358,6 +367,8 @@ async def sync_users(config: LdapConfig, pool) -> dict:
 async def authenticate_ldap(
     username: str, password: str, config: LdapConfig
 ) -> bool:
+    if not password:
+        raise LDAPBindError("Empty password not allowed")
     try:
         server = ldap3.Server(
             config.host,

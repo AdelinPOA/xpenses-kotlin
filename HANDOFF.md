@@ -1,11 +1,46 @@
 # HANDOFF.md — xpenses_copy
 
-> Last updated: 2026-06-08 (session 15)
-> Author: Nemotron 3 Super 120B
+> Last updated: 2026-06-08 (session 17)
+> Author: Claude Sonnet 4.6
 
 ---
 
-## Latest Session (2026-06-08, session 15)
+## Latest Session (2026-06-08, session 17)
+
+### What Was Done
+- **CLAUDE.md improvements** — Updated test count (109→128), clarified `mod` superuser role, documented LDAP/AD and `app_settings` patterns.
+- **`/admin/ldap` production-readiness fixes** — 6 issues found and fixed:
+  1. **Test Connection password bug** — `POST /test` now accepts `use_stored_password: bool`; backend substitutes stored (Fernet-decrypted) password when frontend hasn't changed it. Frontend sends `use_stored_password: !pwChanged`.
+  2. **Blocking I/O on event loop** — `test_connection` and `sync_users` LDAP calls moved to `asyncio.to_thread()` via `_test_connection_sync` and `_fetch_directory_entries` helpers.
+  3. **Port field reset on keystroke** — form now stores port as `string`, parsed to `int` only at save/test.
+  4. **Unsaved-changes warning** — `isDirty` state + yellow banner; `updateForm()` helper centralises `setForm` + `setIsDirty(true)`.
+  5. **Sync result stale after save** — `setSyncResult(null)` added to `onSuccess`.
+  6. **CLAUDE.md** — test count, `mod` role docs, LDAP + `app_settings` pattern docs.
+- Commit: `91bfe8a`
+
+### Modified Files
+- `backend/xpenses/services/ldap_service.py` — `asyncio` import, `async def test_connection` wrapping `_test_connection_sync`, `_fetch_directory_entries` helper
+- `backend/xpenses/routers/ldap.py` — `use_stored_password` field on `LdapConfigIn`, stored-password substitution in `POST /test`, `await test_connection()`
+- `frontend/app/admin/ldap/page.tsx` — `FormState` type (port as string), `isDirty` + `updateForm()`, `use_stored_password` in test payload, port parsed on submit, unsaved-changes banner, sync result cleared on save
+- `CLAUDE.md` — test count 109→128, `mod` role description, LDAP + app_settings Key Patterns entries
+
+### Test Results
+- **128 tests pass** (127 from LDAP feature merge + 1 existing)
+
+---
+
+## Previous Session (2026-06-08, session 16)
+
+### What Was Done
+- **LDAP/AD Moderator UI** — Full implementation across 37 tasks, merged to `main`.
+- Backend: `ldap_service.py` (HKDF-Fernet key derivation, empty-password guard, two-phase DN bind, sync with deactivation), `routers/ldap.py`, auth integration, `POST /api/users` (mod-only user creation).
+- Frontend: `/admin/ldap` settings page (config form, test connection, sync), auth_source badge in `/admin/users`, LDAP password guard on `/profile`, Admin section in Sidebar.
+- 19 new tests (127 total passing).
+- Security fixes during review: HKDF key derivation replacing weak truncation, empty-password LDAP bind rejection.
+
+---
+
+## Previous Session (2026-06-08, session 15)
 
 ### What Was Done
 - **CI/CD & Quality Gates** — Added GitHub Actions workflow for lint, tests, coverage, and Docker builds.

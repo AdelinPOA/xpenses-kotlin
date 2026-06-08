@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Receipt, FileText, Tag, Users, CheckSquare, Banknote, Wallet, Settings, PenLine, LogOut, Sun, Moon, Monitor, X } from "lucide-react";
+import { LayoutDashboard, Receipt, FileText, Tag, Users, CheckSquare, Banknote, Wallet, Settings, PenLine, LogOut, Sun, Moon, Monitor, X, Server } from "lucide-react";
 import clsx from "clsx";
 import { useAuth } from "@/components/AuthProvider";
 import { useTheme } from "@/components/ThemeProvider";
@@ -24,7 +24,6 @@ const NAV: NavItem[] = [
   { href: "/advances", label: "Advances", icon: Wallet, roles: ["manager", "chef_finance", "mod"] },
   { href: "/payments", label: "Process Payments", icon: Banknote, roles: ["chef_finance"] },
   { href: "/categories", label: "Expense Categories", icon: Tag, roles: ["mod"] },
-  { href: "/admin/users", label: "User Management", icon: Users, roles: ["mod"] },
   { href: "/admin/settings", label: "Settings", icon: Settings, roles: ["chef_finance"] },
   { href: "/profile/signature", label: "Signature", icon: PenLine, roles: ["technician", "manager", "chef_finance", "mod"] },
 ];
@@ -115,6 +114,34 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
               </Link>
             );
           })}
+          {user?.role === "mod" && (
+            <>
+              <hr className="my-2 border-slate-700" />
+              <p className="px-3 py-1 text-xs font-semibold text-slate-500 uppercase tracking-wider">Admin</p>
+              {[
+                { href: "/admin/users", label: "Users", icon: Users },
+                { href: "/admin/ldap", label: "LDAP / AD", icon: Server },
+              ].map(({ href, label, icon: Icon }) => {
+                const active = pathname.startsWith(href);
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    onClick={onClose}
+                    className={clsx(
+                      "flex items-center gap-3 px-3 py-2.5 rounded-lg mb-1 text-sm font-medium transition-colors",
+                      active
+                        ? clsx("text-white", user ? ROLE_BG_COLORS[user.role] : "bg-slate-700")
+                        : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                    )}
+                  >
+                    <Icon className="w-4 h-4" />
+                    {label}
+                  </Link>
+                );
+              })}
+            </>
+          )}
           {visibleNav.some(({ href }) => href === "/profile/signature") && (
             <>
               <hr className="my-2 border-slate-700" />

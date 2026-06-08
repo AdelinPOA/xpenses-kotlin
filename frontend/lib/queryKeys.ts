@@ -34,3 +34,8 @@ export const settingsKeys = {
 export const dashboardKeys = {
   all: ["dashboard"] as const,
 };
+
+export const ldapKeys = {
+  all: ["ldap"] as const,
+  config: () => [...ldapKeys.all, "config"] as const,
+};

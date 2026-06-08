@@ -157,7 +157,7 @@ export interface User {
   email: string | null;
   role: "technician" | "manager" | "chef_finance" | "mod";
   is_active: boolean;
-  auth_source: string;
+  auth_source: "local" | "ldap";
   signature_path: string | null;
   created_at: string;
   updated_at: string;
@@ -183,3 +183,35 @@ export const CURRENCIES = [
   "RUB", "UAH", "GEL", "KZT", "TWD", "HKD", "ISK", "MAD", "TND",
 ] as const;
 export type Currency = (typeof CURRENCIES)[number];
+
+export interface LdapConfig {
+  enabled: boolean;
+  host: string;
+  port: number;
+  use_tls: boolean;
+  bind_dn: string;
+  bind_password: string;
+  base_dn: string;
+  user_filter: string;
+  attr_username: string;
+  attr_email: string;
+  attr_display_name: string;
+  attr_role: string;
+  role_map: Record<string, string>;
+  default_role: string;
+  bind_password_invalid?: boolean;
+}
+
+export interface LdapSyncResult {
+  created: number;
+  updated: number;
+  deactivated: number;
+  skipped: number;
+  default_role_assigned: number;
+}
+
+export interface LdapTestResult {
+  ok: boolean;
+  preview: { username: string; email: string; display_name: string; mapped_role: string }[];
+  error: string | null;
+}

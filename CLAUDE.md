@@ -25,7 +25,7 @@ docker compose logs -f backend
 # Access PostgreSQL
 docker exec -it xpenses-db psql -U xpenses
 
-# Run all tests (128 tests, ~40s, inside backend container)
+# Run all tests (131 tests, ~40s, inside backend container)
 make test
 
 # Run tests with stop-on-first-failure

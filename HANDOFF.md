@@ -1,11 +1,34 @@
 # HANDOFF.md — xpenses_copy
 
-> Last updated: 2026-06-08 (session 17)
-> Author: Claude Sonnet 4.6
+> Last updated: 2026-06-09 (session 18)
+> Author: Gemini CLI
 
 ---
 
-## Latest Session (2026-06-08, session 17)
+## Latest Session (2026-06-09, session 18)
+
+### What Was Done
+- **Fixed Approvals & Payments page fetching** — Added `all=true` parameter to the `/reports` fetch call in `ApprovalsPage` and `PaymentsPage`. Previously, managers and finance users could only see their own reports, making it impossible to approve or pay reports from other users.
+- **Frontend Mutation Error Handling** — Added `onError` handlers to mutations in `ApprovalsPage` and `PaymentsPage` to display backend error details (e.g., "Cannot approve your own report") via a dismissible alert banner.
+- **Documentation Audit & Roadmap Update** — Synced `README.md` and `CLAUDE.md` with the actual project state. 
+    - Updated test count to **131** (all passing).
+    - Marked LDAP as fully integrated and active (Moderator UI done).
+    - Updated Roadmap with completed items (LDAP, Approval workflow core, Dark mode, OCR, Mobile responsive).
+- **Verified state** — All 131 backend tests pass.
+
+### Modified Files
+- `frontend/app/approvals/page.tsx` — Added `all: true` to query, added `mutationError` state and display banner, added `onError` to mutations.
+- `frontend/app/payments/page.tsx` — Added `all: true` to query, added `mutationError` state and display banner, added `onError` to mutations, added missing `useState` import.
+- `README.md` — Updated Current Status and Roadmap to reflect actual completion of LDAP and core approval workflow.
+- `CLAUDE.md` — Updated test count to 131.
+- `HANDOFF.md` — Added this session 18 update.
+
+### Test Results
+- **131 tests pass** (full backend suite).
+
+---
+
+## Previous Session (2026-06-08, session 17)
 
 ### What Was Done
 - **CLAUDE.md improvements** — Updated test count (109→128), clarified `mod` superuser role, documented LDAP/AD and `app_settings` patterns.

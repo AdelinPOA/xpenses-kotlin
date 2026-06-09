@@ -19,16 +19,23 @@ export default function ApprovalsPage() {
   const [rejectingId, setRejectingId] = useState<number | null>(null);
   const [rejectReason, setRejectReason] = useState("");
 
-  const { data: reports, isLoading } = useQuery<Report[]>({
-    queryKey: reportKeys.list({ status: "submitted" }),
-    queryFn: () => api.get("/reports", { params: { status: "submitted" } }).then((r) => r.data),
+  const { data: reports, isLoading, error: fetchError } = useQuery<Report[]>({
+    queryKey: reportKeys.list({ status: "submitted", all: true }),
+    queryFn: () => api.get("/reports", { params: { status: "submitted", all: true } }).then((r) => r.data),
     enabled: user?.role === "manager" || user?.role === "chef_finance",
   });
+
+  const [mutationError, setMutationError] = useState<string | null>(null);
 
   const approveMutation = useMutation({
     mutationFn: (id: number) => api.post(`/reports/${id}/approve`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: reportKeys.all });
+      setMutationError(null);
+    },
+    onError: (err: any) => {
+      const msg = err.response?.data?.detail || "Failed to approve report";
+      setMutationError(msg);
     },
   });
 
@@ -39,6 +46,11 @@ export default function ApprovalsPage() {
       qc.invalidateQueries({ queryKey: reportKeys.all });
       setRejectingId(null);
       setRejectReason("");
+      setMutationError(null);
+    },
+    onError: (err: any) => {
+      const msg = err.response?.data?.detail || "Failed to reject report";
+      setMutationError(msg);
     },
   });
 
@@ -64,6 +76,18 @@ export default function ApprovalsPage() {
           Reports waiting for your approval
         </p>
       </div>
+
+      {(fetchError || mutationError) && (
+        <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-xl text-sm text-red-800 dark:text-red-300 flex justify-between items-center">
+          <span>{mutationError || "Failed to load reports. Please refresh the page."}</span>
+          <button
+            onClick={() => setMutationError(null)}
+            className="text-red-500 hover:text-red-700 font-bold px-2"
+          >
+            &times;
+          </button>
+        </div>
+      )}
 
       {isLoading ? (
         <div className="text-slate-400 dark:text-slate-500 text-sm mt-8">Loading...</div>

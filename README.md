@@ -134,7 +134,7 @@ The PDF export matches Zoho Expenses quality:
 
 ## Current Status
 
-**Phase 7 partial + test suite** — UI/UX Redesign, Mileage, dark mode, OCR, mobile responsive, and 101 backend tests.
+**Phase 7 complete + test suite** — UI/UX Redesign, Mileage, dark mode, OCR, mobile responsive, and 131 backend tests.
 
 - [x] Expenses CRUD with multi-currency FX conversion
 - [x] Multiple receipt uploads per expense
@@ -152,26 +152,26 @@ The PDF export matches Zoho Expenses quality:
 - [x] Role-based UI: login page, role-aware sidebar, approvals/payments/user management pages
 - [x] Data isolation: users only see their own expenses/reports
 - [x] Local test accounts (tech1, manager1, cfo1, mod1) for development
-- [x] LDAP preparation (config flags, auth_source column — not active yet)
+- [x] LDAP integration with dedicated Moderator UI for configuration and sync
 - [x] Dark mode with system preference detection + manual toggle (light/dark/system)
 - [x] Mobile responsive layout (collapsible sidebar drawer, responsive tables, flex-wrap filters)
 - [x] OCR receipt scanning (auto-fill merchant, amount, date)
 - [x] Mileage recording with driving time tracking + dual tax rates (CFO-editable)
 - [x] UI/UX Redesign: Role-based color themes, personalized dashboard with time-of-day greetings and contextual action cards
 - [x] Signature Pad: Fixed drawing offset via coordinate scaling; full responsiveness
-- [x] Backend test suite (101 tests: auth, expenses, reports, advances, mileage, settings, categories, users, ocr)
+- [x] Backend test suite (131 tests: auth, expenses, reports, advances, mileage, settings, categories, users, ocr, ldap)
 - [x] Linting with ruff + Makefile workflow
 
 ## Roadmap
 
 ### Phase 4 — Authentication & Users
-- Active Directory / LDAP integration for production
-- JWT-based auth for dev/testing
-- User roles (submitter, approver, admin)
-- Per-user expense and report isolation
+- [x] Active Directory / LDAP integration for production
+- [x] JWT-based auth for dev/testing
+- [x] User roles (submitter, approver, admin)
+- [x] Per-user expense and report isolation
 
 ### Phase 5 — Approval Workflow
-- Manager approval step (submitted → approved → paid)
+- [x] Manager approval step (submitted → approved → paid)
 - Email notifications on status changes
 - Approval delegation
 
@@ -182,9 +182,9 @@ The PDF export matches Zoho Expenses quality:
 - CSV/Excel export
 
 ### Phase 7 — Quality of Life
-- ~~Dark mode~~ ✅
-- ~~Mobile-responsive improvements~~ ✅
-- ~~OCR receipt scanning (auto-fill merchant, amount, date)~~ ✅
+- [x] Dark mode
+- [x] Mobile-responsive improvements
+- [x] OCR receipt scanning (auto-fill merchant, amount, date)
 - Expense duplication
 - Recurring expenses
 - Manual FX rate override option

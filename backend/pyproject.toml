@@ -24,6 +24,8 @@ dependencies = [
     "pdf2image>=1.17",
     "ldap3>=2.9",
     "cryptography>=42",
+    "aiosmtplib==3.0.1",
+    "email-validator==2.2.0",
 ]
 
 [project.optional-dependencies]

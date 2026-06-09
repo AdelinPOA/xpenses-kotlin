@@ -111,6 +111,7 @@ async def create_expense(
     merchant: str = "Test Shop",
     description: str = "Test expense",
     category_id: int | None = None,
+    report_id: int | None = None,
 ) -> dict:
     """Create an expense and return the response JSON."""
     body = {
@@ -122,6 +123,8 @@ async def create_expense(
     }
     if category_id is not None:
         body["category_id"] = category_id
+    if report_id is not None:
+        body["report_id"] = report_id
     resp = await client.post("/api/expenses", json=body)
     assert resp.status_code == 201, f"Create expense failed: {resp.text}"
     return resp.json()

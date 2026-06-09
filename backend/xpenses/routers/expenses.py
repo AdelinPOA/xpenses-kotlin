@@ -171,6 +171,20 @@ async def update_expense(expense_id: int, body: ExpenseUpdate, current_user: dic
         if k in raw:
             fields[k] = raw[k]
 
+    if "report_id" in raw:
+        new_report_id = raw["report_id"]
+        if new_report_id is not None:
+            report_row = await db.fetchrow(
+                "SELECT id, user_id, status FROM expense_reports WHERE id = $1", new_report_id
+            )
+            if not report_row:
+                raise HTTPException(status_code=404, detail="Report not found")
+            if report_row["user_id"] != current_user["id"]:
+                raise HTTPException(status_code=403, detail="Cannot attach to another user's report")
+            if report_row["status"] != "draft":
+                raise HTTPException(status_code=400, detail="Can only attach expenses to draft reports")
+        fields["report_id"] = new_report_id
+
     if fields:
         fields["updated_at"] = datetime.utcnow()
         set_parts = []

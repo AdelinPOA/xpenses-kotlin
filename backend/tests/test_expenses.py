@@ -178,3 +178,51 @@ async def test_ownership_isolation(client):
 async def test_unauthenticated_access(client):
     resp = await client.get("/api/expenses")
     assert resp.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_attach_expense_to_report_via_patch(client):
+    await login(client, "tech1")
+    expense = await create_expense(client)
+    report = await create_report(client, title="Attach Test")
+
+    resp = await client.patch(f"/api/expenses/{expense['id']}", json={"report_id": report["id"]})
+    assert resp.status_code == 200
+    assert resp.json()["report_id"] == report["id"]
+
+
+@pytest.mark.asyncio
+async def test_detach_expense_from_report_via_patch(client):
+    await login(client, "tech1")
+    report = await create_report(client)
+    expense = await create_expense(client, report_id=report["id"])
+    assert expense["report_id"] == report["id"]
+
+    resp = await client.patch(f"/api/expenses/{expense['id']}", json={"report_id": None})
+    assert resp.status_code == 200
+    assert resp.json()["report_id"] is None
+
+
+@pytest.mark.asyncio
+async def test_cannot_attach_to_submitted_report(client):
+    await login(client, "tech1")
+    report = await create_report(client)
+    await create_expense(client, report_id=report["id"])
+    await client.post(f"/api/reports/{report['id']}/submit")
+
+    expense = await create_expense(client)
+    resp = await client.patch(f"/api/expenses/{expense['id']}", json={"report_id": report["id"]})
+    assert resp.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_cannot_attach_to_another_users_report(client):
+    await login(client, "tech1")
+    expense = await create_expense(client)
+
+    async with new_client() as other_client:
+        await login(other_client, "manager1")
+        other_report = await create_report(other_client, title="Manager Report")
+
+    resp = await client.patch(f"/api/expenses/{expense['id']}", json={"report_id": other_report["id"]})
+    assert resp.status_code == 403

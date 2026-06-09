@@ -105,6 +105,7 @@ class ExpenseCreate(BaseModel):
 
 class ExpenseUpdate(BaseModel):
     category_id: int | None = None
+    report_id: int | None = None
     amount: float | None = None
     currency: str | None = None
     tax_amount: float | None = None

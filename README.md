@@ -172,8 +172,8 @@ The PDF export matches Zoho Expenses quality:
 
 ### Phase 5 — Approval Workflow
 - [x] Manager approval step (submitted → approved → paid)
-- Email notifications on status changes
-- Approval delegation
+- [x] Email notifications on status changes
+
 
 ### Phase 6 — Analytics & Reporting
 - Spend trends over time (charts)

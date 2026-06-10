@@ -8,6 +8,7 @@ import { reportKeys } from "@/lib/queryKeys";
 import AppShell from "@/components/layout/AppShell";
 import EmptyState from "@/components/ui/EmptyState";
 import { useAuth } from "@/components/AuthProvider";
+import { useToast } from "@/components/ToastProvider";
 import { CheckCircle, XCircle } from "lucide-react";
 
 function formatEur(amount: number) {
@@ -17,6 +18,7 @@ function formatEur(amount: number) {
 export default function ApprovalsPage() {
   const { user } = useAuth();
   const qc = useQueryClient();
+  const toast = useToast();
   const [rejectingId, setRejectingId] = useState<number | null>(null);
   const [rejectReason, setRejectReason] = useState("");
 
@@ -33,10 +35,12 @@ export default function ApprovalsPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: reportKeys.all });
       setMutationError(null);
+      toast.success("Report approved successfully");
     },
     onError: (err: any) => {
       const msg = err.response?.data?.detail || "Failed to approve report";
       setMutationError(msg);
+      toast.error(msg);
     },
   });
 
@@ -48,10 +52,12 @@ export default function ApprovalsPage() {
       setRejectingId(null);
       setRejectReason("");
       setMutationError(null);
+      toast.success("Report rejected");
     },
     onError: (err: any) => {
       const msg = err.response?.data?.detail || "Failed to reject report";
       setMutationError(msg);
+      toast.error(msg);
     },
   });
 

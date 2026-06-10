@@ -1,6 +1,6 @@
 import os
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timezone
 from io import BytesIO
 from pathlib import Path
 
@@ -471,7 +471,7 @@ def _build_main_pdf(
 
     story.append(Spacer(1, 10 * mm))
     story.append(Paragraph(
-        f"Generated on {datetime.utcnow().strftime('%d.%m.%Y %H:%M')} UTC",
+        f"Generated on {datetime.now(timezone.utc).strftime('%d.%m.%Y %H:%M')} UTC",
         caption_style,
     ))
 

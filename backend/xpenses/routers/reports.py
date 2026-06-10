@@ -1,6 +1,6 @@
 import os
 import zipfile
-from datetime import datetime
+from datetime import datetime, timezone
 from io import BytesIO
 
 import asyncpg
@@ -139,7 +139,7 @@ async def list_reports(
 
 @router.post("", response_model=ReportOut, status_code=201)
 async def create_report(body: ReportCreate, current_user: dict = Depends(get_current_user), db: asyncpg.Connection = Depends(get_db)):
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     row = await db.fetchrow(
         "INSERT INTO expense_reports (title, description, date_from, date_to, currency, user_id, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id",
         body.title, body.description, body.date_from, body.date_to, body.currency.upper(), current_user["id"], now, now,
@@ -174,7 +174,7 @@ async def update_report(report_id: int, body: ReportUpdate, current_user: dict =
     if "currency" in fields and fields["currency"] is not None:
         fields["currency"] = fields["currency"].upper()
 
-    fields["updated_at"] = datetime.utcnow()
+    fields["updated_at"] = datetime.now(timezone.utc)
     set_clause = ", ".join(f"{k} = ${i}" for i, k in enumerate(fields, 1))
     params = list(fields.values()) + [report_id]
     await db.execute(
@@ -221,7 +221,7 @@ async def attach_expenses(report_id: int, body: ReportSubmit, current_user: dict
     if invalid:
         raise HTTPException(status_code=400, detail=f"Invalid, non-draft, or not-owned expense IDs: {invalid}")
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     await db.execute(
         "UPDATE expenses SET report_id = $1, updated_at = $2 WHERE id = ANY($3::int[])",
         report_id, now, body.expense_ids,
@@ -251,7 +251,7 @@ async def submit_report(
         raise HTTPException(status_code=400, detail="Report is not in draft status")
 
     if body and body.expense_ids:
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         await db.execute(
             "UPDATE expenses SET report_id = $1, updated_at = $2 WHERE id = ANY($3::int[]) AND status = 'draft' AND user_id = $4",
             report_id, now, body.expense_ids, current_user["id"]
@@ -265,7 +265,7 @@ async def submit_report(
     if not attached:
         raise HTTPException(status_code=400, detail="No expenses attached to this report")
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     await db.execute(
         "UPDATE expenses SET status = 'submitted', updated_at = $1 WHERE id = ANY($2::int[])",
         now, attached,
@@ -314,7 +314,7 @@ async def recall_report(report_id: int, current_user: dict = Depends(get_current
     if row["status"] != "submitted":
         raise HTTPException(status_code=400, detail="Only submitted reports can be recalled")
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     total_row = await db.fetchrow(
         "SELECT COALESCE(SUM(amount_eur), 0.0) as total FROM expenses WHERE report_id = $1", report_id
     )
@@ -344,7 +344,7 @@ async def pay_report(
     if row["status"] != "approved":
         raise HTTPException(status_code=400, detail="Only approved reports can be marked as paid")
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     await db.execute(
         "UPDATE expense_reports SET status = 'paid', paid_at = $1, updated_at = $2 WHERE id = $3",
         now, now, report_id,
@@ -491,7 +491,7 @@ async def approve_report(
     if row["user_id"] == current_user["id"]:
         raise HTTPException(status_code=400, detail="Cannot approve your own report")
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     await db.execute(
         "UPDATE expense_reports SET status = 'approved', approved_by = $1, approved_at = $2, updated_at = $3 WHERE id = $4",
         current_user["id"], now, now, report_id,
@@ -530,7 +530,7 @@ async def reject_report(
     if row["user_id"] == current_user["id"]:
         raise HTTPException(status_code=400, detail="Cannot reject your own report")
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     await db.execute(
         "UPDATE expense_reports SET status = 'rejected', approved_by = $1, approved_at = $2, rejected_reason = $3, updated_at = $4 WHERE id = $5",
         current_user["id"], now, body.reason, now, report_id,
@@ -576,7 +576,7 @@ async def sign_report(
             detail="No signature saved. Record your signature first.",
         )
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     await db.execute(
         "UPDATE expense_reports SET signer_id = $1, signed_at = $2, updated_at = $3 WHERE id = $4",
         current_user["id"], now, now, report_id,

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 import asyncpg
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -79,7 +79,7 @@ async def create_advance(
     if body.type == "request":
         if not is_owner:
             raise HTTPException(status_code=403, detail="Only the report owner can request advances")
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         row = await db.fetchrow(
             """INSERT INTO advance_payments
                (report_id, user_id, amount_original, currency_original, amount_eur, fx_rate,
@@ -105,7 +105,7 @@ async def create_advance(
         raise HTTPException(status_code=502, detail=f"Failed to fetch exchange rate: {e}")
 
     amount_eur = round(body.amount * fx_rate, 2)
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
 
     row = await db.fetchrow(
         """INSERT INTO advance_payments
@@ -164,7 +164,7 @@ async def update_advance(
         if k in raw:
             fields[k] = raw[k]
 
-    fields["updated_at"] = datetime.utcnow()
+    fields["updated_at"] = datetime.now(timezone.utc)
     set_parts = [f"{k} = ${i}" for i, k in enumerate(fields, 1)]
     values = list(fields.values()) + [advance_id]
     await db.execute(
@@ -232,7 +232,7 @@ async def pay_advance(
         raise HTTPException(status_code=502, detail=f"Failed to fetch exchange rate: {e}")
 
     amount_eur = round(body.amount * fx_rate, 2)
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
 
     await db.execute(
         """UPDATE advance_payments
@@ -264,7 +264,7 @@ async def reject_advance(
     if adv["status"] != "requested":
         raise HTTPException(status_code=400, detail="Only requested advances can be rejected")
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     await db.execute(
         """UPDATE advance_payments
            SET status = 'rejected', rejected_by = $1, rejected_at = $2, updated_at = $3,

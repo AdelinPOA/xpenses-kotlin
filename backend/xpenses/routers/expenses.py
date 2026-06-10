@@ -1,5 +1,5 @@
 import mimetypes
-from datetime import datetime
+from datetime import datetime, timezone
 
 import asyncpg
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
@@ -97,7 +97,7 @@ async def create_expense(body: ExpenseCreate, current_user: dict = Depends(get_c
     amount_eur = round(body.amount * fx_rate, 2)
     tax_amount_eur = round(body.tax_amount / fx_rate, 2) if fx_rate else 0.0
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     row = await db.fetchrow(
         """INSERT INTO expenses
            (category_id, report_id, amount_original, currency_original, amount_eur, fx_rate,
@@ -186,7 +186,7 @@ async def update_expense(expense_id: int, body: ExpenseUpdate, current_user: dic
         fields["report_id"] = new_report_id
 
     if fields:
-        fields["updated_at"] = datetime.utcnow()
+        fields["updated_at"] = datetime.now(timezone.utc)
         set_parts = []
         values = []
         for idx, (k, v) in enumerate(fields.items(), start=1):
@@ -228,7 +228,7 @@ async def upload_receipts(expense_id: int, files: list[UploadFile] = File(...), 
         raise HTTPException(status_code=403, detail="Only the owner can perform this action")
 
     saved = []
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     for file in files:
         try:
             relative_path = await save_receipt(expense_id, file)
@@ -271,7 +271,7 @@ async def delete_single_receipt(expense_id: int, receipt_id: int, current_user: 
     await db.execute("DELETE FROM receipts WHERE id = $1", receipt_id)
     await db.execute(
         "UPDATE expenses SET updated_at = $1 WHERE id = $2",
-        datetime.utcnow(), expense_id,
+        datetime.now(timezone.utc), expense_id,
     )
 
 

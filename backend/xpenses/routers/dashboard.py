@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 import asyncpg
 from fastapi import APIRouter, Depends
@@ -22,7 +22,7 @@ async def get_dashboard(
     current_user: dict = Depends(get_current_user),
     db: asyncpg.Connection = Depends(get_db)
 ):
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     month_start = f"{now.year}-{now.month:02d}-01"
 
     is_org_wide = current_user["role"] in ("chef_finance", "mod") or (all and current_user["role"] == "manager")

@@ -1,11 +1,33 @@
 # HANDOFF.md — xpenses_copy
 
-> Last updated: 2026-06-10 (session 22)
-> Author: Gemini CLI
+> Last updated: 2026-06-10 (session 23)
+> Author: Antigravity AI
 
 ---
 
-## Latest Session (2026-06-10, session 22)
+## Latest Session (2026-06-10, session 23)
+
+### What Was Done
+- **Deprecated `datetime.utcnow()` Cleanup**:
+  - Replaced all 21 occurrences of the deprecated `datetime.utcnow()` with timezone-aware `datetime.now(timezone.utc)` across all backend routers and services to prevent potential future runtime deprecation issues.
+  - Updated python imports (`from datetime import datetime, timezone`) in all modified files.
+- **Verification & Testing**:
+  - Rebuilt the backend docker container.
+  - Ran the full test suite verifying that all **158 tests passed** successfully.
+
+### Modified/Added Files
+- `backend/xpenses/routers/advances.py` — Replaced 5 occurrences of `utcnow()`.
+- `backend/xpenses/routers/dashboard.py` — Replaced 1 occurrence of `utcnow()`.
+- `backend/xpenses/routers/expenses.py` — Replaced 4 occurrences of `utcnow()`.
+- `backend/xpenses/routers/reports.py` — Replaced 10 occurrences of `utcnow()`.
+- `backend/xpenses/services/pdf_export.py` — Replaced 1 occurrence of `utcnow()`.
+
+### Test Results
+- **158 tests pass** (all green).
+
+---
+
+## Previous Session (2026-06-10, session 22)
 
 ### What Was Done
 - **User Profiles & Reports History View — Full Stack Implementation**:

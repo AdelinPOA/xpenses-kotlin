@@ -112,4 +112,3 @@ TechnPlatz               C374981        Lwiw
         # Cleanup
         await conn.execute("DELETE FROM expense_reports WHERE user_id = (SELECT id FROM users WHERE username = 'testtech')")
         await conn.execute("DELETE FROM users WHERE username = 'testtech'")
-

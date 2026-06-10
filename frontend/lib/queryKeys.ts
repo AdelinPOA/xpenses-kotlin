@@ -49,5 +49,3 @@ export const imapKeys = {
   all: ["imap"] as const,
   config: () => [...imapKeys.all, "config"] as const,
 };
-
-

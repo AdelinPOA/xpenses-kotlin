@@ -16,4 +16,3 @@ The frontend SHALL display non-intrusive floating toast notifications in the top
 #### Scenario: Save connection settings successfully
 - **WHEN** user submits valid IMAP configuration and save operation completes
 - **THEN** a green success toast pops up displaying "IMAP Settings saved successfully"
-

@@ -47,4 +47,3 @@ We will reuse the shared `crypto.py` Fernet key derivation helper with info `b"x
 - **Mocked Parser Tests**: Unit tests in `backend/tests/` will feed mock raw email texts to the parsing functions to verify extracted dates, client info, location, and description formats are 100% correct without external resources.
 - **Mocked IMAP Connection Tests**: Test cases using mock `imaplib` connections will simulate folder checks and message retrieval to verify daemon loop logic.
 - **E2E Local Verification**: The developer can configure a live test IMAP mailbox in the Moderator Settings UI on their local run. Forwarding a delegation email to that test address will trigger the local docker app to fetch, parse, and instantiate the draft report locally, proving end-to-end integration.
-

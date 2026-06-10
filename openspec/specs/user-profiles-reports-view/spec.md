@@ -38,4 +38,3 @@ The frontend SHALL provide a Staff Directory page listing all company users, vis
 #### Scenario: Manager accesses Staff Directory
 - **WHEN** a Manager navigates to `/admin/users` or `/users`
 - **THEN** the page displays a list of all active staff members with clickable links to their profiles
-

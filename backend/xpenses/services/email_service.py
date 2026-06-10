@@ -49,4 +49,3 @@ async def send_email(to_email: str, subject: str, content: str):
         )
     except Exception as e:
         logger.error(f"Failed to send email to {to_email}: {e}")
-

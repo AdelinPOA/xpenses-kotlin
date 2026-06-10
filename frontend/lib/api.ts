@@ -245,5 +245,3 @@ export interface ImapTestResult {
   success: boolean;
   message: string;
 }
-
-

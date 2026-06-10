@@ -4,7 +4,7 @@
 
 **Goal:** Integrate email notifications into the report lifecycle (submit, approve, reject, pay) using FastAPI BackgroundTasks.
 
-**Architecture:** 
+**Architecture:**
 - Use `fastapi.BackgroundTasks` to send emails asynchronously.
 - Import `send_email` from `xpenses.services.email_service`.
 - Fetch recipient emails and necessary details (submitter name, report title, etc.) within the route handlers.
@@ -41,16 +41,16 @@ async def test_submit_report_triggers_emails(client):
     with patch("xpenses.routers.reports.send_email", new_callable=AsyncMock) as mock_send:
         resp = await client.post(f"/api/reports/{report_id}/submit")
         assert resp.status_code == 200
-        
+
         # Should notify manager1 and cfo1 (from seed)
         # manager1: maria.ionescu@nt-automation.eu
         # cfo1: elena.dumitrescu@nt-automation.eu
         assert mock_send.call_count >= 2
-        
+
         called_emails = [call.args[0] for call in mock_send.call_args_list]
         assert "maria.ionescu@nt-automation.eu" in called_emails
         assert "elena.dumitrescu@nt-automation.eu" in called_emails
-        
+
         # Check subject and content for one call
         subject = mock_send.call_args_list[0].args[1]
         content = mock_send.call_args_list[0].args[2]
@@ -81,20 +81,20 @@ from ..services.email_service import send_email
 ```python
 @router.post("/{report_id}/submit", response_model=ReportOut)
 async def submit_report(
-    report_id: int, 
+    report_id: int,
     background_tasks: BackgroundTasks,
-    body: ReportSubmit | None = None, 
-    current_user: dict = Depends(get_current_user), 
+    body: ReportSubmit | None = None,
+    current_user: dict = Depends(get_current_user),
     db: asyncpg.Connection = Depends(get_db)
 ):
     # ... existing code ...
-    
+
     # After updating report status to submitted:
     # Fetch managers and cfo
     approvers = await db.fetch(
         "SELECT email FROM users WHERE role IN ('manager', 'chef_finance') AND is_active = TRUE"
     )
-    
+
     for appr in approvers:
         if appr["email"]:
             background_tasks.add_task(
@@ -103,7 +103,7 @@ async def submit_report(
                 f"New expense report submitted: {row['title']}",
                 f"{current_user['display_name']} has submitted a new expense report: {row['title']}. Total: {total} {row['currency']}."
             )
-    
+
     return await _fetch_report(db, report_id)
 ```
 
@@ -144,7 +144,7 @@ async def test_approve_report_triggers_email(client):
         with patch("xpenses.routers.reports.send_email", new_callable=AsyncMock) as mock_send:
             resp = await manager_client.post(f"/api/reports/{report_id}/approve")
             assert resp.status_code == 200
-            
+
             mock_send.assert_called_once()
             assert mock_send.call_args.args[0] == "ion.popescu@nt-automation.eu"
             assert "Expense report approved: Approved Report" == mock_send.call_args.args[1]
@@ -166,7 +166,7 @@ async def test_reject_report_triggers_email(client):
         with patch("xpenses.routers.reports.send_email", new_callable=AsyncMock) as mock_send:
             resp = await manager_client.post(f"/api/reports/{report_id}/reject", json={"reason": "Wrong category"})
             assert resp.status_code == 200
-            
+
             mock_send.assert_called_once()
             assert mock_send.call_args.args[0] == "ion.popescu@nt-automation.eu"
             assert "Expense report rejected: Rejected Report" == mock_send.call_args.args[1]
@@ -181,7 +181,7 @@ async def test_pay_report_triggers_email(client):
     report_id = report["id"]
     await client.post(f"/api/reports/{report_id}/attach", json={"expense_ids": [expense["id"]]})
     await client.post(f"/api/reports/{report_id}/submit")
-    
+
     async with new_client() as manager_client:
         await login_helper(manager_client, "manager1")
         await manager_client.post(f"/api/reports/{report_id}/approve")
@@ -192,7 +192,7 @@ async def test_pay_report_triggers_email(client):
         with patch("xpenses.routers.reports.send_email", new_callable=AsyncMock) as mock_send:
             resp = await cfo_client.post(f"/api/reports/{report_id}/pay")
             assert resp.status_code == 200
-            
+
             mock_send.assert_called_once()
             assert mock_send.call_args.args[0] == "ion.popescu@nt-automation.eu"
             assert "Expense report paid: Paid Report" == mock_send.call_args.args[1]
@@ -220,7 +220,7 @@ async def approve_report(
 ):
     # ... existing code ...
     # row = await db.fetchrow("SELECT * FROM expense_reports WHERE id = $1", report_id)
-    
+
     # Fetch owner email
     owner = await db.fetchrow("SELECT email FROM users WHERE id = $1", row["user_id"])
     if owner and owner["email"]:
@@ -261,9 +261,9 @@ async def reject_report(
 ```python
 @router.post("/{report_id}/pay", response_model=ReportOut)
 async def pay_report(
-    report_id: int, 
+    report_id: int,
     background_tasks: BackgroundTasks,
-    current_user: dict = require_role("chef_finance"), 
+    current_user: dict = require_role("chef_finance"),
     db: asyncpg.Connection = Depends(get_db)
 ):
     # Need to fetch report details first to get user_id and title

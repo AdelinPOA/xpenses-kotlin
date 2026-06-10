@@ -1,5 +1,6 @@
 import pytest
 from httpx import AsyncClient
+
 from tests.conftest import login
 
 
@@ -56,7 +57,7 @@ async def test_list_reports_filter_by_user_id(client: AsyncClient, pool):
     async with pool.acquire() as conn:
         tech1_id = await conn.fetchval("SELECT id FROM users WHERE username = 'tech1'")
         manager1_id = await conn.fetchval("SELECT id FROM users WHERE username = 'manager1'")
-        
+
         # Create a report for tech1
         t_id = await conn.fetchval(
             "INSERT INTO expense_reports (title, description, user_id, status) VALUES ('Tech1 Report', 'desc', $1, 'submitted') RETURNING id",

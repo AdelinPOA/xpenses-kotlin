@@ -4,7 +4,7 @@ import asyncpg
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from ..auth import require_role, get_current_user
+from ..auth import get_current_user, require_role
 from ..database import get_db
 from ..models import ActiveUpdate, RoleUpdate, UserOut
 

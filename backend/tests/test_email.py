@@ -24,14 +24,14 @@ async def test_send_email_calls_aiosmtplib():
         settings.emails_enabled = True
         await send_email("test@example.com", "Subject", "Body")
         mock_send.assert_called_once()
-        
+
         # Verify message construction
         args, kwargs = mock_send.call_args
         message = args[0]
         assert message["To"] == "test@example.com"
         assert message["Subject"] == "Subject"
         assert message.get_content().strip() == "Body"
-        
+
         # Reset
         settings.emails_enabled = False
 

@@ -78,15 +78,15 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
       >
         <div className="px-6 py-4 border-b border-slate-700 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Image 
-              src="/logo.png" 
-              alt="Newtech Automation" 
-              width={36} 
-              height={36} 
+            <Image
+              src="/logo.png"
+              alt="Newtech Automation"
+              width={36}
+              height={36}
               className={clsx(
                 "rounded-full border-2",
                 user ? ROLE_BG_COLORS[user.role] : "border-transparent"
-              )} 
+              )}
             />
             <span className="text-lg font-bold text-white tracking-tight">xpenses</span>
           </div>

@@ -82,16 +82,16 @@ If you want to deliver visible value quickly, start with **email notifications**
 * It can be implemented in < 2 hours and tested with a local SMTP server (e.g., `python -m smtpd -c DebuggingServer -l localhost:1025`).
 
 **Proposed steps for email notifications:**
-1. Add `aiosmtplib` and `email-validator` to `pyproject.toml`.  
-2. Create `backend/xpenses/services/email_service.py` with a `send_template` function.  
-3. In `routers/reports.py`, after each state transition (approve, reject, pay) call the service with appropriate template (subject/body from Jinja2 strings).  
-4. Add SMTP settings to `.env.example` and `.env` (defaults to a debugging sink).  
-5. Write a unit test that mocks `aiosmtplib.SMTP` and verifies the correct method is called.  
-6. Frontend: optionally show a toast “Notification sent” after approval/rejection (use existing toast system).  
+1. Add `aiosmtplib` and `email-validator` to `pyproject.toml`.
+2. Create `backend/xpenses/services/email_service.py` with a `send_template` function.
+3. In `routers/reports.py`, after each state transition (approve, reject, pay) call the service with appropriate template (subject/body from Jinja2 strings).
+4. Add SMTP settings to `.env.example` and `.env` (defaults to a debugging sink).
+5. Write a unit test that mocks `aiosmtplib.SMTP` and verifies the correct method is called.
+6. Frontend: optionally show a toast “Notification sent” after approval/rejection (use existing toast system).
 
 ---
 
-**Summary**  
-The application is already solid and feature‑rich. The proposed improvements focus on **security, observability, CI/CD, and the next logical features** (email notifications, analytics, QoL enhancements) while paying down technical debt. Implementing even a subset of these will make the system more production‑ready, easier to maintain, and more valuable to end‑users. 
+**Summary**
+The application is already solid and feature‑rich. The proposed improvements focus on **security, observability, CI/CD, and the next logical features** (email notifications, analytics, QoL enhancements) while paying down technical debt. Implementing even a subset of these will make the system more production‑ready, easier to maintain, and more valuable to end‑users.
 
 Feel free to ask for a deeper dive into any specific area (e.g., exact code changes for the datetime fix, or a draft GitHub Actions workflow). Happy coding!

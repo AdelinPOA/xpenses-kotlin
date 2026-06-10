@@ -104,7 +104,7 @@ async def list_reports(
             raise HTTPException(status_code=403, detail="Forbidden")
 
     params: list = []
-    
+
     if all and current_user["role"] in ("chef_finance", "mod", "manager"):
         query = "SELECT r.*, u.display_name as user_display_name FROM expense_reports r LEFT JOIN users u ON r.user_id = u.id"
         where_clauses = []
@@ -125,7 +125,7 @@ async def list_reports(
         if status:
             query += " AND r.status = $2"
             params.append(status)
-            
+
     query += " ORDER BY r.created_at DESC"
     rows = await db.fetch(query, *params)
     result = []

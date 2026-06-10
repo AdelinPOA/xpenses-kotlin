@@ -36,7 +36,7 @@ async def send_email(to_email: str, subject: str, content: str):
     message.set_content(content)
 
     try:
-        # If port is 465, we usually use use_tls=True. 
+        # If port is 465, we usually use use_tls=True.
         # For 587 or 25, we often use starttls or plain.
         # Let's support TLS for 465.
         await aiosmtplib.send(

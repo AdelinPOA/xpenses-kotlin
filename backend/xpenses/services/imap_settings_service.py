@@ -1,9 +1,10 @@
+import asyncio
 import dataclasses
 import datetime
+import imaplib
 import json
 import logging
-import imaplib
-import asyncio
+
 import asyncpg
 from cryptography.fernet import InvalidToken
 

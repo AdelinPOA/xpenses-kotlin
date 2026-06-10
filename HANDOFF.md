@@ -133,7 +133,7 @@
 ### What Was Done
 - **Fixed Approvals & Payments page fetching** — Added `all=true` parameter to the `/reports` fetch call in `ApprovalsPage` and `PaymentsPage`. Previously, managers and finance users could only see their own reports, making it impossible to approve or pay reports from other users.
 - **Frontend Mutation Error Handling** — Added `onError` handlers to mutations in `ApprovalsPage` and `PaymentsPage` to display backend error details (e.g., "Cannot approve your own report") via a dismissible alert banner.
-- **Documentation Audit & Roadmap Update** — Synced `README.md` and `CLAUDE.md` with the actual project state. 
+- **Documentation Audit & Roadmap Update** — Synced `README.md` and `CLAUDE.md` with the actual project state.
     - Updated test count to **131** (all passing).
     - Marked LDAP as fully integrated and active (Moderator UI done).
     - Updated Roadmap with completed items (LDAP, Approval workflow core, Dark mode, OCR, Mobile responsive).

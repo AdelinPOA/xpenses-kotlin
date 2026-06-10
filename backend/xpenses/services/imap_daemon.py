@@ -1,12 +1,12 @@
 import asyncio
 import email
-from email.header import decode_header
 import imaplib
 import logging
+from email.header import decode_header
 
 from ..database import get_pool
 from .email_import_service import process_incoming_email
-from .imap_settings_service import get_imap_config, ImapConfig
+from .imap_settings_service import ImapConfig, get_imap_config
 
 logger = logging.getLogger(__name__)
 

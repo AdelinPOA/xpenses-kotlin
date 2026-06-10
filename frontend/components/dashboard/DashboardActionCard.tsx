@@ -14,18 +14,18 @@ interface DashboardActionCardProps {
   role: string;
 }
 
-export default function DashboardActionCard({ 
-  title, 
-  description, 
-  count, 
-  href, 
+export default function DashboardActionCard({
+  title,
+  description,
+  count,
+  href,
   icon: Icon,
   role
 }: DashboardActionCardProps) {
   if (count === 0) return null;
 
   return (
-    <Link 
+    <Link
       href={href}
       className={clsx(
         "group relative flex items-center gap-4 p-5 bg-white dark:bg-slate-900 rounded-xl shadow-sm border-l-4 transition-all hover:shadow-md",

@@ -22,10 +22,10 @@ from .routers import (
     email_settings as email_settings_router,
 )
 from .routers import (
-    ldap as ldap_router,
+    imap_settings as imap_settings_router,
 )
 from .routers import (
-    imap_settings as imap_settings_router,
+    ldap as ldap_router,
 )
 from .seed import seed_users
 from .services.imap_daemon import start_imap_daemon, stop_imap_daemon

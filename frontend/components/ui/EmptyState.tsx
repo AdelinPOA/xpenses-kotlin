@@ -8,9 +8,9 @@ interface EmptyStateProps {
   icon?: any;
 }
 
-export default function EmptyState({ 
-  message = "No items found", 
-  actionLabel, 
+export default function EmptyState({
+  message = "No items found",
+  actionLabel,
   onAction,
   icon: Icon = Inbox
 }: EmptyStateProps) {

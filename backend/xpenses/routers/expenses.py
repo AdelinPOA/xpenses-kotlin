@@ -145,13 +145,13 @@ async def update_expense(expense_id: int, body: ExpenseUpdate, current_user: dic
         eff_amount = raw.get("amount", row["amount_original"])
         eff_currency = raw.get("currency", row["currency_original"]).upper()
         eff_date = raw.get("date", row["date"])
-        
+
         # Use existing values if not provided; handle potential None
         row_tax_amount = row.get("tax_amount")
         if row_tax_amount is None: row_tax_amount = 0.0
         eff_tax_amount = raw.get("tax_amount", row_tax_amount)
         if eff_tax_amount is None: eff_tax_amount = 0.0
-        
+
         eff_tax_rate = raw.get("tax_rate", row.get("tax_rate"))
 
         try:

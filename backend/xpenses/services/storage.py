@@ -24,7 +24,7 @@ async def save_receipt(expense_id: int, file: UploadFile) -> str:
 
     safe_name = f"{expense_id}_{raw_filename}".replace(" ", "_")
     full_path = os.path.join(full_dir, safe_name)
-    
+
     # Path traversal protection
     target_abs = Path(full_path).resolve()
     base_abs = Path(settings.receipts_dir).resolve()

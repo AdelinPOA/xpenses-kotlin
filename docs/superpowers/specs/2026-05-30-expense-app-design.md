@@ -34,7 +34,7 @@ A professional expense management application tailored for small businesses. It 
 
 ## 4. Architecture
 - **API First:** FastAPI provides a RESTful API for all frontend actions.
-- **Authentication:** Integrated with Company **Active Directory** (via OIDC or SAML). 
+- **Authentication:** Integrated with Company **Active Directory** (via OIDC or SAML).
     - Users are automatically provisioned in the local database upon first login.
     - Roles (`Employee`, `Admin`) are mapped from AD Groups if possible.
 - **Data Model:**

@@ -395,7 +395,7 @@ def _build_main_pdf(
     story.append(Spacer(1, 3 * mm))
 
     total_advances_eur = sum(a["amount_eur"] for a in (advances or []) if a.get("status", "paid") == "paid")
-    
+
     allowance = 0.0
     if report.get("date_from") and report.get("date_to"):
         try:

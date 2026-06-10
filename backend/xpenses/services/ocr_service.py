@@ -172,7 +172,7 @@ def extract_amount(lines: list[str]) -> tuple[float | None, str | None]:
             if amt is not None:
                 keyword_results.append((amt, cur))
                 continue
-            
+
             # Look ahead up to 2 lines
             for j in range(1, 3):
                 if i + j < len(lines):
@@ -211,10 +211,10 @@ def extract_tax(lines: list[str]) -> tuple[float | None, float | None]:
         if any(kw in lower for kw in TAX_KEYWORDS):
             pct_match = re.search(r"(\d+(?:[.,]\d+)?)\s*%", line)
             rate = float(pct_match.group(1).replace(",", ".")) if pct_match else None
-            
+
             amt_match = re.search(r"(\d+(?:[.,]\d{2}))", line)
             amt = float(amt_match.group(1).replace(",", ".")) if amt_match else None
-            
+
             if amt is not None or rate is not None:
                 return amt, rate
     return None, None

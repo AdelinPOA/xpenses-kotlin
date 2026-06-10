@@ -41,3 +41,10 @@ We will reuse the shared `crypto.py` Fernet key derivation helper with info `b"x
 - **IMAP Connection Errors block loop**: Connection errors will be captured, logged, and the background task will sleep and retry on the next interval without crashing the main FastAPI service.
 - **Unauthorized Sender Email Spoofing**: Since the sender `From` header can technically be spoofed on internal SMTP relays, this is a minor risk. However, reports are created in `draft` state and must still be manually submitted and approved, mitigating unauthorized expense submittals.
 - **Incorrect Date Formats**: Standard regex expects `DD.MM.YYYY`. If the format changes, parsing will fail silently, logging a parsing warning, and skipping report creation.
+
+## Local Testing Strategy
+
+- **Mocked Parser Tests**: Unit tests in `backend/tests/` will feed mock raw email texts to the parsing functions to verify extracted dates, client info, location, and description formats are 100% correct without external resources.
+- **Mocked IMAP Connection Tests**: Test cases using mock `imaplib` connections will simulate folder checks and message retrieval to verify daemon loop logic.
+- **E2E Local Verification**: The developer can configure a live test IMAP mailbox in the Moderator Settings UI on their local run. Forwarding a delegation email to that test address will trigger the local docker app to fetch, parse, and instantiate the draft report locally, proving end-to-end integration.
+

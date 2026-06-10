@@ -1,11 +1,47 @@
 # HANDOFF.md — xpenses_copy
 
-> Last updated: 2026-06-10 (session 21)
+> Last updated: 2026-06-10 (session 22)
 > Author: Gemini CLI
 
 ---
 
-## Latest Session (2026-06-10, session 21)
+## Latest Session (2026-06-10, session 22)
+
+### What Was Done
+- **User Profiles & Reports History View — Full Stack Implementation**:
+  - **Change Spec**: Created proposal, specs, design, and checklist under `openspec/changes/user-profiles-reports-view/`.
+  - **Backend Updates**:
+    - `GET /api/reports`: Added `user_id` query parameter for filtering reports, with authorization checks ensuring technicians can only query their own reports.
+    - `GET /api/users/{user_id}`: Updated authorization to allow managers, CFOs, and moderators to retrieve profiles for any staff member.
+    - Added backend testing in `backend/tests/test_user_profiles_reports.py` checking authorization gates and user filters (all 158 tests pass).
+  - **Frontend Updates**:
+    - **Shared Directory**: Made `/admin/users` (User Directory) accessible by Managers and CFOs in read-only mode, with creation and modification actions hidden. Clickable user display names now link to profiles.
+    - **Navigation**: Exposed the "Directory" link in the sidebar navigation for Managers and CFOs.
+    - **Dynamic Profiles**: Created `/profile/[id]` dynamic page displaying technician details in read-only form.
+    - **Reports History Tab**: Added a tab in the dynamic profile view listing all reports belonging to that technician.
+    - **Summary Modal**: Integrated a click-to-open summary modal inside the profile view showing individual expenses, dates, and status, with a shortcut button to the full detail route.
+    - Linked technician names in `Approvals` and `Payments` lists to their dynamic profiles.
+  - **Verification**:
+    - All **158 tests passed** green.
+    - TypeScript compiles cleanly without error (`npx tsc --noEmit`).
+  - **Archiving**:
+    - Delta specs synced to main specs, and change archived to `2026-06-10-user-profiles-reports-view`.
+
+### Modified/Added Files
+- `backend/xpenses/routers/reports.py` — Updated `/api/reports` parameter filtering.
+- `backend/xpenses/routers/users.py` — Opened `/api/users` endpoints to managers/CFOs.
+- `backend/tests/test_user_profiles_reports.py` — New tests for profile retrieval and filtering.
+- `frontend/app/admin/users/page.tsx` — Dynamic read-only staff roster view.
+- `frontend/app/profile/[id]/page.tsx` — New dynamic profile view with reports tab and modal details.
+- `frontend/components/layout/Sidebar.tsx` — Visible Directory link for managers and CFOs.
+- `frontend/app/approvals/page.tsx`, `frontend/app/payments/page.tsx` — Added profile linking to submitter names.
+
+### Test Results
+- **158 tests pass** (all green).
+
+---
+
+## Previous Session (2026-06-10, session 21)
 
 ### What Was Done
 - **UI/UX Refactoring & Polish for Admin Pages** — Applied beautiful visual card styling, transitions, hover states, loading/disabled indicators, responsive grid patterns, and consistent alert/warning components to:

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
 import api, { User } from "@/lib/api";
 import AppShell from "@/components/layout/AppShell";
 import EmptyState from "@/components/ui/EmptyState";
@@ -42,10 +43,13 @@ export default function AdminUsersPage() {
   });
   const [createError, setCreateError] = useState<string | null>(null);
 
+  const isPrivileged = currentUser?.role === "mod" || currentUser?.role === "manager" || currentUser?.role === "chef_finance";
+  const canEdit = currentUser?.role === "mod";
+
   const { data: users, isLoading } = useQuery<User[]>({
     queryKey: userKeys.list(),
     queryFn: () => api.get("/users").then((r) => r.data),
-    enabled: currentUser?.role === "mod",
+    enabled: isPrivileged,
   });
 
   const roleMutation = useMutation({
@@ -91,7 +95,7 @@ export default function AdminUsersPage() {
     },
   });
 
-  if (!currentUser || currentUser.role !== "mod") {
+  if (!currentUser || !isPrivileged) {
     return (
       <AppShell>
         <div className="flex flex-col items-center justify-center mt-24 text-center">
@@ -109,18 +113,20 @@ export default function AdminUsersPage() {
     <AppShell>
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">User Management</h1>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">User Directory</h1>
           <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
-            Manage user roles and access
+            {canEdit ? "Manage user roles and access" : "Directory roster of company staff"}
           </p>
         </div>
-        <button
-          onClick={() => { setShowCreateForm((v) => !v); setCreateError(null); }}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          Create User
-        </button>
+        {canEdit && (
+          <button
+            onClick={() => { setShowCreateForm((v) => !v); setCreateError(null); }}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Create User
+          </button>
+        )}
       </div>
 
       {showCreateForm && (
@@ -239,7 +245,9 @@ export default function AdminUsersPage() {
                     <tr key={u.id} className="border-t border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800">
                       {/* User */}
                       <td className="px-4 py-3">
-                        <p className="font-medium text-slate-800 dark:text-slate-200">{u.display_name}</p>
+                        <Link href={`/profile/${u.id}`} className="font-semibold text-blue-600 dark:text-blue-400 hover:underline">
+                          {u.display_name}
+                        </Link>
                         {u.email && (
                           <p className="text-xs text-slate-400 dark:text-slate-500">{u.email}</p>
                         )}
@@ -252,7 +260,7 @@ export default function AdminUsersPage() {
                       <td className="px-4 py-3">
                         <select
                           value={u.role}
-                          disabled={isSelf || roleMutation.isPending}
+                          disabled={!canEdit || isSelf || roleMutation.isPending}
                           onChange={(e) =>
                             roleMutation.mutate({
                               id: u.id,
@@ -293,26 +301,30 @@ export default function AdminUsersPage() {
 
                       {/* Toggle active */}
                       <td className="px-4 py-3 text-center">
-                        <button
-                          onClick={() =>
-                            activeMutation.mutate({ id: u.id, is_active: !u.is_active })
-                          }
-                          disabled={isSelf || activeMutation.isPending}
-                          title={
-                            isSelf
-                              ? "Cannot deactivate yourself"
-                              : u.is_active
-                              ? "Deactivate user"
-                              : "Activate user"
-                          }
-                          className="inline-flex items-center justify-center p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed"
-                        >
-                          {u.is_active ? (
-                            <ShieldOff className="w-4 h-4 text-slate-500 dark:text-slate-400 hover:text-red-500" />
-                          ) : (
-                            <Shield className="w-4 h-4 text-slate-500 dark:text-slate-400 hover:text-green-500" />
-                          )}
-                        </button>
+                        {canEdit ? (
+                          <button
+                            onClick={() =>
+                              activeMutation.mutate({ id: u.id, is_active: !u.is_active })
+                            }
+                            disabled={isSelf || activeMutation.isPending}
+                            title={
+                              isSelf
+                                ? "Cannot deactivate yourself"
+                                : u.is_active
+                                ? "Deactivate user"
+                                : "Activate user"
+                            }
+                            className="inline-flex items-center justify-center p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                          >
+                            {u.is_active ? (
+                              <ShieldOff className="w-4 h-4 text-slate-500 dark:text-slate-400 hover:text-red-500" />
+                            ) : (
+                              <Shield className="w-4 h-4 text-slate-500 dark:text-slate-400 hover:text-green-500" />
+                            )}
+                          </button>
+                        ) : (
+                          <span className="text-slate-400 dark:text-slate-600">-</span>
+                        )}
                       </td>
                     </tr>
                   );

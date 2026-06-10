@@ -95,19 +95,33 @@ async def _fetch_report(db: asyncpg.Connection, report_id: int) -> dict:
 async def list_reports(
     status: str | None = None,
     all: bool = False,
+    user_id: int | None = None,
     current_user: dict = Depends(get_current_user),
     db: asyncpg.Connection = Depends(get_db)
 ):
+    if user_id is not None and user_id != current_user["id"]:
+        if current_user["role"] not in ("chef_finance", "mod", "manager"):
+            raise HTTPException(status_code=403, detail="Forbidden")
+
     params: list = []
     
     if all and current_user["role"] in ("chef_finance", "mod", "manager"):
         query = "SELECT r.*, u.display_name as user_display_name FROM expense_reports r LEFT JOIN users u ON r.user_id = u.id"
+        where_clauses = []
         if status:
-            query += " WHERE r.status = $1"
             params.append(status)
+            where_clauses.append(f"r.status = ${len(params)}")
+        if user_id is not None:
+            params.append(user_id)
+            where_clauses.append(f"r.user_id = ${len(params)}")
+        if where_clauses:
+            query += " WHERE " + " AND ".join(where_clauses)
     else:
+        target_uid = current_user["id"]
+        if user_id is not None and current_user["role"] in ("chef_finance", "mod", "manager"):
+            target_uid = user_id
         query = "SELECT r.*, u.display_name as user_display_name FROM expense_reports r LEFT JOIN users u ON r.user_id = u.id WHERE r.user_id = $1"
-        params = [current_user["id"]]
+        params = [target_uid]
         if status:
             query += " AND r.status = $2"
             params.append(status)

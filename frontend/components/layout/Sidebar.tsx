@@ -114,16 +114,18 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
               </Link>
             );
           })}
-          {user?.role === "mod" && (
+          {(user?.role === "mod" || user?.role === "manager" || user?.role === "chef_finance") && (
             <>
               <hr className="my-2 border-slate-700" />
-              <p className="px-3 py-1 text-xs font-semibold text-slate-500 uppercase tracking-wider">Admin</p>
+              <p className="px-3 py-1 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                {user.role === "mod" ? "Admin" : "Directory"}
+              </p>
               {[
-                { href: "/admin/users", label: "Users", icon: Users },
-                { href: "/admin/ldap", label: "LDAP / AD", icon: Server },
-                { href: "/admin/email", label: "Email / SMTP", icon: Mail },
-                { href: "/admin/imap", label: "Email / IMAP", icon: Inbox },
-              ].map(({ href, label, icon: Icon }) => {
+                { href: "/admin/users", label: "Users", icon: Users, roles: ["mod", "manager", "chef_finance"] },
+                { href: "/admin/ldap", label: "LDAP / AD", icon: Server, roles: ["mod"] },
+                { href: "/admin/email", label: "Email / SMTP", icon: Mail, roles: ["mod"] },
+                { href: "/admin/imap", label: "Email / IMAP", icon: Inbox, roles: ["mod"] },
+              ].filter(({ roles }) => roles.includes(user.role)).map(({ href, label, icon: Icon }) => {
                 const active = pathname.startsWith(href);
                 return (
                   <Link

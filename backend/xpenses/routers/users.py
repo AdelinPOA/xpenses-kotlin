@@ -4,7 +4,7 @@ import asyncpg
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from ..auth import require_role
+from ..auth import require_role, get_current_user
 from ..database import get_db
 from ..models import ActiveUpdate, RoleUpdate, UserOut
 
@@ -45,9 +45,11 @@ async def create_user(
 
 @router.get("", response_model=list[UserOut])
 async def list_users(
-    current_user: dict = require_role("mod"),
+    current_user: dict = Depends(get_current_user),
     db: asyncpg.Connection = Depends(get_db),
 ):
+    if current_user["role"] not in ("chef_finance", "manager", "mod"):
+        raise HTTPException(status_code=403, detail="Forbidden")
     rows = await db.fetch("SELECT * FROM users ORDER BY created_at")
     return [dict(r) for r in rows]
 
@@ -55,9 +57,11 @@ async def list_users(
 @router.get("/{user_id}", response_model=UserOut)
 async def get_user(
     user_id: int,
-    current_user: dict = require_role("mod"),
+    current_user: dict = Depends(get_current_user),
     db: asyncpg.Connection = Depends(get_db),
 ):
+    if user_id != current_user["id"] and current_user["role"] not in ("chef_finance", "manager", "mod"):
+        raise HTTPException(status_code=403, detail="Forbidden")
     row = await db.fetchrow("SELECT * FROM users WHERE id = $1", user_id)
     if not row:
         raise HTTPException(status_code=404, detail="User not found")

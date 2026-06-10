@@ -2,6 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import Link from "next/link";
 import api, { Report } from "@/lib/api";
 import { reportKeys } from "@/lib/queryKeys";
 import AppShell from "@/components/layout/AppShell";
@@ -105,6 +106,14 @@ export default function ApprovalsPage() {
                   <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100 truncate">
                     {report.title}
                   </h3>
+                  {report.user_display_name && (
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                      Submitted by:{" "}
+                      <Link href={`/profile/${report.user_id}`} className="font-semibold text-blue-600 dark:text-blue-400 hover:underline">
+                        {report.user_display_name}
+                      </Link>
+                    </p>
+                  )}
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                     {report.date_from && report.date_to
                       ? `${report.date_from} — ${report.date_to}`

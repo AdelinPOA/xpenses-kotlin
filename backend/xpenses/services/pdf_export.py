@@ -97,9 +97,7 @@ def _build_main_pdf(
                                    textColor=MUTED, leading=11)
     bold_style = ParagraphStyle("bold", parent=styles["Normal"], fontSize=9, leading=12,
                                  fontName="Helvetica-Bold")
-    receipt_label_style = ParagraphStyle("receipt_label", parent=styles["Normal"],
-                                         fontSize=9, fontName="Helvetica-Bold",
-                                         spaceBefore=6, spaceAfter=3)
+
     total_style = ParagraphStyle("total_big", parent=styles["Normal"], fontSize=22,
                                   fontName="Helvetica-Bold", textColor=DARK, alignment=2)
     total_label = ParagraphStyle("total_label", parent=styles["Normal"], fontSize=9,

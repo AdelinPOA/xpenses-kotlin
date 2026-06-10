@@ -4,7 +4,7 @@ from datetime import datetime
 from io import BytesIO
 
 import asyncpg
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from fastapi.responses import Response
 from pydantic import BaseModel
 
@@ -12,6 +12,7 @@ from ..auth import get_current_user, require_role
 from ..config import settings
 from ..database import get_db
 from ..models import ReportCreate, ReportOut, ReportSubmit, ReportUpdate
+from ..services.email_service import send_email
 from ..services.pdf_export import generate_report_pdf
 
 router = APIRouter(prefix="/api/reports", tags=["reports"])
@@ -219,7 +220,13 @@ async def attach_expenses(report_id: int, body: ReportSubmit, current_user: dict
 
 
 @router.post("/{report_id}/submit", response_model=ReportOut)
-async def submit_report(report_id: int, body: ReportSubmit | None = None, current_user: dict = Depends(get_current_user), db: asyncpg.Connection = Depends(get_db)):
+async def submit_report(
+    report_id: int,
+    background_tasks: BackgroundTasks,
+    body: ReportSubmit | None = None,
+    current_user: dict = Depends(get_current_user),
+    db: asyncpg.Connection = Depends(get_db),
+):
     row = await db.fetchrow("SELECT status, user_id FROM expense_reports WHERE id = $1", report_id)
     if not row:
         raise HTTPException(status_code=404, detail="Report not found")
@@ -256,10 +263,29 @@ async def submit_report(report_id: int, body: ReportSubmit | None = None, curren
     )
     total = total_row["total"] or 0.0
 
+    report_title_row = await db.fetchrow("SELECT title, currency FROM expense_reports WHERE id = $1", report_id)
+    report_title = report_title_row["title"]
+    report_currency = report_title_row["currency"]
+
     await db.execute(
         "UPDATE expense_reports SET status = 'submitted', submitted_at = $1, total_amount = $2, updated_at = $3 WHERE id = $4",
         now, total, now, report_id,
     )
+
+    # Notify all managers and chef_finance users
+    approvers = await db.fetch(
+        "SELECT email FROM users WHERE role IN ('manager', 'chef_finance') AND is_active = TRUE"
+    )
+    for appr in approvers:
+        if appr["email"]:
+            background_tasks.add_task(
+                send_email,
+                appr["email"],
+                f"New expense report submitted: {report_title}",
+                f"{current_user['display_name']} has submitted a new expense report: {report_title}. "
+                f"Total: {total:.2f} {report_currency}.",
+            )
+
     return await _fetch_report(db, report_id)
 
 
@@ -292,8 +318,13 @@ async def recall_report(report_id: int, current_user: dict = Depends(get_current
 
 
 @router.post("/{report_id}/pay", response_model=ReportOut)
-async def pay_report(report_id: int, current_user: dict = require_role("chef_finance"), db: asyncpg.Connection = Depends(get_db)):
-    row = await db.fetchrow("SELECT status FROM expense_reports WHERE id = $1", report_id)
+async def pay_report(
+    report_id: int,
+    background_tasks: BackgroundTasks,
+    current_user: dict = require_role("chef_finance"),
+    db: asyncpg.Connection = Depends(get_db),
+):
+    row = await db.fetchrow("SELECT * FROM expense_reports WHERE id = $1", report_id)
     if not row:
         raise HTTPException(status_code=404, detail="Report not found")
     if row["status"] != "approved":
@@ -308,6 +339,17 @@ async def pay_report(report_id: int, current_user: dict = require_role("chef_fin
         "UPDATE expenses SET status = 'paid', updated_at = $1 WHERE report_id = $2",
         now, report_id,
     )
+
+    # Notify the report owner
+    owner = await db.fetchrow("SELECT email FROM users WHERE id = $1", row["user_id"])
+    if owner and owner["email"]:
+        background_tasks.add_task(
+            send_email,
+            owner["email"],
+            f"Expense report paid: {row['title']}",
+            f"Your expense report \"{row['title']}\" has been marked as paid.",
+        )
+
     return await _fetch_report(db, report_id)
 
 
@@ -423,6 +465,7 @@ async def download_receipts_zip(report_id: int, current_user: dict = Depends(get
 @router.post("/{report_id}/approve", response_model=ReportOut)
 async def approve_report(
     report_id: int,
+    background_tasks: BackgroundTasks,
     current_user: dict = require_role("manager", "chef_finance"),
     db: asyncpg.Connection = Depends(get_db),
 ):
@@ -443,12 +486,24 @@ async def approve_report(
         "UPDATE expenses SET status = 'approved', updated_at = $1 WHERE report_id = $2",
         now, report_id,
     )
+
+    # Notify the report owner
+    owner = await db.fetchrow("SELECT email FROM users WHERE id = $1", row["user_id"])
+    if owner and owner["email"]:
+        background_tasks.add_task(
+            send_email,
+            owner["email"],
+            f"Expense report approved: {row['title']}",
+            f"Your expense report \"{row['title']}\" has been approved by {current_user['display_name']}.",
+        )
+
     return await _fetch_report(db, report_id)
 
 
 @router.post("/{report_id}/reject", response_model=ReportOut)
 async def reject_report(
     report_id: int,
+    background_tasks: BackgroundTasks,
     body: RejectBody = RejectBody(),
     current_user: dict = require_role("manager", "chef_finance"),
     db: asyncpg.Connection = Depends(get_db),
@@ -470,6 +525,18 @@ async def reject_report(
         "UPDATE expenses SET status = 'draft', report_id = NULL, updated_at = $1 WHERE report_id = $2",
         now, report_id,
     )
+
+    # Notify the report owner
+    owner = await db.fetchrow("SELECT email FROM users WHERE id = $1", row["user_id"])
+    if owner and owner["email"]:
+        background_tasks.add_task(
+            send_email,
+            owner["email"],
+            f"Expense report rejected: {row['title']}",
+            f"Your expense report \"{row['title']}\" has been rejected by {current_user['display_name']}. "
+            f"Reason: {body.reason}.",
+        )
+
     return await _fetch_report(db, report_id)
 
 

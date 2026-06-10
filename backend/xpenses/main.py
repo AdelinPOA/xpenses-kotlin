@@ -24,14 +24,21 @@ from .routers import (
 from .routers import (
     ldap as ldap_router,
 )
+from .routers import (
+    imap_settings as imap_settings_router,
+)
 from .seed import seed_users
+from .services.imap_daemon import start_imap_daemon, stop_imap_daemon
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
     await seed_users()
+    start_imap_daemon()
     yield
+    stop_imap_daemon()
+
 
 
 app = FastAPI(title="xpenses API", version="0.1.0", lifespan=lifespan)
@@ -58,6 +65,7 @@ app.include_router(ocr.router)
 app.include_router(signature.router)
 app.include_router(ldap_router.router)
 app.include_router(email_settings_router.router)
+app.include_router(imap_settings_router.router)
 
 
 @app.get("/api/health")

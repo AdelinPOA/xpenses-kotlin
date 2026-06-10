@@ -231,3 +231,19 @@ export interface SmtpTestResult {
   message: string;
 }
 
+export interface ImapConfig {
+  enabled: boolean;
+  imap_host: string;
+  imap_port: number;
+  imap_user: string;
+  imap_pass?: string;
+  imap_folder: string;
+  password_set: boolean;
+}
+
+export interface ImapTestResult {
+  success: boolean;
+  message: string;
+}
+
+

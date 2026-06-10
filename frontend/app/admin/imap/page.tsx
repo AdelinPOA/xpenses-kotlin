@@ -3,10 +3,14 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 import api, { ImapConfig, ImapTestResult } from "@/lib/api";
 import { imapKeys } from "@/lib/queryKeys";
 import AppShell from "@/components/layout/AppShell";
 import { useAuth } from "@/components/AuthProvider";
+import { useToast } from "@/components/ToastProvider";
 
 type FormState = Omit<ImapConfig, "imap_port"> & { imap_port: string };
 
@@ -20,20 +24,65 @@ const DEFAULT_FORM: FormState = {
   password_set: false,
 };
 
+const imapConfigSchema = z.object({
+  enabled: z.boolean(),
+  imap_host: z.string(),
+  imap_port: z.string().refine(
+    (val) => {
+      const p = parseInt(val, 10);
+      return !isNaN(p) && p >= 1 && p <= 65535;
+    },
+    { message: "Port must be between 1 and 65535" }
+  ),
+  imap_user: z.string(),
+  imap_pass: z.string(),
+  imap_folder: z.string().min(1, "Folder is required"),
+  password_set: z.boolean(),
+}).refine(
+  (data) => {
+    if (data.enabled) {
+      return data.imap_host.trim().length > 0;
+    }
+    return true;
+  },
+  {
+    message: "IMAP Host is required when ingestion is enabled",
+    path: ["imap_host"],
+  }
+).refine(
+  (data) => {
+    if (data.enabled) {
+      return data.imap_user.trim().length > 0;
+    }
+    return true;
+  },
+  {
+    message: "IMAP Username is required when ingestion is enabled",
+    path: ["imap_user"],
+  }
+);
+
 export default function ImapAdminPage() {
   const { user } = useAuth();
   const router = useRouter();
   const qc = useQueryClient();
+  const toast = useToast();
 
-  const [form, setForm] = useState<FormState>(DEFAULT_FORM);
-  const [isDirty, setIsDirty] = useState(false);
   const [pwChanged, setPwChanged] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
 
   // Test connection states
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<ImapTestResult | null>(null);
+
+  const { register, handleSubmit, reset, watch, setValue, getValues, formState: { errors, isDirty } } = useForm<FormState>({
+    resolver: zodResolver(imapConfigSchema) as any,
+    defaultValues: DEFAULT_FORM,
+  });
+
+  const enabled = watch("enabled");
+  const passwordSet = watch("password_set");
+  const imapPass = watch("imap_pass");
 
   useEffect(() => {
     if (user && user.role !== "mod") router.replace("/dashboard");
@@ -47,87 +96,66 @@ export default function ImapAdminPage() {
 
   useEffect(() => {
     if (data) {
-      setForm({ ...data, imap_port: String(data.imap_port), imap_pass: "" });
+      reset({ ...data, imap_port: String(data.imap_port), imap_pass: "" });
       setPwChanged(false);
-      setIsDirty(false);
     }
-  }, [data]);
-
-  useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast(null), 3000);
-    return () => clearTimeout(t);
-  }, [toast]);
+  }, [data, reset]);
 
   const saveMutation = useMutation({
     mutationFn: (payload: ImapConfig) => api.patch("/settings/imap", payload),
     onSuccess: () => {
-      setToast({ msg: "Configuration saved", ok: true });
+      toast.success("IMAP configuration saved successfully");
       setSaveError(null);
       setPwChanged(false);
-      setIsDirty(false);
       qc.invalidateQueries({ queryKey: imapKeys.all });
     },
     onError: (e: unknown) => {
-      const msg =
-        (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
-        "Save failed";
+      const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? "Save failed";
       setSaveError(msg);
+      toast.error(`Failed to save IMAP settings: ${msg}`);
     },
   });
 
-  const portVal = parseInt(form.imap_port);
-  const isPortValid = !isNaN(portVal) && portVal >= 1 && portVal <= 65535;
-
-  function handleSave() {
-    if (!isPortValid) return;
+  const onSubmit = (formData: FormState) => {
     setSaveError(null);
     const payload: ImapConfig = {
-      ...form,
-      imap_port: portVal,
-      imap_pass: pwChanged ? form.imap_pass : "",
+      ...formData,
+      imap_port: parseInt(formData.imap_port, 10),
+      imap_pass: pwChanged ? formData.imap_pass : "",
     };
     saveMutation.mutate(payload);
-  }
+  };
 
   async function handleTest() {
     setTesting(true);
     setTestResult(null);
     try {
+      const formData = getValues();
       const payload = {
-        ...form,
-        imap_port: portVal,
-        imap_pass: pwChanged ? form.imap_pass : "",
+        ...formData,
+        imap_port: parseInt(formData.imap_port, 10),
+        imap_pass: pwChanged ? formData.imap_pass : "",
       };
       const res = await api.post<ImapTestResult>("/settings/imap/test", payload);
       setTestResult(res.data);
+      if (res.data.success) {
+        toast.success("IMAP connection test successful!");
+      } else {
+        toast.error(`IMAP connection test failed: ${res.data.message}`);
+      }
     } catch {
       setTestResult({ success: false, message: "Test connection request failed." });
+      toast.error("IMAP connection test failed: Request error");
     } finally {
       setTesting(false);
     }
-  }
-
-  function updateForm(patch: Partial<FormState>) {
-    setForm((prev) => ({ ...prev, ...patch }));
-    setIsDirty(true);
   }
 
   if (!user || user.role !== "mod") return null;
 
   return (
     <AppShell>
-      {toast && (
-        <div
-          className={`fixed top-4 right-4 z-50 px-4 py-2.5 rounded-lg shadow-xl text-white text-sm font-medium transition-all duration-300 ${
-            toast.ok ? "bg-emerald-600 shadow-emerald-600/10" : "bg-rose-600 shadow-rose-600/10"
-          }`}
-        >
-          {toast.msg}
-        </div>
-      )}
-
-      <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
+      <form onSubmit={handleSubmit(onSubmit)} className="max-w-2xl mx-auto px-4 py-8 space-y-6">
         <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">
           IMAP Ingestion Settings (Delegation Emails)
         </h1>
@@ -153,8 +181,7 @@ export default function ImapAdminPage() {
             <input
               type="checkbox"
               className="h-4 w-4 rounded border-slate-300 dark:border-slate-600 text-blue-600 focus:ring-blue-500/20 focus:ring-2 focus:ring-offset-0 transition-all duration-200"
-              checked={form.enabled}
-              onChange={(e) => updateForm({ enabled: e.target.checked })}
+              {...register("enabled")}
             />
             <span className="text-slate-700 dark:text-slate-300 font-medium">
               Enable IMAP polling for delegation emails
@@ -166,10 +193,12 @@ export default function ImapAdminPage() {
               <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">IMAP Host</label>
               <input
                 className="w-full border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200"
-                value={form.imap_host}
-                onChange={(e) => updateForm({ imap_host: e.target.value })}
+                {...register("imap_host")}
                 placeholder="imap.company.com"
               />
+              {errors.imap_host && (
+                <span className="text-[10px] text-rose-500 block mt-1.5 font-medium">{errors.imap_host.message}</span>
+              )}
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">IMAP Port</label>
@@ -178,17 +207,14 @@ export default function ImapAdminPage() {
                 inputMode="numeric"
                 pattern="[0-9]*"
                 className={`w-full max-w-[120px] border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 dark:text-slate-100 focus:outline-none transition-all duration-200 ${
-                  !isPortValid
+                  errors.imap_port
                     ? "border-rose-500 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
                     : "border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                 }`}
-                value={form.imap_port}
-                onChange={(e) => updateForm({ imap_port: e.target.value })}
+                {...register("imap_port")}
               />
-              {!isPortValid && (
-                <span className="text-[10px] text-rose-500 block mt-1.5 font-medium">
-                  Port must be between 1 and 65535
-                </span>
+              {errors.imap_port && (
+                <span className="text-[10px] text-rose-500 block mt-1.5 font-medium">{errors.imap_port.message}</span>
               )}
             </div>
           </div>
@@ -197,10 +223,12 @@ export default function ImapAdminPage() {
             <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Folder to poll</label>
             <input
               className="w-full border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200"
-              value={form.imap_folder}
-              onChange={(e) => updateForm({ imap_folder: e.target.value })}
+              {...register("imap_folder")}
               placeholder="INBOX"
             />
+            {errors.imap_folder && (
+              <span className="text-[10px] text-rose-500 block mt-1.5 font-medium">{errors.imap_folder.message}</span>
+            )}
           </div>
         </section>
 
@@ -212,10 +240,12 @@ export default function ImapAdminPage() {
             <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Username / Email</label>
             <input
               className="w-full border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200"
-              value={form.imap_user}
-              onChange={(e) => updateForm({ imap_user: e.target.value })}
+              {...register("imap_user")}
               placeholder="import-reports@company.com"
             />
+            {errors.imap_user && (
+              <span className="text-[10px] text-rose-500 block mt-1.5 font-medium">{errors.imap_user.message}</span>
+            )}
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Password</label>
@@ -223,14 +253,14 @@ export default function ImapAdminPage() {
               <input
                 type="password"
                 className="w-full border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200"
-                value={form.imap_pass}
+                {...register("imap_pass")}
                 onChange={(e) => {
-                  updateForm({ imap_pass: e.target.value });
+                  setValue("imap_pass", e.target.value, { shouldDirty: true });
                   setPwChanged(true);
                 }}
-                placeholder={form.password_set ? "••••••••" : "IMAP Password"}
+                placeholder={passwordSet ? "••••••••" : "IMAP Password"}
               />
-              {form.password_set && !pwChanged && (
+              {passwordSet && !pwChanged && (
                 <span className="text-[10px] text-slate-400 block font-medium">(currently set)</span>
               )}
             </div>
@@ -239,9 +269,8 @@ export default function ImapAdminPage() {
 
         <div className="flex gap-3 pt-2">
           <button
-            type="button"
-            onClick={handleSave}
-            disabled={saveMutation.isPending || !isPortValid}
+            type="submit"
+            disabled={saveMutation.isPending}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none transition-all duration-200 shadow-sm shadow-blue-500/10"
           >
             {saveMutation.isPending ? "Saving…" : "Save Configuration"}
@@ -249,7 +278,7 @@ export default function ImapAdminPage() {
           <button
             type="button"
             onClick={handleTest}
-            disabled={testing || !isPortValid}
+            disabled={testing}
             className="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium bg-white hover:bg-slate-50 dark:bg-transparent dark:border-slate-700 dark:hover:bg-slate-800 dark:text-slate-200 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none transition-all duration-200"
           >
             {testing ? "Testing Connection…" : "Test Connection"}
@@ -273,8 +302,7 @@ export default function ImapAdminPage() {
             </div>
           </section>
         )}
-      </div>
+      </form>
     </AppShell>
   );
 }
-

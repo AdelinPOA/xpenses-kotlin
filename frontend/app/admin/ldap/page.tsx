@@ -3,10 +3,14 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 import api, { LdapConfig, LdapSyncResult, LdapTestResult } from "@/lib/api";
 import { ldapKeys } from "@/lib/queryKeys";
 import AppShell from "@/components/layout/AppShell";
 import { useAuth } from "@/components/AuthProvider";
+import { useToast } from "@/components/ToastProvider";
 
 const ROLE_OPTIONS = ["technician", "manager", "chef_finance", "mod"];
 
@@ -40,22 +44,84 @@ function entriesToRoleMap(entries: RoleMapEntry[]): Record<string, string> {
   return m;
 }
 
+const ldapConfigSchema = z.object({
+  enabled: z.boolean(),
+  host: z.string(),
+  port: z.string().refine(
+    (val) => {
+      const p = parseInt(val, 10);
+      return !isNaN(p) && p >= 1 && p <= 65535;
+    },
+    { message: "Port must be between 1 and 65535" }
+  ),
+  use_tls: z.boolean(),
+  bind_dn: z.string(),
+  bind_password: z.string(),
+  base_dn: z.string(),
+  user_filter: z.string().min(1, "User Filter is required"),
+  attr_username: z.string().min(1, "Username attribute is required"),
+  attr_email: z.string().min(1, "Email attribute is required"),
+  attr_display_name: z.string().min(1, "Display name attribute is required"),
+  attr_role: z.string().min(1, "Role attribute is required"),
+  default_role: z.string(),
+}).refine(
+  (data) => {
+    if (data.enabled) {
+      return data.host.trim().length > 0;
+    }
+    return true;
+  },
+  {
+    message: "LDAP Host is required when authentication is enabled",
+    path: ["host"],
+  }
+).refine(
+  (data) => {
+    if (data.enabled) {
+      return data.bind_dn.trim().length > 0;
+    }
+    return true;
+  },
+  {
+    message: "Bind DN is required when authentication is enabled",
+    path: ["bind_dn"],
+  }
+).refine(
+  (data) => {
+    if (data.enabled) {
+      return data.base_dn.trim().length > 0;
+    }
+    return true;
+  },
+  {
+    message: "Base DN is required when authentication is enabled",
+    path: ["base_dn"],
+  }
+);
+
 export default function LdapAdminPage() {
   const { user } = useAuth();
   const router = useRouter();
   const qc = useQueryClient();
+  const toast = useToast();
 
-  const [form, setForm] = useState<FormState>(DEFAULT_FORM);
-  const [isDirty, setIsDirty] = useState(false);
   const [pwChanged, setPwChanged] = useState(false);
   const [roleEntries, setRoleEntries] = useState<RoleMapEntry[]>([]);
+  const [roleEntriesDirty, setRoleEntriesDirty] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
   const [testResult, setTestResult] = useState<LdapTestResult | null>(null);
   const [testing, setTesting] = useState(false);
   const [syncResult, setSyncResult] = useState<LdapSyncResult | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
+
+  const { register, handleSubmit, reset, watch, setValue, getValues, formState: { errors, isDirty } } = useForm<FormState>({
+    resolver: zodResolver(ldapConfigSchema) as any,
+    defaultValues: DEFAULT_FORM,
+  });
+
+  const enabled = watch("enabled");
+  const useTls = watch("use_tls");
 
   useEffect(() => {
     if (user && user.role !== "mod") router.replace("/dashboard");
@@ -69,60 +135,62 @@ export default function LdapAdminPage() {
 
   useEffect(() => {
     if (data) {
-      setForm({ ...data, port: String(data.port), bind_password: "" });
+      reset({ ...data, port: String(data.port), bind_password: "" });
       setRoleEntries(roleMapToEntries(data.role_map));
       setPwChanged(false);
-      setIsDirty(false);
+      setRoleEntriesDirty(false);
     }
-  }, [data]);
-
-  useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast(null), 3000);
-    return () => clearTimeout(t);
-  }, [toast]);
+  }, [data, reset]);
 
   const saveMutation = useMutation({
     mutationFn: (payload: LdapConfig) => api.patch("/settings/ldap", payload),
     onSuccess: () => {
-      setToast({ msg: "Configuration saved", ok: true });
+      toast.success("LDAP configuration saved successfully");
       setSaveError(null);
       setPwChanged(false);
-      setIsDirty(false);
+      setRoleEntriesDirty(false);
       setSyncResult(null);
       qc.invalidateQueries({ queryKey: ldapKeys.all });
     },
     onError: (e: unknown) => {
       const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? "Save failed";
       setSaveError(msg);
+      toast.error(`Failed to save LDAP settings: ${msg}`);
     },
   });
 
-  function handleSave() {
+  const onSubmit = (formData: FormState) => {
     setSaveError(null);
     const payload: LdapConfig = {
-      ...form,
-      port: parseInt(form.port) || 389,
-      bind_password: pwChanged ? form.bind_password : "",
+      ...formData,
+      port: parseInt(formData.port, 10) || 389,
+      bind_password: pwChanged ? formData.bind_password : "",
       role_map: entriesToRoleMap(roleEntries),
     };
     saveMutation.mutate(payload);
-  }
+  };
 
   async function handleTest() {
     setTesting(true);
     setTestResult(null);
     try {
+      const formData = getValues();
       const payload = {
-        ...form,
-        port: parseInt(form.port) || 389,
+        ...formData,
+        port: parseInt(formData.port, 10) || 389,
         role_map: entriesToRoleMap(roleEntries),
         use_stored_password: !pwChanged,
       };
       const res = await api.post<LdapTestResult>("/settings/ldap/test", payload);
       setTestResult(res.data);
+      if (res.data.ok) {
+        toast.success("LDAP test connection successful!");
+      } else {
+        toast.error(`LDAP test connection failed: ${res.data.error}`);
+      }
     } catch {
       setTestResult({ ok: false, preview: [], error: "Request failed" });
+      toast.error("LDAP test connection failed: Request error");
     } finally {
       setTesting(false);
     }
@@ -135,30 +203,23 @@ export default function LdapAdminPage() {
     try {
       const res = await api.post<LdapSyncResult>("/settings/ldap/sync");
       setSyncResult(res.data);
+      toast.success("LDAP user sync completed successfully!");
     } catch (e: unknown) {
       const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? "Sync failed";
       setSyncError(msg);
+      toast.error(`LDAP user sync failed: ${msg}`);
     } finally {
       setSyncing(false);
     }
   }
 
-  function updateForm(patch: Partial<FormState>) {
-    setForm((prev) => ({ ...prev, ...patch }));
-    setIsDirty(true);
-  }
+  const isFormDirty = isDirty || roleEntriesDirty;
 
   if (!user || user.role !== "mod") return null;
 
   return (
     <AppShell>
-      {toast && (
-        <div className={`fixed top-4 right-4 z-50 px-4 py-2.5 rounded-lg shadow-xl text-white text-sm font-medium transition-all duration-300 ${toast.ok ? "bg-emerald-600 shadow-emerald-600/10" : "bg-rose-600 shadow-rose-600/10"}`}>
-          {toast.msg}
-        </div>
-      )}
-
-      <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
+      <form onSubmit={handleSubmit(onSubmit)} className="max-w-2xl mx-auto px-4 py-8 space-y-6">
         <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">LDAP / Active Directory</h1>
 
         {data?.bind_password_invalid && (
@@ -173,7 +234,7 @@ export default function LdapAdminPage() {
           </div>
         )}
 
-        {isDirty && (
+        {isFormDirty && (
           <div className="bg-amber-50 border-l-4 border-amber-500 text-amber-800 dark:bg-amber-950/20 dark:text-amber-300 rounded-r-lg p-4 text-sm flex items-start gap-2 shadow-sm transition-all duration-200">
             <div className="flex-1">You have unsaved changes.</div>
           </div>
@@ -182,21 +243,45 @@ export default function LdapAdminPage() {
         <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-sm space-y-4">
           <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Connection</h2>
           <label className="flex items-center gap-3 text-sm cursor-pointer select-none">
-            <input type="checkbox" className="h-4 w-4 rounded border-slate-300 dark:border-slate-600 text-blue-600 focus:ring-blue-500/20 focus:ring-2 focus:ring-offset-0 transition-all duration-200" checked={form.enabled} onChange={(e) => updateForm({ enabled: e.target.checked })} />
+            <input
+              type="checkbox"
+              className="h-4 w-4 rounded border-slate-300 dark:border-slate-600 text-blue-600 focus:ring-blue-500/20 focus:ring-2 focus:ring-offset-0 transition-all duration-200"
+              {...register("enabled")}
+            />
             <span className="text-slate-700 dark:text-slate-300 font-medium">Enable LDAP authentication</span>
           </label>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Host</label>
-              <input className="w-full border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200" value={form.host} onChange={(e) => updateForm({ host: e.target.value })} placeholder="ldap.example.com" />
+              <input
+                className="w-full border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200"
+                {...register("host")}
+                placeholder="ldap.example.com"
+              />
+              {errors.host && (
+                <span className="text-[10px] text-rose-500 block mt-1.5 font-medium">{errors.host.message}</span>
+              )}
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Port</label>
-              <input type="text" inputMode="numeric" pattern="[0-9]*" className="w-full max-w-[120px] border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200" value={form.port} onChange={(e) => updateForm({ port: e.target.value })} />
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                className={`w-full max-w-[120px] border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 dark:text-slate-100 focus:outline-none transition-all duration-200 ${errors.port ? "border-rose-500 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500" : "border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"}`}
+                {...register("port")}
+              />
+              {errors.port && (
+                <span className="text-[10px] text-rose-500 block mt-1.5 font-medium">{errors.port.message}</span>
+              )}
             </div>
           </div>
           <label className="flex items-center gap-3 text-sm cursor-pointer select-none">
-            <input type="checkbox" className="h-4 w-4 rounded border-slate-300 dark:border-slate-600 text-blue-600 focus:ring-blue-500/20 focus:ring-2 focus:ring-offset-0 transition-all duration-200" checked={form.use_tls} onChange={(e) => updateForm({ use_tls: e.target.checked })} />
+            <input
+              type="checkbox"
+              className="h-4 w-4 rounded border-slate-300 dark:border-slate-600 text-blue-600 focus:ring-blue-500/20 focus:ring-2 focus:ring-offset-0 transition-all duration-200"
+              {...register("use_tls")}
+            />
             <span className="text-slate-700 dark:text-slate-300 font-medium">Use TLS (LDAPS)</span>
           </label>
         </section>
@@ -205,11 +290,27 @@ export default function LdapAdminPage() {
           <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Bind Credentials</h2>
           <div>
             <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Bind DN</label>
-            <input className="w-full border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200" value={form.bind_dn} onChange={(e) => updateForm({ bind_dn: e.target.value })} placeholder="cn=admin,dc=example,dc=com" />
+            <input
+              className="w-full border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200"
+              {...register("bind_dn")}
+              placeholder="cn=admin,dc=example,dc=com"
+            />
+            {errors.bind_dn && (
+              <span className="text-[10px] text-rose-500 block mt-1.5 font-medium">{errors.bind_dn.message}</span>
+            )}
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Bind Password</label>
-            <input type="password" className="w-full border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200" value={form.bind_password} onChange={(e) => { updateForm({ bind_password: e.target.value }); setPwChanged(true); }} placeholder="Leave blank to keep stored password" />
+            <input
+              type="password"
+              className="w-full border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200"
+              {...register("bind_password")}
+              onChange={(e) => {
+                setValue("bind_password", e.target.value, { shouldDirty: true });
+                setPwChanged(true);
+              }}
+              placeholder="Leave blank to keep stored password"
+            />
           </div>
         </section>
 
@@ -217,27 +318,77 @@ export default function LdapAdminPage() {
           <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Directory</h2>
           <div>
             <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Base DN</label>
-            <input className="w-full border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200" value={form.base_dn} onChange={(e) => updateForm({ base_dn: e.target.value })} placeholder="dc=example,dc=com" />
+            <input
+              className="w-full border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200"
+              {...register("base_dn")}
+              placeholder="dc=example,dc=com"
+            />
+            {errors.base_dn && (
+              <span className="text-[10px] text-rose-500 block mt-1.5 font-medium">{errors.base_dn.message}</span>
+            )}
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">User Filter</label>
-            <input className="w-full border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200" value={form.user_filter} onChange={(e) => updateForm({ user_filter: e.target.value })} />
+            <input
+              className="w-full border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200"
+              {...register("user_filter")}
+            />
+            {errors.user_filter && (
+              <span className="text-[10px] text-rose-500 block mt-1.5 font-medium">{errors.user_filter.message}</span>
+            )}
           </div>
         </section>
 
         <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-sm space-y-4">
           <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Attribute Mapping</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {([["attr_username","Username attr"],["attr_email","Email attr"],["attr_display_name","Display name attr"],["attr_role","Role/group attr"]] as [keyof LdapConfig, string][]).map(([field, label]) => (
-              <div key={field}>
-                <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">{label}</label>
-                <input className="w-full border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200" value={form[field] as string} onChange={(e) => updateForm({ [field]: e.target.value })} />
-              </div>
-            ))}
+            <div>
+              <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Username attr</label>
+              <input
+                className="w-full border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200"
+                {...register("attr_username")}
+              />
+              {errors.attr_username && (
+                <span className="text-[10px] text-rose-500 block mt-1.5 font-medium">{errors.attr_username.message}</span>
+              )}
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Email attr</label>
+              <input
+                className="w-full border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200"
+                {...register("attr_email")}
+              />
+              {errors.attr_email && (
+                <span className="text-[10px] text-rose-500 block mt-1.5 font-medium">{errors.attr_email.message}</span>
+              )}
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Display name attr</label>
+              <input
+                className="w-full border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200"
+                {...register("attr_display_name")}
+              />
+              {errors.attr_display_name && (
+                <span className="text-[10px] text-rose-500 block mt-1.5 font-medium">{errors.attr_display_name.message}</span>
+              )}
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Role/group attr</label>
+              <input
+                className="w-full border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200"
+                {...register("attr_role")}
+              />
+              {errors.attr_role && (
+                <span className="text-[10px] text-rose-500 block mt-1.5 font-medium">{errors.attr_role.message}</span>
+              )}
+            </div>
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Default role for unmapped groups</label>
-            <select className="border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200" value={form.default_role} onChange={(e) => updateForm({ default_role: e.target.value })}>
+            <select
+              className="border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200"
+              {...register("default_role")}
+            >
               {ROLE_OPTIONS.map((r) => <option key={r} value={r}>{r}</option>)}
             </select>
           </div>
@@ -247,25 +398,76 @@ export default function LdapAdminPage() {
           <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Role Map</h2>
           {roleEntries.map((entry, i) => (
             <div key={i} className="flex items-center gap-3">
-              <input className="flex-1 border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200" placeholder="Directory group value" value={entry.dir} onChange={(e) => { const n = [...roleEntries]; n[i] = { ...n[i], dir: e.target.value }; setRoleEntries(n); setIsDirty(true); }} />
+              <input
+                className="flex-1 border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200"
+                placeholder="Directory group value"
+                value={entry.dir}
+                onChange={(e) => {
+                  const n = [...roleEntries];
+                  n[i] = { ...n[i], dir: e.target.value };
+                  setRoleEntries(n);
+                  setRoleEntriesDirty(true);
+                }}
+              />
               <span className="text-slate-400 font-semibold">→</span>
-              <select className="border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200" value={entry.role} onChange={(e) => { const n = [...roleEntries]; n[i] = { ...n[i], role: e.target.value }; setRoleEntries(n); setIsDirty(true); }}>
+              <select
+                className="border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200"
+                value={entry.role}
+                onChange={(e) => {
+                  const n = [...roleEntries];
+                  n[i] = { ...n[i], role: e.target.value };
+                  setRoleEntries(n);
+                  setRoleEntriesDirty(true);
+                }}
+              >
                 {ROLE_OPTIONS.map((r) => <option key={r} value={r}>{r}</option>)}
               </select>
-              <button type="button" className="text-rose-500 hover:text-rose-700 text-sm px-2 py-1 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg transition-all duration-200 font-semibold" onClick={() => { setRoleEntries(roleEntries.filter((_, j) => j !== i)); setIsDirty(true); }}>✕</button>
+              <button
+                type="button"
+                className="text-rose-500 hover:text-rose-700 text-sm px-2 py-1 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg transition-all duration-200 font-semibold"
+                onClick={() => {
+                  setRoleEntries(roleEntries.filter((_, j) => j !== i));
+                  setRoleEntriesDirty(true);
+                }}
+              >
+                ✕
+              </button>
             </div>
           ))}
-          <button type="button" className="inline-flex items-center text-sm font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 transition-all duration-200" onClick={() => { setRoleEntries([...roleEntries, { dir: "", role: "technician" }]); setIsDirty(true); }}>+ Add mapping</button>
+          <button
+            type="button"
+            className="inline-flex items-center text-sm font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 transition-all duration-200"
+            onClick={() => {
+              setRoleEntries([...roleEntries, { dir: "", role: "technician" }]);
+              setRoleEntriesDirty(true);
+            }}
+          >
+            + Add mapping
+          </button>
         </section>
 
         <div className="flex flex-wrap gap-3 pt-2">
-          <button type="button" onClick={handleSave} disabled={saveMutation.isPending} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none transition-all duration-200 shadow-sm shadow-blue-500/10">
+          <button
+            type="submit"
+            disabled={saveMutation.isPending}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none transition-all duration-200 shadow-sm shadow-blue-500/10"
+          >
             {saveMutation.isPending ? "Saving…" : "Save"}
           </button>
-          <button type="button" onClick={handleTest} disabled={testing} className="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium bg-white hover:bg-slate-50 dark:bg-transparent dark:border-slate-700 dark:hover:bg-slate-800 dark:text-slate-200 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none transition-all duration-200">
+          <button
+            type="button"
+            onClick={handleTest}
+            disabled={testing}
+            className="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium bg-white hover:bg-slate-50 dark:bg-transparent dark:border-slate-700 dark:hover:bg-slate-800 dark:text-slate-200 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none transition-all duration-200"
+          >
             {testing ? "Testing…" : "Test Connection"}
           </button>
-          <button type="button" onClick={handleSync} disabled={!form.enabled || syncing} className="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium bg-white hover:bg-slate-50 dark:bg-transparent dark:border-slate-700 dark:hover:bg-slate-800 dark:text-slate-200 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none transition-all duration-200">
+          <button
+            type="button"
+            onClick={handleSync}
+            disabled={!enabled || syncing}
+            className="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium bg-white hover:bg-slate-50 dark:bg-transparent dark:border-slate-700 dark:hover:bg-slate-800 dark:text-slate-200 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none transition-all duration-200"
+          >
             {syncing ? "Syncing…" : "Sync Now"}
           </button>
         </div>
@@ -300,7 +502,7 @@ export default function LdapAdminPage() {
         {syncError && (
           <div className="bg-rose-50 border-l-4 border-rose-500 text-rose-700 dark:bg-rose-950/20 dark:text-rose-300 rounded-r-lg p-4 text-sm flex items-start gap-2 shadow-sm transition-all duration-200">{syncError}</div>
         )}
-      </div>
+      </form>
     </AppShell>
   );
 }

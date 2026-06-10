@@ -1,8 +1,11 @@
+from unittest.mock import AsyncMock, patch
+
 import pytest
 import pytest_asyncio
-from unittest.mock import patch, AsyncMock
-from xpenses.services.email_service import send_email
+
 from xpenses.config import settings
+from xpenses.services.email_service import send_email
+
 
 @pytest_asyncio.fixture(scope="session", autouse=True)
 async def test_db():

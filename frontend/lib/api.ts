@@ -215,3 +215,19 @@ export interface LdapTestResult {
   preview: { username: string; email: string; display_name: string; mapped_role: string }[];
   error: string | null;
 }
+
+export interface SmtpConfig {
+  emails_enabled: boolean;
+  smtp_host: string;
+  smtp_port: number;
+  smtp_user: string;
+  smtp_pass?: string;
+  smtp_from: string;
+  password_set: boolean;
+}
+
+export interface SmtpTestResult {
+  success: boolean;
+  message: string;
+}
+

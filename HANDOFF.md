@@ -1,11 +1,41 @@
 # HANDOFF.md — xpenses_copy
 
-> Last updated: 2026-06-09 (session 18)
+> Last updated: 2026-06-10 (session 19)
 > Author: Gemini CLI
 
 ---
 
-## Latest Session (2026-06-09, session 18)
+## Latest Session (2026-06-10, session 19)
+
+### What Was Done
+- **SMTP/Email UI & Configuration API** — Full stack implementation allowing administrators (`mod` role) to configure and test SMTP settings directly from the web interface.
+  - **Shared Cryptography Utility** — Extracted Fernet key derivation from `ldap_service.py` into `backend/xpenses/services/crypto.py` as a shared utility.
+  - **Live SMTP Overrides** — Modified `email_service.py` to dynamically query settings from the `app_settings` DB at call time, falling back to `.env` config.
+  - **SMTP Config API** — Created `email_settings` router with GET, PATCH, and POST `/test` endpoints, restricted to the `mod` role. Password is stored encrypted using Fernet and masked in API outputs.
+  - **Admin Email Settings Page** — Implemented frontend at `/admin/email` featuring form validation, dirty-state banner, password-set indicator, and inline connection testing.
+  - **Sidebar Link** — Added a "Email / SMTP" link in the sidebar's Admin section, visible only to `mod` users.
+  - **Unit Testing** — Added comprehensive backend tests in `tests/test_email_settings.py` covering endpoints, permissions, empty password preservation, and connection mock tests.
+
+### Modified/Added Files
+- `backend/xpenses/services/crypto.py` — New file with shared `get_fernet` key derivation utility.
+- `backend/xpenses/services/ldap_service.py` — Refactored to import `get_fernet` from `crypto.py`.
+- `backend/xpenses/services/email_settings_service.py` — New service handling DB retrieval/storage of email config, Fernet password encryption/decryption, and connection testing.
+- `backend/xpenses/services/email_service.py` — Modified `send_email` to dynamically fetch live config from DB with fallback.
+- `backend/xpenses/routers/email_settings.py` — New FastAPI router for SMTP configuration management.
+- `backend/xpenses/main.py` — Registered `email_settings` router.
+- `backend/tests/test_email_settings.py` — New backend tests verifying all requirements.
+- `frontend/lib/api.ts` — Added `SmtpConfig` and `SmtpTestResult` interfaces.
+- `frontend/lib/queryKeys.ts` — Added `emailKeys` for query invalidation.
+- `frontend/app/admin/email/page.tsx` — New Next.js SMTP settings page.
+- `frontend/components/layout/Sidebar.tsx` — Added "Email / SMTP" entry and imported `Mail` icon.
+- `HANDOFF.md` — Added this session 19 update.
+
+### Test Results
+- **145 tests pass** (6 new, all green).
+
+---
+
+## Previous Session (2026-06-09, session 18)
 
 ### What Was Done
 - **Fixed Approvals & Payments page fetching** — Added `all=true` parameter to the `/reports` fetch call in `ApprovalsPage` and `PaymentsPage`. Previously, managers and finance users could only see their own reports, making it impossible to approve or pay reports from other users.

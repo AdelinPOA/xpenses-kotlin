@@ -2,11 +2,10 @@ from datetime import datetime, timezone
 
 import asyncpg
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 
 from ..auth import require_role
 from ..database import get_db
-from pydantic import BaseModel
-
 from ..models import ActiveUpdate, RoleUpdate, UserOut
 
 

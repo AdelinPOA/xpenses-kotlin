@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Receipt, FileText, Tag, Users, CheckSquare, Banknote, Wallet, Settings, PenLine, LogOut, Sun, Moon, Monitor, X, Server } from "lucide-react";
+import { LayoutDashboard, Receipt, FileText, Tag, Users, CheckSquare, Banknote, Wallet, Settings, PenLine, LogOut, Sun, Moon, Monitor, X, Server, Mail } from "lucide-react";
 import clsx from "clsx";
 import { useAuth } from "@/components/AuthProvider";
 import { useTheme } from "@/components/ThemeProvider";
@@ -121,6 +121,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
               {[
                 { href: "/admin/users", label: "Users", icon: Users },
                 { href: "/admin/ldap", label: "LDAP / AD", icon: Server },
+                { href: "/admin/email", label: "Email / SMTP", icon: Mail },
               ].map(({ href, label, icon: Icon }) => {
                 const active = pathname.startsWith(href);
                 return (

@@ -32,13 +32,13 @@ async def login(body: LoginRequest, response: Response, db: asyncpg.Connection =
         if not user["password_hash"] or not verify_password(body.password, user["password_hash"]):
             raise HTTPException(status_code=401, detail="Invalid credentials")
     elif user["auth_source"] == "ldap":
+        from ..database import get_pool
         from ..services.ldap_service import (
             LDAPBindError,
             LDAPUnavailableError,
             authenticate_ldap,
             get_ldap_config,
         )
-        from ..database import get_pool
         ldap_cfg = await get_ldap_config(get_pool())
         if not ldap_cfg.enabled:
             raise HTTPException(status_code=401, detail="LDAP authentication is disabled")

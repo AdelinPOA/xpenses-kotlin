@@ -6,7 +6,6 @@ import pytest
 from httpx import AsyncClient
 
 
-
 async def _insert_ldap_user(pool, username: str, display_name: str = "LDAP User"):
     now = datetime.now(timezone.utc)
     async with pool.acquire() as conn:

@@ -1,5 +1,4 @@
 import asyncio
-import base64
 import dataclasses
 import datetime
 import json
@@ -9,10 +8,8 @@ import ldap3
 import ldap3.core.exceptions
 import ldap3.utils.conv
 from cryptography.fernet import Fernet, InvalidToken
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
-from ..config import settings
+from .crypto import get_fernet
 
 
 class LDAPUnavailableError(Exception):
@@ -46,17 +43,8 @@ class LdapConfig:
 
 
 def _make_fernet() -> Fernet:
-    # Derive a 32-byte key from jwt_secret using HKDF-SHA256 with a fixed info label.
-    # This is safe even when jwt_secret is short or has low entropy in parts of it.
-    secret = settings.jwt_secret.encode()
-    derived = HKDF(
-        algorithm=hashes.SHA256(),
-        length=32,
-        salt=None,
-        info=b"xpenses-ldap-bind-pw",
-    ).derive(secret)
-    key = base64.urlsafe_b64encode(derived)
-    return Fernet(key)
+    return get_fernet()
+
 
 
 def _map_role(groups: list[str], role_map: dict, default_role: str) -> str:

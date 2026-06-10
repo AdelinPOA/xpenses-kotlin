@@ -26,6 +26,13 @@ class Settings(BaseSettings):
     mileage_rate_before_tax: float = 0.60
     mileage_rate_after_tax: float = 0.40
 
+    smtp_host: str = "localhost"
+    smtp_port: int = 1025
+    smtp_user: str | None = None
+    smtp_pass: str | None = None
+    smtp_from: str = "noreply@nt-automation.eu"
+    emails_enabled: bool = False
+
     @field_validator("cors_origins", mode="before")
     @classmethod
     def parse_cors(cls, v: str | list) -> list[str]:

@@ -39,3 +39,9 @@ export const ldapKeys = {
   all: ["ldap"] as const,
   config: () => [...ldapKeys.all, "config"] as const,
 };
+
+export const emailKeys = {
+  all: ["email"] as const,
+  config: () => [...emailKeys.all, "config"] as const,
+};
+

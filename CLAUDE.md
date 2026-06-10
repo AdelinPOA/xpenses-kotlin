@@ -25,7 +25,7 @@ docker compose logs -f backend
 # Access PostgreSQL
 docker exec -it xpenses-db psql -U xpenses
 
-# Run all tests (131 tests, ~40s, inside backend container)
+# Run all tests (145 tests, ~40s, inside backend container)
 make test
 
 # Run tests with stop-on-first-failure
@@ -126,7 +126,7 @@ Frontend uses two different URLs to reach the backend:
 - **Digital signatures:** `POST /api/users/me/signature` stores a base64 PNG. `POST /api/reports/{id}/sign` stamps the report. Signature is stored per-user in the `users` table.
 - **Advance payments:** Two routers — `APIRouter` at `/api/reports/{id}/advances` for per-report CRUD, and `global_router` at `/api/advances/pending` for the org-wide manager/CFO queue. Manager direct-pay creates an advance already marked `paid`; employee requests create `status=requested` advances that CFO pays separately.
 - **LDAP/AD authentication:** Config stored as JSON in `app_settings` key `ldap_config` (DB-authoritative, not env vars). Bind password Fernet-encrypted with HKDF-SHA256 key derived from `jwt_secret`. `ldap_service.py` provides `get_ldap_config()`, `save_ldap_config()`, `test_connection()`, `sync_users()`, and `authenticate_ldap()`. Login handler in `auth.py` reads DB config and calls `authenticate_ldap()` for `auth_source='ldap'` users. Sync deactivates directory-absent users and revokes their refresh tokens.
-- **App settings:** Generic `app_settings` table (key/value JSON rows) stores both mileage tax rates and LDAP config. `app_settings.py` router at `/api/settings/` handles mileage rates; `ldap.py` router at `/api/settings/ldap/` handles LDAP config. Both use upsert on the `key` column.
+- **App settings:** Generic `app_settings` table (key/value JSON rows) stores mileage tax rates, LDAP config, and SMTP config. `app_settings.py` router at `/api/settings/` handles mileage rates; `ldap.py` router at `/api/settings/ldap/` handles LDAP config; `email_settings.py` router at `/api/settings/email/` handles SMTP config. All use upsert on the `key` column.
 
 ## Testing
 

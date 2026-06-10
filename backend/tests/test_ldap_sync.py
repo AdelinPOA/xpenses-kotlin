@@ -10,7 +10,6 @@ from httpx import AsyncClient
 from tests.conftest import login
 from xpenses.services.ldap_service import LdapConfig, sync_users
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

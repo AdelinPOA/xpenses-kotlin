@@ -12,12 +12,17 @@ from .routers import (
     categories,
     dashboard,
     expenses,
-    ldap as ldap_router,
     mileage,
     ocr,
     reports,
     signature,
     users,
+)
+from .routers import (
+    email_settings as email_settings_router,
+)
+from .routers import (
+    ldap as ldap_router,
 )
 from .seed import seed_users
 
@@ -52,6 +57,7 @@ app.include_router(dashboard.router)
 app.include_router(ocr.router)
 app.include_router(signature.router)
 app.include_router(ldap_router.router)
+app.include_router(email_settings_router.router)
 
 
 @app.get("/api/health")

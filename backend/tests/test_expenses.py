@@ -226,3 +226,68 @@ async def test_cannot_attach_to_another_users_report(client):
 
     resp = await client.patch(f"/api/expenses/{expense['id']}", json={"report_id": other_report["id"]})
     assert resp.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_duplicate_expense_success(client, pool):
+    from xpenses.config import settings
+    import os
+
+    await login(client, "tech1")
+    report = await create_report(client)
+    expense = await create_expense(
+        client, amount=123.45, currency="USD", merchant="Test Merchant", description="Test Description", report_id=report["id"]
+    )
+    expense_id = expense["id"]
+
+    # Add dummy receipt to original to verify it's NOT copied
+    rel_path = "2026/06/test_receipt.png"
+    receipt_dir = os.path.join(settings.receipts_dir, "2026/06")
+    os.makedirs(receipt_dir, exist_ok=True)
+    with open(os.path.join(receipt_dir, "test_receipt.png"), "wb") as f:
+        f.write(b"test receipt content")
+
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "INSERT INTO receipts (expense_id, file_path, original_name) VALUES ($1, $2, $3)",
+            expense_id, rel_path, "test_receipt.png"
+        )
+
+    # Call duplication endpoint
+    resp = await client.post(f"/api/expenses/{expense_id}/duplicate")
+    assert resp.status_code == 201
+    duplicated = resp.json()
+
+    # Assert basic cloning rules
+    assert duplicated["id"] != expense_id
+    assert duplicated["amount_original"] == 123.45
+    assert duplicated["currency_original"] == "USD"
+    assert duplicated["merchant"] == "Test Merchant"
+    assert duplicated["description"] == "Test Description"
+    
+    # Assert reset fields
+    assert duplicated["status"] == "draft"
+    assert duplicated["report_id"] is None
+    assert len(duplicated["receipts"]) == 0
+    assert duplicated["receipt_path"] is None
+
+
+@pytest.mark.asyncio
+async def test_duplicate_expense_unauthorized(client):
+    await login(client, "tech1")
+    expense = await create_expense(client, amount=10.0)
+    expense_id = expense["id"]
+
+    # Log in as another user and attempt duplication
+    async with new_client() as other_client:
+        await login(other_client, "manager1")
+        resp = await other_client.post(f"/api/expenses/{expense_id}/duplicate")
+        assert resp.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_duplicate_expense_not_found(client):
+    await login(client, "tech1")
+    resp = await client.post("/api/expenses/999999/duplicate")
+    assert resp.status_code == 404
+

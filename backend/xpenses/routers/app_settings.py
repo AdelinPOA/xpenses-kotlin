@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import json
 
 import asyncpg
 from fastapi import APIRouter, Depends
@@ -6,7 +7,19 @@ from fastapi import APIRouter, Depends
 from ..auth import get_current_user, require_role
 from ..config import settings
 from ..database import get_db
-from ..models import MileageRatesOut, MileageRatesUpdate
+from ..models import (
+    MileageRatesOut,
+    MileageRatesUpdate,
+    OCRConfigOut,
+    OCRConfigUpdate,
+    OCRTestRequest,
+)
+from ..services.ocr_service import (
+    OCRConfig,
+    get_ocr_config,
+    save_ocr_config,
+    test_gemini_connection,
+)
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
 
@@ -49,3 +62,91 @@ async def update_mileage_rates(
         )
     bt, at = await get_mileage_rates(db)
     return MileageRatesOut(mileage_rate_before_tax=bt, mileage_rate_after_tax=at)
+
+
+@router.post("/receipts/scan")
+async def scan_orphans(
+    current_user: dict = require_role("mod"),
+    db: asyncpg.Connection = Depends(get_db),
+):
+    from ..services.storage import scan_orphan_receipts
+    orphans = await scan_orphan_receipts(db)
+    return {"orphans": orphans}
+
+
+@router.post("/receipts/clean")
+async def clean_orphans(
+    current_user: dict = require_role("mod"),
+    db: asyncpg.Connection = Depends(get_db),
+):
+    from ..services.storage import delete_receipt, scan_orphan_receipts
+    orphans = await scan_orphan_receipts(db)
+    cleaned_count = 0
+    for file_path in orphans:
+        delete_receipt(file_path)
+        cleaned_count += 1
+    return {"cleaned_count": cleaned_count}
+
+
+@router.get("/ocr", response_model=OCRConfigOut)
+async def read_ocr_settings(
+    current_user: dict = require_role("mod"),
+    db: asyncpg.Connection = Depends(get_db),
+):
+    config = await get_ocr_config(db)
+    return OCRConfigOut(
+        provider=config.provider,
+        ocr_enabled=config.ocr_enabled,
+        gemini_api_key="••••••••" if config.password_set else None,
+    )
+
+
+@router.patch("/ocr", response_model=OCRConfigOut)
+async def update_ocr_settings(
+    body: OCRConfigUpdate,
+    current_user: dict = require_role("mod"),
+    db: asyncpg.Connection = Depends(get_db),
+):
+    existing = await get_ocr_config(db)
+    
+    provider = body.provider if body.provider is not None else existing.provider
+    ocr_enabled = body.ocr_enabled if body.ocr_enabled is not None else existing.ocr_enabled
+    
+    if body.gemini_api_key == "••••••••" or body.gemini_api_key is None:
+        key = existing.gemini_api_key
+    else:
+        key = body.gemini_api_key
+
+    config = OCRConfig(
+        provider=provider,
+        ocr_enabled=ocr_enabled,
+        gemini_api_key=key,
+    )
+    await save_ocr_config(config, db)
+    
+    updated = await get_ocr_config(db)
+    return OCRConfigOut(
+        provider=updated.provider,
+        ocr_enabled=updated.ocr_enabled,
+        gemini_api_key="••••••••" if updated.password_set else None,
+    )
+
+
+@router.post("/ocr/test")
+async def test_ocr_settings(
+    body: OCRTestRequest,
+    current_user: dict = require_role("mod"),
+    db: asyncpg.Connection = Depends(get_db),
+):
+    if body.gemini_api_key == "••••••••" or body.gemini_api_key is None or body.gemini_api_key == "":
+        existing = await get_ocr_config(db)
+        key = existing.gemini_api_key
+    else:
+        key = body.gemini_api_key
+
+    if not key:
+        return {"success": False, "message": "No API key provided or configured."}
+
+    result = await test_gemini_connection(key)
+    return result
+

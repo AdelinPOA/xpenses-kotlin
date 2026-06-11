@@ -12,7 +12,13 @@ from ..auth import get_current_user, require_role
 from ..config import settings
 from ..database import get_db
 from ..models import ReportCreate, ReportOut, ReportSubmit, ReportUpdate
-from ..services.email_service import send_email
+from ..services.email_service import (
+    send_email,
+    get_submission_email,
+    get_approval_email,
+    get_rejection_email,
+    get_payment_email,
+)
 from ..services.pdf_export import generate_report_pdf
 
 router = APIRouter(prefix="/api/reports", tags=["reports"])
@@ -286,18 +292,20 @@ async def submit_report(
         now, total, now, report_id,
     )
 
-    # Notify all managers and chef_finance users
+    # Notify all managers and chef_finance users who have notifications enabled
     approvers = await db.fetch(
-        "SELECT email FROM users WHERE role IN ('manager', 'chef_finance') AND is_active = TRUE"
+        "SELECT email, notifications_enabled FROM users WHERE role IN ('manager', 'chef_finance') AND is_active = TRUE"
     )
     for appr in approvers:
-        if appr["email"]:
+        if appr["email"] and appr.get("notifications_enabled", True):
+            subject, content = get_submission_email(
+                current_user["display_name"], report_title, total, report_currency
+            )
             background_tasks.add_task(
                 send_email,
                 appr["email"],
-                f"New expense report submitted: {report_title}",
-                f"{current_user['display_name']} has submitted a new expense report: {report_title}. "
-                f"Total: {total:.2f} {report_currency}.",
+                subject,
+                content,
             )
 
     return await _fetch_report(db, report_id)
@@ -355,13 +363,14 @@ async def pay_report(
     )
 
     # Notify the report owner
-    owner = await db.fetchrow("SELECT email FROM users WHERE id = $1", row["user_id"])
-    if owner and owner["email"]:
+    owner = await db.fetchrow("SELECT email, notifications_enabled FROM users WHERE id = $1", row["user_id"])
+    if owner and owner["email"] and owner.get("notifications_enabled", True):
+        subject, content = get_payment_email(row["title"])
         background_tasks.add_task(
             send_email,
             owner["email"],
-            f"Expense report paid: {row['title']}",
-            f"Your expense report \"{row['title']}\" has been marked as paid.",
+            subject,
+            content,
         )
 
     return await _fetch_report(db, report_id)
@@ -502,13 +511,14 @@ async def approve_report(
     )
 
     # Notify the report owner
-    owner = await db.fetchrow("SELECT email FROM users WHERE id = $1", row["user_id"])
-    if owner and owner["email"]:
+    owner = await db.fetchrow("SELECT email, notifications_enabled FROM users WHERE id = $1", row["user_id"])
+    if owner and owner["email"] and owner.get("notifications_enabled", True):
+        subject, content = get_approval_email(row["title"], current_user["display_name"])
         background_tasks.add_task(
             send_email,
             owner["email"],
-            f"Expense report approved: {row['title']}",
-            f"Your expense report \"{row['title']}\" has been approved by {current_user['display_name']}.",
+            subject,
+            content,
         )
 
     return await _fetch_report(db, report_id)
@@ -541,14 +551,14 @@ async def reject_report(
     )
 
     # Notify the report owner
-    owner = await db.fetchrow("SELECT email FROM users WHERE id = $1", row["user_id"])
-    if owner and owner["email"]:
+    owner = await db.fetchrow("SELECT email, notifications_enabled FROM users WHERE id = $1", row["user_id"])
+    if owner and owner["email"] and owner.get("notifications_enabled", True):
+        subject, content = get_rejection_email(row["title"], current_user["display_name"], body.reason)
         background_tasks.add_task(
             send_email,
             owner["email"],
-            f"Expense report rejected: {row['title']}",
-            f"Your expense report \"{row['title']}\" has been rejected by {current_user['display_name']}. "
-            f"Reason: {body.reason}.",
+            subject,
+            content,
         )
 
     return await _fetch_report(db, report_id)

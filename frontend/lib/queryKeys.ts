@@ -49,3 +49,9 @@ export const imapKeys = {
   all: ["imap"] as const,
   config: () => [...imapKeys.all, "config"] as const,
 };
+
+export const ocrKeys = {
+  all: ["ocr"] as const,
+  config: () => [...ocrKeys.all, "config"] as const,
+};
+

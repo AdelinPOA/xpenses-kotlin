@@ -159,6 +159,7 @@ export interface User {
   is_active: boolean;
   auth_source: "local" | "ldap";
   signature_path: string | null;
+  notifications_enabled?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -245,3 +246,31 @@ export interface ImapTestResult {
   success: boolean;
   message: string;
 }
+
+export async function duplicateExpense(expenseId: number): Promise<Expense> {
+  const { data } = await api.post(`/expenses/${expenseId}/duplicate`);
+  return data;
+}
+
+export interface OcrConfig {
+  provider: string;
+  ocr_enabled: boolean;
+  gemini_api_key?: string | null;
+}
+
+export async function getOcrConfig(): Promise<OcrConfig> {
+  const { data } = await api.get("/settings/ocr");
+  return data;
+}
+
+export async function updateOcrConfig(config: Partial<OcrConfig>): Promise<OcrConfig> {
+  const { data } = await api.patch("/settings/ocr", config);
+  return data;
+}
+
+export async function testOcrConfig(payload: { gemini_api_key?: string | null }): Promise<{ success: boolean; message: string }> {
+  const { data } = await api.post("/settings/ocr/test", payload);
+  return data;
+}
+
+

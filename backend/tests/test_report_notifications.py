@@ -113,3 +113,56 @@ async def test_pay_report_triggers_email(client):
             mock_send.assert_called_once()
             assert mock_send.call_args.args[0] == "ion.popescu@nt-automation.eu"
             assert "Expense report paid: Paid Report" == mock_send.call_args.args[1]
+
+
+@pytest.mark.asyncio
+async def test_notifications_disabled_skips_emails(client, pool):
+    # Setup: Disable email notifications for tech1 and managers
+    async with pool.acquire() as conn:
+        await conn.execute("UPDATE users SET notifications_enabled = FALSE")
+
+    await login(client, "tech1")
+    expense = await create_expense(client)
+    report = await create_report(client, title="Silent Report")
+    report_id = report["id"]
+    await client.post(f"/api/reports/{report_id}/attach", json={"expense_ids": [expense["id"]]})
+
+    with patch("xpenses.routers.reports.send_email", new_callable=AsyncMock) as mock_send:
+        # 1. Submit
+        resp = await client.post(f"/api/reports/{report_id}/submit")
+        assert resp.status_code == 200
+        mock_send.assert_not_called()
+
+        # 2. Approve
+        from tests.conftest import login as login_helper
+        from tests.conftest import new_client
+        async with new_client() as manager_client:
+            await login_helper(manager_client, "manager1")
+            resp_appr = await manager_client.post(f"/api/reports/{report_id}/approve")
+            assert resp_appr.status_code == 200
+            mock_send.assert_not_called()
+
+    # Re-enable notifications for subsequent tests
+    async with pool.acquire() as conn:
+        await conn.execute("UPDATE users SET notifications_enabled = TRUE")
+
+
+@pytest.mark.asyncio
+async def test_patch_me_endpoint(client):
+    await login(client, "tech1")
+    
+    # Verify we can toggle notifications and displayName
+    resp = await client.patch(
+        "/api/users/me",
+        json={"display_name": "Updated Tech Name", "notifications_enabled": False}
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["display_name"] == "Updated Tech Name"
+    assert data["notifications_enabled"] is False
+
+    # Reset
+    await client.patch(
+        "/api/users/me",
+        json={"display_name": "Ion Popescu", "notifications_enabled": True}
+    )

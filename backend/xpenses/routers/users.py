@@ -117,3 +117,38 @@ async def update_active(
 
     updated = await db.fetchrow("SELECT * FROM users WHERE id = $1", user_id)
     return dict(updated)
+
+
+class UserUpdateMe(BaseModel):
+    display_name: str | None = None
+    notifications_enabled: bool | None = None
+
+
+@router.patch("/me", response_model=UserOut)
+async def update_me(
+    body: UserUpdateMe,
+    current_user: dict = Depends(get_current_user),
+    db: asyncpg.Connection = Depends(get_db),
+):
+    updates = []
+    params = []
+    
+    if body.display_name is not None:
+        updates.append(f"display_name = ${len(params) + 1}")
+        params.append(body.display_name)
+        
+    if body.notifications_enabled is not None:
+        updates.append(f"notifications_enabled = ${len(params) + 1}")
+        params.append(body.notifications_enabled)
+        
+    if not updates:
+        row = await db.fetchrow("SELECT * FROM users WHERE id = $1", current_user["id"])
+        return dict(row)
+        
+    updates.append(f"updated_at = ${len(params) + 1}")
+    params.append(datetime.now(timezone.utc))
+    
+    params.append(current_user["id"])
+    query = f"UPDATE users SET {', '.join(updates)} WHERE id = ${len(params)} RETURNING *"
+    row = await db.fetchrow(query, *params)
+    return dict(row)

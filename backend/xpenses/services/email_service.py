@@ -49,3 +49,27 @@ async def send_email(to_email: str, subject: str, content: str):
         )
     except Exception as e:
         logger.error(f"Failed to send email to {to_email}: {e}")
+
+
+def get_submission_email(submitter_name: str, report_title: str, total_amount: float, currency: str) -> tuple[str, str]:
+    subject = f"New expense report submitted: {report_title}"
+    content = f"{submitter_name} has submitted a new expense report: {report_title}.\nTotal: {total_amount:.2f} {currency}."
+    return subject, content
+
+
+def get_approval_email(report_title: str, approver_name: str) -> tuple[str, str]:
+    subject = f"Expense report approved: {report_title}"
+    content = f"Your expense report \"{report_title}\" has been approved by {approver_name}."
+    return subject, content
+
+
+def get_rejection_email(report_title: str, rejecter_name: str, reason: str) -> tuple[str, str]:
+    subject = f"Expense report rejected: {report_title}"
+    content = f"Your expense report \"{report_title}\" has been rejected by {rejecter_name}.\nReason: {reason}."
+    return subject, content
+
+
+def get_payment_email(report_title: str) -> tuple[str, str]:
+    subject = f"Expense report paid: {report_title}"
+    content = f"Your expense report \"{report_title}\" has been marked as paid."
+    return subject, content

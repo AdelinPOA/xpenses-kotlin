@@ -202,6 +202,40 @@ async def update_expense(expense_id: int, body: ExpenseUpdate, current_user: dic
     expenses = await _enrich_with_receipts(db, [dict(updated)])
     return expenses[0]
 
+@router.post("/{expense_id}/duplicate", response_model=ExpenseOut, status_code=201)
+async def duplicate_expense(expense_id: int, current_user: dict = Depends(get_current_user), db: asyncpg.Connection = Depends(get_db)):
+    row = await db.fetchrow("SELECT * FROM expenses WHERE id = $1", expense_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Expense not found")
+    if row["user_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Only the owner can perform this action")
+
+    try:
+        fx_rate = await get_rate(row["currency_original"], row["date"])
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Failed to fetch exchange rate: {e}")
+
+    amount_eur = round(row["amount_original"] * fx_rate, 2)
+    tax_amount = float(row["tax_amount"]) if row["tax_amount"] is not None else 0.0
+    tax_amount_eur = round(tax_amount / fx_rate, 2) if fx_rate else 0.0
+
+    now = datetime.now(timezone.utc)
+    new_row = await db.fetchrow(
+        """INSERT INTO expenses
+           (category_id, report_id, amount_original, currency_original, amount_eur, fx_rate,
+            tax_amount, tax_rate, tax_amount_eur,
+            date, description, merchant, user_id, status, created_at, updated_at)
+           VALUES ($1, NULL, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'draft', $13, $14)
+           RETURNING id""",
+        row["category_id"], row["amount_original"], row["currency_original"].upper(), amount_eur, fx_rate,
+        tax_amount, row["tax_rate"], tax_amount_eur,
+        row["date"], row["description"], row["merchant"], current_user["id"], now, now,
+    )
+    new_id = new_row["id"]
+    expense_row = await db.fetchrow(f"{EXPENSE_SELECT} WHERE e.id = $1", new_id)
+    expenses = await _enrich_with_receipts(db, [dict(expense_row)])
+    return expenses[0]
+
 
 @router.delete("/{expense_id}", status_code=204)
 async def delete_expense(expense_id: int, current_user: dict = Depends(get_current_user), db: asyncpg.Connection = Depends(get_db)):

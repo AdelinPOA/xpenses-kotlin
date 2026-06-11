@@ -3,12 +3,13 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import Link from "next/link";
-import api, { Expense, API_BASE_URL } from "@/lib/api";
+import { useRouter } from "next/navigation";
+import api, { Expense, API_BASE_URL, duplicateExpense } from "@/lib/api";
 import { expenseKeys, dashboardKeys } from "@/lib/queryKeys";
 import AppShell from "@/components/layout/AppShell";
 import Badge from "@/components/ui/Badge";
 import EmptyState from "@/components/ui/EmptyState";
-import { Plus, Trash2, Pencil } from "lucide-react";
+import { Plus, Trash2, Pencil, Copy } from "lucide-react";
 
 function formatAmount(amount: number, currency: string) {
   return new Intl.NumberFormat("en-EU", { style: "currency", currency }).format(amount);
@@ -16,6 +17,7 @@ function formatAmount(amount: number, currency: string) {
 
 export default function ExpensesPage() {
   const qc = useQueryClient();
+  const router = useRouter();
   const [statusFilter, setStatusFilter] = useState("");
 
   const { data: expenses, isLoading } = useQuery<Expense[]>({
@@ -29,6 +31,15 @@ export default function ExpensesPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: expenseKeys.all });
       qc.invalidateQueries({ queryKey: dashboardKeys.all });
+    },
+  });
+
+  const duplicate = useMutation({
+    mutationFn: duplicateExpense,
+    onSuccess: (newExpense) => {
+      qc.invalidateQueries({ queryKey: expenseKeys.all });
+      qc.invalidateQueries({ queryKey: dashboardKeys.all });
+      router.push(`/expenses/${newExpense.id}/edit`);
     },
   });
 
@@ -125,6 +136,14 @@ export default function ExpensesPage() {
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => duplicate.mutate(e.id)}
+                          disabled={duplicate.isPending}
+                          title="Duplicate Expense"
+                          className="text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 disabled:opacity-50"
+                        >
+                          <Copy className="w-4 h-4" />
+                        </button>
                         {e.status === "draft" && (
                           <>
                             <Link href={`/expenses/${e.id}/edit`}>

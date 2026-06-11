@@ -75,6 +75,7 @@ CREATE TABLE IF NOT EXISTS users (
     role          VARCHAR(20) NOT NULL DEFAULT 'technician',
     is_active     BOOLEAN NOT NULL DEFAULT true,
     signature_path TEXT,
+    notifications_enabled BOOLEAN NOT NULL DEFAULT true,
     created_at    TIMESTAMPTZ DEFAULT NOW(),
     updated_at    TIMESTAMPTZ DEFAULT NOW()
 );
@@ -155,6 +156,7 @@ DEFAULT_CATEGORIES = [
 
 async def init_db() -> None:
     import os
+    import re
     os.makedirs(settings.receipts_dir, exist_ok=True)
     os.makedirs(settings.signatures_dir, exist_ok=True)
 
@@ -166,75 +168,58 @@ async def init_db() -> None:
     )
 
     async with _pool.acquire() as conn:
-        # Execute DDL statements one by one (asyncpg doesn't support executescript)
-        for statement in CREATE_TABLES.split(";"):
-            statement = statement.strip()
-            if statement:
-                await conn.execute(statement)
-
-        # Add user_id columns if missing (migration from pre-auth schema)
-        for table in ("expenses", "expense_reports"):
-            col_exists = await conn.fetchval(
-                "SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name=$1 AND column_name='user_id')",
-                table,
-            )
-            if not col_exists:
-                await conn.execute(f"ALTER TABLE {table} ADD COLUMN user_id INTEGER REFERENCES users(id)")
-
-        # Indexes on user_id (must come after column migration)
-        await conn.execute("CREATE INDEX IF NOT EXISTS idx_expenses_user ON expenses(user_id)")
-        await conn.execute("CREATE INDEX IF NOT EXISTS idx_reports_user ON expense_reports(user_id)")
-
-        # Tax columns migration
-        await conn.execute("ALTER TABLE expenses ADD COLUMN IF NOT EXISTS tax_amount NUMERIC NOT NULL DEFAULT 0.0;")
-        await conn.execute("ALTER TABLE expenses ADD COLUMN IF NOT EXISTS tax_rate NUMERIC;")
-        await conn.execute("ALTER TABLE expenses ADD COLUMN IF NOT EXISTS tax_amount_eur NUMERIC NOT NULL DEFAULT 0.0;")
-
-        # Add signature columns to expense_reports if missing
-        for col, col_type in [("signer_id", "INTEGER REFERENCES users(id)"), ("signed_at", "TIMESTAMPTZ")]:
-            col_exists = await conn.fetchval(
-                "SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name='expense_reports' AND column_name=$1)",
-                col,
-            )
-            if not col_exists:
-                await conn.execute(f"ALTER TABLE expense_reports ADD COLUMN {col} {col_type}")
-
-        # Add signature_path to users if missing
-        sig_exists = await conn.fetchval(
-            "SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='signature_path')",
+        # 1. Initialize schema_migrations table
+        await conn.execute(
+            "CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY)"
         )
-        if not sig_exists:
-            await conn.execute("ALTER TABLE users ADD COLUMN signature_path TEXT")
 
-        # Add approval columns to expense_reports if missing
-        for col, col_type in [("approved_by", "INTEGER REFERENCES users(id)"), ("approved_at", "TIMESTAMPTZ"), ("rejected_reason", "TEXT")]:
-            col_exists = await conn.fetchval(
-                "SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name='expense_reports' AND column_name=$1)",
-                col,
+        # 2. Get list of already executed migrations
+        rows = await conn.fetch("SELECT version FROM schema_migrations")
+        executed_versions = {r["version"] for r in rows}
+
+        # 3. Read migration files from directory
+        migrations_dir = os.path.join(os.path.dirname(__file__), "migrations")
+        if not os.path.exists(migrations_dir):
+            os.makedirs(migrations_dir, exist_ok=True)
+
+        migration_files = []
+        for fn in os.listdir(migrations_dir):
+            match = re.match(r"^(\d+)_.*\.sql$", fn)
+            if match:
+                version = int(match.group(1))
+                migration_files.append((version, fn))
+
+        migration_files.sort(key=lambda x: x[0])
+
+        # Backfill case: If table 'users' already exists, but schema_migrations is empty,
+        # we mark version 1 as completed so we don't try to recreate the baseline tables.
+        if 1 not in executed_versions:
+            table_exists = await conn.fetchval(
+                "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name='users')"
             )
-            if not col_exists:
-                await conn.execute(f"ALTER TABLE expense_reports ADD COLUMN {col} {col_type}")
+            if table_exists:
+                await conn.execute("INSERT INTO schema_migrations (version) VALUES (1)")
+                executed_versions.add(1)
 
-        # Add advance_payments workflow columns if missing
-        for col, col_type in [
-            ("status", "TEXT DEFAULT 'paid'"),
-            ("requested_amount", "DOUBLE PRECISION"),
-            ("requested_currency", "TEXT"),
-            ("paid_by", "INTEGER REFERENCES users(id)"),
-            ("paid_at", "TIMESTAMPTZ"),
-            ("rejected_by", "INTEGER REFERENCES users(id)"),
-            ("rejected_at", "TIMESTAMPTZ"),
-        ]:
-            col_exists = await conn.fetchval(
-                "SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name='advance_payments' AND column_name=$1)",
-                col,
-            )
-            if not col_exists:
-                await conn.execute(f"ALTER TABLE advance_payments ADD COLUMN {col} {col_type}")
+        # 4. Sequentially execute new migrations
+        for version, fn in migration_files:
+            if version not in executed_versions:
+                path = os.path.join(migrations_dir, fn)
+                with open(path, "r", encoding="utf-8") as f:
+                    sql = f.read()
 
-        # Backfill status for existing rows that have NULL status
-        await conn.execute("UPDATE advance_payments SET status = 'paid' WHERE status IS NULL")
-        await conn.execute("CREATE INDEX IF NOT EXISTS idx_advance_payments_status ON advance_payments(status)")
+                # Run migrations in transaction
+                async with conn.transaction():
+                    # Split statements by semicolon to prevent asyncpg errors with some multi-query scripts
+                    # or execute them together if safe.
+                    # We split statements just in case, skipping empty ones.
+                    for statement in sql.split(";"):
+                        statement = statement.strip()
+                        if statement:
+                            await conn.execute(statement)
+                    await conn.execute(
+                        "INSERT INTO schema_migrations (version) VALUES ($1)", version
+                    )
 
         # Seed default categories
         for name, limit in DEFAULT_CATEGORIES:
@@ -242,23 +227,6 @@ async def init_db() -> None:
                 "INSERT INTO categories (name, limit_amount) VALUES ($1, $2) ON CONFLICT (name) DO NOTHING",
                 name, limit,
             )
-
-        # Migrate mileage_records: date TEXT → start_time/end_time TIMESTAMPTZ
-        date_col_exists = await conn.fetchval(
-            "SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name='mileage_records' AND column_name='date')",
-        )
-        if date_col_exists:
-            st_exists = await conn.fetchval(
-                "SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name='mileage_records' AND column_name='start_time')",
-            )
-            if not st_exists:
-                await conn.execute("ALTER TABLE mileage_records ADD COLUMN start_time TIMESTAMPTZ")
-                await conn.execute("ALTER TABLE mileage_records ADD COLUMN end_time TIMESTAMPTZ")
-                await conn.execute("UPDATE mileage_records SET start_time = (date || 'T08:00:00Z')::timestamptz WHERE start_time IS NULL AND date IS NOT NULL")
-                await conn.execute("UPDATE mileage_records SET end_time = start_time + interval '1 hour' WHERE end_time IS NULL AND start_time IS NOT NULL")
-                await conn.execute("ALTER TABLE mileage_records ALTER COLUMN start_time SET NOT NULL")
-                await conn.execute("ALTER TABLE mileage_records ALTER COLUMN end_time SET NOT NULL")
-            await conn.execute("ALTER TABLE mileage_records DROP COLUMN IF EXISTS date")
 
         # Seed default mileage rates
         for key, val in [("mileage_rate_before_tax", "0.60"), ("mileage_rate_after_tax", "0.40")]:

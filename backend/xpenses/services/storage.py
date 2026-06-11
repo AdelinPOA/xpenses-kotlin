@@ -58,3 +58,33 @@ def get_full_path(relative_path: str) -> str:
     if not target_abs.is_relative_to(base_abs):
         raise ValueError("Invalid filepath")
     return str(target_abs)
+
+
+async def scan_orphan_receipts(db_conn) -> list[str]:
+    """
+    Compares the files in settings.receipts_dir with the database receipts table.
+    Returns a list of relative file paths that exist on disk but not in the database.
+    """
+    base_abs = Path(settings.receipts_dir).resolve()
+    if not base_abs.exists():
+        return []
+
+    # Get all relative paths of files in settings.receipts_dir
+    disk_files = set()
+    for root, _, files in os.walk(base_abs):
+        for file in files:
+            full_path = Path(root) / file
+            # Get path relative to the receipts_dir base
+            try:
+                rel_path = str(full_path.relative_to(base_abs))
+                disk_files.add(rel_path)
+            except ValueError:
+                continue
+
+    # Get all file_path records from receipts database table
+    rows = await db_conn.fetch("SELECT file_path FROM receipts")
+    db_files = {r["file_path"] for r in rows}
+
+    # Identify orphans (on disk but not in db)
+    orphans = sorted(list(disk_files - db_files))
+    return orphans

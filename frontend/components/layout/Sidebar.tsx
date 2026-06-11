@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Receipt, FileText, Tag, Users, CheckSquare, Banknote, Wallet, Settings, PenLine, LogOut, Sun, Moon, Monitor, X, Server, Mail, Inbox } from "lucide-react";
+import { LayoutDashboard, Receipt, FileText, Tag, Users, CheckSquare, Banknote, Wallet, Settings, PenLine, LogOut, Sun, Moon, Monitor, X, Server, Mail, Inbox, Trash2, Sparkles } from "lucide-react";
 import clsx from "clsx";
 import { useAuth } from "@/components/AuthProvider";
 import { useTheme } from "@/components/ThemeProvider";
@@ -125,6 +125,8 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                 { href: "/admin/ldap", label: "LDAP / AD", icon: Server, roles: ["mod"] },
                 { href: "/admin/email", label: "Email / SMTP", icon: Mail, roles: ["mod"] },
                 { href: "/admin/imap", label: "Email / IMAP", icon: Inbox, roles: ["mod"] },
+                { href: "/admin/ocr", label: "OCR Scanner", icon: Sparkles, roles: ["mod"] },
+                { href: "/admin/receipts", label: "Receipts Cleanup", icon: Trash2, roles: ["mod"] },
               ].filter(({ roles }) => roles.includes(user.role)).map(({ href, label, icon: Icon }) => {
                 const active = pathname.startsWith(href);
                 return (

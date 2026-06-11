@@ -76,6 +76,7 @@ async def login(body: LoginRequest, response: Response, db: asyncpg.Connection =
         "display_name": user["display_name"],
         "email": user["email"],
         "role": user["role"],
+        "notifications_enabled": user.get("notifications_enabled", True),
     }
 
 

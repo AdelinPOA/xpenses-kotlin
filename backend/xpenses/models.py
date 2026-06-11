@@ -19,6 +19,7 @@ class UserOut(BaseModel):
     role: str
     is_active: bool
     signature_path: str | None = None
+    notifications_enabled: bool = True
     created_at: datetime
     updated_at: datetime
 
@@ -305,6 +306,23 @@ class OCRScanResponse(BaseModel):
     raw_text: str = ""
     confidence: float = 0.0
     warnings: list[str] = []
+
+
+class OCRConfigOut(BaseModel):
+    provider: str
+    ocr_enabled: bool
+    gemini_api_key: str | None = None
+
+
+class OCRConfigUpdate(BaseModel):
+    provider: str | None = None
+    ocr_enabled: bool | None = None
+    gemini_api_key: str | None = None
+
+
+class OCRTestRequest(BaseModel):
+    gemini_api_key: str | None = None
+
 
 
 # ── Dashboard ─────────────────────────────────────────────────────────────────

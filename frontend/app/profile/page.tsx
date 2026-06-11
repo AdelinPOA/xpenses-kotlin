@@ -7,9 +7,10 @@ import AppShell from "@/components/layout/AppShell";
 import { useAuth } from "@/components/AuthProvider";
 
 export default function ProfilePage() {
-  const { user } = useAuth();
+  const { user, setUser } = useAuth();
 
   const [displayName, setDisplayName] = useState(user?.display_name ?? "");
+  const [notificationsEnabled, setNotificationsEnabled] = useState(user?.notifications_enabled ?? true);
   const [profileMsg, setProfileMsg] = useState<string | null>(null);
 
   const [oldPassword, setOldPassword] = useState("");
@@ -19,9 +20,15 @@ export default function ProfilePage() {
   const [passwordError, setPasswordError] = useState<string | null>(null);
 
   const profileMutation = useMutation({
-    mutationFn: (name: string) => api.patch("/users/me", { display_name: name }),
-    onSuccess: () => setProfileMsg("Display name updated."),
-    onError: () => setProfileMsg("Failed to update display name."),
+    mutationFn: (data: { display_name: string; notifications_enabled: boolean }) =>
+      api.patch("/users/me", data),
+    onSuccess: (res) => {
+      setProfileMsg("Profile updated successfully.");
+      if (setUser && res?.data) {
+        setUser(res.data);
+      }
+    },
+    onError: () => setProfileMsg("Failed to update profile details."),
   });
 
   const passwordMutation = useMutation({
@@ -61,9 +68,27 @@ export default function ProfilePage() {
               className="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-300"
             />
           </div>
+          <div className="mb-4 flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="notificationsEnabled"
+              checked={notificationsEnabled}
+              onChange={(e) => setNotificationsEnabled(e.target.checked)}
+              className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 h-4 w-4"
+            />
+            <label htmlFor="notificationsEnabled" className="text-sm font-medium text-slate-700 dark:text-slate-300">
+              Enable Email Notifications
+            </label>
+          </div>
           {profileMsg && <p className="text-sm text-green-600 dark:text-green-400 mb-3">{profileMsg}</p>}
           <button
-            onClick={() => { setProfileMsg(null); profileMutation.mutate(displayName); }}
+            onClick={() => {
+              setProfileMsg(null);
+              profileMutation.mutate({
+                display_name: displayName,
+                notifications_enabled: notificationsEnabled,
+              });
+            }}
             disabled={profileMutation.isPending}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors"
           >

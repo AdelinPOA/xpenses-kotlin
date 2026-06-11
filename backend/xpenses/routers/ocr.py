@@ -1,9 +1,11 @@
 import os
+import asyncpg
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
 from ..auth import get_current_user
 from ..config import settings
+from ..database import get_db
 from ..models import OCRScanResponse
 from ..services import ocr_service
 
@@ -17,8 +19,11 @@ router = APIRouter(prefix="/api/ocr", tags=["ocr"])
 async def scan_receipt_endpoint(
     file: UploadFile = File(...),
     _current_user: dict = Depends(get_current_user),
+    db: asyncpg.Connection = Depends(get_db),
 ):
-    if not settings.ocr_enabled:
+    from ..services.ocr_service import get_ocr_config
+    config = await get_ocr_config(db)
+    if not config.ocr_enabled:
         raise HTTPException(503, "OCR is disabled")
 
     filename = file.filename or "unknown"
@@ -38,5 +43,6 @@ async def scan_receipt_endpoint(
         chunks.append(chunk)
     content = b"".join(chunks)
 
-    result = await ocr_service.scan_receipt(content, filename)
+    result = await ocr_service.scan_receipt(content, filename, db=db)
     return result
+

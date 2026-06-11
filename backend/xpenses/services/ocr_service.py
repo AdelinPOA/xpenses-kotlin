@@ -1,9 +1,22 @@
 import asyncio
+import base64
+import dataclasses
+import datetime
 import io
+import json
+import logging
 import re
 
+import asyncpg
+import httpx
 import numpy as np
 from PIL import Image
+from cryptography.fernet import InvalidToken
+
+from ..config import settings
+from .crypto import get_fernet
+
+logger = logging.getLogger(__name__)
 
 Image.MAX_IMAGE_PIXELS = 25_000_000
 MAX_EDGE = 2000
@@ -11,10 +24,106 @@ MAX_EDGE = 2000
 _reader = None
 
 
+@dataclasses.dataclass
+class OCRConfig:
+    provider: str = "easyocr"
+    ocr_enabled: bool = True
+    gemini_api_key: str = ""
+    password_set: bool = False
+
+
+async def get_ocr_config(conn: asyncpg.Connection) -> OCRConfig:
+    row = await conn.fetchrow(
+        "SELECT value FROM app_settings WHERE key = 'ocr_config'"
+    )
+    if not row:
+        return OCRConfig(
+            provider="easyocr",
+            ocr_enabled=settings.ocr_enabled,
+            gemini_api_key="",
+            password_set=False,
+        )
+
+    try:
+        data = json.loads(row["value"])
+    except Exception:
+        data = {}
+
+    encrypted_key = data.get("gemini_api_key", "")
+    decrypted = ""
+    password_set = False
+
+    if encrypted_key:
+        try:
+            fernet = get_fernet(b"xpenses-gemini-ocr-pw")
+            decrypted = fernet.decrypt(encrypted_key.encode()).decode()
+            password_set = True
+        except (InvalidToken, Exception) as e:
+            logger.error(f"Failed to decrypt Gemini OCR key: {e}")
+            decrypted = ""
+            password_set = False
+
+    return OCRConfig(
+        provider=data.get("provider", "easyocr"),
+        ocr_enabled=data.get("ocr_enabled", True),
+        gemini_api_key=decrypted,
+        password_set=password_set,
+    )
+
+
+async def save_ocr_config(config: OCRConfig, conn: asyncpg.Connection) -> None:
+    if config.gemini_api_key:
+        fernet = get_fernet(b"xpenses-gemini-ocr-pw")
+        encrypted_key = fernet.encrypt(config.gemini_api_key.encode()).decode()
+    else:
+        encrypted_key = ""
+
+    data = {
+        "provider": config.provider,
+        "ocr_enabled": config.ocr_enabled,
+        "gemini_api_key": encrypted_key,
+    }
+
+    now = datetime.datetime.now(datetime.timezone.utc)
+    await conn.execute(
+        """
+        INSERT INTO app_settings (key, value, updated_at)
+        VALUES ('ocr_config', $1, $2)
+        ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = $2
+        """,
+        json.dumps(data),
+        now,
+    )
+
+
+async def test_gemini_connection(api_key: str) -> dict:
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash?key={api_key}"
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(url, timeout=10.0)
+            if resp.status_code == 200:
+                return {"success": True, "message": "Gemini API connection successful!"}
+            else:
+                try:
+                    error_msg = resp.json().get("error", {}).get("message", resp.text)
+                except Exception:
+                    error_msg = resp.text
+                return {"success": False, "message": f"Gemini API error: {error_msg}"}
+    except Exception as e:
+        return {"success": False, "message": f"Connection test failed: {e}"}
+
+
 def _empty_result(warnings: list[str]) -> dict:
     return {
-        "amount": None, "currency": None, "tax_amount": None, "tax_rate": None,
-        "date": None, "merchant": None, "raw_text": "", "confidence": 0.0, "warnings": warnings,
+        "amount": None,
+        "currency": None,
+        "tax_amount": None,
+        "tax_rate": None,
+        "date": None,
+        "merchant": None,
+        "raw_text": "",
+        "confidence": 0.0,
+        "warnings": warnings,
     }
 
 
@@ -23,29 +132,24 @@ def _get_reader():
     if _reader is None:
         import easyocr
 
-        from ..config import settings
-
         langs = [lang.strip() for lang in settings.ocr_languages.split(",")]
         _reader = easyocr.Reader(langs, gpu=False)
     return _reader
 
 
-async def scan_receipt(file_bytes: bytes, filename: str) -> dict:
-    warnings: list[str] = []
-
-    # Convert to numpy array
+def _load_pil_image(file_bytes: bytes, filename: str) -> tuple[Image.Image | None, list[str]]:
     if filename.lower().endswith(".pdf"):
         try:
             from pdf2image import convert_from_bytes
 
             pages = convert_from_bytes(file_bytes, first_page=1, last_page=1, dpi=150, size=(MAX_EDGE, None))
             if not pages:
-                return _empty_result(["Could not extract page from PDF"])
-            pil_image = pages[0]
+                return None, ["Could not extract page from PDF"]
+            return pages[0], []
         except MemoryError:
-            return _empty_result(["PDF too large to render"])
+            return None, ["PDF too large to render"]
         except Exception as exc:
-            return _empty_result([f"PDF conversion failed: {exc}"])
+            return None, [f"PDF conversion failed: {exc}"]
     else:
         try:
             pil_image = Image.open(io.BytesIO(file_bytes))
@@ -55,53 +159,215 @@ async def scan_receipt(file_bytes: bytes, filename: str) -> dict:
             if max(w, h) > MAX_EDGE:
                 ratio = MAX_EDGE / max(w, h)
                 pil_image = pil_image.resize((int(w * ratio), int(h * ratio)), Image.LANCZOS)
+            return pil_image, []
         except Image.DecompressionBombError:
-            return _empty_result(["Image too large (possible decompression bomb)"])
+            return None, ["Image too large (possible decompression bomb)"]
         except Exception as exc:
-            return _empty_result([f"Image open failed: {exc}"])
+            return None, [f"Image open failed: {exc}"]
 
-    image_np = np.array(pil_image)
 
-    # Run EasyOCR in thread pool to avoid blocking the event loop
-    try:
-        reader = _get_reader()
-        results = await asyncio.to_thread(reader.readtext, image_np)
-    except Exception as exc:
-        return _empty_result([f"OCR failed: {exc}"])
+class BaseOCRProvider:
+    async def scan(self, file_bytes: bytes, filename: str) -> dict:
+        raise NotImplementedError()
 
-    # Extract text lines and compute mean confidence
-    lines: list[str] = []
-    confidences: list[float] = []
-    for _bbox, text, conf in results:
-        lines.append(text)
-        confidences.append(conf)
 
-    raw_text = "\n".join(lines)
-    mean_confidence = float(np.mean(confidences)) if confidences else 0.0
+class EasyOCRProvider(BaseOCRProvider):
+    async def scan(self, file_bytes: bytes, filename: str) -> dict:
+        pil_image, errors = _load_pil_image(file_bytes, filename)
+        if errors:
+            return _empty_result(errors)
 
-    amount, currency = extract_amount(lines)
-    tax_amount, tax_rate = extract_tax(lines)
-    date = extract_date(lines)
-    merchant = extract_merchant(lines)
+        image_np = np.array(pil_image)
 
-    if amount is None:
-        warnings.append("Could not extract amount")
-    if date is None:
-        warnings.append("Could not extract date")
-    if merchant is None:
-        warnings.append("Could not extract merchant")
+        try:
+            reader = _get_reader()
+            results = await asyncio.to_thread(reader.readtext, image_np)
+        except Exception as exc:
+            return _empty_result([f"OCR failed: {exc}"])
 
-    return {
-        "amount": amount,
-        "currency": currency,
-        "tax_amount": tax_amount,
-        "tax_rate": tax_rate,
-        "date": date,
-        "merchant": merchant,
-        "raw_text": raw_text,
-        "confidence": round(mean_confidence, 4),
-        "warnings": warnings,
-    }
+        lines: list[str] = []
+        confidences: list[float] = []
+        for _bbox, text, conf in results:
+            lines.append(text)
+            confidences.append(conf)
+
+        raw_text = "\n".join(lines)
+        mean_confidence = float(np.mean(confidences)) if confidences else 0.0
+
+        amount, currency = extract_amount(lines)
+        tax_amount, tax_rate = extract_tax(lines)
+        date = extract_date(lines)
+        merchant = extract_merchant(lines)
+
+        warnings = []
+        if amount is None:
+            warnings.append("Could not extract amount")
+        if date is None:
+            warnings.append("Could not extract date")
+        if merchant is None:
+            warnings.append("Could not extract merchant")
+
+        return {
+            "amount": amount,
+            "currency": currency,
+            "tax_amount": tax_amount,
+            "tax_rate": tax_rate,
+            "date": date,
+            "merchant": merchant,
+            "raw_text": raw_text,
+            "confidence": round(mean_confidence, 4),
+            "warnings": warnings,
+        }
+
+
+class GeminiOCRProvider(BaseOCRProvider):
+    def __init__(self, api_key: str):
+        self.api_key = api_key
+
+    async def scan(self, file_bytes: bytes, filename: str) -> dict:
+        pil_image, errors = _load_pil_image(file_bytes, filename)
+        if errors:
+            return _empty_result(errors)
+
+        # Convert PIL to JPEG bytes in memory
+        buffer = io.BytesIO()
+        pil_image.save(buffer, format="JPEG")
+        jpeg_bytes = buffer.getvalue()
+        b64_data = base64.b64encode(jpeg_bytes).decode("utf-8")
+
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={self.api_key}"
+        
+        payload = {
+            "contents": [
+                {
+                    "parts": [
+                        {
+                            "text": (
+                                "Analyze this receipt, bill, invoice, or ticket image. "
+                                "Extract the following fields and return them in the requested JSON structure: "
+                                "merchant (store/provider name), amount (total amount paid), currency (3-letter ISO code e.g. EUR, USD, RON), "
+                                "tax_amount (total tax/VAT paid), tax_rate (percentage e.g. 19.0), date (in YYYY-MM-DD format), "
+                                "and raw_text (full OCR transcription of the text on the receipt)."
+                            )
+                        },
+                        {
+                            "inlineData": {
+                                "mimeType": "image/jpeg",
+                                "data": b64_data
+                            }
+                        }
+                    ]
+                }
+            ],
+            "generationConfig": {
+                "responseMimeType": "application/json",
+                "responseSchema": {
+                    "type": "OBJECT",
+                    "properties": {
+                        "merchant": {"type": "STRING"},
+                        "amount": {"type": "NUMBER"},
+                        "currency": {"type": "STRING"},
+                        "tax_amount": {"type": "NUMBER"},
+                        "tax_rate": {"type": "NUMBER"},
+                        "date": {"type": "STRING"},
+                        "raw_text": {"type": "STRING"}
+                    }
+                }
+            }
+        }
+
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(url, json=payload, timeout=30.0)
+            if resp.status_code != 200:
+                raise Exception(f"Gemini API returned status code {resp.status_code}: {resp.text}")
+            
+            resp_data = resp.json()
+            candidate = resp_data.get("candidates", [{}])[0]
+            content = candidate.get("content", {})
+            parts = content.get("parts", [{}])
+            text_response = parts[0].get("text", "{}")
+            
+            try:
+                result = json.loads(text_response)
+            except Exception as e:
+                raise Exception(f"Failed to parse JSON response from Gemini: {e}. Raw: {text_response}")
+            
+            warnings = []
+            amount = result.get("amount")
+            date = result.get("date")
+            merchant = result.get("merchant")
+            
+            if amount is not None:
+                amount = float(amount)
+            else:
+                warnings.append("Could not extract amount")
+                
+            if date:
+                if not re.match(r"^\d{4}-\d{2}-\d{2}$", date):
+                    warnings.append("Extracted date format is invalid")
+                    date = None
+            else:
+                warnings.append("Could not extract date")
+                
+            if not merchant:
+                warnings.append("Could not extract merchant")
+
+            currency = result.get("currency")
+            if currency:
+                currency = currency.upper().strip()
+
+            tax_amount = result.get("tax_amount")
+            if tax_amount is not None:
+                tax_amount = float(tax_amount)
+
+            tax_rate = result.get("tax_rate")
+            if tax_rate is not None:
+                tax_rate = float(tax_rate)
+
+            return {
+                "amount": amount,
+                "currency": currency,
+                "tax_amount": tax_amount,
+                "tax_rate": tax_rate,
+                "date": date,
+                "merchant": merchant,
+                "raw_text": result.get("raw_text", ""),
+                "confidence": 1.0,
+                "warnings": warnings,
+            }
+
+
+async def scan_receipt(file_bytes: bytes, filename: str, db: asyncpg.Connection | None = None) -> dict:
+    config = None
+    if db:
+        config = await get_ocr_config(db)
+    else:
+        from ..database import get_pool
+        pool = get_pool()
+        try:
+            async with pool.acquire() as conn:
+                config = await get_ocr_config(conn)
+        except Exception as e:
+            logger.error(f"Failed to acquire database connection for OCR config: {e}")
+            config = OCRConfig(provider="easyocr", ocr_enabled=True)
+
+    if not config.ocr_enabled:
+        return _empty_result(["OCR is disabled in settings"])
+
+    if config.provider == "gemini" and config.gemini_api_key:
+        try:
+            provider = GeminiOCRProvider(config.gemini_api_key)
+            return await provider.scan(file_bytes, filename)
+        except Exception as exc:
+            logger.error(f"Gemini OCR failed, falling back to EasyOCR: {exc}")
+            provider = EasyOCRProvider()
+            result = await provider.scan(file_bytes, filename)
+            result["warnings"].append(f"Gemini OCR failed: {exc}. Fell back to local EasyOCR.")
+            return result
+    else:
+        provider = EasyOCRProvider()
+        return await provider.scan(file_bytes, filename)
+
 
 
 def extract_amount(lines: list[str]) -> tuple[float | None, str | None]:

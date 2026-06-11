@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import api, { Category, Expense, CURRENCIES, API_BASE_URL, OCRScanResult } from "@/lib/api";
 import { categoryKeys, expenseKeys, dashboardKeys } from "@/lib/queryKeys";
 import { X, Camera } from "lucide-react";
+import clsx from "clsx";
 
 interface Props {
   expense?: Expense;
@@ -123,11 +124,9 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
     setDeletedReceiptIds((prev) => new Set(prev).add(receiptId));
   };
 
-  const handleScan = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    e.target.value = "";
+  const [isDragging, setIsDragging] = useState(false);
 
+  const processFileScan = async (file: File) => {
     setIsScanning(true);
     setScanResult(null);
     setError("");
@@ -150,6 +149,8 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
         tax_rate: f.tax_rate || (result.tax_rate?.toString() ?? ""),
         date: f.date === new Date().toISOString().slice(0, 10) && result.date ? result.date : f.date,
         merchant: f.merchant || result.merchant || "",
+        category_id: f.category_id || (result.category_id?.toString() ?? ""),
+        description: f.description || result.description || "",
       }));
 
       // Add scanned file to receipt list
@@ -158,6 +159,32 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
       setError(e.response?.data?.detail ?? "OCR scan failed");
     } finally {
       setIsScanning(false);
+    }
+  };
+
+  const handleScan = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+    await processFileScan(file);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      await processFileScan(file);
     }
   };
 
@@ -174,9 +201,20 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
         </div>
       )}
 
-      {/* OCR Scan */}
+      {/* OCR Scan Drop Zone */}
       {!isEdit && (
-        <div className="border border-dashed border-slate-300 dark:border-slate-600 rounded-lg p-4">
+        <div
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          className={clsx(
+            "border border-dashed rounded-lg p-6 text-center transition-all duration-200 cursor-pointer flex flex-col items-center justify-center min-h-[120px]",
+            isDragging
+              ? "border-blue-500 bg-blue-50/50 dark:bg-blue-950/20"
+              : "border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800/40"
+          )}
+          onClick={() => scanInputRef.current?.click()}
+        >
           <input
             ref={scanInputRef}
             type="file"
@@ -184,36 +222,34 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
             onChange={handleScan}
             className="hidden"
           />
-          <button
-            type="button"
-            onClick={() => scanInputRef.current?.click()}
-            disabled={isScanning}
-            className="w-full flex items-center justify-center gap-2 py-2.5 text-sm font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors disabled:opacity-50"
-          >
-            {isScanning ? (
-              <>
-                <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
-                Analyzing receipt...
-              </>
-            ) : (
-              <>
-                <Camera className="w-4 h-4" />
-                Scan receipt to auto-fill
-              </>
-            )}
-          </button>
+          {isScanning ? (
+            <div className="flex flex-col items-center gap-2">
+              <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+              <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Analyzing receipt...</p>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-2">
+              <Camera className={clsx("w-8 h-8 transition-colors", isDragging ? "text-blue-500" : "text-slate-400")} />
+              <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                {isDragging ? "Drop your receipt here!" : "Drag & drop receipt here, or click to browse"}
+              </p>
+              <p className="text-xs text-slate-400 dark:text-slate-500">
+                Supports JPG, PNG, WEBP, PDF
+              </p>
+            </div>
+          )}
 
           {scanResult && (
-            <div className={`mt-3 text-xs rounded-lg p-2.5 ${
+            <div className={`mt-4 text-xs rounded-lg p-2.5 w-full text-left ${
               scanResult.warnings.length === 0
                 ? "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400"
                 : "bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400"
             }`}>
               {scanResult.amount !== null && (
-                <span>Found: {scanResult.currency ?? ""}{scanResult.amount.toFixed(2)}</span>
+                <span className="font-semibold">Found: {scanResult.currency ?? ""}{scanResult.amount.toFixed(2)}</span>
               )}
-              {scanResult.merchant && <span> at {scanResult.merchant}</span>}
-              {scanResult.date && <span> on {scanResult.date}</span>}
+              {scanResult.merchant && <span> at <span className="font-semibold">{scanResult.merchant}</span></span>}
+              {scanResult.date && <span> on <span className="font-semibold">{scanResult.date}</span></span>}
               {scanResult.warnings.length > 0 && (
                 <div className="mt-1 opacity-75">{scanResult.warnings.join(", ")}</div>
               )}

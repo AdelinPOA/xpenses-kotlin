@@ -303,6 +303,8 @@ class OCRScanResponse(BaseModel):
     tax_rate: float | None = None
     date: str | None = None
     merchant: str | None = None
+    category_id: int | None = None
+    description: str | None = None
     raw_text: str = ""
     confidence: float = 0.0
     warnings: list[str] = []

@@ -136,6 +136,8 @@ async def test_scan_receipt_falls_back_to_easyocr(client: AsyncClient, pool):
         "tax_rate": None,
         "date": "2026-06-11",
         "merchant": "Fallback Store",
+        "category_id": None,
+        "description": "Fallback receipt",
         "raw_text": "Fallback receipt text",
         "confidence": 0.99,
         "warnings": [],

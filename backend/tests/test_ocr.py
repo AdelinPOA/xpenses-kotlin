@@ -238,3 +238,29 @@ async def test_scan_success(client):
     assert data["date"] == "2026-01-15"
     assert data["merchant"] is not None
     assert data["confidence"] > 0
+
+
+@pytest.mark.asyncio
+async def test_easyocr_category_classification():
+    from xpenses.services.ocr_service import EasyOCRProvider
+    provider = EasyOCRProvider()
+
+    mock_reader = MagicMock()
+    mock_reader.readtext.return_value = [
+        ([], "Taxi ride in Bucharest", 0.95),
+        ([], "TOTAL 50.00 RON", 0.92),
+    ]
+
+    categories = [
+        {"id": 1, "name": "Meals"},
+        {"id": 2, "name": "Travel & Taxi"},
+    ]
+
+    with patch("xpenses.services.ocr_service._load_pil_image", return_value=(Image.new("RGB", (10, 10)), [])), \
+         patch("xpenses.services.ocr_service._get_reader", return_value=mock_reader):
+
+        result = await provider.scan(b"dummy bytes", "receipt.png", categories=categories)
+
+        assert result["category_id"] == 2
+        assert "Taxi" in result["description"]
+        assert result["amount"] == 50.0

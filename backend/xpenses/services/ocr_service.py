@@ -121,6 +121,8 @@ def _empty_result(warnings: list[str]) -> dict:
         "tax_rate": None,
         "date": None,
         "merchant": None,
+        "category_id": None,
+        "description": None,
         "raw_text": "",
         "confidence": 0.0,
         "warnings": warnings,
@@ -167,12 +169,12 @@ def _load_pil_image(file_bytes: bytes, filename: str) -> tuple[Image.Image | Non
 
 
 class BaseOCRProvider:
-    async def scan(self, file_bytes: bytes, filename: str) -> dict:
+    async def scan(self, file_bytes: bytes, filename: str, categories: list[dict] | None = None) -> dict:
         raise NotImplementedError()
 
 
 class EasyOCRProvider(BaseOCRProvider):
-    async def scan(self, file_bytes: bytes, filename: str) -> dict:
+    async def scan(self, file_bytes: bytes, filename: str, categories: list[dict] | None = None) -> dict:
         pil_image, errors = _load_pil_image(file_bytes, filename)
         if errors:
             return _empty_result(errors)
@@ -199,6 +201,23 @@ class EasyOCRProvider(BaseOCRProvider):
         date = extract_date(lines)
         merchant = extract_merchant(lines)
 
+        # Basic keyword-based category matching
+        category_id = None
+        if categories and raw_text:
+            text_lower = raw_text.lower()
+            for cat in categories:
+                cat_name_lower = cat["name"].lower()
+                if cat_name_lower in text_lower:
+                    category_id = cat["id"]
+                    break
+                # Check sub-words
+                words = [w.strip() for w in cat_name_lower.split() if len(w.strip()) > 3]
+                if words and any(w in text_lower for w in words):
+                    category_id = cat["id"]
+                    break
+
+        description = f"Scanned receipt from {merchant}" if merchant else "Scanned receipt"
+
         warnings = []
         if amount is None:
             warnings.append("Could not extract amount")
@@ -214,6 +233,8 @@ class EasyOCRProvider(BaseOCRProvider):
             "tax_rate": tax_rate,
             "date": date,
             "merchant": merchant,
+            "category_id": category_id,
+            "description": description,
             "raw_text": raw_text,
             "confidence": round(mean_confidence, 4),
             "warnings": warnings,
@@ -224,7 +245,7 @@ class GeminiOCRProvider(BaseOCRProvider):
     def __init__(self, api_key: str):
         self.api_key = api_key
 
-    async def scan(self, file_bytes: bytes, filename: str) -> dict:
+    async def scan(self, file_bytes: bytes, filename: str, categories: list[dict] | None = None) -> dict:
         pil_image, errors = _load_pil_image(file_bytes, filename)
         if errors:
             return _empty_result(errors)
@@ -237,6 +258,8 @@ class GeminiOCRProvider(BaseOCRProvider):
 
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={self.api_key}"
         
+        categories_str = ", ".join([f"{c['id']}: {c['name']}" for c in categories]) if categories else "None available"
+
         payload = {
             "contents": [
                 {
@@ -247,7 +270,9 @@ class GeminiOCRProvider(BaseOCRProvider):
                                 "Extract the following fields and return them in the requested JSON structure: "
                                 "merchant (store/provider name), amount (total amount paid), currency (3-letter ISO code e.g. EUR, USD, RON), "
                                 "tax_amount (total tax/VAT paid), tax_rate (percentage e.g. 19.0), date (in YYYY-MM-DD format), "
-                                "and raw_text (full OCR transcription of the text on the receipt)."
+                                "raw_text (full OCR transcription of the text on the receipt), "
+                                f"category_id (Select the best-matching integer category ID from this list: {categories_str}. If none match, return null), "
+                                "and description (a brief, human-friendly summary of the expense description or receipt items)."
                             )
                         },
                         {
@@ -270,6 +295,8 @@ class GeminiOCRProvider(BaseOCRProvider):
                         "tax_amount": {"type": "NUMBER"},
                         "tax_rate": {"type": "NUMBER"},
                         "date": {"type": "STRING"},
+                        "category_id": {"type": "INTEGER"},
+                        "description": {"type": "STRING"},
                         "raw_text": {"type": "STRING"}
                     }
                 }
@@ -324,6 +351,13 @@ class GeminiOCRProvider(BaseOCRProvider):
             if tax_rate is not None:
                 tax_rate = float(tax_rate)
 
+            # Validate that the returned category_id is in our active categories
+            category_id = result.get("category_id")
+            if category_id is not None:
+                valid_ids = {c["id"] for c in categories} if categories else set()
+                if category_id not in valid_ids:
+                    category_id = None
+
             return {
                 "amount": amount,
                 "currency": currency,
@@ -331,6 +365,8 @@ class GeminiOCRProvider(BaseOCRProvider):
                 "tax_rate": tax_rate,
                 "date": date,
                 "merchant": merchant,
+                "category_id": category_id,
+                "description": result.get("description"),
                 "raw_text": result.get("raw_text", ""),
                 "confidence": 1.0,
                 "warnings": warnings,
@@ -338,15 +374,23 @@ class GeminiOCRProvider(BaseOCRProvider):
 
 
 async def scan_receipt(file_bytes: bytes, filename: str, db: asyncpg.Connection | None = None) -> dict:
+    categories = []
     config = None
     if db:
         config = await get_ocr_config(db)
+        try:
+            rows = await db.fetch("SELECT id, name FROM categories WHERE is_active = true")
+            categories = [{"id": r["id"], "name": r["name"]} for r in rows]
+        except Exception as e:
+            logger.error(f"Failed to fetch categories: {e}")
     else:
         from ..database import get_pool
         pool = get_pool()
         try:
             async with pool.acquire() as conn:
                 config = await get_ocr_config(conn)
+                rows = await conn.fetch("SELECT id, name FROM categories WHERE is_active = true")
+                categories = [{"id": r["id"], "name": r["name"]} for r in rows]
         except Exception as e:
             logger.error(f"Failed to acquire database connection for OCR config: {e}")
             config = OCRConfig(provider="easyocr", ocr_enabled=True)
@@ -357,16 +401,16 @@ async def scan_receipt(file_bytes: bytes, filename: str, db: asyncpg.Connection 
     if config.provider == "gemini" and config.gemini_api_key:
         try:
             provider = GeminiOCRProvider(config.gemini_api_key)
-            return await provider.scan(file_bytes, filename)
+            return await provider.scan(file_bytes, filename, categories=categories)
         except Exception as exc:
             logger.error(f"Gemini OCR failed, falling back to EasyOCR: {exc}")
             provider = EasyOCRProvider()
-            result = await provider.scan(file_bytes, filename)
+            result = await provider.scan(file_bytes, filename, categories=categories)
             result["warnings"].append(f"Gemini OCR failed: {exc}. Fell back to local EasyOCR.")
             return result
     else:
         provider = EasyOCRProvider()
-        return await provider.scan(file_bytes, filename)
+        return await provider.scan(file_bytes, filename, categories=categories)
 
 
 

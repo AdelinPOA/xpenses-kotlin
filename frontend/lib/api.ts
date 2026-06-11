@@ -171,6 +171,8 @@ export interface OCRScanResult {
   tax_rate: number | null;
   date: string | null;
   merchant: string | null;
+  category_id?: number | null;
+  description?: string | null;
   raw_text: string;
   confidence: number;
   warnings: string[];

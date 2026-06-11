@@ -256,41 +256,42 @@ async def submit_report(
     if row["status"] != "draft":
         raise HTTPException(status_code=400, detail="Report is not in draft status")
 
-    if body and body.expense_ids:
+    async with db.transaction():
+        if body and body.expense_ids:
+            now = datetime.now(timezone.utc)
+            await db.execute(
+                "UPDATE expenses SET report_id = $1, updated_at = $2 WHERE id = ANY($3::int[]) AND status = 'draft' AND user_id = $4",
+                report_id, now, body.expense_ids, current_user["id"]
+            )
+
+        rows = await db.fetch(
+            "SELECT id FROM expenses WHERE report_id = $1", report_id
+        )
+        attached = [r["id"] for r in rows]
+
+        if not attached:
+            raise HTTPException(status_code=400, detail="No expenses attached to this report")
+
         now = datetime.now(timezone.utc)
         await db.execute(
-            "UPDATE expenses SET report_id = $1, updated_at = $2 WHERE id = ANY($3::int[]) AND status = 'draft' AND user_id = $4",
-            report_id, now, body.expense_ids, current_user["id"]
+            "UPDATE expenses SET status = 'submitted', updated_at = $1 WHERE id = ANY($2::int[])",
+            now, attached,
         )
 
-    rows = await db.fetch(
-        "SELECT id FROM expenses WHERE report_id = $1", report_id
-    )
-    attached = [r["id"] for r in rows]
+        total_row = await db.fetchrow(
+            "SELECT SUM(amount_eur) as total FROM expenses WHERE report_id = $1",
+            report_id,
+        )
+        total = total_row["total"] or 0.0
 
-    if not attached:
-        raise HTTPException(status_code=400, detail="No expenses attached to this report")
+        report_title_row = await db.fetchrow("SELECT title, currency FROM expense_reports WHERE id = $1", report_id)
+        report_title = report_title_row["title"]
+        report_currency = report_title_row["currency"]
 
-    now = datetime.now(timezone.utc)
-    await db.execute(
-        "UPDATE expenses SET status = 'submitted', updated_at = $1 WHERE id = ANY($2::int[])",
-        now, attached,
-    )
-
-    total_row = await db.fetchrow(
-        "SELECT SUM(amount_eur) as total FROM expenses WHERE report_id = $1",
-        report_id,
-    )
-    total = total_row["total"] or 0.0
-
-    report_title_row = await db.fetchrow("SELECT title, currency FROM expense_reports WHERE id = $1", report_id)
-    report_title = report_title_row["title"]
-    report_currency = report_title_row["currency"]
-
-    await db.execute(
-        "UPDATE expense_reports SET status = 'submitted', submitted_at = $1, total_amount = $2, updated_at = $3 WHERE id = $4",
-        now, total, now, report_id,
-    )
+        await db.execute(
+            "UPDATE expense_reports SET status = 'submitted', submitted_at = $1, total_amount = $2, updated_at = $3 WHERE id = $4",
+            now, total, now, report_id,
+        )
 
     # Notify all managers and chef_finance users who have notifications enabled
     approvers = await db.fetch(
@@ -322,20 +323,21 @@ async def recall_report(report_id: int, current_user: dict = Depends(get_current
     if row["status"] != "submitted":
         raise HTTPException(status_code=400, detail="Only submitted reports can be recalled")
 
-    now = datetime.now(timezone.utc)
-    total_row = await db.fetchrow(
-        "SELECT COALESCE(SUM(amount_eur), 0.0) as total FROM expenses WHERE report_id = $1", report_id
-    )
-    total = total_row["total"]
+    async with db.transaction():
+        now = datetime.now(timezone.utc)
+        total_row = await db.fetchrow(
+            "SELECT COALESCE(SUM(amount_eur), 0.0) as total FROM expenses WHERE report_id = $1", report_id
+        )
+        total = total_row["total"]
 
-    await db.execute(
-        "UPDATE expense_reports SET status = 'draft', submitted_at = NULL, total_amount = $1, updated_at = $2 WHERE id = $3",
-        total, now, report_id,
-    )
-    await db.execute(
-        "UPDATE expenses SET status = 'draft', updated_at = $1 WHERE report_id = $2",
-        now, report_id,
-    )
+        await db.execute(
+            "UPDATE expense_reports SET status = 'draft', submitted_at = NULL, total_amount = $1, updated_at = $2 WHERE id = $3",
+            total, now, report_id,
+        )
+        await db.execute(
+            "UPDATE expenses SET status = 'draft', updated_at = $1 WHERE report_id = $2",
+            now, report_id,
+        )
     return await _fetch_report(db, report_id)
 
 
@@ -352,15 +354,16 @@ async def pay_report(
     if row["status"] != "approved":
         raise HTTPException(status_code=400, detail="Only approved reports can be marked as paid")
 
-    now = datetime.now(timezone.utc)
-    await db.execute(
-        "UPDATE expense_reports SET status = 'paid', paid_at = $1, updated_at = $2 WHERE id = $3",
-        now, now, report_id,
-    )
-    await db.execute(
-        "UPDATE expenses SET status = 'paid', updated_at = $1 WHERE report_id = $2",
-        now, report_id,
-    )
+    async with db.transaction():
+        now = datetime.now(timezone.utc)
+        await db.execute(
+            "UPDATE expense_reports SET status = 'paid', paid_at = $1, updated_at = $2 WHERE id = $3",
+            now, now, report_id,
+        )
+        await db.execute(
+            "UPDATE expenses SET status = 'paid', updated_at = $1 WHERE report_id = $2",
+            now, report_id,
+        )
 
     # Notify the report owner
     owner = await db.fetchrow("SELECT email, notifications_enabled FROM users WHERE id = $1", row["user_id"])
@@ -500,15 +503,16 @@ async def approve_report(
     if row["user_id"] == current_user["id"]:
         raise HTTPException(status_code=400, detail="Cannot approve your own report")
 
-    now = datetime.now(timezone.utc)
-    await db.execute(
-        "UPDATE expense_reports SET status = 'approved', approved_by = $1, approved_at = $2, updated_at = $3 WHERE id = $4",
-        current_user["id"], now, now, report_id,
-    )
-    await db.execute(
-        "UPDATE expenses SET status = 'approved', updated_at = $1 WHERE report_id = $2",
-        now, report_id,
-    )
+    async with db.transaction():
+        now = datetime.now(timezone.utc)
+        await db.execute(
+            "UPDATE expense_reports SET status = 'approved', approved_by = $1, approved_at = $2, updated_at = $3 WHERE id = $4",
+            current_user["id"], now, now, report_id,
+        )
+        await db.execute(
+            "UPDATE expenses SET status = 'approved', updated_at = $1 WHERE report_id = $2",
+            now, report_id,
+        )
 
     # Notify the report owner
     owner = await db.fetchrow("SELECT email, notifications_enabled FROM users WHERE id = $1", row["user_id"])
@@ -540,15 +544,16 @@ async def reject_report(
     if row["user_id"] == current_user["id"]:
         raise HTTPException(status_code=400, detail="Cannot reject your own report")
 
-    now = datetime.now(timezone.utc)
-    await db.execute(
-        "UPDATE expense_reports SET status = 'rejected', approved_by = $1, approved_at = $2, rejected_reason = $3, updated_at = $4 WHERE id = $5",
-        current_user["id"], now, body.reason, now, report_id,
-    )
-    await db.execute(
-        "UPDATE expenses SET status = 'draft', report_id = NULL, updated_at = $1 WHERE report_id = $2",
-        now, report_id,
-    )
+    async with db.transaction():
+        now = datetime.now(timezone.utc)
+        await db.execute(
+            "UPDATE expense_reports SET status = 'rejected', approved_by = $1, approved_at = $2, rejected_reason = $3, updated_at = $4 WHERE id = $5",
+            current_user["id"], now, body.reason, now, report_id,
+        )
+        await db.execute(
+            "UPDATE expenses SET status = 'draft', report_id = NULL, updated_at = $1 WHERE report_id = $2",
+            now, report_id,
+        )
 
     # Notify the report owner
     owner = await db.fetchrow("SELECT email, notifications_enabled FROM users WHERE id = $1", row["user_id"])

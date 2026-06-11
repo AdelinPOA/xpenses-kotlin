@@ -118,7 +118,11 @@ Frontend uses two different URLs to reach the backend:
 ## Key Patterns
 
 - **FX conversion:** Primary: Frankfurter API (ECB rates). Fallback: fawazahmed0/currency-api. Rates cached per `(currency, date)` in `fx_rates` table. Changing amount/currency/date on an expense triggers automatic FX recalculation.
-- **OCR Scanning:** Integrated EasyOCR for receipts (`POST /api/ocr/scan`). Automatically extracts date, merchant, amount and currency. Validates languages via `ocr_languages` setting. Fallbacks to lookahead on total amounts.
+- **OCR Scanning:** Hybrid local & cloud OCR system. Supported providers: local EasyOCR (default) and Google Gemini 2.5 Flash API (Cloud). Config stored in DB `app_settings` under `ocr_config` key. API keys are encrypted via Fernet (password `xpenses-gemini-ocr-pw`). Features:
+  - Gemini structured JSON schema matching (`category_id` and `description` extraction).
+  - Pure Python self-learning Multinomial Naive Bayes category classifier ([classifier_service.py](file:///home/poa/xpenses_copy/backend/xpenses/services/classifier_service.py)) trained on raw database scan texts.
+  - Automatic fallback to EasyOCR with classification heuristics and warnings when Gemini API fails.
+  - Drag-and-drop receipt upload drop-zone and full form autofill (category, description, amount, currency, date, merchant, tax) in [ExpenseForm.tsx](file:///home/poa/xpenses_copy/frontend/components/expenses/ExpenseForm.tsx).
 - **Receipt storage:** Files in `/app/data/receipts/` (Docker volume), organized by `YYYY/MM/`. Multiple receipts per expense. Path traversal protection in `storage.py`. Allowed: JPG, PNG, GIF, PDF, WEBP (max 10MB).
 - **PDF export:** `reportlab` generates the main report PDF. Receipt PDFs are appended via `pypdf`. Receipt images rendered 2-per-row.
 - **Dashboard scoping:** `chef_finance` and `mod` always see org-wide data (no flag needed). `manager` sees org-wide when `?all=true` is passed. All other roles see only their own data regardless of flags.
@@ -126,7 +130,7 @@ Frontend uses two different URLs to reach the backend:
 - **Digital signatures:** `POST /api/users/me/signature` stores a base64 PNG. `POST /api/reports/{id}/sign` stamps the report. Signature is stored per-user in the `users` table.
 - **Advance payments:** Two routers — `APIRouter` at `/api/reports/{id}/advances` for per-report CRUD, and `global_router` at `/api/advances/pending` for the org-wide manager/CFO queue. Manager direct-pay creates an advance already marked `paid`; employee requests create `status=requested` advances that CFO pays separately.
 - **LDAP/AD authentication:** Config stored as JSON in `app_settings` key `ldap_config` (DB-authoritative, not env vars). Bind password Fernet-encrypted with HKDF-SHA256 key derived from `jwt_secret`. `ldap_service.py` provides `get_ldap_config()`, `save_ldap_config()`, `test_connection()`, `sync_users()`, and `authenticate_ldap()`. Login handler in `auth.py` reads DB config and calls `authenticate_ldap()` for `auth_source='ldap'` users. Sync deactivates directory-absent users and revokes their refresh tokens.
-- **App settings:** Generic `app_settings` table (key/value JSON rows) stores mileage tax rates, LDAP config, and SMTP config. `app_settings.py` router at `/api/settings/` handles mileage rates; `ldap.py` router at `/api/settings/ldap/` handles LDAP config; `email_settings.py` router at `/api/settings/email/` handles SMTP config. All use upsert on the `key` column.
+- **App settings:** Generic `app_settings` table (key/value JSON rows) stores mileage tax rates, LDAP config, SMTP config, and OCR config. `app_settings.py` router handles mileage rates and OCR configuration endpoints (restricting `/api/settings/ocr` to `mod` role). All use upsert on the `key` column.
 
 ## Testing
 

@@ -1,11 +1,42 @@
 # HANDOFF.md — xpenses_copy
 
-> Last updated: 2026-06-11 (session 24)
+> Last updated: 2026-06-11 (session 25)
 > Author: Antigravity AI
 
 ---
 
-## Latest Session (2026-06-11, session 24)
+## Latest Session (2026-06-11, session 25)
+
+### What Was Done
+- **Phase 1: Stability & Database Integrity Fixes**:
+  - Wrapped multi-step report state transition workflows (submitting, recalling, approving, rejecting, and paying) in `/reports.py` in database transaction context blocks (`async with db.transaction():`).
+  - Refactored `/services/fx_service.py` to lease connection pool resources only during query caching and queries, releasing the connection before starting external HTTP requests to Frankfurter/fallback APIs.
+  - Configured Axios response interceptors in `/lib/api.ts` to automatically intercept `401 Unauthorized` requests, perform silent token refresh, and transparently retry the failed request.
+- **Phase 2: UX & Performance Optimizations**:
+  - Added an inline blocking script inside `<head>` in `layout.tsx` to check `localStorage` theme preferences and append the `.dark` class early, preventing Flash of Un-themed Content (FOUC).
+  - Integrated custom design tokens for background and foreground styling under the new Tailwind v4 `@theme` directive in `globals.css`.
+  - Offloaded ReportLab PDF compilation and PyPDF merges in `/services/pdf_export.py` to a worker thread pool via `asyncio.to_thread`.
+  - Refactored `/routers/signature.py` to write base64 signature images asynchronously using `aiofiles`.
+  - Consolidated 8 sequential dashboard counts/sums queries in `/routers/dashboard.py` into 2 efficient queries utilizing PostgreSQL conditional aggregations (`FILTER (WHERE ...)`).
+- **Git Branching**:
+  - Created the feature branch `feature/optimizations` and committed both Phase 1 and Phase 2 changes. Pushed the branch to GitHub.
+
+### Modified/Added Files
+- `backend/xpenses/routers/reports.py` — Added transactions to workflow handlers.
+- `backend/xpenses/routers/dashboard.py` — Consolidated dashboard query stats.
+- `backend/xpenses/routers/signature.py` — Asynchronous user signature image writes.
+- `backend/xpenses/services/fx_service.py` — Optimized pool release during API requests.
+- `backend/xpenses/services/pdf_export.py` — CPU PDF compilation offloaded to threads.
+- `frontend/app/layout.tsx` — Injected blocking script in head.
+- `frontend/app/globals.css` — Configured Tailwind v4 theme variables.
+- `frontend/lib/api.ts` — Implemented Axios response interceptor for silent token refresh.
+
+### Test Results
+- **174 tests pass** (all green, execution time improved by ~12s).
+
+---
+
+## Previous Session (2026-06-11, session 24)
 
 ### What Was Done
 - **Hybrid OCR Scanning & Settings UI**:

@@ -46,6 +46,7 @@ export interface Expense {
   receipt_path: string | null;
   receipts: Receipt[];
   status: string;
+  raw_ocr_text?: string | null;
   user_display_name?: string | null;
   created_at: string;
   updated_at: string;

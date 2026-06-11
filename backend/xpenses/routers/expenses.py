@@ -102,12 +102,12 @@ async def create_expense(body: ExpenseCreate, current_user: dict = Depends(get_c
         """INSERT INTO expenses
            (category_id, report_id, amount_original, currency_original, amount_eur, fx_rate,
             tax_amount, tax_rate, tax_amount_eur,
-            date, description, merchant, user_id, created_at, updated_at)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+            date, description, merchant, raw_ocr_text, user_id, created_at, updated_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
            RETURNING id""",
         body.category_id, body.report_id, body.amount, body.currency.upper(), amount_eur, fx_rate,
         body.tax_amount, body.tax_rate, tax_amount_eur,
-        body.date, body.description, body.merchant, current_user["id"], now, now,
+        body.date, body.description, body.merchant, body.raw_ocr_text, current_user["id"], now, now,
     )
     new_id = row["id"]
     expense_row = await db.fetchrow(f"{EXPENSE_SELECT} WHERE e.id = $1", new_id)
@@ -167,7 +167,7 @@ async def update_expense(expense_id: int, body: ExpenseUpdate, current_user: dic
         fields["tax_rate"] = eff_tax_rate
         fields["tax_amount_eur"] = round(float(eff_tax_amount) / fx_rate, 2) if fx_rate else 0.0
 
-    for k in ("date", "description", "merchant", "category_id"):
+    for k in ("date", "description", "merchant", "category_id", "raw_ocr_text"):
         if k in raw:
             fields[k] = raw[k]
 

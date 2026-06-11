@@ -264,3 +264,29 @@ async def test_easyocr_category_classification():
         assert result["category_id"] == 2
         assert "Taxi" in result["description"]
         assert result["amount"] == 50.0
+
+
+@pytest.mark.asyncio
+async def test_naive_bayes_classifier():
+    from xpenses.services.classifier_service import NaiveBayesClassifier
+    clf = NaiveBayesClassifier()
+
+    # Train data: text, category_id
+    train_data = [
+        ("Uber Taxi trip ride transport", 1),
+        ("Taxi cab trip fare travel", 1),
+        ("McDonalds burger food meals fries", 2),
+        ("KFC chicken lunch dinner meals food", 2),
+        ("GitHub subscription software cloud SaaS", 3),
+        ("AWS cloud server subscription software", 3),
+    ]
+
+    clf.train(train_data)
+
+    # Predict
+    assert clf.predict("Taxi ride to airport") == 1
+    assert clf.predict("Dinner with client burger") == 2
+    assert clf.predict("AWS server hosting bill") == 3
+
+    # Handles unseen words gracefully
+    assert clf.predict("Some random software subscription") == 3

@@ -15,6 +15,7 @@ from cryptography.fernet import InvalidToken
 
 from ..config import settings
 from .crypto import get_fernet
+from .classifier_service import train_local_classifier, NaiveBayesClassifier
 
 logger = logging.getLogger(__name__)
 
@@ -169,12 +170,12 @@ def _load_pil_image(file_bytes: bytes, filename: str) -> tuple[Image.Image | Non
 
 
 class BaseOCRProvider:
-    async def scan(self, file_bytes: bytes, filename: str, categories: list[dict] | None = None) -> dict:
+    async def scan(self, file_bytes: bytes, filename: str, categories: list[dict] | None = None, classifier: NaiveBayesClassifier | None = None) -> dict:
         raise NotImplementedError()
 
 
 class EasyOCRProvider(BaseOCRProvider):
-    async def scan(self, file_bytes: bytes, filename: str, categories: list[dict] | None = None) -> dict:
+    async def scan(self, file_bytes: bytes, filename: str, categories: list[dict] | None = None, classifier: NaiveBayesClassifier | None = None) -> dict:
         pil_image, errors = _load_pil_image(file_bytes, filename)
         if errors:
             return _empty_result(errors)
@@ -201,9 +202,12 @@ class EasyOCRProvider(BaseOCRProvider):
         date = extract_date(lines)
         merchant = extract_merchant(lines)
 
-        # Basic keyword-based category matching
+        # Match category using classifier or fallback to keyword heuristics
         category_id = None
-        if categories and raw_text:
+        if classifier and raw_text:
+            category_id = classifier.predict(raw_text)
+
+        if category_id is None and categories and raw_text:
             text_lower = raw_text.lower()
             for cat in categories:
                 cat_name_lower = cat["name"].lower()
@@ -245,7 +249,7 @@ class GeminiOCRProvider(BaseOCRProvider):
     def __init__(self, api_key: str):
         self.api_key = api_key
 
-    async def scan(self, file_bytes: bytes, filename: str, categories: list[dict] | None = None) -> dict:
+    async def scan(self, file_bytes: bytes, filename: str, categories: list[dict] | None = None, classifier: NaiveBayesClassifier | None = None) -> dict:
         pil_image, errors = _load_pil_image(file_bytes, filename)
         if errors:
             return _empty_result(errors)
@@ -376,8 +380,10 @@ class GeminiOCRProvider(BaseOCRProvider):
 async def scan_receipt(file_bytes: bytes, filename: str, db: asyncpg.Connection | None = None) -> dict:
     categories = []
     config = None
+    classifier = None
     if db:
         config = await get_ocr_config(db)
+        classifier = await train_local_classifier(db)
         try:
             rows = await db.fetch("SELECT id, name FROM categories WHERE is_active = true")
             categories = [{"id": r["id"], "name": r["name"]} for r in rows]
@@ -389,6 +395,7 @@ async def scan_receipt(file_bytes: bytes, filename: str, db: asyncpg.Connection 
         try:
             async with pool.acquire() as conn:
                 config = await get_ocr_config(conn)
+                classifier = await train_local_classifier(conn)
                 rows = await conn.fetch("SELECT id, name FROM categories WHERE is_active = true")
                 categories = [{"id": r["id"], "name": r["name"]} for r in rows]
         except Exception as e:
@@ -401,16 +408,16 @@ async def scan_receipt(file_bytes: bytes, filename: str, db: asyncpg.Connection 
     if config.provider == "gemini" and config.gemini_api_key:
         try:
             provider = GeminiOCRProvider(config.gemini_api_key)
-            return await provider.scan(file_bytes, filename, categories=categories)
+            return await provider.scan(file_bytes, filename, categories=categories, classifier=classifier)
         except Exception as exc:
             logger.error(f"Gemini OCR failed, falling back to EasyOCR: {exc}")
             provider = EasyOCRProvider()
-            result = await provider.scan(file_bytes, filename, categories=categories)
+            result = await provider.scan(file_bytes, filename, categories=categories, classifier=classifier)
             result["warnings"].append(f"Gemini OCR failed: {exc}. Fell back to local EasyOCR.")
             return result
     else:
         provider = EasyOCRProvider()
-        return await provider.scan(file_bytes, filename, categories=categories)
+        return await provider.scan(file_bytes, filename, categories=categories, classifier=classifier)
 
 
 

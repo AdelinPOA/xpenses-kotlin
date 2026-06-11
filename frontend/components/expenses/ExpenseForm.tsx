@@ -32,6 +32,7 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
     category_id: expense?.category_id?.toString() ?? "",
     tax_amount: expense?.tax_amount?.toString() ?? "0",
     tax_rate: expense?.tax_rate?.toString() ?? "",
+    raw_ocr_text: expense?.raw_ocr_text ?? "",
   });
   const [receiptFiles, setReceiptFiles] = useState<File[]>([]);
   const [deletedReceiptIds, setDeletedReceiptIds] = useState<Set<number>>(new Set());
@@ -59,6 +60,7 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
         category_id: form.category_id ? parseInt(form.category_id) : null,
         tax_amount: form.tax_amount ? parseFloat(form.tax_amount) : 0,
         tax_rate: form.tax_rate ? parseFloat(form.tax_rate) : null,
+        raw_ocr_text: form.raw_ocr_text || null,
         ...(reportId && !isEdit ? { report_id: reportId } : {}),
       };
       let result: Expense;
@@ -151,6 +153,7 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
         merchant: f.merchant || result.merchant || "",
         category_id: f.category_id || (result.category_id?.toString() ?? ""),
         description: f.description || result.description || "",
+        raw_ocr_text: result.raw_text || "",
       }));
 
       // Add scanned file to receipt list

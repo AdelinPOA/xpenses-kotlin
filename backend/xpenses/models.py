@@ -88,6 +88,7 @@ class ExpenseOut(BaseModel):
     receipt_path: str | None
     receipts: list[ReceiptOut] = []
     status: str
+    raw_ocr_text: str | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -102,6 +103,7 @@ class ExpenseCreate(BaseModel):
     date: str
     description: str | None = None
     merchant: str | None = None
+    raw_ocr_text: str | None = None
 
 
 class ExpenseUpdate(BaseModel):
@@ -114,6 +116,7 @@ class ExpenseUpdate(BaseModel):
     date: str | None = None
     description: str | None = None
     merchant: str | None = None
+    raw_ocr_text: str | None = None
 
 
 # ── Expense Reports ────────────────────────────────────────────────────────────

@@ -1,11 +1,52 @@
 # HANDOFF.md — xpenses_copy
 
-> Last updated: 2026-06-10 (session 23)
+> Last updated: 2026-06-11 (session 24)
 > Author: Antigravity AI
 
 ---
 
-## Latest Session (2026-06-10, session 23)
+## Latest Session (2026-06-11, session 24)
+
+### What Was Done
+- **Hybrid OCR Scanning & Settings UI**:
+  - Implemented a complete hybrid OCR engine supporting local EasyOCR (default) and Google Gemini 2.5 Flash API (Cloud).
+  - Saved OCR settings (provider toggle, API key) in the `app_settings` database table, encrypting keys with Fernet (secret: `xpenses-gemini-ocr-pw`).
+  - Restored dynamic client config retrieval and masked API keys in responses.
+  - Built a dedicated settings view at `/admin/ocr` for moderators, containing provider selectors, toggle switches, and a live Google API connection test button.
+  - Created backend tests verifying configuration management, encryption/masking, and mock Google connectivity checks.
+  - Synced delta specs and archived change under `2026-06-11-gemini-ocr`.
+- **Drag-and-Drop Receipt Upload & Self-Learning Category Classifier**:
+  - Added a visual dashed Drag-and-Drop receipt drop zone inside `ExpenseForm.tsx` supporting dragging and click-to-browse.
+  - Extended Gemini OCR prompt and response schemas to match active database categories.
+  - Added a database-backed, pure-Python Multinomial Naive Bayes text classifier (`classifier_service.py`) trained on raw database OCR texts, providing local fallback classification.
+  - Created a database migration script `0002_add_raw_ocr_text.sql` to store the raw scanned text on each expense save.
+  - Autofilled categories, descriptions, amounts, dates, and merchants immediately when receipt analysis completes.
+  - Added unit tests for keyword matching, Naive Bayes classifier training, and predictions.
+  - Synced delta specs and archived change under `2026-06-11-drag-drop-ocr-autofill`.
+
+### Modified/Added Files
+- `backend/xpenses/migrations/0002_add_raw_ocr_text.sql` — New migration adding `raw_ocr_text` to `expenses` table.
+- `backend/xpenses/services/classifier_service.py` — Pure Python Multinomial Naive Bayes text classifier service.
+- `backend/xpenses/services/ocr_service.py` — Updated strategy providers to match categories and descriptions, and load classifier.
+- `backend/xpenses/models.py` — Updated `OCRScanResponse` and `ExpenseOut` / `ExpenseCreate` / `ExpenseUpdate` Pydantic models.
+- `backend/xpenses/routers/expenses.py` — Updated endpoints to persist raw OCR text.
+- `backend/xpenses/routers/app_settings.py` — Added endpoints for `/settings/ocr`.
+- `backend/xpenses/routers/ocr.py` — Updated scan route.
+- `backend/tests/test_ocr.py` — Added Naive Bayes and EasyOCR category mapping tests.
+- `backend/tests/test_ocr_settings.py` — New settings integration test suite.
+- `frontend/app/admin/ocr/page.tsx` — Premium Next.js moderator OCR settings panel.
+- `frontend/components/expenses/ExpenseForm.tsx` — Styled Drag-and-Drop container and autofill hook.
+- `frontend/components/layout/Sidebar.tsx` — Rendered OCR Scanner sidebar link.
+- `frontend/lib/api.ts` — Added OCR settings client methods and interface attributes.
+- `frontend/lib/queryKeys.ts` — Added OCR query key cache invalidation markers.
+- `CLAUDE.md` — Updated pattern docs for OCR settings and Naive Bayes classifier.
+
+### Test Results
+- **174 tests pass** (all green).
+
+---
+
+## Previous Session (2026-06-10, session 23)
 
 ### What Was Done
 - **Deprecated `datetime.utcnow()` Cleanup**:

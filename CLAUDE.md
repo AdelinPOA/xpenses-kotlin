@@ -154,11 +154,15 @@ SEED_DEMO_USERS=true
 
 Test accounts (when `SEED_DEMO_USERS=true`): `tech1/tech1`, `manager1/manager1`, `cfo1/cfo1`, `mod1/mod1`.
 
-## GitHub
+## GitHub & Branching Strategy
 
 - **Repo:** `AdelinPOA/xpenses`
-- **Branch:** `main`
-- Always commit and push after completing work
+- **Branch Policy:** Always implement new features or fixes on dedicated branches (e.g., `feat/feature-name` or `fix/bug-fix-name`). Do not develop directly on `main`.
+- **Workflow:**
+  1. Create a feature branch from the latest `main`.
+  2. Implement changes (using the OpenSpec workflow if applicable).
+  3. Ensure all tests (`make test`) and lint checks (`make lint`) pass on the branch.
+  4. Commit and push the branch to remote, and merge it back to `main` (or let the user merge) once verified.
 
 ## CI/CD
 

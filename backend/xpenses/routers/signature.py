@@ -1,5 +1,6 @@
 import base64
 import os
+import aiofiles
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse, Response
@@ -53,8 +54,8 @@ async def put_signature(
     os.makedirs(settings.signatures_dir, exist_ok=True)
     file_path = os.path.join(settings.signatures_dir, f"{user['id']}.png")
 
-    with open(file_path, "wb") as f:
-        f.write(data)
+    async with aiofiles.open(file_path, "wb") as f:
+        await f.write(data)
 
     await db.execute(
         "UPDATE users SET signature_path = $1 WHERE id = $2", file_path, user["id"]

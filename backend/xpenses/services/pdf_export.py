@@ -1,3 +1,4 @@
+import asyncio
 import os
 from collections import defaultdict
 from datetime import datetime, timezone
@@ -594,9 +595,11 @@ async def generate_report_pdf(
     mileage: list[dict] | None = None,
     signer: dict | None = None,
 ) -> bytes:
-    main_buf, pdf_receipts = _build_main_pdf(report, expenses, advances, mileage, signer)
+    main_buf, pdf_receipts = await asyncio.to_thread(
+        _build_main_pdf, report, expenses, advances, mileage, signer
+    )
 
     if pdf_receipts:
-        return _merge_pdf_receipts(main_buf, pdf_receipts)
+        return await asyncio.to_thread(_merge_pdf_receipts, main_buf, pdf_receipts)
 
     return main_buf.read()

@@ -244,6 +244,7 @@ async def test_reject_detaches_expenses(client, pool):
         data = reject_resp.json()
         assert data["status"] == "rejected"
         assert data["expenses"] == []
+        assert data["total_amount"] == 0.0
 
     async with pool.acquire() as conn:
         row = await conn.fetchrow(

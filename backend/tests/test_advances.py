@@ -51,6 +51,22 @@ async def test_update_advance(client):
 
 
 @pytest.mark.asyncio
+async def test_update_advance_not_owner(client):
+    await login(client, "tech1")
+    report = await create_report(client)
+    adv = await create_advance(client, report["id"], amount=100.0)
+
+    other = new_client()
+    async with other:
+        await login(other, "manager1")
+        resp = await other.patch(
+            f"/api/reports/{report['id']}/advances/{adv['id']}",
+            json={"amount": 300.0, "description": "Attempted update"},
+        )
+        assert resp.status_code == 403
+
+
+@pytest.mark.asyncio
 async def test_delete_advance(client):
     await login(client, "tech1")
     report = await create_report(client)

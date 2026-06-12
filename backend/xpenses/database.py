@@ -99,6 +99,13 @@ CREATE TABLE IF NOT EXISTS advance_payments (
     fx_rate DOUBLE PRECISION NOT NULL DEFAULT 1.0,
     date TEXT NOT NULL,
     description TEXT,
+    status TEXT NOT NULL DEFAULT 'paid',
+    requested_amount DOUBLE PRECISION,
+    requested_currency TEXT,
+    paid_by INTEGER REFERENCES users(id),
+    paid_at TIMESTAMPTZ,
+    rejected_by INTEGER REFERENCES users(id),
+    rejected_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );

@@ -8,7 +8,8 @@ import jwt
 from fastapi import Cookie, Depends, HTTPException, status
 
 from .config import settings
-from .database import get_pool
+import asyncpg
+from .database import get_db, get_pool
 
 
 def hash_password(password: str) -> str:
@@ -47,14 +48,15 @@ def hash_refresh_token(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
 
-async def get_current_user(access_token: Annotated[str | None, Cookie()] = None) -> dict:
+async def get_current_user(
+    access_token: Annotated[str | None, Cookie()] = None,
+    db: asyncpg.Connection = Depends(get_db)
+) -> dict:
     if not access_token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
     payload = decode_access_token(access_token)
     user_id = int(payload["sub"])
-    pool = get_pool()
-    async with pool.acquire() as conn:
-        row = await conn.fetchrow("SELECT id, username, display_name, email, role, is_active FROM users WHERE id = $1", user_id)
+    row = await db.fetchrow("SELECT id, username, display_name, email, role, is_active FROM users WHERE id = $1", user_id)
     if not row:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
     user = dict(row)

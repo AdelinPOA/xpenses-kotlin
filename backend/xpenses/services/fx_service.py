@@ -63,8 +63,8 @@ async def get_rate(from_currency: str, date: str) -> float:
             except httpx.HTTPError as e:
                 raise ValueError(f"Failed to fetch exchange rate from fallback: {e}")
 
-    if rate is None:
-        raise ValueError(f"Currency {from_currency} not supported by any exchange rate provider")
+    if rate is None or rate == 0.0:
+        raise ValueError(f"Invalid rate returned for {from_currency}: {rate}")
 
     async with pool.acquire() as conn:
         await conn.execute(

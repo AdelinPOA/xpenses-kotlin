@@ -46,6 +46,8 @@ async def create_mileage(
     db: asyncpg.Connection = Depends(get_db),
 ):
     report = await _verify_report_ownership(db, report_id, current_user)
+    if report["user_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Only the report owner can modify mileage records")
     if report["status"] != "draft":
         raise HTTPException(status_code=400, detail="Only draft reports can be modified")
 
@@ -77,6 +79,8 @@ async def update_mileage(
     db: asyncpg.Connection = Depends(get_db),
 ):
     report = await _verify_report_ownership(db, report_id, current_user)
+    if report["user_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Only the report owner can modify mileage records")
     if report["status"] != "draft":
         raise HTTPException(status_code=400, detail="Only draft reports can be modified")
 
@@ -126,6 +130,8 @@ async def delete_mileage(
     db: asyncpg.Connection = Depends(get_db),
 ):
     report = await _verify_report_ownership(db, report_id, current_user)
+    if report["user_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Only the report owner can modify mileage records")
     if report["status"] != "draft":
         raise HTTPException(status_code=400, detail="Only draft reports can be modified")
 

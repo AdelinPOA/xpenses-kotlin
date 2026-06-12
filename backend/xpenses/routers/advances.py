@@ -130,6 +130,8 @@ async def update_advance(
     db: asyncpg.Connection = Depends(get_db),
 ):
     report = await _verify_report_ownership(db, report_id, current_user)
+    if report["user_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Only the report owner can modify advance payments")
     if report["status"] != "draft":
         raise HTTPException(status_code=400, detail="Only draft reports can be modified")
 

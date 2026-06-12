@@ -291,3 +291,62 @@ async def test_duplicate_expense_not_found(client):
     resp = await client.post("/api/expenses/999999/duplicate")
     assert resp.status_code == 404
 
+
+@pytest.mark.asyncio
+async def test_fx_service_zero_rate_value_error():
+    from unittest.mock import patch
+    import pytest
+    from xpenses.services.fx_service import get_rate
+
+    with patch("xpenses.services.fx_service._fetch_frankfurter", return_value=0.0):
+        with patch("xpenses.services.fx_service._fetch_fallback", return_value=0.0):
+            with pytest.raises(ValueError) as excinfo:
+                await get_rate("USD", "2026-01-10")
+            assert "Invalid rate returned" in str(excinfo.value)
+
+
+@pytest.mark.asyncio
+async def test_save_receipt_path_traversal():
+    from fastapi import UploadFile
+    from io import BytesIO
+    import pytest
+    from unittest.mock import patch
+    from xpenses.services.storage import save_receipt
+
+    # Upload file with allowed extension
+    f = UploadFile(filename="test.png", file=BytesIO(b"dummy receipt data"))
+
+    # Mock os.path.basename to return a traversing name to test the resolver guard
+    with patch("os.path.basename", return_value="../../../../../etc/passwd.png"):
+        with pytest.raises(ValueError) as excinfo:
+            await save_receipt(999, f)
+        assert "Invalid target filepath" in str(excinfo.value)
+
+
+@pytest.mark.asyncio
+async def test_list_expenses_all_roles(client):
+    # tech1 creates an expense
+    await login(client, "tech1")
+    await create_expense(client, amount=10.0, description="tech1 expense")
+
+    # manager1 creates an expense
+    async with new_client() as manager_client:
+        await login(manager_client, "manager1")
+        await create_expense(manager_client, amount=20.0, description="manager1 expense")
+
+        # manager1 requests GET /api/expenses?all=true and should see both expenses
+        resp = await manager_client.get("/api/expenses?all=true")
+        assert resp.status_code == 200
+        expenses = resp.json()
+        descriptions = [e["description"] for e in expenses]
+        assert "tech1 expense" in descriptions
+        assert "manager1 expense" in descriptions
+
+    # tech1 requests GET /api/expenses?all=true and should only see their own expense
+    resp = await client.get("/api/expenses?all=true")
+    assert resp.status_code == 200
+    expenses = resp.json()
+    descriptions = [e["description"] for e in expenses]
+    assert "tech1 expense" in descriptions
+    assert "manager1 expense" not in descriptions
+

@@ -136,7 +136,7 @@ async def test_create_mileage_not_owner(client):
                 "end_time": "2026-01-10T09:00:00Z",
             },
         )
-        assert resp.status_code == 201 or resp.status_code == 400
+        assert resp.status_code == 403
 
 
 @pytest.mark.asyncio

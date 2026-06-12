@@ -20,7 +20,6 @@ async def save_receipt(expense_id: int, file: UploadFile) -> str:
     now = datetime.now()
     subdir = f"{now.year}/{now.month:02d}"
     full_dir = os.path.join(settings.receipts_dir, subdir)
-    os.makedirs(full_dir, exist_ok=True)
 
     safe_name = f"{expense_id}_{raw_filename}".replace(" ", "_")
     full_path = os.path.join(full_dir, safe_name)
@@ -30,6 +29,8 @@ async def save_receipt(expense_id: int, file: UploadFile) -> str:
     base_abs = Path(settings.receipts_dir).resolve()
     if not target_abs.is_relative_to(base_abs):
         raise ValueError("Invalid target filepath")
+
+    os.makedirs(full_dir, exist_ok=True)
 
     relative_path = f"{subdir}/{safe_name}"
 

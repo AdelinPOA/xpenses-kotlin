@@ -1,11 +1,41 @@
 # HANDOFF.md — xpenses_copy
 
-> Last updated: 2026-06-11 (session 25)
+> Last updated: 2026-06-12 (session 26)
 > Author: Antigravity AI
 
 ---
 
-## Latest Session (2026-06-11, session 25)
+## Latest Session (2026-06-12, session 26)
+
+### What Was Done
+- **Bug Audit Resolutions**:
+  - **Double Pool Connection**: Fixed `get_current_user` to depend on and reuse the request-level database connection, preventing database pool exhaustion.
+  - **Ownership checks on Mileage and Advances**: Added report ownership validations on all mileage modification routes and update advance payment routes to ensure only the report owner can perform these mutations.
+  - **Stale total_amount on Rejection**: Reset `total_amount` to `0.0` when a report is rejected (since all expenses are detached from it) inside an atomic database transaction block.
+  - **Zero FX Rate Validation**: Raised a `ValueError` if the external exchange rate provider returns `0.0` to avoid silently storing zero-EUR converted amounts.
+  - **Path Traversal Directory creation**: Moved `os.makedirs` to execute only after resolving and validating target file paths.
+  - **Manager Scoped Expenses**: Added `"manager"` to allowed roles in `list_expenses?all=true` for consistency.
+  - **DDL Baseline Columns**: Added missing columns to `advance_payments` table fallback definition block to match migrations and actual DB schema.
+- **Verification & Testing**:
+  - Added unit tests for path traversal, zero FX rate validation, and manager expense permissions, and integration test for advance update permissions.
+  - Ran the full test suite with all **178 tests passing** successfully.
+
+### Modified/Added Files
+- `backend/xpenses/auth.py` — Reused connection for user retrieval.
+- `backend/xpenses/database.py` — Updated table DDL fallback block.
+- `backend/xpenses/routers/mileage.py`, `backend/xpenses/routers/advances.py` — Added owner write checks.
+- `backend/xpenses/routers/reports.py` — Reset `total_amount` to `0` and wrapped updates in transaction.
+- `backend/xpenses/routers/expenses.py` — Added manager role to `all=true` filter.
+- `backend/xpenses/services/fx_service.py` — Added zero exchange rate exception.
+- `backend/xpenses/services/storage.py` — Moved `os.makedirs` after traversal check.
+- `backend/tests/test_mileage.py`, `backend/tests/test_advances.py`, `backend/tests/test_expenses.py`, `backend/tests/test_reports.py` — Added corresponding tests.
+
+### Test Results
+- **178 tests pass** (all green).
+
+---
+
+## Previous Session (2026-06-11, session 25)
 
 ### What Was Done
 - **Phase 1: Stability & Database Integrity Fixes**:

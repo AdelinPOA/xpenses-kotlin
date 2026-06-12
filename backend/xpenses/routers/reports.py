@@ -547,7 +547,7 @@ async def reject_report(
     async with db.transaction():
         now = datetime.now(timezone.utc)
         await db.execute(
-            "UPDATE expense_reports SET status = 'rejected', approved_by = $1, approved_at = $2, rejected_reason = $3, updated_at = $4 WHERE id = $5",
+            "UPDATE expense_reports SET status = 'rejected', total_amount = 0, approved_by = $1, approved_at = $2, rejected_reason = $3, updated_at = $4 WHERE id = $5",
             current_user["id"], now, body.reason, now, report_id,
         )
         await db.execute(

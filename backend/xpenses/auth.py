@@ -3,13 +3,13 @@ import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Annotated
 
+import asyncpg
 import bcrypt
 import jwt
 from fastapi import Cookie, Depends, HTTPException, status
 
 from .config import settings
-import asyncpg
-from .database import get_db, get_pool
+from .database import get_db
 
 
 def hash_password(password: str) -> str:

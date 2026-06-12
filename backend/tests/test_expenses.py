@@ -230,8 +230,9 @@ async def test_cannot_attach_to_another_users_report(client):
 
 @pytest.mark.asyncio
 async def test_duplicate_expense_success(client, pool):
-    from xpenses.config import settings
     import os
+
+    from xpenses.config import settings
 
     await login(client, "tech1")
     report = await create_report(client)
@@ -295,7 +296,9 @@ async def test_duplicate_expense_not_found(client):
 @pytest.mark.asyncio
 async def test_fx_service_zero_rate_value_error():
     from unittest.mock import patch
+
     import pytest
+
     from xpenses.services.fx_service import get_rate
 
     with patch("xpenses.services.fx_service._fetch_frankfurter", return_value=0.0):
@@ -307,10 +310,12 @@ async def test_fx_service_zero_rate_value_error():
 
 @pytest.mark.asyncio
 async def test_save_receipt_path_traversal():
-    from fastapi import UploadFile
     from io import BytesIO
-    import pytest
     from unittest.mock import patch
+
+    import pytest
+    from fastapi import UploadFile
+
     from xpenses.services.storage import save_receipt
 
     # Upload file with allowed extension

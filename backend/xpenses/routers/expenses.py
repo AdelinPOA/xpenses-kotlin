@@ -248,7 +248,7 @@ async def delete_expense(expense_id: int, current_user: dict = Depends(get_curre
         raise HTTPException(status_code=400, detail="Only draft expenses can be deleted")
     receipt_rows = await db.fetch("SELECT file_path FROM receipts WHERE expense_id = $1", expense_id)
     for r in receipt_rows:
-        delete_receipt(r["file_path"])
+        await delete_receipt(r["file_path"], db)
     await db.execute("DELETE FROM receipts WHERE expense_id = $1", expense_id)
     await db.execute("DELETE FROM expenses WHERE id = $1", expense_id)
 
@@ -265,7 +265,7 @@ async def upload_receipts(expense_id: int, files: list[UploadFile] = File(...), 
     now = datetime.now(timezone.utc)
     for file in files:
         try:
-            relative_path = await save_receipt(expense_id, file)
+            relative_path = await save_receipt(expense_id, file, db)
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
 
@@ -301,7 +301,7 @@ async def delete_single_receipt(expense_id: int, receipt_id: int, current_user: 
     )
     if not row:
         raise HTTPException(status_code=404, detail="Receipt not found")
-    delete_receipt(row["file_path"])
+    await delete_receipt(row["file_path"], db)
     await db.execute("DELETE FROM receipts WHERE id = $1", receipt_id)
     await db.execute(
         "UPDATE expenses SET updated_at = $1 WHERE id = $2",
@@ -323,7 +323,7 @@ async def get_single_receipt(expense_id: int, receipt_id: int, current_user: dic
     )
     if not row:
         raise HTTPException(status_code=404, detail="Receipt not found")
-    full_path = get_full_path(row["file_path"])
+    full_path = await get_full_path(row["file_path"], db)
     mime, _ = mimetypes.guess_type(full_path)
     return FileResponse(full_path, media_type=mime or "application/octet-stream")
 
@@ -342,7 +342,7 @@ async def get_receipt_compat(expense_id: int, current_user: dict = Depends(get_c
             raise HTTPException(status_code=403, detail="Not your expense")
         if not exp["receipt_path"]:
             raise HTTPException(status_code=404, detail="No receipt found")
-        full_path = get_full_path(exp["receipt_path"])
+        full_path = await get_full_path(exp["receipt_path"], db)
         mime, _ = mimetypes.guess_type(full_path)
         return FileResponse(full_path, media_type=mime or "application/octet-stream")
     return await get_single_receipt(expense_id, row["id"], current_user=current_user, db=db)

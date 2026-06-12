@@ -79,6 +79,7 @@ def _build_main_pdf(
     advances: list[dict] | None = None,
     mileage: list[dict] | None = None,
     signer: dict | None = None,
+    cached_paths: dict[str, str] | None = None,
 ) -> tuple[BytesIO, list]:
     buf = BytesIO()
     doc = SimpleDocTemplate(
@@ -510,7 +511,9 @@ def _build_main_pdf(
                     continue
 
                 idx, e, file_path = item
-                full_path = os.path.join(settings.receipts_dir, file_path)
+                full_path = cached_paths.get(file_path) if cached_paths else None
+                if not full_path:
+                    full_path = os.path.join(settings.receipts_dir, file_path)
 
                 if os.path.exists(full_path):
                     try:
@@ -563,7 +566,11 @@ def _fit_image(path: str, max_w: float, max_h: float) -> Image:
     return Image(path, width=orig_w * scale, height=orig_h * scale)
 
 
-def _merge_pdf_receipts(main_buf: BytesIO, pdf_receipts: list[tuple[int, str, str]]) -> bytes:
+def _merge_pdf_receipts(
+    main_buf: BytesIO,
+    pdf_receipts: list[tuple[int, str, str]],
+    cached_paths: dict[str, str] | None = None,
+) -> bytes:
     from pypdf import PdfReader, PdfWriter
 
     writer = PdfWriter()
@@ -572,7 +579,9 @@ def _merge_pdf_receipts(main_buf: BytesIO, pdf_receipts: list[tuple[int, str, st
         writer.add_page(page)
 
     for expense_id, receipt_path, label in pdf_receipts:
-        full_path = os.path.join(settings.receipts_dir, receipt_path)
+        full_path = cached_paths.get(receipt_path) if cached_paths else None
+        if not full_path:
+            full_path = os.path.join(settings.receipts_dir, receipt_path)
         if not os.path.exists(full_path):
             continue
         try:
@@ -594,12 +603,23 @@ async def generate_report_pdf(
     advances: list[dict] | None = None,
     mileage: list[dict] | None = None,
     signer: dict | None = None,
+    db_conn = None,
 ) -> bytes:
+    cached_paths = {}
+    if db_conn:
+        from ..services.storage import get_local_path
+        for exp in expenses:
+            if exp.get("receipt_path"):
+                try:
+                    cached_paths[exp["receipt_path"]] = await get_local_path(exp["receipt_path"], db_conn)
+                except Exception:
+                    pass
+
     main_buf, pdf_receipts = await asyncio.to_thread(
-        _build_main_pdf, report, expenses, advances, mileage, signer
+        _build_main_pdf, report, expenses, advances, mileage, signer, cached_paths
     )
 
     if pdf_receipts:
-        return await asyncio.to_thread(_merge_pdf_receipts, main_buf, pdf_receipts)
+        return await asyncio.to_thread(_merge_pdf_receipts, main_buf, pdf_receipts, cached_paths)
 
     return main_buf.read()

@@ -10,12 +10,12 @@ import re
 import asyncpg
 import httpx
 import numpy as np
-from PIL import Image
 from cryptography.fernet import InvalidToken
+from PIL import Image
 
 from ..config import settings
+from .classifier_service import NaiveBayesClassifier, train_local_classifier
 from .crypto import get_fernet
-from .classifier_service import train_local_classifier, NaiveBayesClassifier
 
 logger = logging.getLogger(__name__)
 

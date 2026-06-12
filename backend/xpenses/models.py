@@ -327,7 +327,51 @@ class OCRConfigUpdate(BaseModel):
 
 class OCRTestRequest(BaseModel):
     gemini_api_key: str | None = None
+# ── Storage Settings ──────────────────────────────────────────────────────────
 
+class LocalConfig(BaseModel):
+    path: str | None = None
+
+
+class SMBConfig(BaseModel):
+    host: str
+    share: str
+    username: str = ""
+    password: str = ""
+    domain: str = ""
+    folder: str = "receipts"
+
+
+class WebDAVConfig(BaseModel):
+    url: str
+    username: str = ""
+    password: str = ""
+    folder: str = "receipts"
+
+
+class SFTPConfig(BaseModel):
+    host: str
+    port: int = 22
+    username: str = ""
+    password: str = ""
+    folder: str = "receipts"
+
+
+class S3Config(BaseModel):
+    endpoint_url: str = ""
+    access_key: str
+    secret_key: str
+    bucket_name: str
+    region_name: str = ""
+
+
+class StorageConfigSchema(BaseModel):
+    provider_type: str  # local, smb, webdav, sftp, s3
+    local: LocalConfig | None = None
+    smb: SMBConfig | None = None
+    webdav: WebDAVConfig | None = None
+    sftp: SFTPConfig | None = None
+    s3: S3Config | None = None
 
 
 # ── Dashboard ─────────────────────────────────────────────────────────────────

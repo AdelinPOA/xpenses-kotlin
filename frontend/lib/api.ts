@@ -325,4 +325,68 @@ export async function testOcrConfig(payload: { gemini_api_key?: string | null })
   return data;
 }
 
+export interface StorageConfig {
+  provider_type: string;
+  local?: {
+    path?: string | null;
+  } | null;
+  smb?: {
+    host: string;
+    share: string;
+    username?: string;
+    password?: string;
+    domain?: string;
+    folder?: string;
+  } | null;
+  webdav?: {
+    url: string;
+    username?: string;
+    password?: string;
+    folder?: string;
+  } | null;
+  sftp?: {
+    host: string;
+    port: number;
+    username?: string;
+    password?: string;
+    folder?: string;
+  } | null;
+  s3?: {
+    endpoint_url?: string;
+    access_key: string;
+    secret_key: string;
+    bucket_name: string;
+    region_name?: string;
+  } | null;
+}
+
+export interface StorageMigrationStatus {
+  status: "idle" | "running" | "completed" | "failed";
+  total_files: number;
+  migrated_files: number;
+  failed_files: number;
+  errors: string[];
+}
+
+export async function getStorageConfig(): Promise<StorageConfig> {
+  const { data } = await api.get("/settings/storage");
+  return data;
+}
+
+export async function updateStorageConfig(config: StorageConfig, migrateExisting: boolean = false): Promise<StorageConfig> {
+  const { data } = await api.patch(`/settings/storage?migrate_existing=${migrateExisting}`, config);
+  return data;
+}
+
+export async function testStorageConfig(config: StorageConfig): Promise<{ success: boolean; message: string }> {
+  const { data } = await api.post("/settings/storage/test", config);
+  return data;
+}
+
+export async function getStorageMigrationStatus(): Promise<StorageMigrationStatus> {
+  const { data } = await api.get("/settings/storage/migration-status");
+  return data;
+}
+
+
 

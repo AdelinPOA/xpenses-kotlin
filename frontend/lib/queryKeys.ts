@@ -55,3 +55,9 @@ export const ocrKeys = {
   config: () => [...ocrKeys.all, "config"] as const,
 };
 
+export const storageKeys = {
+  all: ["storage"] as const,
+  config: () => [...storageKeys.all, "config"] as const,
+  migration: () => [...storageKeys.all, "migration"] as const,
+};
+

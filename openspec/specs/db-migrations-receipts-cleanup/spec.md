@@ -20,12 +20,13 @@ When an expense is deleted, the backend system SHALL automatically locate the as
 - **THEN** the record is deleted from database and the file `receipt_10.png` is permanently removed from filesystem.
 
 ### Requirement: Moderator receipt scanner utility
-The system SHALL provide an API and UI page accessible to users with the `mod` role to scan the receipts directory, identify orphaned files (files on disk not indexed in the `receipts` database table), and allow them to be deleted.
+The system SHALL provide an API and UI page accessible to users with the `mod` role to scan the active storage location (which may be local or remote via SMB, WebDAV, SFTP, or S3), identify orphaned files (files in the active storage not indexed in the `receipts` database table), and allow them to be deleted.
 
 #### Scenario: Scanning for orphans
-- **WHEN** a moderator requests a filesystem scan
-- **THEN** the system compares the database files with physical storage and returns a list of orphan file paths.
+- **WHEN** a moderator requests a storage scan
+- **THEN** the system compares the database files with files present in the active storage provider and returns a list of orphan file paths.
 
 #### Scenario: Cleaning up orphans
 - **WHEN** a moderator requests deletion of orphans
-- **THEN** the system deletes the matching physical files from the host volume and returns the number of cleaned files.
+- **THEN** the system deletes the matching orphan files from the active storage provider and returns the number of cleaned files.
+

@@ -9,15 +9,14 @@ from fastapi.responses import Response
 from pydantic import BaseModel
 
 from ..auth import get_current_user, require_role
-from ..config import settings
 from ..database import get_db
 from ..models import ReportCreate, ReportOut, ReportSubmit, ReportUpdate
 from ..services.email_service import (
-    send_email,
-    get_submission_email,
     get_approval_email,
-    get_rejection_email,
     get_payment_email,
+    get_rejection_email,
+    get_submission_email,
+    send_email,
 )
 from ..services.pdf_export import generate_report_pdf
 
@@ -421,7 +420,7 @@ async def export_report_pdf(report_id: int, current_user: dict = Depends(get_cur
         if signer_row:
             signer = dict(signer_row)
 
-    pdf_bytes = await generate_report_pdf(report, expenses, advances, mileage, signer)
+    pdf_bytes = await generate_report_pdf(report, expenses, advances, mileage, signer, db)
     safe_title = "".join(c if c.isalnum() or c in "-_ " else "_" for c in report["title"])
     filename = f"report_{report_id}_{safe_title[:40].strip()}.pdf"
 
@@ -458,7 +457,8 @@ async def download_receipts_zip(report_id: int, current_user: dict = Depends(get
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         seen: dict[str, int] = {}
         for r in receipt_rows:
-            full_path = os.path.join(settings.receipts_dir, r["file_path"])
+            from ..services.storage import get_local_path
+            full_path = await get_local_path(r["file_path"], db)
             if not os.path.exists(full_path):
                 continue
 

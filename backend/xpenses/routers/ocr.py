@@ -1,10 +1,9 @@
 import os
-import asyncpg
 
+import asyncpg
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
 from ..auth import get_current_user
-from ..config import settings
 from ..database import get_db
 from ..models import OCRScanResponse
 from ..services import ocr_service

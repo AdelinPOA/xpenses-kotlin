@@ -1,24 +1,32 @@
-from datetime import datetime, timezone
 import json
+from datetime import datetime, timezone
 
 import asyncpg
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends
 
 from ..auth import get_current_user, require_role
 from ..config import settings
-from ..database import get_db
+from ..database import get_db, get_pool
 from ..models import (
     MileageRatesOut,
     MileageRatesUpdate,
     OCRConfigOut,
     OCRConfigUpdate,
     OCRTestRequest,
+    StorageConfigSchema,
 )
 from ..services.ocr_service import (
     OCRConfig,
     get_ocr_config,
     save_ocr_config,
     test_gemini_connection,
+)
+from ..services.storage.manager import (
+    get_migration_status,
+    get_storage_config,
+    instantiate_provider,
+    run_migration_task,
+    save_storage_config,
 )
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
@@ -83,7 +91,7 @@ async def clean_orphans(
     orphans = await scan_orphan_receipts(db)
     cleaned_count = 0
     for file_path in orphans:
-        delete_receipt(file_path)
+        await delete_receipt(file_path, db)
         cleaned_count += 1
     return {"cleaned_count": cleaned_count}
 
@@ -149,4 +157,85 @@ async def test_ocr_settings(
 
     result = await test_gemini_connection(key)
     return result
+
+
+@router.get("/storage")
+async def read_storage_settings(
+    current_user: dict = require_role("mod"),
+    db: asyncpg.Connection = Depends(get_db),
+):
+    cfg = await get_storage_config(db)
+    # Mask credentials
+    masked = json.loads(json.dumps(cfg))
+    for ptype in ["smb", "webdav", "sftp"]:
+        if ptype in masked and "password" in masked[ptype] and masked[ptype]["password"]:
+            masked[ptype]["password"] = "••••••••"
+    if "s3" in masked and "secret_key" in masked["s3"] and masked["s3"]["secret_key"]:
+        masked["s3"]["secret_key"] = "••••••••"
+    return masked
+
+
+@router.patch("/storage")
+async def update_storage_settings(
+    body: StorageConfigSchema,
+    background_tasks: BackgroundTasks,
+    current_user: dict = require_role("mod"),
+    db: asyncpg.Connection = Depends(get_db),
+    migrate_existing: bool = False,
+):
+    old_config = await get_storage_config(db)
+    new_config = body.model_dump(exclude_unset=True)
+    
+    # Save the new config
+    await save_storage_config(new_config, db)
+    
+    if migrate_existing:
+        # Resolve any masked passwords/keys to the actual decrypted values
+        # so that migration has full credentials
+        full_new_config = await get_storage_config(db)
+        pool = get_pool()
+        background_tasks.add_task(run_migration_task, old_config, full_new_config, pool)
+        
+    updated = await get_storage_config(db)
+    # Mask passwords
+    masked = json.loads(json.dumps(updated))
+    for ptype in ["smb", "webdav", "sftp"]:
+        if ptype in masked and "password" in masked[ptype] and masked[ptype]["password"]:
+            masked[ptype]["password"] = "••••••••"
+    if "s3" in masked and "secret_key" in masked["s3"] and masked["s3"]["secret_key"]:
+        masked["s3"]["secret_key"] = "••••••••"
+    return masked
+
+
+@router.post("/storage/test")
+async def test_storage_settings(
+    body: StorageConfigSchema,
+    current_user: dict = require_role("mod"),
+    db: asyncpg.Connection = Depends(get_db),
+):
+    config = body.model_dump(exclude_unset=True)
+    
+    # If password is masked, load the existing decrypted password
+    existing = await get_storage_config(db)
+    ptype = config.get("provider_type")
+    
+    if ptype in ["smb", "webdav", "sftp"] and ptype in config:
+        if config[ptype].get("password") == "••••••••" or not config[ptype].get("password"):
+            config[ptype]["password"] = existing.get(ptype, {}).get("password", "")
+    elif ptype == "s3" and "s3" in config:
+        if config["s3"].get("secret_key") == "••••••••" or not config["s3"].get("secret_key"):
+            config["s3"]["secret_key"] = existing.get("s3", {}).get("secret_key", "")
+            
+    provider = instantiate_provider(config)
+    success, msg = await provider.test_connection()
+    return {"success": success, "message": msg}
+
+
+@router.get("/storage/migration-status")
+async def get_storage_migration_status(
+    current_user: dict = require_role("mod"),
+    db: asyncpg.Connection = Depends(get_db),
+):
+    status = await get_migration_status(db)
+    return status
 

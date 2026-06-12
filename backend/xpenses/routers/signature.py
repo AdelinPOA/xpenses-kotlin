@@ -1,7 +1,7 @@
 import base64
 import os
-import aiofiles
 
+import aiofiles
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel

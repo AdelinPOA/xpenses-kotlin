@@ -1,7 +1,8 @@
+import logging
 import math
 import re
-import logging
 from collections import defaultdict
+
 import asyncpg
 
 logger = logging.getLogger(__name__)

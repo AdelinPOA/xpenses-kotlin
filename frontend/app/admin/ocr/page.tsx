@@ -284,7 +284,7 @@ export default function OcrAdminPage() {
           </form>
 
           {/* OCR Engine Accuracy Comparison Section */}
-          {compData && compData.history.length > 0 && (
+          {compData && (
             <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-sm space-y-6">
               <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
                 <Sparkles className="w-5 h-5 text-indigo-500" />
@@ -293,132 +293,178 @@ export default function OcrAdminPage() {
                 </h2>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* EasyOCR Card */}
-                <div className="border border-slate-200 dark:border-slate-800 rounded-lg p-4 bg-slate-50 dark:bg-slate-950/40">
-                  <h3 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3 flex items-center justify-between">
-                    <span>EasyOCR (Local + Classifiers)</span>
-                    <span className="text-blue-600 dark:text-blue-400 font-bold">Accuracy</span>
-                  </h3>
-                  <div className="space-y-2.5">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-slate-600 dark:text-slate-400">Amount extraction:</span>
-                      <span className="font-semibold text-slate-800 dark:text-slate-200">{compData.stats.easyocr_amount_accuracy}%</span>
+              {compData.history.length === 0 ? (
+                <div className="bg-slate-50 dark:bg-slate-950/20 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl p-8 text-center space-y-2">
+                  <div className="mx-auto w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800/50 flex items-center justify-center text-slate-500 dark:text-slate-400">
+                    <Cpu className="w-5 h-5" />
+                  </div>
+                  <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300">No comparison data available</h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
+                    No OCR scans recorded yet. Create an expense and upload a receipt to begin tracking accuracy.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* EasyOCR Card */}
+                    <div className="border border-slate-200 dark:border-slate-800 rounded-lg p-4 bg-slate-50 dark:bg-slate-950/40">
+                      <h3 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3 flex items-center justify-between">
+                        <span>EasyOCR (Local + Classifiers)</span>
+                        <span className="text-blue-600 dark:text-blue-400 font-bold">Accuracy</span>
+                      </h3>
+                      <div className="space-y-2.5">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-slate-600 dark:text-slate-400">Amount extraction:</span>
+                          <span className="font-semibold text-slate-800 dark:text-slate-200">{compData.stats.easyocr_amount_accuracy}%</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-slate-600 dark:text-slate-400">Date extraction:</span>
+                          <span className="font-semibold text-slate-800 dark:text-slate-200">{compData.stats.easyocr_date_accuracy}%</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-slate-600 dark:text-slate-400">Merchant name:</span>
+                          <span className="font-semibold text-slate-800 dark:text-slate-200">{compData.stats.easyocr_merchant_accuracy}%</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-slate-600 dark:text-slate-400">Category classification:</span>
+                          <span className="font-semibold text-slate-800 dark:text-slate-200">{compData.stats.easyocr_category_accuracy}%</span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-slate-600 dark:text-slate-400">Date extraction:</span>
-                      <span className="font-semibold text-slate-800 dark:text-slate-200">{compData.stats.easyocr_date_accuracy}%</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-slate-600 dark:text-slate-400">Merchant name:</span>
-                      <span className="font-semibold text-slate-800 dark:text-slate-200">{compData.stats.easyocr_merchant_accuracy}%</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-slate-600 dark:text-slate-400">Category classification:</span>
-                      <span className="font-semibold text-slate-800 dark:text-slate-200">{compData.stats.easyocr_category_accuracy}%</span>
+
+                    {/* Gemini Card */}
+                    <div className="border border-slate-200 dark:border-slate-800 rounded-lg p-4 bg-slate-50 dark:bg-slate-950/40">
+                      <h3 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3 flex items-center justify-between">
+                        <span>Google Gemini 2.5 Flash</span>
+                        <span className="text-indigo-600 dark:text-indigo-400 font-bold">Accuracy</span>
+                      </h3>
+                      <div className="space-y-2.5">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-slate-600 dark:text-slate-400">Amount extraction:</span>
+                          <span className="font-semibold text-slate-800 dark:text-slate-200">{compData.stats.gemini_amount_accuracy}%</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-slate-600 dark:text-slate-400">Date extraction:</span>
+                          <span className="font-semibold text-slate-800 dark:text-slate-200">{compData.stats.gemini_date_accuracy}%</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-slate-600 dark:text-slate-400">Merchant name:</span>
+                          <span className="font-semibold text-slate-800 dark:text-slate-200">{compData.stats.gemini_merchant_accuracy}%</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-slate-600 dark:text-slate-400">Category classification:</span>
+                          <span className="font-semibold text-slate-800 dark:text-slate-200">{compData.stats.gemini_category_accuracy}%</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Gemini Card */}
-                <div className="border border-slate-200 dark:border-slate-800 rounded-lg p-4 bg-slate-50 dark:bg-slate-950/40">
-                  <h3 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3 flex items-center justify-between">
-                    <span>Google Gemini 2.5 Flash</span>
-                    <span className="text-indigo-600 dark:text-indigo-400 font-bold">Accuracy</span>
-                  </h3>
-                  <div className="space-y-2.5">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-slate-600 dark:text-slate-400">Amount extraction:</span>
-                      <span className="font-semibold text-slate-800 dark:text-slate-200">{compData.stats.gemini_amount_accuracy}%</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-slate-600 dark:text-slate-400">Date extraction:</span>
-                      <span className="font-semibold text-slate-800 dark:text-slate-200">{compData.stats.gemini_date_accuracy}%</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-slate-600 dark:text-slate-400">Merchant name:</span>
-                      <span className="font-semibold text-slate-800 dark:text-slate-200">{compData.stats.gemini_merchant_accuracy}%</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-slate-600 dark:text-slate-400">Category classification:</span>
-                      <span className="font-semibold text-slate-800 dark:text-slate-200">{compData.stats.gemini_category_accuracy}%</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* History list */}
-              <div className="space-y-3">
-                <h3 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                  Scan History & Comparisons (Last {compData.history.length})
-                </h3>
-                <div className="overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-lg">
-                  <table className="w-full text-left border-collapse text-xs">
-                    <thead>
-                      <tr className="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-semibold">
-                        <th className="p-3 border-r border-slate-200 dark:border-slate-800">Receipt / Date</th>
-                        <th className="p-3">Field</th>
-                        <th className="p-3">EasyOCR (Local)</th>
-                        <th className="p-3 font-semibold text-indigo-600 dark:text-indigo-400">Gemini (Cloud)</th>
-                        <th className="p-3 bg-blue-50/50 dark:bg-blue-950/20 font-bold text-blue-800 dark:text-blue-300">Final (Ground Truth)</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                      {compData.history.map((row) => {
-                        const formatCat = (id: number | null) => {
-                          if (!id) return "None";
-                          const cat = categories?.find((c: any) => c.id === id);
-                          return cat ? cat.name : `ID: ${id}`;
-                        };
-
-                        const fields = [
-                          { name: "Amount", easy: row.easyocr_amount !== null ? `${row.easyocr_amount}` : null, gem: row.gemini_amount !== null ? `${row.gemini_amount}` : null, final: row.final_amount !== null ? `${row.final_amount}` : null },
-                          { name: "Merchant", easy: row.easyocr_merchant || "None", gem: row.gemini_merchant || "None", final: row.final_merchant || "None" },
-                          { name: "Date", easy: row.easyocr_date || "None", gem: row.gemini_date || "None", final: row.final_date || "None" },
-                          { name: "Category", easy: formatCat(row.easyocr_category_id), gem: formatCat(row.gemini_category_id), final: formatCat(row.final_category_id) },
-                        ];
-
-                        return fields.map((f, index) => (
-                          <tr key={`${row.id}-${f.name}`} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20">
-                            {index === 0 && (
-                              <td rowSpan={4} className="p-3 font-medium text-slate-700 dark:text-slate-300 align-top border-r border-slate-200 dark:border-slate-800">
-                                <div className="font-semibold truncate max-w-[150px]" title={row.receipt_filename ?? ""}>
-                                  {row.receipt_filename ?? "receipt.jpg"}
-                                </div>
-                                <div className="text-[10px] text-slate-400 mt-1">
-                                  {new Date(row.created_at).toLocaleDateString()}
-                                </div>
-                              </td>
-                            )}
-                            <td className="p-3 font-medium text-slate-500 dark:text-slate-400">{f.name}</td>
-                            <td className="p-3">
-                              {f.easy !== null ? (
-                                <span className={`px-2 py-0.5 rounded border text-[11px] font-medium ${getStatusColor(f.easy, f.final)}`}>
-                                  {f.easy}
-                                </span>
-                              ) : (
-                                <span className="text-slate-400">—</span>
-                              )}
-                            </td>
-                            <td className="p-3">
-                              {f.gem !== null ? (
-                                <span className={`px-2 py-0.5 rounded border text-[11px] font-medium ${getStatusColor(f.gem, f.final)}`}>
-                                  {f.gem}
-                                </span>
-                              ) : (
-                                <span className="text-slate-400">—</span>
-                              )}
-                            </td>
-                            <td className="p-3 bg-blue-50/10 dark:bg-blue-950/5 font-semibold text-slate-800 dark:text-slate-200 border-l border-slate-200 dark:border-slate-800">
-                              {f.final ?? <span className="text-slate-400">—</span>}
-                            </td>
+                  {/* History list */}
+                  <div className="space-y-3">
+                    <h3 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                      Scan History & Comparisons (Last {compData.history.length})
+                    </h3>
+                    <div className="overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-lg">
+                      <table className="w-full text-left border-collapse text-xs">
+                        <thead>
+                          <tr className="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-semibold">
+                            <th className="p-3 border-r border-slate-200 dark:border-slate-800">Receipt / Date</th>
+                            <th className="p-3">Field</th>
+                            <th className="p-3">EasyOCR (Local)</th>
+                            <th className="p-3 font-semibold text-indigo-600 dark:text-indigo-400">Gemini (Cloud)</th>
+                            <th className="p-3 bg-blue-50/50 dark:bg-blue-950/20 font-bold text-blue-800 dark:text-blue-300">Final (Ground Truth)</th>
                           </tr>
-                        ));
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                          {compData.history.map((row) => {
+                            const formatCat = (id: number | null) => {
+                              if (!id) return null;
+                              const cat = categories?.find((c: any) => c.id === id);
+                              return cat ? cat.name : `ID: ${id}`;
+                            };
+
+                            // null final_* means this scan hasn't been linked to a saved expense yet
+                            const isLinked = row.final_amount !== null || row.final_date !== null || row.final_merchant !== null;
+
+                            const fields = [
+                              {
+                                name: "Amount",
+                                easy: row.easyocr_amount !== null ? `${row.easyocr_amount}` : null,
+                                gem: row.gemini_amount !== null ? `${row.gemini_amount}` : null,
+                                final: isLinked ? (row.final_amount !== null ? `${row.final_amount}` : "—") : null,
+                              },
+                              {
+                                name: "Merchant",
+                                easy: row.easyocr_merchant || null,
+                                gem: row.gemini_merchant || null,
+                                final: isLinked ? (row.final_merchant || "—") : null,
+                              },
+                              {
+                                name: "Date",
+                                easy: row.easyocr_date || null,
+                                gem: row.gemini_date || null,
+                                final: isLinked ? (row.final_date || "—") : null,
+                              },
+                              {
+                                name: "Category",
+                                easy: formatCat(row.easyocr_category_id),
+                                gem: formatCat(row.gemini_category_id),
+                                final: isLinked ? (formatCat(row.final_category_id) ?? "—") : null,
+                              },
+                            ];
+
+                            return fields.map((f, index) => (
+                              <tr key={`${row.id}-${f.name}`} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20">
+                                {index === 0 && (
+                                  <td rowSpan={4} className="p-3 font-medium text-slate-700 dark:text-slate-300 align-top border-r border-slate-200 dark:border-slate-800">
+                                    <div className="font-semibold truncate max-w-[150px]" title={row.receipt_filename ?? ""}>
+                                      {row.receipt_filename ?? "receipt.jpg"}
+                                    </div>
+                                    <div className="text-[10px] text-slate-400 mt-1">
+                                      {new Date(row.created_at).toLocaleDateString()}
+                                    </div>
+                                    {!isLinked && (
+                                      <span className="mt-1 inline-block text-[9px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800 font-semibold">
+                                        Not saved yet
+                                      </span>
+                                    )}
+                                  </td>
+                                )}
+                                <td className="p-3 font-medium text-slate-500 dark:text-slate-400">{f.name}</td>
+                                <td className="p-3">
+                                  {f.easy !== null ? (
+                                    <span className={`px-2 py-0.5 rounded border text-[11px] font-medium ${isLinked ? getStatusColor(f.easy, f.final) : "text-slate-600 bg-slate-100/50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-800"}`}>
+                                      {f.easy}
+                                    </span>
+                                  ) : (
+                                    <span className="text-slate-400">—</span>
+                                  )}
+                                </td>
+                                <td className="p-3">
+                                  {f.gem !== null ? (
+                                    <span className={`px-2 py-0.5 rounded border text-[11px] font-medium ${isLinked ? getStatusColor(f.gem, f.final) : "text-slate-600 bg-slate-100/50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-800"}`}>
+                                      {f.gem}
+                                    </span>
+                                  ) : (
+                                    <span className="text-slate-400">—</span>
+                                  )}
+                                </td>
+                                <td className="p-3 bg-blue-50/10 dark:bg-blue-950/5 font-semibold text-slate-800 dark:text-slate-200 border-l border-slate-200 dark:border-slate-800">
+                                  {f.final !== null ? (
+                                    f.final
+                                  ) : (
+                                    <span className="text-[10px] text-amber-600 dark:text-amber-400 italic">Pending save…</span>
+                                  )}
+                                </td>
+                              </tr>
+                            ));
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </>
+              )}
             </section>
           )}
         </div>

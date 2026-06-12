@@ -413,6 +413,10 @@ class OCRComparisonStats(BaseModel):
     gemini_date_accuracy: float
     gemini_merchant_accuracy: float
     gemini_category_accuracy: float
+    mineru_amount_accuracy: float
+    mineru_date_accuracy: float
+    mineru_merchant_accuracy: float
+    mineru_category_accuracy: float
 
 
 class OCRComparisonRow(BaseModel):

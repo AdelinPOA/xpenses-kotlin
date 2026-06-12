@@ -92,12 +92,19 @@ async def get_ocr_comparisons(
     gemini_merchant_ok = 0
     gemini_cat_ok = 0
 
+    mineru_amt_ok = 0
+    mineru_date_ok = 0
+    mineru_merchant_ok = 0
+    mineru_cat_ok = 0
+
     # Only count rows that have been linked to a saved expense (ground truth available)
     easyocr_count = 0
     gemini_count = 0
+    mineru_count = 0
 
     for r in history:
         has_final = r["final_amount"] is not None or r["final_date"] is not None or r["final_merchant"] is not None
+        provider = r.get("provider") or "gemini"
 
         # EasyOCR accuracy — only where ground truth exists
         has_easy = (
@@ -121,27 +128,42 @@ async def get_ocr_comparisons(
             if r["easyocr_category_id"] == r["final_category_id"]:
                 easyocr_cat_ok += 1
 
-        # Gemini accuracy — only where ground truth exists
-        has_gemini = (
+        # Active OCR accuracy — only where ground truth exists
+        has_active = (
             r["gemini_amount"] is not None
             or r["gemini_date"] is not None
             or r["gemini_merchant"] is not None
             or r["gemini_category_id"] is not None
         )
-        if has_gemini and has_final:
-            gemini_count += 1
-            if r["gemini_amount"] is not None and r["final_amount"] is not None:
-                if abs(float(r["gemini_amount"]) - float(r["final_amount"])) < 0.01:
-                    gemini_amt_ok += 1
-            if r["gemini_date"] is not None and r["gemini_date"] == r["final_date"]:
-                gemini_date_ok += 1
-            if r["gemini_merchant"] and r["final_merchant"]:
-                if r["gemini_merchant"].strip().lower() == r["final_merchant"].strip().lower():
+        if has_active and has_final:
+            if provider == "mineru":
+                mineru_count += 1
+                if r["gemini_amount"] is not None and r["final_amount"] is not None:
+                    if abs(float(r["gemini_amount"]) - float(r["final_amount"])) < 0.01:
+                        mineru_amt_ok += 1
+                if r["gemini_date"] is not None and r["gemini_date"] == r["final_date"]:
+                    mineru_date_ok += 1
+                if r["gemini_merchant"] and r["final_merchant"]:
+                    if r["gemini_merchant"].strip().lower() == r["final_merchant"].strip().lower():
+                        mineru_merchant_ok += 1
+                elif not r["gemini_merchant"] and not r["final_merchant"]:
+                    mineru_merchant_ok += 1
+                if r["gemini_category_id"] == r["final_category_id"]:
+                    mineru_cat_ok += 1
+            else:
+                gemini_count += 1
+                if r["gemini_amount"] is not None and r["final_amount"] is not None:
+                    if abs(float(r["gemini_amount"]) - float(r["final_amount"])) < 0.01:
+                        gemini_amt_ok += 1
+                if r["gemini_date"] is not None and r["gemini_date"] == r["final_date"]:
+                    gemini_date_ok += 1
+                if r["gemini_merchant"] and r["final_merchant"]:
+                    if r["gemini_merchant"].strip().lower() == r["final_merchant"].strip().lower():
+                        gemini_merchant_ok += 1
+                elif not r["gemini_merchant"] and not r["final_merchant"]:
                     gemini_merchant_ok += 1
-            elif not r["gemini_merchant"] and not r["final_merchant"]:
-                gemini_merchant_ok += 1
-            if r["gemini_category_id"] == r["final_category_id"]:
-                gemini_cat_ok += 1
+                if r["gemini_category_id"] == r["final_category_id"]:
+                    gemini_cat_ok += 1
 
     stats = {
         "total_scanned": total_scanned,
@@ -153,6 +175,10 @@ async def get_ocr_comparisons(
         "gemini_date_accuracy": round(gemini_date_ok / gemini_count * 100, 2) if gemini_count > 0 else 0.0,
         "gemini_merchant_accuracy": round(gemini_merchant_ok / gemini_count * 100, 2) if gemini_count > 0 else 0.0,
         "gemini_category_accuracy": round(gemini_cat_ok / gemini_count * 100, 2) if gemini_count > 0 else 0.0,
+        "mineru_amount_accuracy": round(mineru_amt_ok / mineru_count * 100, 2) if mineru_count > 0 else 0.0,
+        "mineru_date_accuracy": round(mineru_date_ok / mineru_count * 100, 2) if mineru_count > 0 else 0.0,
+        "mineru_merchant_accuracy": round(mineru_merchant_ok / mineru_count * 100, 2) if mineru_count > 0 else 0.0,
+        "mineru_category_accuracy": round(mineru_cat_ok / mineru_count * 100, 2) if mineru_count > 0 else 0.0,
     }
 
     return {

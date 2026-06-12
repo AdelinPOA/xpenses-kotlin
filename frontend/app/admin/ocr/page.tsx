@@ -380,11 +380,11 @@ export default function OcrAdminPage() {
                 </div>
               ) : (
                 <>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {/* EasyOCR Card */}
                     <div className="border border-slate-200 dark:border-slate-800 rounded-lg p-4 bg-slate-50 dark:bg-slate-950/40">
-                      <h3 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3 flex items-center justify-between">
-                        <span>EasyOCR (Local + Classifiers)</span>
+                       <h3 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3 flex items-center justify-between">
+                        <span>EasyOCR (Local)</span>
                         <span className="text-blue-600 dark:text-blue-400 font-bold">Accuracy</span>
                       </h3>
                       <div className="space-y-2.5">
@@ -407,10 +407,10 @@ export default function OcrAdminPage() {
                       </div>
                     </div>
 
-                    {/* Primary cloud/advanced provider card */}
+                    {/* Google Gemini Card */}
                     <div className="border border-slate-200 dark:border-slate-800 rounded-lg p-4 bg-slate-50 dark:bg-slate-950/40">
                       <h3 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3 flex items-center justify-between">
-                        <span>{data?.provider === "mineru" ? "MinerU 2.5 (Local)" : "Google Gemini 2.5 Flash"}</span>
+                        <span>Google Gemini (Cloud)</span>
                         <span className="text-indigo-600 dark:text-indigo-400 font-bold">Accuracy</span>
                       </h3>
                       <div className="space-y-2.5">
@@ -429,6 +429,32 @@ export default function OcrAdminPage() {
                         <div className="flex justify-between text-sm">
                           <span className="text-slate-600 dark:text-slate-400">Category classification:</span>
                           <span className="font-semibold text-slate-800 dark:text-slate-200">{compData.stats.gemini_category_accuracy}%</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* MinerU Card */}
+                    <div className="border border-slate-200 dark:border-slate-800 rounded-lg p-4 bg-slate-50 dark:bg-slate-950/40">
+                      <h3 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3 flex items-center justify-between">
+                        <span>MinerU 2.5 (Local)</span>
+                        <span className="text-emerald-600 dark:text-emerald-400 font-bold">Accuracy</span>
+                      </h3>
+                      <div className="space-y-2.5">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-slate-600 dark:text-slate-400">Amount extraction:</span>
+                          <span className="font-semibold text-slate-800 dark:text-slate-200">{compData.stats.mineru_amount_accuracy}%</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-slate-600 dark:text-slate-400">Date extraction:</span>
+                          <span className="font-semibold text-slate-800 dark:text-slate-200">{compData.stats.mineru_date_accuracy}%</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-slate-600 dark:text-slate-400">Merchant name:</span>
+                          <span className="font-semibold text-slate-800 dark:text-slate-200">{compData.stats.mineru_merchant_accuracy}%</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-slate-600 dark:text-slate-400">Category classification:</span>
+                          <span className="font-semibold text-slate-800 dark:text-slate-200">{compData.stats.mineru_category_accuracy}%</span>
                         </div>
                       </div>
                     </div>

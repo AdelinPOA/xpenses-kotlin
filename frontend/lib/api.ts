@@ -406,6 +406,10 @@ export interface OCRComparisonStats {
   gemini_date_accuracy: number;
   gemini_merchant_accuracy: number;
   gemini_category_accuracy: number;
+  mineru_amount_accuracy: number;
+  mineru_date_accuracy: number;
+  mineru_merchant_accuracy: number;
+  mineru_category_accuracy: number;
 }
 
 export interface OCRComparisonRow {

@@ -5,7 +5,28 @@
 
 ---
 
-## Latest Session (2026-06-12, session 27)
+## Latest Session (2026-06-12, session 28)
+
+### What Was Done
+- **OCR Accuracy Comparison Dashboard** (`/admin/ocr`):
+  - **Fixed invisible comparison section**: the section was hidden when `history.length === 0`. It now always renders when the API query resolves, showing a dashed empty-state card with a call-to-action message ("Create an expense and upload a receipt to begin tracking accuracy").
+  - **Fixed missing scan rows (critical bug)**: The `/api/ocr/comparison` query used an `INNER JOIN` on `expenses`, meaning scans that had not yet been saved as expenses were silently excluded. Changed to `LEFT JOIN` so all scans appear immediately after upload, even before the user saves the expense form.
+  - **Fixed accuracy calculation bug**: Stats are now computed only for rows that have been linked to a saved expense (ground truth available). Previously, unlinked rows were counted with null final values, producing spurious 0 % scores.
+  - **Fixed null == null date false-positive**: added `is not None` guard before date string comparison.
+  - **Frontend unlinked row UX**: Rows without a linked expense show an amber **"Not saved yet"** badge in the receipt column and **"Pending save…"** in the Final column. Match/mismatch colouring is suppressed for these rows since there is no ground truth to compare against.
+- **Branch**: `feature/ocr-accuracy-dashboard` (commit `e6cb5a6`)
+- **Verification**: `make lint` ✅ · `make test` ✅ (184 passed)
+
+### Modified Files
+- `backend/xpenses/routers/ocr.py` — LEFT JOIN, accuracy guard, null-date guard
+- `frontend/app/admin/ocr/page.tsx` — empty state, unlinked row badges, pending save label
+
+### Test Results
+- **184 tests pass** (all green).
+
+---
+
+## Previous Session (2026-06-12, session 27)
 
 ### What Was Done
 - **Configurable Storage Location**:

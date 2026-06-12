@@ -20,6 +20,7 @@ from ..services.ocr_service import (
     get_ocr_config,
     save_ocr_config,
     test_gemini_connection,
+    test_mineru_connection,
 )
 from ..services.storage.manager import (
     get_migration_status,
@@ -162,6 +163,17 @@ async def test_ocr_settings(
     result = await test_gemini_connection(key)
     return result
 
+
+@router.post("/ocr/test-mineru")
+async def test_mineru_settings(
+    current_user: dict = require_role("mod"),
+    db: asyncpg.Connection = Depends(get_db),
+):
+    """Test connectivity to the configured MinerU API server."""
+    config = await get_ocr_config(db)
+    url = config.mineru_url or "http://mineru:8000"
+    result = await test_mineru_connection(url)
+    return result
 
 @router.get("/storage")
 async def read_storage_settings(

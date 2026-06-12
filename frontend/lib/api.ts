@@ -327,6 +327,11 @@ export async function testOcrConfig(payload: { gemini_api_key?: string | null })
   return data;
 }
 
+export async function testMinerUConfig(): Promise<{ success: boolean; message: string }> {
+  const { data } = await api.post("/settings/ocr/test-mineru");
+  return data;
+}
+
 export interface StorageConfig {
   provider_type: string;
   local?: {

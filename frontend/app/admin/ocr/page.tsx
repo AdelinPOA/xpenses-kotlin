@@ -6,7 +6,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import api, { OcrConfig, getOcrConfig, updateOcrConfig, testOcrConfig, getOcrComparisons } from "@/lib/api";
+import api, { OcrConfig, getOcrConfig, updateOcrConfig, testOcrConfig, testMinerUConfig, getOcrComparisons } from "@/lib/api";
 import { ocrKeys, categoryKeys } from "@/lib/queryKeys";
 import AppShell from "@/components/layout/AppShell";
 import { useAuth } from "@/components/AuthProvider";
@@ -68,9 +68,13 @@ export default function OcrAdminPage() {
   const [pwChanged, setPwChanged] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  // Test states
+  // Gemini test states
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const [testing, setTesting] = useState(false);
+
+  // MinerU test states
+  const [mineruTestResult, setMineruTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [mineruTesting, setMineruTesting] = useState(false);
 
   const { register, handleSubmit, reset, watch, setValue, formState: { errors, isDirty } } = useForm<FormState>({
     resolver: zodResolver(ocrConfigSchema) as any,
@@ -135,12 +139,12 @@ export default function OcrAdminPage() {
     const payload: Partial<OcrConfig> = {
       ocr_enabled: formData.ocr_enabled,
       provider: formData.provider,
+      // Always send the masked placeholder — backend keeps the stored key intact.
+      // This way switching providers never wipes the Gemini key.
+      gemini_api_key: formData.provider === "gemini" && pwChanged
+        ? formData.gemini_api_key
+        : "••••••••",
     };
-    if (formData.provider === "gemini") {
-      payload.gemini_api_key = pwChanged ? formData.gemini_api_key : "••••••••";
-    } else {
-      payload.gemini_api_key = "";
-    }
     if (formData.provider === "mineru") {
       payload.mineru_url = formData.mineru_url || "http://mineru:8000";
     }
@@ -152,20 +156,32 @@ export default function OcrAdminPage() {
     setTestResult(null);
     const enteredKey = watch("gemini_api_key");
     const payloadKey = (enteredKey === "••••••••" || enteredKey === "") ? null : enteredKey;
-    
     try {
       const res = await testOcrConfig({ gemini_api_key: payloadKey });
       setTestResult(res);
-      if (res.success) {
-        toast.success("Gemini API connection verified!");
-      } else {
-        toast.error(`Gemini connection test failed: ${res.message}`);
-      }
-    } catch (err) {
+      if (res.success) toast.success("Gemini API connection verified!");
+      else toast.error(`Gemini connection test failed: ${res.message}`);
+    } catch {
       setTestResult({ success: false, message: "Test request failed" });
       toast.error("Gemini connection test failed: Request error");
     } finally {
       setTesting(false);
+    }
+  }
+
+  async function handleMineruTest() {
+    setMineruTesting(true);
+    setMineruTestResult(null);
+    try {
+      const res = await testMinerUConfig();
+      setMineruTestResult(res);
+      if (res.success) toast.success("MinerU API connection verified!");
+      else toast.error(`MinerU connection test failed: ${res.message}`);
+    } catch {
+      setMineruTestResult({ success: false, message: "Test request failed" });
+      toast.error("MinerU connection test failed: Request error");
+    } finally {
+      setMineruTesting(false);
     }
   }
 
@@ -234,23 +250,48 @@ export default function OcrAdminPage() {
                   <h2 className="text-sm font-semibold uppercase tracking-wider">MinerU 2.5 — Local API</h2>
                 </div>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  MinerU must be running locally as an HTTP server. Start it with:{" "}
+                  MinerU must be running as a Docker service. Start it with:{" "}
                   <code className="bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-[11px] font-mono">
-                    mineru-api --host 0.0.0.0 --port 8000
+                    docker compose --profile mineru up -d mineru
                   </code>
                 </p>
                 <div>
                   <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">MinerU API base URL</label>
-                  <input
-                    type="text"
-                    className="w-full border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 dark:text-slate-100 border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 transition-all duration-200 font-mono"
-                    placeholder="http://mineru:8000"
-                    {...register("mineru_url")}
-                  />
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      className="flex-1 border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 dark:text-slate-100 border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 transition-all duration-200 font-mono"
+                      placeholder="http://mineru:8000"
+                      {...register("mineru_url")}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleMineruTest}
+                      disabled={mineruTesting}
+                      className="px-4 py-2 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-violet-500/20 transition-all duration-200 disabled:opacity-50 whitespace-nowrap"
+                    >
+                      {mineruTesting ? "Testing..." : "Test Connection"}
+                    </button>
+                  </div>
                   <span className="text-[10px] text-slate-400 block mt-1.5">
-                    Use the Docker service name or IP where mineru-api is running. EasyOCR will still run in parallel for accuracy comparison.
+                    Use the Docker service name or IP where mineru-api is running. EasyOCR still runs in parallel for accuracy comparison.
                   </span>
                 </div>
+
+                {mineruTestResult && (
+                  <div className={`p-4 rounded-lg text-sm flex items-start gap-2 animate-fadeIn border ${
+                    mineruTestResult.success
+                      ? "bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-950/20 dark:border-emerald-900/50 dark:text-emerald-300"
+                      : "bg-rose-50 border-rose-200 text-rose-800 dark:bg-rose-950/20 dark:border-rose-900/50 dark:text-rose-300"
+                  }`}>
+                    {mineruTestResult.success ? (
+                      <CheckCircle className="w-5 h-5 flex-shrink-0 text-emerald-600 dark:text-emerald-400" />
+                    ) : (
+                      <AlertCircle className="w-5 h-5 flex-shrink-0 text-rose-600 dark:text-rose-400" />
+                    )}
+                    <div className="flex-1 font-medium">{mineruTestResult.message}</div>
+                  </div>
+                )}
               </section>
             )}
 

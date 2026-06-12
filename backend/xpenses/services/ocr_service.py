@@ -117,6 +117,28 @@ async def test_gemini_connection(api_key: str) -> dict:
         return {"success": False, "message": f"Connection test failed: {e}"}
 
 
+async def test_mineru_connection(base_url: str) -> dict:
+    """Ping the mineru-api server to verify it is reachable and ready."""
+    url = base_url.rstrip("/") + "/docs"
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(url, timeout=10.0)
+            if resp.status_code == 200:
+                return {"success": True, "message": f"MinerU API is reachable at {base_url}"}
+            else:
+                return {
+                    "success": False,
+                    "message": f"MinerU responded with HTTP {resp.status_code}. Is the server running?",
+                }
+    except httpx.ConnectError:
+        return {
+            "success": False,
+            "message": f"Could not connect to {base_url}. Start MinerU with: mineru-api --host 0.0.0.0 --port 8000",
+        }
+    except Exception as e:
+        return {"success": False, "message": f"Connection test failed: {e}"}
+
+
 def _empty_result(warnings: list[str]) -> dict:
     return {
         "amount": None,

@@ -110,6 +110,11 @@ async def create_expense(body: ExpenseCreate, current_user: dict = Depends(get_c
         body.date, body.description, body.merchant, body.raw_ocr_text, current_user["id"], now, now,
     )
     new_id = row["id"]
+    if body.comparison_id:
+        await db.execute(
+            "UPDATE ocr_comparisons SET expense_id = $1 WHERE id = $2",
+            new_id, body.comparison_id
+        )
     expense_row = await db.fetchrow(f"{EXPENSE_SELECT} WHERE e.id = $1", new_id)
     expenses = await _enrich_with_receipts(db, [dict(expense_row)])
     return expenses[0]
@@ -196,6 +201,12 @@ async def update_expense(expense_id: int, body: ExpenseUpdate, current_user: dic
         await db.execute(
             f"UPDATE expenses SET {', '.join(set_parts)} WHERE id = ${where_idx}",
             *values, expense_id,
+        )
+
+    if body.comparison_id:
+        await db.execute(
+            "UPDATE ocr_comparisons SET expense_id = $1 WHERE id = $2",
+            expense_id, body.comparison_id
         )
 
     updated = await db.fetchrow(f"{EXPENSE_SELECT} WHERE e.id = $1", expense_id)

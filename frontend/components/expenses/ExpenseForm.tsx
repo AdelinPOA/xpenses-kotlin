@@ -61,6 +61,7 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
         tax_amount: form.tax_amount ? parseFloat(form.tax_amount) : 0,
         tax_rate: form.tax_rate ? parseFloat(form.tax_rate) : null,
         raw_ocr_text: form.raw_ocr_text || null,
+        comparison_id: scanResult?.comparison_id || null,
         ...(reportId && !isEdit ? { report_id: reportId } : {}),
       };
       let result: Expense;

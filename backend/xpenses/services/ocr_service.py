@@ -377,6 +377,34 @@ class GeminiOCRProvider(BaseOCRProvider):
             }
 
 
+async def save_ocr_comparison(
+    conn: asyncpg.Connection,
+    filename: str,
+    gemini_result: dict | None,
+    easyocr_result: dict | None
+) -> int:
+    row = await conn.fetchrow(
+        """
+        INSERT INTO ocr_comparisons (
+            receipt_filename,
+            gemini_amount, gemini_date, gemini_merchant, gemini_category_id,
+            easyocr_amount, easyocr_date, easyocr_merchant, easyocr_category_id
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        RETURNING id
+        """,
+        filename,
+        gemini_result.get("amount") if gemini_result else None,
+        gemini_result.get("date") if gemini_result else None,
+        gemini_result.get("merchant") if gemini_result else None,
+        gemini_result.get("category_id") if gemini_result else None,
+        easyocr_result.get("amount") if easyocr_result else None,
+        easyocr_result.get("date") if easyocr_result else None,
+        easyocr_result.get("merchant") if easyocr_result else None,
+        easyocr_result.get("category_id") if easyocr_result else None,
+    )
+    return row["id"]
+
+
 async def scan_receipt(file_bytes: bytes, filename: str, db: asyncpg.Connection | None = None) -> dict:
     categories = []
     config = None
@@ -405,19 +433,60 @@ async def scan_receipt(file_bytes: bytes, filename: str, db: asyncpg.Connection 
     if not config.ocr_enabled:
         return _empty_result(["OCR is disabled in settings"])
 
+    gemini_result = None
+    easyocr_result = None
+    final_result = None
+    easyocr_provider = EasyOCRProvider()
+
     if config.provider == "gemini" and config.gemini_api_key:
         try:
             provider = GeminiOCRProvider(config.gemini_api_key)
-            return await provider.scan(file_bytes, filename, categories=categories, classifier=classifier)
+            g_res, e_res = await asyncio.gather(
+                provider.scan(file_bytes, filename, categories=categories, classifier=classifier),
+                easyocr_provider.scan(file_bytes, filename, categories=categories, classifier=classifier),
+                return_exceptions=True
+            )
+
+            if isinstance(g_res, Exception):
+                logger.error(f"Gemini OCR failed, falling back to EasyOCR: {g_res}")
+                if isinstance(e_res, Exception):
+                    raise Exception(f"Both OCR providers failed. Gemini: {g_res}, EasyOCR: {e_res}")
+                easyocr_result = e_res
+                final_result = e_res.copy()
+                final_result["warnings"].append(f"Gemini OCR failed: {g_res}. Fell back to local EasyOCR.")
+            else:
+                gemini_result = g_res
+                if isinstance(e_res, Exception):
+                    logger.error(f"EasyOCR failed in parallel scan: {e_res}")
+                else:
+                    easyocr_result = e_res
+                final_result = g_res
         except Exception as exc:
-            logger.error(f"Gemini OCR failed, falling back to EasyOCR: {exc}")
-            provider = EasyOCRProvider()
-            result = await provider.scan(file_bytes, filename, categories=categories, classifier=classifier)
-            result["warnings"].append(f"Gemini OCR failed: {exc}. Fell back to local EasyOCR.")
-            return result
+            logger.error(f"Parallel OCR scan failed: {exc}")
+            return _empty_result([f"Scan failed: {exc}"])
     else:
-        provider = EasyOCRProvider()
-        return await provider.scan(file_bytes, filename, categories=categories, classifier=classifier)
+        try:
+            easyocr_result = await easyocr_provider.scan(file_bytes, filename, categories=categories, classifier=classifier)
+            final_result = easyocr_result
+        except Exception as exc:
+            logger.error(f"EasyOCR scan failed: {exc}")
+            return _empty_result([f"Scan failed: {exc}"])
+
+    comparison_id = None
+    try:
+        if db:
+            comparison_id = await save_ocr_comparison(db, filename, gemini_result, easyocr_result)
+        else:
+            from ..database import get_pool
+            pool = get_pool()
+            async with pool.acquire() as conn:
+                comparison_id = await save_ocr_comparison(conn, filename, gemini_result, easyocr_result)
+    except Exception as e:
+        logger.error(f"Failed to save OCR comparison record: {e}")
+
+    final_result["comparison_id"] = comparison_id
+    return final_result
+
 
 
 

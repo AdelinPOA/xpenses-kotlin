@@ -104,6 +104,7 @@ class ExpenseCreate(BaseModel):
     description: str | None = None
     merchant: str | None = None
     raw_ocr_text: str | None = None
+    comparison_id: int | None = None
 
 
 class ExpenseUpdate(BaseModel):
@@ -117,6 +118,7 @@ class ExpenseUpdate(BaseModel):
     description: str | None = None
     merchant: str | None = None
     raw_ocr_text: str | None = None
+    comparison_id: int | None = None
 
 
 # ── Expense Reports ────────────────────────────────────────────────────────────
@@ -311,6 +313,7 @@ class OCRScanResponse(BaseModel):
     raw_text: str = ""
     confidence: float = 0.0
     warnings: list[str] = []
+    comparison_id: int | None = None
 
 
 class OCRConfigOut(BaseModel):
@@ -394,3 +397,40 @@ class DashboardStats(BaseModel):
     pending_payment_count: int = 0
     spend_by_category: list[CategorySpend]
     recent_expenses: list[ExpenseOut]
+
+
+# ── OCR Comparison ───────────────────────────────────────────────────────────
+
+class OCRComparisonStats(BaseModel):
+    total_scanned: int
+    easyocr_amount_accuracy: float
+    easyocr_date_accuracy: float
+    easyocr_merchant_accuracy: float
+    easyocr_category_accuracy: float
+    gemini_amount_accuracy: float
+    gemini_date_accuracy: float
+    gemini_merchant_accuracy: float
+    gemini_category_accuracy: float
+
+
+class OCRComparisonRow(BaseModel):
+    id: int
+    receipt_filename: str | None = None
+    created_at: datetime
+    gemini_amount: float | None = None
+    gemini_date: str | None = None
+    gemini_merchant: str | None = None
+    gemini_category_id: int | None = None
+    easyocr_amount: float | None = None
+    easyocr_date: str | None = None
+    easyocr_merchant: str | None = None
+    easyocr_category_id: int | None = None
+    final_amount: float | None = None
+    final_date: str | None = None
+    final_merchant: str | None = None
+    final_category_id: int | None = None
+
+
+class OCRComparisonHistoryResponse(BaseModel):
+    stats: OCRComparisonStats
+    history: list[OCRComparisonRow]

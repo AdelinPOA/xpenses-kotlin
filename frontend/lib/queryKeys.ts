@@ -53,6 +53,7 @@ export const imapKeys = {
 export const ocrKeys = {
   all: ["ocr"] as const,
   config: () => [...ocrKeys.all, "config"] as const,
+  comparison: () => [...ocrKeys.all, "comparison"] as const,
 };
 
 export const storageKeys = {

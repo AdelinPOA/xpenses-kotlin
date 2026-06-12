@@ -6,8 +6,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import api, { OcrConfig, getOcrConfig, updateOcrConfig, testOcrConfig } from "@/lib/api";
-import { ocrKeys } from "@/lib/queryKeys";
+import api, { OcrConfig, getOcrConfig, updateOcrConfig, testOcrConfig, getOcrComparisons } from "@/lib/api";
+import { ocrKeys, categoryKeys } from "@/lib/queryKeys";
 import AppShell from "@/components/layout/AppShell";
 import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/ToastProvider";
@@ -39,6 +39,24 @@ const ocrConfigSchema = z.object({
   }
 );
 
+const getStatusColor = (ocrVal: any, finalVal: any) => {
+  if (ocrVal === null || ocrVal === undefined || ocrVal === "" || ocrVal === "None") {
+    return "text-slate-400 bg-slate-100/50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-800";
+  }
+  
+  let match = false;
+  if (typeof ocrVal === "string" && typeof finalVal === "string") {
+    match = ocrVal.trim().toLowerCase() === finalVal.trim().toLowerCase();
+  } else {
+    match = ocrVal === finalVal;
+  }
+  
+  return match
+    ? "text-emerald-700 bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/50"
+    : "text-rose-700 bg-rose-50 dark:bg-rose-950/30 border-rose-200 dark:border-rose-900/50";
+};
+
+
 export default function OcrAdminPage() {
   const { user } = useAuth();
   const router = useRouter();
@@ -68,6 +86,18 @@ export default function OcrAdminPage() {
   const { data, isLoading } = useQuery({
     queryKey: ocrKeys.config(),
     queryFn: getOcrConfig,
+    enabled: user?.role === "mod",
+  });
+
+  const { data: compData } = useQuery({
+    queryKey: ocrKeys.comparison(),
+    queryFn: getOcrComparisons,
+    enabled: user?.role === "mod",
+  });
+
+  const { data: categories } = useQuery({
+    queryKey: categoryKeys.list(),
+    queryFn: () => api.get("/categories").then((r) => r.data),
     enabled: user?.role === "mod",
   });
 
@@ -144,113 +174,254 @@ export default function OcrAdminPage() {
           <div className="h-48 bg-slate-200 dark:bg-slate-800 rounded-xl"></div>
         </div>
       ) : (
-        <form onSubmit={handleSubmit(onSubmit)} className="max-w-2xl mx-auto px-4 py-8 space-y-6">
-          <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">OCR Scanner Settings</h1>
+        <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+            <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">OCR Scanner Settings</h1>
 
-          {saveError && (
-            <div className="bg-rose-50 border-l-4 border-rose-500 text-rose-700 dark:bg-rose-950/20 dark:text-rose-300 rounded-r-lg p-4 text-sm flex items-start gap-2 shadow-sm transition-all duration-200 animate-fadeIn">
-              <div className="flex-1">{saveError}</div>
-            </div>
-          )}
-
-          {isDirty && (
-            <div className="bg-amber-50 border-l-4 border-amber-500 text-amber-800 dark:bg-amber-950/20 dark:text-amber-300 rounded-r-lg p-4 text-sm flex items-start gap-2 shadow-sm transition-all duration-200">
-              <div className="flex-1">You have unsaved changes.</div>
-            </div>
-          )}
-
-          <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-sm space-y-4">
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Core Configuration</h2>
-
-            <label className="flex items-center gap-3 text-sm cursor-pointer select-none">
-              <input
-                type="checkbox"
-                className="h-4 w-4 rounded border-slate-300 dark:border-slate-600 text-blue-600 focus:ring-blue-500/20 focus:ring-2 focus:ring-offset-0 transition-all duration-200"
-                {...register("ocr_enabled")}
-              />
-              <span className="text-slate-700 dark:text-slate-300 font-medium">Enable automatic receipt OCR scanning</span>
-            </label>
-
-            {ocrEnabled && (
-              <div>
-                <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">OCR engine / provider</label>
-                <div className="relative">
-                  <select
-                    className="w-full border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200"
-                    {...register("provider")}
-                  >
-                    <option value="easyocr">EasyOCR (Local CPU - Default)</option>
-                    <option value="gemini">Google Gemini 2.5 Flash (Cloud API)</option>
-                    <option value="ollama" disabled>Ollama Local Vision LLM (Coming Soon)</option>
-                    <option value="hybrid" disabled>Hybrid OCR + Text LLM (Coming Soon)</option>
-                  </select>
-                </div>
+            {saveError && (
+              <div className="bg-rose-50 border-l-4 border-rose-500 text-rose-700 dark:bg-rose-950/20 dark:text-rose-300 rounded-r-lg p-4 text-sm flex items-start gap-2 shadow-sm transition-all duration-200 animate-fadeIn">
+                <div className="flex-1">{saveError}</div>
               </div>
             )}
-          </section>
 
-          {ocrEnabled && provider === "gemini" && (
-            <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-sm space-y-4 animate-fadeIn">
-              <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 mb-1">
-                <Sparkles className="w-5 h-5" />
-                <h2 className="text-sm font-semibold uppercase tracking-wider">Gemini API Credentials</h2>
+            {isDirty && (
+              <div className="bg-amber-50 border-l-4 border-amber-500 text-amber-800 dark:bg-amber-950/20 dark:text-amber-300 rounded-r-lg p-4 text-sm flex items-start gap-2 shadow-sm transition-all duration-200">
+                <div className="flex-1">You have unsaved changes.</div>
               </div>
-              
-              <div className="space-y-4">
+            )}
+
+            <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-sm space-y-4">
+              <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Core Configuration</h2>
+
+              <label className="flex items-center gap-3 text-sm cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 rounded border-slate-300 dark:border-slate-600 text-blue-600 focus:ring-blue-500/20 focus:ring-2 focus:ring-offset-0 transition-all duration-200"
+                  {...register("ocr_enabled")}
+                />
+                <span className="text-slate-700 dark:text-slate-300 font-medium">Enable automatic receipt OCR scanning</span>
+              </label>
+
+              {ocrEnabled && (
                 <div>
-                  <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Google AI Studio API key</label>
-                  <div className="flex gap-2">
-                    <input
-                      type="password"
-                      className={`flex-1 border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 dark:text-slate-100 focus:outline-none transition-all duration-200 ${errors.gemini_api_key ? "border-rose-500 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500" : "border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"}`}
-                      {...register("gemini_api_key")}
-                      placeholder={passwordSet ? "••••••••" : "AI Studio API Key"}
-                      onChange={(e) => {
-                        setValue("gemini_api_key", e.target.value, { shouldDirty: true });
-                        setPwChanged(true);
-                      }}
-                    />
-                    <button
-                      type="button"
-                      onClick={handleTest}
-                      disabled={testing}
-                      className="px-4 py-2 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all duration-200 disabled:opacity-50"
+                  <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">OCR engine / provider</label>
+                  <div className="relative">
+                    <select
+                      className="w-full border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200"
+                      {...register("provider")}
                     >
-                      {testing ? "Testing..." : "Test Connection"}
-                    </button>
+                      <option value="easyocr">EasyOCR (Local CPU - Default)</option>
+                      <option value="gemini">Google Gemini 2.5 Flash (Cloud API)</option>
+                      <option value="ollama" disabled>Ollama Local Vision LLM (Coming Soon)</option>
+                      <option value="hybrid" disabled>Hybrid OCR + Text LLM (Coming Soon)</option>
+                    </select>
                   </div>
-                  {errors.gemini_api_key && (
-                    <span className="text-[10px] text-rose-500 block mt-1.5 font-medium">{errors.gemini_api_key.message as string}</span>
-                  )}
-                  {passwordSet && !pwChanged && (
-                    <span className="text-[10px] text-slate-400 block font-medium mt-1.5">(currently set in settings)</span>
+                </div>
+              )}
+            </section>
+
+            {ocrEnabled && provider === "gemini" && (
+              <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-sm space-y-4 animate-fadeIn">
+                <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 mb-1">
+                  <Sparkles className="w-5 h-5" />
+                  <h2 className="text-sm font-semibold uppercase tracking-wider">Gemini API Credentials</h2>
+                </div>
+                
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Google AI Studio API key</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="password"
+                        className={`flex-1 border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 dark:text-slate-100 focus:outline-none transition-all duration-200 ${errors.gemini_api_key ? "border-rose-500 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500" : "border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"}`}
+                        {...register("gemini_api_key")}
+                        placeholder={passwordSet ? "••••••••" : "AI Studio API Key"}
+                        onChange={(e) => {
+                          setValue("gemini_api_key", e.target.value, { shouldDirty: true });
+                          setPwChanged(true);
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={handleTest}
+                        disabled={testing}
+                        className="px-4 py-2 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all duration-200 disabled:opacity-50"
+                      >
+                        {testing ? "Testing..." : "Test Connection"}
+                      </button>
+                    </div>
+                    {errors.gemini_api_key && (
+                      <span className="text-[10px] text-rose-500 block mt-1.5 font-medium">{errors.gemini_api_key.message as string}</span>
+                    )}
+                    {passwordSet && !pwChanged && (
+                      <span className="text-[10px] text-slate-400 block font-medium mt-1.5">(currently set in settings)</span>
+                    )}
+                  </div>
+
+                  {testResult && (
+                    <div className={`p-4 rounded-lg text-sm flex items-start gap-2 animate-fadeIn border ${testResult.success ? "bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-950/20 dark:border-emerald-900/50 dark:text-emerald-300" : "bg-rose-50 border-rose-200 text-rose-800 dark:bg-rose-950/20 dark:border-rose-900/50 dark:text-rose-300"}`}>
+                      {testResult.success ? (
+                        <CheckCircle className="w-5 h-5 flex-shrink-0 text-emerald-600 dark:text-emerald-400" />
+                      ) : (
+                        <AlertCircle className="w-5 h-5 flex-shrink-0 text-rose-600 dark:text-rose-400" />
+                      )}
+                      <div className="flex-1 font-medium">{testResult.message}</div>
+                    </div>
                   )}
                 </div>
+              </section>
+            )}
 
-                {testResult && (
-                  <div className={`p-4 rounded-lg text-sm flex items-start gap-2 animate-fadeIn border ${testResult.success ? "bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-950/20 dark:border-emerald-900/50 dark:text-emerald-300" : "bg-rose-50 border-rose-200 text-rose-800 dark:bg-rose-950/20 dark:border-rose-900/50 dark:text-rose-300"}`}>
-                    {testResult.success ? (
-                      <CheckCircle className="w-5 h-5 flex-shrink-0 text-emerald-600 dark:text-emerald-400" />
-                    ) : (
-                      <AlertCircle className="w-5 h-5 flex-shrink-0 text-rose-600 dark:text-rose-400" />
-                    )}
-                    <div className="flex-1 font-medium">{testResult.message}</div>
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                type="submit"
+                disabled={!isDirty || saveMutation.isPending}
+                className="px-5 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 shadow-sm transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {saveMutation.isPending ? "Saving..." : "Save Configuration"}
+              </button>
+            </div>
+          </form>
+
+          {/* OCR Engine Accuracy Comparison Section */}
+          {compData && compData.history.length > 0 && (
+            <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-sm space-y-6">
+              <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
+                <Sparkles className="w-5 h-5 text-indigo-500" />
+                <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                  OCR Engine Accuracy Comparison
+                </h2>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* EasyOCR Card */}
+                <div className="border border-slate-200 dark:border-slate-800 rounded-lg p-4 bg-slate-50 dark:bg-slate-950/40">
+                  <h3 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3 flex items-center justify-between">
+                    <span>EasyOCR (Local + Classifiers)</span>
+                    <span className="text-blue-600 dark:text-blue-400 font-bold">Accuracy</span>
+                  </h3>
+                  <div className="space-y-2.5">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-600 dark:text-slate-400">Amount extraction:</span>
+                      <span className="font-semibold text-slate-800 dark:text-slate-200">{compData.stats.easyocr_amount_accuracy}%</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-600 dark:text-slate-400">Date extraction:</span>
+                      <span className="font-semibold text-slate-800 dark:text-slate-200">{compData.stats.easyocr_date_accuracy}%</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-600 dark:text-slate-400">Merchant name:</span>
+                      <span className="font-semibold text-slate-800 dark:text-slate-200">{compData.stats.easyocr_merchant_accuracy}%</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-600 dark:text-slate-400">Category classification:</span>
+                      <span className="font-semibold text-slate-800 dark:text-slate-200">{compData.stats.easyocr_category_accuracy}%</span>
+                    </div>
                   </div>
-                )}
+                </div>
+
+                {/* Gemini Card */}
+                <div className="border border-slate-200 dark:border-slate-800 rounded-lg p-4 bg-slate-50 dark:bg-slate-950/40">
+                  <h3 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3 flex items-center justify-between">
+                    <span>Google Gemini 2.5 Flash</span>
+                    <span className="text-indigo-600 dark:text-indigo-400 font-bold">Accuracy</span>
+                  </h3>
+                  <div className="space-y-2.5">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-600 dark:text-slate-400">Amount extraction:</span>
+                      <span className="font-semibold text-slate-800 dark:text-slate-200">{compData.stats.gemini_amount_accuracy}%</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-600 dark:text-slate-400">Date extraction:</span>
+                      <span className="font-semibold text-slate-800 dark:text-slate-200">{compData.stats.gemini_date_accuracy}%</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-600 dark:text-slate-400">Merchant name:</span>
+                      <span className="font-semibold text-slate-800 dark:text-slate-200">{compData.stats.gemini_merchant_accuracy}%</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-600 dark:text-slate-400">Category classification:</span>
+                      <span className="font-semibold text-slate-800 dark:text-slate-200">{compData.stats.gemini_category_accuracy}%</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* History list */}
+              <div className="space-y-3">
+                <h3 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                  Scan History & Comparisons (Last {compData.history.length})
+                </h3>
+                <div className="overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-lg">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-semibold">
+                        <th className="p-3 border-r border-slate-200 dark:border-slate-800">Receipt / Date</th>
+                        <th className="p-3">Field</th>
+                        <th className="p-3">EasyOCR (Local)</th>
+                        <th className="p-3 font-semibold text-indigo-600 dark:text-indigo-400">Gemini (Cloud)</th>
+                        <th className="p-3 bg-blue-50/50 dark:bg-blue-950/20 font-bold text-blue-800 dark:text-blue-300">Final (Ground Truth)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                      {compData.history.map((row) => {
+                        const formatCat = (id: number | null) => {
+                          if (!id) return "None";
+                          const cat = categories?.find((c: any) => c.id === id);
+                          return cat ? cat.name : `ID: ${id}`;
+                        };
+
+                        const fields = [
+                          { name: "Amount", easy: row.easyocr_amount !== null ? `${row.easyocr_amount}` : null, gem: row.gemini_amount !== null ? `${row.gemini_amount}` : null, final: row.final_amount !== null ? `${row.final_amount}` : null },
+                          { name: "Merchant", easy: row.easyocr_merchant || "None", gem: row.gemini_merchant || "None", final: row.final_merchant || "None" },
+                          { name: "Date", easy: row.easyocr_date || "None", gem: row.gemini_date || "None", final: row.final_date || "None" },
+                          { name: "Category", easy: formatCat(row.easyocr_category_id), gem: formatCat(row.gemini_category_id), final: formatCat(row.final_category_id) },
+                        ];
+
+                        return fields.map((f, index) => (
+                          <tr key={`${row.id}-${f.name}`} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20">
+                            {index === 0 && (
+                              <td rowSpan={4} className="p-3 font-medium text-slate-700 dark:text-slate-300 align-top border-r border-slate-200 dark:border-slate-800">
+                                <div className="font-semibold truncate max-w-[150px]" title={row.receipt_filename ?? ""}>
+                                  {row.receipt_filename ?? "receipt.jpg"}
+                                </div>
+                                <div className="text-[10px] text-slate-400 mt-1">
+                                  {new Date(row.created_at).toLocaleDateString()}
+                                </div>
+                              </td>
+                            )}
+                            <td className="p-3 font-medium text-slate-500 dark:text-slate-400">{f.name}</td>
+                            <td className="p-3">
+                              {f.easy !== null ? (
+                                <span className={`px-2 py-0.5 rounded border text-[11px] font-medium ${getStatusColor(f.easy, f.final)}`}>
+                                  {f.easy}
+                                </span>
+                              ) : (
+                                <span className="text-slate-400">—</span>
+                              )}
+                            </td>
+                            <td className="p-3">
+                              {f.gem !== null ? (
+                                <span className={`px-2 py-0.5 rounded border text-[11px] font-medium ${getStatusColor(f.gem, f.final)}`}>
+                                  {f.gem}
+                                </span>
+                              ) : (
+                                <span className="text-slate-400">—</span>
+                              )}
+                            </td>
+                            <td className="p-3 bg-blue-50/10 dark:bg-blue-950/5 font-semibold text-slate-800 dark:text-slate-200 border-l border-slate-200 dark:border-slate-800">
+                              {f.final ?? <span className="text-slate-400">—</span>}
+                            </td>
+                          </tr>
+                        ));
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </section>
           )}
-
-          <div className="flex justify-end gap-3 pt-2">
-            <button
-              type="submit"
-              disabled={!isDirty || saveMutation.isPending}
-              className="px-5 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 shadow-sm transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {saveMutation.isPending ? "Saving..." : "Save Configuration"}
-            </button>
-          </div>
-        </form>
+        </div>
       )}
     </AppShell>
   );

@@ -226,6 +226,7 @@ export interface OCRScanResult {
   raw_text: string;
   confidence: number;
   warnings: string[];
+  comparison_id?: number | null;
 }
 
 export const CURRENCIES = [
@@ -385,6 +386,47 @@ export async function testStorageConfig(config: StorageConfig): Promise<{ succes
 
 export async function getStorageMigrationStatus(): Promise<StorageMigrationStatus> {
   const { data } = await api.get("/settings/storage/migration-status");
+  return data;
+}
+
+
+export interface OCRComparisonStats {
+  total_scanned: number;
+  easyocr_amount_accuracy: number;
+  easyocr_date_accuracy: number;
+  easyocr_merchant_accuracy: number;
+  easyocr_category_accuracy: number;
+  gemini_amount_accuracy: number;
+  gemini_date_accuracy: number;
+  gemini_merchant_accuracy: number;
+  gemini_category_accuracy: number;
+}
+
+export interface OCRComparisonRow {
+  id: number;
+  receipt_filename: string | null;
+  created_at: string;
+  gemini_amount: number | null;
+  gemini_date: string | null;
+  gemini_merchant: string | null;
+  gemini_category_id: number | null;
+  easyocr_amount: number | null;
+  easyocr_date: string | null;
+  easyocr_merchant: string | null;
+  easyocr_category_id: number | null;
+  final_amount: number | null;
+  final_date: string | null;
+  final_merchant: string | null;
+  final_category_id: number | null;
+}
+
+export interface OCRComparisonHistoryResponse {
+  stats: OCRComparisonStats;
+  history: OCRComparisonRow[];
+}
+
+export async function getOcrComparisons(): Promise<OCRComparisonHistoryResponse> {
+  const { data } = await api.get("/ocr/comparison");
   return data;
 }
 

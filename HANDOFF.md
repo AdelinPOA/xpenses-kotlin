@@ -5,7 +5,37 @@
 
 ---
 
-## Latest Session (2026-06-12, session 28)
+## Latest Session (2026-06-12, session 28 — continued)
+
+### What Was Done (additional)
+- **MinerU 2.5 Local OCR Provider**:
+  - Added `MinerUOCRProvider` class in `ocr_service.py` that calls a locally-running `mineru-api` HTTP server. Sends the receipt file as multipart, parses the returned Markdown, then reuses `extract_amount` / `extract_date` / `extract_merchant` / `extract_tax` helpers + Naive Bayes classifier for structured field extraction.
+  - Added `mineru` branch in `scan_receipt`: runs EasyOCR in parallel (same pattern as Gemini) so the accuracy comparison dashboard still works. MinerU results are stored in the `gemini_*` columns of `ocr_comparisons`, making the side-by-side view show **MinerU vs EasyOCR**.
+  - Added `mineru_url` field to `OCRConfig` dataclass (default `http://mineru:8000`), persisted through `get_ocr_config` / `save_ocr_config`, and exposed in `OCRConfigOut` / `OCRConfigUpdate` Pydantic models.
+  - Updated `app_settings.py` GET/PATCH handlers to pass `mineru_url` through.
+  - **Frontend** (`/admin/ocr`):
+    - New **"MinerU 2.5 (Local - High Accuracy)"** option in the provider selectbox.
+    - Collapsible MinerU URL config section (violet accent, mirrors Gemini key section) with a start-server hint (`mineru-api --host 0.0.0.0 --port 8000`).
+    - `mineru_url` wired through Zod schema, `DEFAULT_FORM`, `reset()`, and `onSubmit()`.
+    - Comparison dashboard accuracy card title and table column header are now dynamic: show **"MinerU (Local)"** when MinerU is the active provider, otherwise **"Gemini (Cloud)"**.
+- **Branch**: `feature/ocr-accuracy-dashboard` (commit `2bedf70`)
+- **Verification**: `make lint` ✅ · `make test` ✅ (184 passed)
+
+### Modified Files (additional)
+- `backend/xpenses/models.py` — `mineru_url` in `OCRConfigOut` / `OCRConfigUpdate`
+- `backend/xpenses/services/ocr_service.py` — `MinerUOCRProvider`, `mineru` branch in `scan_receipt`, `mineru_url` in config
+- `backend/xpenses/routers/app_settings.py` — `mineru_url` plumbed through GET/PATCH
+- `frontend/lib/api.ts` — `mineru_url` in `OcrConfig` interface
+- `frontend/app/admin/ocr/page.tsx` — selectbox option, URL input section, dynamic headers
+
+### How to use MinerU
+1. Start MinerU API server (inside Docker or on the host): `mineru-api --host 0.0.0.0 --port 8000`
+2. Go to `/admin/ocr`, select **MinerU 2.5**, set the URL (e.g. `http://mineru:8000`), save.
+3. Upload receipts — MinerU will process them; EasyOCR runs in parallel for comparison tracking at `/admin/ocr`.
+
+---
+
+
 
 ### What Was Done
 - **OCR Accuracy Comparison Dashboard** (`/admin/ocr`):

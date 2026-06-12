@@ -540,15 +540,16 @@ async def reject_report(
     if row["user_id"] == current_user["id"]:
         raise HTTPException(status_code=400, detail="Cannot reject your own report")
 
-    now = datetime.now(timezone.utc)
-    await db.execute(
-        "UPDATE expense_reports SET status = 'rejected', approved_by = $1, approved_at = $2, rejected_reason = $3, updated_at = $4 WHERE id = $5",
-        current_user["id"], now, body.reason, now, report_id,
-    )
-    await db.execute(
-        "UPDATE expenses SET status = 'draft', report_id = NULL, updated_at = $1 WHERE report_id = $2",
-        now, report_id,
-    )
+    async with db.transaction():
+        now = datetime.now(timezone.utc)
+        await db.execute(
+            "UPDATE expense_reports SET status = 'rejected', total_amount = 0, approved_by = $1, approved_at = $2, rejected_reason = $3, updated_at = $4 WHERE id = $5",
+            current_user["id"], now, body.reason, now, report_id,
+        )
+        await db.execute(
+            "UPDATE expenses SET status = 'draft', report_id = NULL, updated_at = $1 WHERE report_id = $2",
+            now, report_id,
+        )
 
     # Notify the report owner
     owner = await db.fetchrow("SELECT email, notifications_enabled FROM users WHERE id = $1", row["user_id"])

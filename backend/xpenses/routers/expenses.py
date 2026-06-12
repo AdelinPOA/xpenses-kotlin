@@ -52,7 +52,7 @@ async def list_expenses(
     conditions, params = [], []
     param_idx = 1
 
-    if all and current_user["role"] in ("chef_finance", "mod"):
+    if all and current_user["role"] in ("chef_finance", "mod", "manager"):
         # No user_id filter
         pass
     else:

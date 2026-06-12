@@ -58,6 +58,31 @@ services:
     networks:
       - xpenses-net
 
+  # ── MinerU 2.5 local OCR API (opt-in) ────────────────────────────────────
+  # Start with: docker compose --profile mineru up -d mineru
+  # Or rebuild:  docker compose --profile mineru build mineru
+  # Accessible from backend container at: http://mineru:8000
+  mineru:
+    build:
+      context: ./mineru
+      dockerfile: Dockerfile
+    container_name: xpenses-mineru
+    profiles:
+      - mineru
+    ports:
+      - "8002:8000"   # optional: reach from host at http://localhost:8002
+    volumes:
+      - mineru-models:/root/.cache   # cache downloaded models between restarts
+    networks:
+      - xpenses-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8000/docs || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s  # give time for models to load on first start
+
 networks:
   xpenses-net:
     driver: bridge
@@ -68,4 +93,6 @@ volumes:
   pgdata:
     driver: local
   ocr-models:
+    driver: local
+  mineru-models:
     driver: local

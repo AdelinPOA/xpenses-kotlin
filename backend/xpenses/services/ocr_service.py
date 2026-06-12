@@ -509,15 +509,17 @@ async def save_ocr_comparison(
     conn: asyncpg.Connection,
     filename: str,
     gemini_result: dict | None,
-    easyocr_result: dict | None
+    easyocr_result: dict | None,
+    provider: str = "gemini",
 ) -> int:
     row = await conn.fetchrow(
         """
         INSERT INTO ocr_comparisons (
             receipt_filename,
             gemini_amount, gemini_date, gemini_merchant, gemini_category_id,
-            easyocr_amount, easyocr_date, easyocr_merchant, easyocr_category_id
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            easyocr_amount, easyocr_date, easyocr_merchant, easyocr_category_id,
+            provider
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         RETURNING id
         """,
         filename,
@@ -529,6 +531,7 @@ async def save_ocr_comparison(
         easyocr_result.get("date") if easyocr_result else None,
         easyocr_result.get("merchant") if easyocr_result else None,
         easyocr_result.get("category_id") if easyocr_result else None,
+        provider,
     )
     return row["id"]
 
@@ -631,13 +634,14 @@ async def scan_receipt(file_bytes: bytes, filename: str, db: asyncpg.Connection 
 
     comparison_id = None
     try:
+        provider_name = config.provider if config else "easyocr"
         if db:
-            comparison_id = await save_ocr_comparison(db, filename, gemini_result, easyocr_result)
+            comparison_id = await save_ocr_comparison(db, filename, gemini_result, easyocr_result, provider=provider_name)
         else:
             from ..database import get_pool
             pool = get_pool()
             async with pool.acquire() as conn:
-                comparison_id = await save_ocr_comparison(conn, filename, gemini_result, easyocr_result)
+                comparison_id = await save_ocr_comparison(conn, filename, gemini_result, easyocr_result, provider=provider_name)
     except Exception as e:
         logger.error(f"Failed to save OCR comparison record: {e}")
 

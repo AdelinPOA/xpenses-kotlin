@@ -67,6 +67,7 @@ async def get_ocr_comparisons(
             c.easyocr_date,
             c.easyocr_merchant,
             c.easyocr_category_id,
+            c.provider,
             e.amount_original AS final_amount,
             e.date AS final_date,
             e.merchant AS final_merchant,

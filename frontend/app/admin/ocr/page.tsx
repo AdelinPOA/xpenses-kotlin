@@ -447,7 +447,7 @@ export default function OcrAdminPage() {
                             <th className="p-3">Field</th>
                             <th className="p-3">EasyOCR (Local)</th>
                             <th className="p-3 font-semibold text-indigo-600 dark:text-indigo-400">
-                              {data?.provider === "mineru" ? "MinerU (Local)" : "Gemini (Cloud)"}
+                              Active OCR
                             </th>
                             <th className="p-3 bg-blue-50/50 dark:bg-blue-950/20 font-bold text-blue-800 dark:text-blue-300">Final (Ground Truth)</th>
                           </tr>
@@ -497,11 +497,16 @@ export default function OcrAdminPage() {
                                     <div className="font-semibold truncate max-w-[150px]" title={row.receipt_filename ?? ""}>
                                       {row.receipt_filename ?? "receipt.jpg"}
                                     </div>
-                                    <div className="text-[10px] text-slate-400 mt-1">
-                                      {new Date(row.created_at).toLocaleDateString()}
+                                    <div className="text-[10px] text-slate-400 mt-1 flex flex-col gap-1">
+                                      <div className="flex items-center gap-1.5">
+                                        <span>{new Date(row.created_at).toLocaleDateString()}</span>
+                                        <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[9px] font-semibold font-mono uppercase tracking-wider">
+                                          {row.provider || "gemini"}
+                                        </span>
+                                      </div>
                                     </div>
                                     {!isLinked && (
-                                      <span className="mt-1 inline-block text-[9px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800 font-semibold">
+                                      <span className="mt-1.5 inline-block text-[9px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800 font-semibold">
                                         Not saved yet
                                       </span>
                                     )}

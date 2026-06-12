@@ -420,6 +420,7 @@ export interface OCRComparisonRow {
   easyocr_date: string | null;
   easyocr_merchant: string | null;
   easyocr_category_id: number | null;
+  provider: string;
   final_amount: number | null;
   final_date: string | null;
   final_merchant: string | null;

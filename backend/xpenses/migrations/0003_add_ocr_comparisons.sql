@@ -10,5 +10,6 @@ CREATE TABLE ocr_comparisons (
     easyocr_date VARCHAR(50),
     easyocr_merchant VARCHAR(255),
     easyocr_category_id INTEGER,
+    provider VARCHAR(50) DEFAULT 'gemini',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );

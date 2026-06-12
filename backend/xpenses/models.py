@@ -427,6 +427,7 @@ class OCRComparisonRow(BaseModel):
     easyocr_date: str | None = None
     easyocr_merchant: str | None = None
     easyocr_category_id: int | None = None
+    provider: str | None = "gemini"
     final_amount: float | None = None
     final_date: str | None = None
     final_merchant: str | None = None

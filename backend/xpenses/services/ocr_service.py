@@ -440,12 +440,17 @@ class MinerUOCRProvider(BaseOCRProvider):
                 if isinstance(results, list) and results:
                     results = results[0]
                 if isinstance(results, dict):
-                    doc = results.get("document", results)
+                    if "document" in results:
+                        doc = results["document"]
+                    else:
+                        # Fallback for dynamic filename keys
+                        doc = next((v for v in results.values() if isinstance(v, dict)), results)
                     md_text = doc.get("md_content", "") or doc.get("content", "") or ""
                 elif isinstance(results, str):
                     md_text = results
 
         except Exception as exc:
+            logger.exception("MinerU scan raw exception")
             raise Exception(f"MinerU scan failed: {exc}") from exc
 
         # Split markdown into lines, strip markdown syntax for extraction helpers

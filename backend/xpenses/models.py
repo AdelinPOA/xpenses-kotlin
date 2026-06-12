@@ -320,12 +320,14 @@ class OCRConfigOut(BaseModel):
     provider: str
     ocr_enabled: bool
     gemini_api_key: str | None = None
+    mineru_url: str | None = None
 
 
 class OCRConfigUpdate(BaseModel):
     provider: str | None = None
     ocr_enabled: bool | None = None
     gemini_api_key: str | None = None
+    mineru_url: str | None = None
 
 
 class OCRTestRequest(BaseModel):

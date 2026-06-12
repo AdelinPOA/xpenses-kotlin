@@ -31,6 +31,7 @@ class OCRConfig:
     ocr_enabled: bool = True
     gemini_api_key: str = ""
     password_set: bool = False
+    mineru_url: str = "http://mineru:8000"
 
 
 async def get_ocr_config(conn: asyncpg.Connection) -> OCRConfig:
@@ -69,6 +70,7 @@ async def get_ocr_config(conn: asyncpg.Connection) -> OCRConfig:
         ocr_enabled=data.get("ocr_enabled", True),
         gemini_api_key=decrypted,
         password_set=password_set,
+        mineru_url=data.get("mineru_url", "http://mineru:8000"),
     )
 
 
@@ -83,6 +85,7 @@ async def save_ocr_config(config: OCRConfig, conn: asyncpg.Connection) -> None:
         "provider": config.provider,
         "ocr_enabled": config.ocr_enabled,
         "gemini_api_key": encrypted_key,
+        "mineru_url": config.mineru_url or "http://mineru:8000",
     }
 
     now = datetime.datetime.now(datetime.timezone.utc)
@@ -377,6 +380,104 @@ class GeminiOCRProvider(BaseOCRProvider):
             }
 
 
+class MinerUOCRProvider(BaseOCRProvider):
+    """Calls a locally-running mineru-api server (mineru-api --host 0.0.0.0 --port 8000).
+    The server accepts multipart file uploads and returns parsed Markdown text.
+    We then reuse the same extraction helpers as EasyOCR to pull structured fields.
+    """
+
+    def __init__(self, base_url: str = "http://mineru:8000"):
+        self.base_url = base_url.rstrip("/")
+
+    async def scan(
+        self,
+        file_bytes: bytes,
+        filename: str,
+        categories: list[dict] | None = None,
+        classifier: NaiveBayesClassifier | None = None,
+    ) -> dict:
+        url = f"{self.base_url}/file_parse"
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.post(
+                    url,
+                    files={"files": (filename, file_bytes, "application/octet-stream")},
+                    data={
+                        "backend": "pipeline",  # CPU-safe; use "vlm" if GPU available
+                        "return_md": "true",
+                    },
+                    timeout=120.0,
+                )
+                if resp.status_code != 200:
+                    raise Exception(f"MinerU API returned {resp.status_code}: {resp.text[:200]}")
+
+                data = resp.json()
+                # MinerU response: {"results": {"document": {"md_content": "..."}}} or list
+                md_text: str = ""
+                results = data.get("results", data)
+                if isinstance(results, list) and results:
+                    results = results[0]
+                if isinstance(results, dict):
+                    doc = results.get("document", results)
+                    md_text = doc.get("md_content", "") or doc.get("content", "") or ""
+                elif isinstance(results, str):
+                    md_text = results
+
+        except Exception as exc:
+            raise Exception(f"MinerU scan failed: {exc}") from exc
+
+        # Split markdown into lines, strip markdown syntax for extraction helpers
+        lines = [
+            re.sub(r"[#*`_>|\[\]]", "", line).strip()
+            for line in md_text.splitlines()
+            if line.strip()
+        ]
+        raw_text = "\n".join(lines)
+
+        amount, currency = extract_amount(lines)
+        tax_amount, tax_rate = extract_tax(lines)
+        date = extract_date(lines)
+        merchant = extract_merchant(lines)
+
+        category_id = None
+        if classifier and raw_text:
+            category_id = classifier.predict(raw_text)
+        if category_id is None and categories and raw_text:
+            text_lower = raw_text.lower()
+            for cat in categories:
+                cat_name_lower = cat["name"].lower()
+                if cat_name_lower in text_lower:
+                    category_id = cat["id"]
+                    break
+                words = [w.strip() for w in cat_name_lower.split() if len(w.strip()) > 3]
+                if words and any(w in text_lower for w in words):
+                    category_id = cat["id"]
+                    break
+
+        description = f"Scanned receipt from {merchant}" if merchant else "Scanned receipt"
+        warnings: list[str] = []
+        if amount is None:
+            warnings.append("Could not extract amount")
+        if date is None:
+            warnings.append("Could not extract date")
+        if merchant is None:
+            warnings.append("Could not extract merchant")
+
+        return {
+            "amount": amount,
+            "currency": currency,
+            "tax_amount": tax_amount,
+            "tax_rate": tax_rate,
+            "date": date,
+            "merchant": merchant,
+            "category_id": category_id,
+            "description": description,
+            "raw_text": raw_text,
+            "confidence": 0.95,  # MinerU doesn't expose per-field confidence
+            "warnings": warnings,
+        }
+
+
 async def save_ocr_comparison(
     conn: asyncpg.Connection,
     filename: str,
@@ -444,9 +545,8 @@ async def scan_receipt(file_bytes: bytes, filename: str, db: asyncpg.Connection 
             g_res, e_res = await asyncio.gather(
                 provider.scan(file_bytes, filename, categories=categories, classifier=classifier),
                 easyocr_provider.scan(file_bytes, filename, categories=categories, classifier=classifier),
-                return_exceptions=True
+                return_exceptions=True,
             )
-
             if isinstance(g_res, Exception):
                 logger.error(f"Gemini OCR failed, falling back to EasyOCR: {g_res}")
                 if isinstance(e_res, Exception):
@@ -464,6 +564,36 @@ async def scan_receipt(file_bytes: bytes, filename: str, db: asyncpg.Connection 
         except Exception as exc:
             logger.error(f"Parallel OCR scan failed: {exc}")
             return _empty_result([f"Scan failed: {exc}"])
+
+    elif config.provider == "mineru":
+        # MinerU is the active provider; run EasyOCR in parallel for comparison tracking
+        mineru_provider = MinerUOCRProvider(config.mineru_url or "http://mineru:8000")
+        try:
+            m_res, e_res = await asyncio.gather(
+                mineru_provider.scan(file_bytes, filename, categories=categories, classifier=classifier),
+                easyocr_provider.scan(file_bytes, filename, categories=categories, classifier=classifier),
+                return_exceptions=True,
+            )
+            if isinstance(m_res, Exception):
+                logger.error(f"MinerU OCR failed, falling back to EasyOCR: {m_res}")
+                if isinstance(e_res, Exception):
+                    raise Exception(f"Both OCR providers failed. MinerU: {m_res}, EasyOCR: {e_res}")
+                easyocr_result = e_res
+                final_result = e_res.copy()
+                final_result["warnings"].append(f"MinerU OCR failed: {m_res}. Fell back to local EasyOCR.")
+            else:
+                # Store MinerU result in the gemini_* columns of ocr_comparisons
+                # so the comparison dashboard shows MinerU vs EasyOCR side-by-side
+                gemini_result = m_res
+                if isinstance(e_res, Exception):
+                    logger.error(f"EasyOCR failed in parallel scan: {e_res}")
+                else:
+                    easyocr_result = e_res
+                final_result = m_res
+        except Exception as exc:
+            logger.error(f"MinerU parallel scan failed: {exc}")
+            return _empty_result([f"Scan failed: {exc}"])
+
     else:
         try:
             easyocr_result = await easyocr_provider.scan(file_bytes, filename, categories=categories, classifier=classifier)

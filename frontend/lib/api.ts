@@ -309,6 +309,7 @@ export interface OcrConfig {
   provider: string;
   ocr_enabled: boolean;
   gemini_api_key?: string | null;
+  mineru_url?: string | null;
 }
 
 export async function getOcrConfig(): Promise<OcrConfig> {

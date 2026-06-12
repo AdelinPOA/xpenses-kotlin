@@ -19,12 +19,14 @@ const DEFAULT_FORM: FormState = {
   ocr_enabled: true,
   provider: "easyocr",
   gemini_api_key: "",
+  mineru_url: "http://mineru:8000",
 };
 
 const ocrConfigSchema = z.object({
   ocr_enabled: z.boolean(),
   provider: z.string(),
   gemini_api_key: z.string(),
+  mineru_url: z.string().optional().nullable(),
   password_set: z.boolean().optional(),
 }).refine(
   (data) => {
@@ -107,6 +109,7 @@ export default function OcrAdminPage() {
         ocr_enabled: data.ocr_enabled,
         provider: data.provider,
         gemini_api_key: data.gemini_api_key ? "••••••••" : "",
+        mineru_url: data.mineru_url ?? "http://mineru:8000",
       });
       setPwChanged(false);
     }
@@ -137,6 +140,9 @@ export default function OcrAdminPage() {
       payload.gemini_api_key = pwChanged ? formData.gemini_api_key : "••••••••";
     } else {
       payload.gemini_api_key = "";
+    }
+    if (formData.provider === "mineru") {
+      payload.mineru_url = formData.mineru_url || "http://mineru:8000";
     }
     saveMutation.mutate(payload);
   };
@@ -211,6 +217,7 @@ export default function OcrAdminPage() {
                       {...register("provider")}
                     >
                       <option value="easyocr">EasyOCR (Local CPU - Default)</option>
+                      <option value="mineru">MinerU 2.5 (Local - High Accuracy)</option>
                       <option value="gemini">Google Gemini 2.5 Flash (Cloud API)</option>
                       <option value="ollama" disabled>Ollama Local Vision LLM (Coming Soon)</option>
                       <option value="hybrid" disabled>Hybrid OCR + Text LLM (Coming Soon)</option>
@@ -219,6 +226,33 @@ export default function OcrAdminPage() {
                 </div>
               )}
             </section>
+
+            {ocrEnabled && provider === "mineru" && (
+              <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-sm space-y-4 animate-fadeIn">
+                <div className="flex items-center gap-2 text-violet-600 dark:text-violet-400 mb-1">
+                  <Cpu className="w-5 h-5" />
+                  <h2 className="text-sm font-semibold uppercase tracking-wider">MinerU 2.5 — Local API</h2>
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  MinerU must be running locally as an HTTP server. Start it with:{" "}
+                  <code className="bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-[11px] font-mono">
+                    mineru-api --host 0.0.0.0 --port 8000
+                  </code>
+                </p>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">MinerU API base URL</label>
+                  <input
+                    type="text"
+                    className="w-full border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 dark:text-slate-100 border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 transition-all duration-200 font-mono"
+                    placeholder="http://mineru:8000"
+                    {...register("mineru_url")}
+                  />
+                  <span className="text-[10px] text-slate-400 block mt-1.5">
+                    Use the Docker service name or IP where mineru-api is running. EasyOCR will still run in parallel for accuracy comparison.
+                  </span>
+                </div>
+              </section>
+            )}
 
             {ocrEnabled && provider === "gemini" && (
               <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-sm space-y-4 animate-fadeIn">
@@ -332,10 +366,10 @@ export default function OcrAdminPage() {
                       </div>
                     </div>
 
-                    {/* Gemini Card */}
+                    {/* Primary cloud/advanced provider card */}
                     <div className="border border-slate-200 dark:border-slate-800 rounded-lg p-4 bg-slate-50 dark:bg-slate-950/40">
                       <h3 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3 flex items-center justify-between">
-                        <span>Google Gemini 2.5 Flash</span>
+                        <span>{data?.provider === "mineru" ? "MinerU 2.5 (Local)" : "Google Gemini 2.5 Flash"}</span>
                         <span className="text-indigo-600 dark:text-indigo-400 font-bold">Accuracy</span>
                       </h3>
                       <div className="space-y-2.5">
@@ -371,7 +405,9 @@ export default function OcrAdminPage() {
                             <th className="p-3 border-r border-slate-200 dark:border-slate-800">Receipt / Date</th>
                             <th className="p-3">Field</th>
                             <th className="p-3">EasyOCR (Local)</th>
-                            <th className="p-3 font-semibold text-indigo-600 dark:text-indigo-400">Gemini (Cloud)</th>
+                            <th className="p-3 font-semibold text-indigo-600 dark:text-indigo-400">
+                              {data?.provider === "mineru" ? "MinerU (Local)" : "Gemini (Cloud)"}
+                            </th>
                             <th className="p-3 bg-blue-50/50 dark:bg-blue-950/20 font-bold text-blue-800 dark:text-blue-300">Final (Ground Truth)</th>
                           </tr>
                         </thead>

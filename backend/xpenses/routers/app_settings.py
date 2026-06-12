@@ -106,6 +106,7 @@ async def read_ocr_settings(
         provider=config.provider,
         ocr_enabled=config.ocr_enabled,
         gemini_api_key="••••••••" if config.password_set else None,
+        mineru_url=config.mineru_url or None,
     )
 
 
@@ -119,7 +120,8 @@ async def update_ocr_settings(
     
     provider = body.provider if body.provider is not None else existing.provider
     ocr_enabled = body.ocr_enabled if body.ocr_enabled is not None else existing.ocr_enabled
-    
+    mineru_url = body.mineru_url if body.mineru_url is not None else existing.mineru_url
+
     if body.gemini_api_key == "••••••••" or body.gemini_api_key is None:
         key = existing.gemini_api_key
     else:
@@ -129,14 +131,16 @@ async def update_ocr_settings(
         provider=provider,
         ocr_enabled=ocr_enabled,
         gemini_api_key=key,
+        mineru_url=mineru_url,
     )
     await save_ocr_config(config, db)
-    
+
     updated = await get_ocr_config(db)
     return OCRConfigOut(
         provider=updated.provider,
         ocr_enabled=updated.ocr_enabled,
         gemini_api_key="••••••••" if updated.password_set else None,
+        mineru_url=updated.mineru_url or None,
     )
 
 

@@ -1,11 +1,52 @@
 # HANDOFF.md — xpenses_copy
 
-> Last updated: 2026-06-12 (session 26)
+> Last updated: 2026-06-12 (session 27)
 > Author: Antigravity AI
 
 ---
 
-## Latest Session (2026-06-12, session 26)
+## Latest Session (2026-06-12, session 27)
+
+### What Was Done
+- **Configurable Storage Location**:
+  - Implemented multi-protocol storage configuration and validation. Supports Local, SMB (`smbprotocol`), WebDAV (custom client via `httpx`), SFTP (`paramiko`), and S3 (`boto3`) storage providers.
+  - Implemented credentials encryption via Fernet and dynamic credentials masking.
+  - Added background file migration task to copy existing receipts to the new storage provider upon saving new settings.
+  - Implemented read fallbacks to prevent any access downtime during ongoing background migrations.
+  - Created a frontend panel `/admin/storage` for administrators/moderators to configure storage settings, verify connections, and trigger background migrations.
+  - Re-routed receipt uploads, receipt servings, PDF report generation, ZIP compilation, and orphan cleaning utilities through the active storage provider.
+- **Frontend Build Fix**:
+  - Updated `frontend/postcss.config.js` to export using CommonJS `module.exports` instead of ESM `export default`, resolving webpack configuration errors under Node environment.
+- **Verification & Testing**:
+  - Resolved all Ruff lint warnings across all modified backend files.
+  - Wrote backend integration tests in `backend/tests/test_storage_settings.py`.
+  - Ran `make test` with all **184 tests passing** successfully.
+  - Ran Next.js production builds under `NODE_ENV=production` successfully.
+- **OpenSpec**:
+  - Synced delta specs into the main specifications directory for `configurable-storage` and `db-migrations-receipts-cleanup`.
+  - Archived the change to `openspec/changes/archive/2026-06-12-configurable-storage-settings/`.
+
+### Modified/Added Files
+- `backend/pyproject.toml` — Added S3 (`boto3`), SFTP (`paramiko`), and SMB (`smbprotocol`) dependencies.
+- `backend/xpenses/models.py` — Configured storage schema models.
+- `backend/xpenses/routers/app_settings.py` — Added storage settings and migration endpoints.
+- `backend/xpenses/routers/expenses.py` — Routed uploads and servings through Storage Manager.
+- `backend/xpenses/routers/reports.py` — Adapted report PDF exports and ZIP compilation to use Storage Manager cache.
+- `backend/xpenses/services/storage/` — Implemented providers (`local.py`, `smb.py`, `webdav.py`, `sftp.py`, `s3.py`, `manager.py`, `base.py`).
+- `backend/tests/test_storage_settings.py` — Storage settings integration tests.
+- `frontend/app/admin/storage/page.tsx` — Storage settings configuration UI.
+- `frontend/components/layout/Sidebar.tsx` — Sidebar item for Storage Settings.
+- `frontend/postcss.config.js` — Changed postcss exports format.
+- `openspec/specs/configurable-storage/spec.md` — New specification.
+- `openspec/specs/db-migrations-receipts-cleanup/spec.md` — Updated specification.
+
+### Test Results
+- **184 tests pass** (all green).
+
+---
+
+## Previous Session (2026-06-12, session 26)
+
 
 ### What Was Done
 - **Bug Audit Resolutions**:

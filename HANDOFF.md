@@ -1,11 +1,32 @@
 # HANDOFF.md — xpenses_copy
 
-> Last updated: 2026-06-12 (session 27)
+> Last updated: 2026-06-13 (session 29)
 > Author: Antigravity AI
 
 ---
 
-## Latest Session (2026-06-12, session 28 — continued)
+## Latest Session (2026-06-13, session 29)
+
+### What Was Done
+- **Expense Image Preview on Upload**:
+  - Implemented a side-by-side split layout on the `/expenses/new` and edit expense pages.
+  - Form displays on the left, and a dedicated **Receipt Preview** panel displays on the right, dynamically expanding to occupy all remaining screen space on desktop (`lg:flex-1`).
+  - Implemented object URL lifecycle management using `useRef` and `useEffect` cleanups to prevent memory leaks for newly added receipt preview files.
+  - Implemented custom interactive zoom controls allowing users to zoom in/out/reset the image scale.
+  - Added click-and-drag panning capability so users can reposition and examine fine receipt details when zoomed.
+  - Handled PDF rendering via browser `<iframe>` and fallback links/previews for other file types.
+  - Integrated a dynamic tab header switcher to select between multiple uploaded files when multiple receipts are selected.
+- **Git Feature Branching**:
+  - Switched implementation workflow to the dedicated feature branch `feat/expense-image-preview` and successfully merged it into `main` after verification.
+
+### Modified Files
+- `frontend/components/expenses/ExpenseForm.tsx` — Split layout, dynamic previews, zoom controls, click-and-drag pan handlers, and tab switcher.
+- `CLAUDE.md` — Documented the new Side-by-Side Expense Image Preview pattern.
+- `README.md` — Added description of the new interactive receipt preview and zoom features.
+
+---
+
+## Previous Session (2026-06-12, session 28 — continued)
 
 ### What Was Done (additional)
 - **MinerU 2.5 Local OCR Provider**:

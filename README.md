@@ -6,7 +6,7 @@ Self-hosted expense management app for internal company use. Built as a lightwei
 
 - **Expenses CRUD** — create, edit, delete expenses with merchant, category, date, description
 - **Multi-currency** — supports 50+ currencies with automatic EUR conversion using ECB rates (Frankfurter API + fallback provider for exotic currencies like UAH, GEL, HUF, etc.)
-- **Multiple receipts** — attach multiple photos/PDFs per expense (JPG, PNG, PDF, WEBP)
+- **Multiple receipts & interactive preview** — attach multiple photos/PDFs per expense (JPG, PNG, PDF, WEBP), with side-by-side interactive image zoom & pan preview directly in the creation/edit forms.
 - **Expense reports** — group expenses into reports with date range; full state machine: `draft → submitted → approved → paid`, with recall and reject
 - **Report approval workflow** — managers and CFOs approve/reject submitted reports; rejection reason captured and displayed prominently; cannot approve your own report
 - **Report recall** — retract a submitted or rejected report back to draft

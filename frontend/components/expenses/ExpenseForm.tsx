@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import api, { Category, Expense, CURRENCIES, API_BASE_URL, OCRScanResult } from "@/lib/api";
@@ -42,12 +42,72 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
   const [scanResult, setScanResult] = useState<OCRScanResult | null>(null);
   const scanInputRef = useRef<HTMLInputElement>(null);
 
+  const [activeReceiptKey, setActiveReceiptKey] = useState<string | null>(null);
+  const [zoom, setZoom] = useState(1);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [isDraggingImage, setIsDraggingImage] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (zoom <= 1) return;
+    setIsDraggingImage(true);
+    setDragStart({ x: e.clientX - position.x, y: e.clientY - position.y });
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDraggingImage) return;
+    setPosition({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
+  };
+
+  const handleMouseUp = () => {
+    setIsDraggingImage(false);
+  };
+
+  const objectUrlsRef = useRef<Map<File, string>>(new Map());
+
+  const getObjectUrl = (file: File) => {
+    if (!objectUrlsRef.current.has(file)) {
+      objectUrlsRef.current.set(file, URL.createObjectURL(file));
+    }
+    return objectUrlsRef.current.get(file)!;
+  };
+
+  useEffect(() => {
+    return () => {
+      objectUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, []);
+
+  useEffect(() => {
+    setZoom(1);
+    setPosition({ x: 0, y: 0 });
+  }, [activeReceiptKey]);
+
   const { data: categories } = useQuery<Category[]>({
     queryKey: categoryKeys.list(),
     queryFn: () => api.get("/categories").then((r) => r.data),
   });
 
   const existingReceipts = expense?.receipts?.filter((r) => !deletedReceiptIds.has(r.id)) ?? [];
+
+  const items = [
+    ...existingReceipts.map((r) => ({
+      key: `existing-${r.id}`,
+      name: r.original_name || r.file_path.split("/").pop() || "Receipt",
+      url: `${API_BASE_URL}/expenses/${expense!.id}/receipts/${r.id}`,
+      isImage: /\.(jpg|jpeg|png|webp)$/i.test(r.file_path || r.original_name || ""),
+      isPdf: /\.pdf$/i.test(r.file_path || r.original_name || ""),
+    })),
+    ...receiptFiles.map((f, i) => ({
+      key: `new-${i}`,
+      name: f.name,
+      url: getObjectUrl(f),
+      isImage: f.type.startsWith("image/") || /\.(jpg|jpeg|png|webp)$/i.test(f.name),
+      isPdf: f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf"),
+    })),
+  ];
+
+  const activeItem = items.find((it) => it.key === activeReceiptKey) || items[0] || null;
 
   const save = useMutation({
     mutationFn: async () => {
@@ -193,245 +253,353 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
   };
 
   return (
-    <form
-      onSubmit={(e) => { e.preventDefault(); save.mutate(); }}
-      className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-6 max-w-lg space-y-5"
-    >
-      {error && <p className="text-red-600 text-sm">{error}</p>}
+    <div className="flex flex-col lg:flex-row gap-6 max-w-6xl w-full items-start">
+      <form
+        onSubmit={(e) => { e.preventDefault(); save.mutate(); }}
+        className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-6 flex-1 w-full max-w-lg space-y-5"
+      >
+        {error && <p className="text-red-600 text-sm">{error}</p>}
 
-      {savedExpense && savedExpense.currency_original !== "EUR" && (
-        <div className="bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 rounded-lg p-3 text-sm text-emerald-800 dark:text-emerald-400">
-          {savedExpense.amount_original} {savedExpense.currency_original} → {formatEur(savedExpense.amount_eur)} (rate: {savedExpense.fx_rate.toFixed(4)})
+        {savedExpense && savedExpense.currency_original !== "EUR" && (
+          <div className="bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 rounded-lg p-3 text-sm text-emerald-800 dark:text-emerald-400">
+            {savedExpense.amount_original} {savedExpense.currency_original} → {formatEur(savedExpense.amount_eur)} (rate: {savedExpense.fx_rate.toFixed(4)})
+          </div>
+        )}
+
+        {/* OCR Scan Drop Zone */}
+        {!isEdit && (
+          <div
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            className={clsx(
+              "border border-dashed rounded-lg p-6 text-center transition-all duration-200 cursor-pointer flex flex-col items-center justify-center min-h-[120px]",
+              isDragging
+                ? "border-blue-500 bg-blue-50/50 dark:bg-blue-950/20"
+                : "border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800/40"
+            )}
+            onClick={() => scanInputRef.current?.click()}
+          >
+            <input
+              ref={scanInputRef}
+              type="file"
+              accept=".jpg,.jpeg,.png,.pdf,.webp"
+              onChange={handleScan}
+              className="hidden"
+            />
+            {isScanning ? (
+              <div className="flex flex-col items-center gap-2">
+                <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Analyzing receipt...</p>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-2">
+                <Camera className={clsx("w-8 h-8 transition-colors", isDragging ? "text-blue-500" : "text-slate-400")} />
+                <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  {isDragging ? "Drop your receipt here!" : "Drag & drop receipt here, or click to browse"}
+                </p>
+                <p className="text-xs text-slate-400 dark:text-slate-500">
+                  Supports JPG, PNG, WEBP, PDF
+                </p>
+              </div>
+            )}
+
+            {scanResult && (
+              <div className={`mt-4 text-xs rounded-lg p-2.5 w-full text-left ${
+                scanResult.warnings.length === 0
+                  ? "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400"
+                  : "bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400"
+              }`}>
+                {scanResult.amount !== null && (
+                  <span className="font-semibold">Found: {scanResult.currency ?? ""}{scanResult.amount.toFixed(2)}</span>
+                )}
+                {scanResult.merchant && <span> at <span className="font-semibold">{scanResult.merchant}</span></span>}
+                {scanResult.date && <span> on <span className="font-semibold">{scanResult.date}</span></span>}
+                {scanResult.warnings.length > 0 && (
+                  <div className="mt-1 opacity-75">{scanResult.warnings.join(", ")}</div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Amount *</label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              required
+              value={form.amount}
+              onChange={set("amount")}
+              className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:text-slate-100"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Currency *</label>
+            <select
+              value={form.currency}
+              onChange={set("currency")}
+              className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:text-slate-100"
+            >
+              {CURRENCIES.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </div>
         </div>
-      )}
 
-      {/* OCR Scan Drop Zone */}
-      {!isEdit && (
-        <div
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-          className={clsx(
-            "border border-dashed rounded-lg p-6 text-center transition-all duration-200 cursor-pointer flex flex-col items-center justify-center min-h-[120px]",
-            isDragging
-              ? "border-blue-500 bg-blue-50/50 dark:bg-blue-950/20"
-              : "border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800/40"
-          )}
-          onClick={() => scanInputRef.current?.click()}
-        >
-          <input
-            ref={scanInputRef}
-            type="file"
-            accept=".jpg,.jpeg,.png,.pdf,.webp"
-            onChange={handleScan}
-            className="hidden"
-          />
-          {isScanning ? (
-            <div className="flex flex-col items-center gap-2">
-              <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-              <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Analyzing receipt...</p>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center gap-2">
-              <Camera className={clsx("w-8 h-8 transition-colors", isDragging ? "text-blue-500" : "text-slate-400")} />
-              <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                {isDragging ? "Drop your receipt here!" : "Drag & drop receipt here, or click to browse"}
-              </p>
-              <p className="text-xs text-slate-400 dark:text-slate-500">
-                Supports JPG, PNG, WEBP, PDF
-              </p>
-            </div>
-          )}
-
-          {scanResult && (
-            <div className={`mt-4 text-xs rounded-lg p-2.5 w-full text-left ${
-              scanResult.warnings.length === 0
-                ? "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400"
-                : "bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400"
-            }`}>
-              {scanResult.amount !== null && (
-                <span className="font-semibold">Found: {scanResult.currency ?? ""}{scanResult.amount.toFixed(2)}</span>
-              )}
-              {scanResult.merchant && <span> at <span className="font-semibold">{scanResult.merchant}</span></span>}
-              {scanResult.date && <span> on <span className="font-semibold">{scanResult.date}</span></span>}
-              {scanResult.warnings.length > 0 && (
-                <div className="mt-1 opacity-75">{scanResult.warnings.join(", ")}</div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
-      <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Amount *</label>
+          <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Date *</label>
           <input
-            type="number"
-            step="0.01"
-            min="0"
+            type="date"
             required
-            value={form.amount}
-            onChange={set("amount")}
+            value={form.date}
+            onChange={set("date")}
             className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:text-slate-100"
           />
         </div>
+
         <div>
-          <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Currency *</label>
+          <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Merchant</label>
+          <input
+            type="text"
+            value={form.merchant}
+            onChange={set("merchant")}
+            placeholder="e.g. McDonald's, Uber"
+            className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:text-slate-100"
+          />
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Category</label>
           <select
-            value={form.currency}
-            onChange={set("currency")}
+            value={form.category_id}
+            onChange={set("category_id")}
             className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:text-slate-100"
           >
-            {CURRENCIES.map((c) => (
-              <option key={c} value={c}>{c}</option>
+            <option value="">— Select category —</option>
+            {categories?.map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </select>
         </div>
-      </div>
-      {/* Tax fields hidden for now
-      <div className="grid grid-cols-2 gap-4">
+
         <div>
-          <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Tax Amount</label>
-          <input
-            type="number"
-            step="0.01"
-            min="0"
-            value={form.tax_amount}
-            onChange={set("tax_amount")}
-            className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:text-slate-100"
+          <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Description</label>
+          <textarea
+            value={form.description}
+            onChange={set("description")}
+            rows={2}
+            placeholder="Brief description..."
+            className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none dark:bg-slate-800 dark:text-slate-100"
           />
         </div>
+
         <div>
-          <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Tax Rate (%)</label>
+          <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Receipts</label>
           <input
-            type="number"
-            step="0.1"
-            min="0"
-            max="100"
-            value={form.tax_rate}
-            onChange={set("tax_rate")}
-            placeholder="e.g. 19"
-            className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:text-slate-100"
+            type="file"
+            accept=".jpg,.jpeg,.png,.pdf,.webp"
+            multiple
+            onChange={addFiles}
+            className="w-full text-sm text-slate-600 dark:text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:border file:border-slate-300 dark:file:border-slate-600 file:rounded-lg file:text-xs file:bg-slate-50 dark:file:bg-slate-800 hover:file:bg-slate-100 dark:hover:file:bg-slate-700"
           />
+
+          {existingReceipts.length > 0 && (
+            <div className="mt-2 space-y-1">
+              {existingReceipts.map((r) => (
+                <div key={r.id} className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                  <a
+                    href={`${API_BASE_URL}/expenses/${expense!.id}/receipts/${r.id}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-blue-600 dark:text-blue-400 hover:underline truncate max-w-[200px]"
+                  >
+                    {r.original_name || r.file_path.split("/").pop()}
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => markDeleteReceipt(r.id)}
+                    className="text-slate-400 dark:text-slate-500 hover:text-red-500"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {receiptFiles.length > 0 && (
+            <div className="mt-2 space-y-1">
+              {receiptFiles.map((f, i) => (
+                <div key={i} className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                  <span className="truncate max-w-[200px]">{f.name}</span>
+                  <span className="text-slate-300 dark:text-slate-600">({(f.size / 1024).toFixed(0)} KB)</span>
+                  <button
+                    type="button"
+                    onClick={() => removeNewFile(i)}
+                    className="text-slate-400 dark:text-slate-500 hover:text-red-500"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
-      </div>
-      */}
-      <div>
-        <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Date *</label>
-        <input
-          type="date"
-          required
-          value={form.date}
-          onChange={set("date")}
-          className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:text-slate-100"
-        />
-      </div>
 
-      <div>
-        <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Merchant</label>
-        <input
-          type="text"
-          value={form.merchant}
-          onChange={set("merchant")}
-          placeholder="e.g. McDonald's, Uber"
-          className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:text-slate-100"
-        />
-      </div>
+        <div className="flex gap-3 pt-2">
+          <button
+            type="submit"
+            disabled={save.isPending}
+            className="px-5 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50"
+          >
+            {save.isPending ? "Saving..." : isEdit ? "Save changes" : "Create expense"}
+          </button>
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="px-5 py-2 border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 text-sm font-medium rounded-lg hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700"
+          >
+            Cancel
+          </button>
+        </div>
+      </form>
 
-      <div>
-        <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Category</label>
-        <select
-          value={form.category_id}
-          onChange={set("category_id")}
-          className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:text-slate-100"
-        >
-          <option value="">— Select category —</option>
-          {categories?.map((c) => (
-            <option key={c.id} value={c.id}>{c.name}</option>
-          ))}
-        </select>
-      </div>
+      {/* Preview Panel */}
+      <div className="w-full lg:flex-1 lg:sticky lg:top-6 bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800/80 p-6 flex flex-col min-h-[450px] self-stretch">
+        <div className="border-b border-slate-100 dark:border-slate-800 pb-3 mb-4 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Receipt Preview</h2>
+          {items.length > 0 && (
+            <span className="text-xs bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-full font-medium">
+              {items.length} {items.length === 1 ? 'file' : 'files'}
+            </span>
+          )}
+        </div>
 
-      <div>
-        <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Description</label>
-        <textarea
-          value={form.description}
-          onChange={set("description")}
-          rows={2}
-          placeholder="Brief description..."
-          className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none dark:bg-slate-800 dark:text-slate-100"
-        />
-      </div>
+        {items.length > 1 && (
+          <div className="flex gap-2 pb-3 mb-3 overflow-x-auto scrollbar-none border-b border-slate-100 dark:border-slate-800">
+            {items.map((it) => (
+              <button
+                key={it.key}
+                type="button"
+                onClick={() => setActiveReceiptKey(it.key)}
+                className={clsx(
+                  "px-3 py-1.5 text-xs font-medium rounded-lg border transition-all truncate max-w-[150px] shrink-0",
+                  activeItem?.key === it.key
+                    ? "bg-blue-50 dark:bg-blue-950/30 border-blue-500 text-blue-600 dark:text-blue-400"
+                    : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700/60"
+                )}
+              >
+                {it.name}
+              </button>
+            ))}
+          </div>
+        )}
 
-      <div>
-        <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Receipts</label>
-        <input
-          type="file"
-          accept=".jpg,.jpeg,.png,.pdf,.webp"
-          multiple
-          onChange={addFiles}
-          className="w-full text-sm text-slate-600 dark:text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:border file:border-slate-300 dark:file:border-slate-600 file:rounded-lg file:text-xs file:bg-slate-50 dark:file:bg-slate-800 hover:file:bg-slate-100 dark:hover:file:bg-slate-700"
-        />
+        {activeItem ? (
+          <div className="flex-1 flex flex-col justify-between h-full">
+            <div className="mb-3">
+              <p className="text-xs font-medium text-slate-800 dark:text-slate-200 truncate">{activeItem.name}</p>
+            </div>
+            {activeItem.isImage ? (
+              <div className="relative group flex-1 flex flex-col items-center bg-slate-50 dark:bg-slate-950/40 rounded-lg overflow-hidden border border-slate-100 dark:border-slate-800 min-h-[400px]">
+                {/* Zoom Controls */}
+                <div className="absolute top-3 right-3 flex items-center gap-1 bg-slate-900/90 dark:bg-slate-800/90 text-white rounded-lg p-1.5 shadow-lg z-10 select-none">
+                  <button
+                    type="button"
+                    onClick={() => setZoom((z) => Math.max(0.5, z - 0.25))}
+                    className="p-1 hover:bg-slate-800 dark:hover:bg-slate-700 rounded text-xs font-bold w-6 h-6 flex items-center justify-center"
+                    title="Zoom Out"
+                  >
+                    -
+                  </button>
+                  <span className="text-[10px] font-mono w-10 text-center">
+                    {Math.round(zoom * 100)}%
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setZoom((z) => Math.min(3, z + 0.25))}
+                    className="p-1 hover:bg-slate-800 dark:hover:bg-slate-700 rounded text-xs font-bold w-6 h-6 flex items-center justify-center"
+                    title="Zoom In"
+                  >
+                    +
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setZoom(1); setPosition({ x: 0, y: 0 }); }}
+                    className="p-1 hover:bg-slate-800 dark:hover:bg-slate-700 rounded text-[10px] px-1.5 font-medium ml-1"
+                    title="Reset Zoom"
+                  >
+                    Reset
+                  </button>
+                </div>
 
-        {existingReceipts.length > 0 && (
-          <div className="mt-2 space-y-1">
-            {existingReceipts.map((r) => (
-              <div key={r.id} className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                <div
+                  className={clsx(
+                    "flex-1 w-full flex items-center justify-center p-4 overflow-hidden min-h-[350px]",
+                    zoom > 1 ? "cursor-grab" : ""
+                  )}
+                  onMouseDown={handleMouseDown}
+                  onMouseMove={handleMouseMove}
+                  onMouseUp={handleMouseUp}
+                  onMouseLeave={handleMouseUp}
+                >
+                  <img
+                    src={activeItem.url}
+                    alt={activeItem.name}
+                    style={{
+                      transform: `translate(${position.x}px, ${position.y}px) scale(${zoom})`,
+                      transformOrigin: "center center",
+                      cursor: zoom > 1 ? (isDraggingImage ? 'grabbing' : 'grab') : 'default'
+                    }}
+                    className="max-h-[500px] max-w-full object-contain rounded-md transition-transform duration-200 select-none pointer-events-none"
+                  />
+                </div>
+                
                 <a
-                  href={`${API_BASE_URL}/expenses/${expense!.id}/receipts/${r.id}`}
+                  href={activeItem.url}
                   target="_blank"
                   rel="noreferrer"
-                  className="text-blue-600 dark:text-blue-400 hover:underline truncate max-w-[200px]"
+                  className="absolute bottom-3 right-3 bg-black/60 hover:bg-black/80 text-white text-xs px-2.5 py-1.5 rounded-md backdrop-blur-sm transition-colors duration-150"
                 >
-                  {r.original_name || r.file_path.split("/").pop()}
+                  View Fullscreen
                 </a>
-                <button
-                  type="button"
-                  onClick={() => markDeleteReceipt(r.id)}
-                  className="text-slate-400 dark:text-slate-500 hover:text-red-500"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
               </div>
-            ))}
+            ) : activeItem.isPdf ? (
+              <div className="flex-1 flex flex-col min-h-[350px]">
+                <iframe
+                  src={activeItem.url}
+                  className="w-full flex-1 rounded-lg border border-slate-200 dark:border-slate-800 min-h-[350px]"
+                  title="PDF Preview"
+                />
+              </div>
+            ) : (
+              <div className="flex-1 flex flex-col items-center justify-center p-6 border border-dashed border-slate-300 dark:border-slate-700 rounded-lg text-slate-400">
+                <p className="text-sm">No preview available for this file type.</p>
+                <a
+                  href={activeItem.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-2 text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  Download File
+                </a>
+              </div>
+            )}
           </div>
-        )}
-
-        {receiptFiles.length > 0 && (
-          <div className="mt-2 space-y-1">
-            {receiptFiles.map((f, i) => (
-              <div key={i} className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-                <span className="truncate max-w-[200px]">{f.name}</span>
-                <span className="text-slate-300 dark:text-slate-600">({(f.size / 1024).toFixed(0)} KB)</span>
-                <button
-                  type="button"
-                  onClick={() => removeNewFile(i)}
-                  className="text-slate-400 dark:text-slate-500 hover:text-red-500"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            ))}
+        ) : (
+          <div className="flex-1 flex flex-col items-center justify-center border border-dashed border-slate-200 dark:border-slate-800 rounded-xl p-8 text-center min-h-[350px]">
+            <Camera className="w-10 h-10 text-slate-300 dark:text-slate-700 mb-3 animate-pulse" />
+            <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">No Receipt Selected</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-[200px]">
+              Upload or scan a receipt to view its preview here.
+            </p>
           </div>
         )}
       </div>
-
-      <div className="flex gap-3 pt-2">
-        <button
-          type="submit"
-          disabled={save.isPending}
-          className="px-5 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50"
-        >
-          {save.isPending ? "Saving..." : isEdit ? "Save changes" : "Create expense"}
-        </button>
-        <button
-          type="button"
-          onClick={() => router.back()}
-          className="px-5 py-2 border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 text-sm font-medium rounded-lg hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700"
-        >
-          Cancel
-        </button>
-      </div>
-    </form>
+    </div>
   );
 }

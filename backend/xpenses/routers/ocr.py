@@ -67,6 +67,10 @@ async def get_ocr_comparisons(
             c.easyocr_date,
             c.easyocr_merchant,
             c.easyocr_category_id,
+            c.mineru_amount,
+            c.mineru_date,
+            c.mineru_merchant,
+            c.mineru_category_id,
             c.provider,
             e.amount_original AS final_amount,
             e.date AS final_date,
@@ -128,42 +132,45 @@ async def get_ocr_comparisons(
             if r["easyocr_category_id"] == r["final_category_id"]:
                 easyocr_cat_ok += 1
 
-        # Active OCR accuracy — only where ground truth exists
-        has_active = (
-            r["gemini_amount"] is not None
-            or r["gemini_date"] is not None
-            or r["gemini_merchant"] is not None
-            or r["gemini_category_id"] is not None
-        )
-        if has_active and has_final:
-            if provider == "mineru":
-                mineru_count += 1
-                if r["gemini_amount"] is not None and r["final_amount"] is not None:
-                    if abs(float(r["gemini_amount"]) - float(r["final_amount"])) < 0.01:
-                        mineru_amt_ok += 1
-                if r["gemini_date"] is not None and r["gemini_date"] == r["final_date"]:
-                    mineru_date_ok += 1
-                if r["gemini_merchant"] and r["final_merchant"]:
-                    if r["gemini_merchant"].strip().lower() == r["final_merchant"].strip().lower():
-                        mineru_merchant_ok += 1
-                elif not r["gemini_merchant"] and not r["final_merchant"]:
-                    mineru_merchant_ok += 1
-                if r["gemini_category_id"] == r["final_category_id"]:
-                    mineru_cat_ok += 1
-            else:
-                gemini_count += 1
-                if r["gemini_amount"] is not None and r["final_amount"] is not None:
-                    if abs(float(r["gemini_amount"]) - float(r["final_amount"])) < 0.01:
-                        gemini_amt_ok += 1
-                if r["gemini_date"] is not None and r["gemini_date"] == r["final_date"]:
-                    gemini_date_ok += 1
-                if r["gemini_merchant"] and r["final_merchant"]:
-                    if r["gemini_merchant"].strip().lower() == r["final_merchant"].strip().lower():
-                        gemini_merchant_ok += 1
-                elif not r["gemini_merchant"] and not r["final_merchant"]:
+        # Gemini accuracy — only where ground truth exists and Gemini was run
+        # Note: Gemini runs when provider is 'gemini'
+        if provider == "gemini" and has_final:
+            gemini_count += 1
+            if r["gemini_amount"] is not None and r["final_amount"] is not None:
+                if abs(float(r["gemini_amount"]) - float(r["final_amount"])) < 0.01:
+                    gemini_amt_ok += 1
+            if r["gemini_date"] is not None and r["gemini_date"] == r["final_date"]:
+                gemini_date_ok += 1
+            if r["gemini_merchant"] and r["final_merchant"]:
+                if r["gemini_merchant"].strip().lower() == r["final_merchant"].strip().lower():
                     gemini_merchant_ok += 1
-                if r["gemini_category_id"] == r["final_category_id"]:
-                    gemini_cat_ok += 1
+            elif not r["gemini_merchant"] and not r["final_merchant"]:
+                gemini_merchant_ok += 1
+            if r["gemini_category_id"] == r["final_category_id"]:
+                gemini_cat_ok += 1
+
+        # MinerU accuracy — only where ground truth exists and MinerU was run
+        # Note: MinerU has its own columns now and is run in background of Gemini too!
+        has_mineru = (
+            r["mineru_amount"] is not None
+            or r["mineru_date"] is not None
+            or r["mineru_merchant"] is not None
+            or r["mineru_category_id"] is not None
+        )
+        if has_mineru and has_final:
+            mineru_count += 1
+            if r["mineru_amount"] is not None and r["final_amount"] is not None:
+                if abs(float(r["mineru_amount"]) - float(r["final_amount"])) < 0.01:
+                    mineru_amt_ok += 1
+            if r["mineru_date"] is not None and r["mineru_date"] == r["final_date"]:
+                mineru_date_ok += 1
+            if r["mineru_merchant"] and r["final_merchant"]:
+                if r["mineru_merchant"].strip().lower() == r["final_merchant"].strip().lower():
+                    mineru_merchant_ok += 1
+            elif not r["mineru_merchant"] and not r["final_merchant"]:
+                mineru_merchant_ok += 1
+            if r["mineru_category_id"] == r["final_category_id"]:
+                mineru_cat_ok += 1
 
     stats = {
         "total_scanned": total_scanned,

@@ -511,6 +511,7 @@ async def save_ocr_comparison(
     gemini_result: dict | None,
     easyocr_result: dict | None,
     provider: str = "gemini",
+    mineru_result: dict | None = None,
 ) -> int:
     row = await conn.fetchrow(
         """
@@ -518,8 +519,9 @@ async def save_ocr_comparison(
             receipt_filename,
             gemini_amount, gemini_date, gemini_merchant, gemini_category_id,
             easyocr_amount, easyocr_date, easyocr_merchant, easyocr_category_id,
+            mineru_amount, mineru_date, mineru_merchant, mineru_category_id,
             provider
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
         RETURNING id
         """,
         filename,
@@ -531,6 +533,10 @@ async def save_ocr_comparison(
         easyocr_result.get("date") if easyocr_result else None,
         easyocr_result.get("merchant") if easyocr_result else None,
         easyocr_result.get("category_id") if easyocr_result else None,
+        mineru_result.get("amount") if mineru_result else None,
+        mineru_result.get("date") if mineru_result else None,
+        mineru_result.get("merchant") if mineru_result else None,
+        mineru_result.get("category_id") if mineru_result else None,
         provider,
     )
     return row["id"]
@@ -566,59 +572,63 @@ async def scan_receipt(file_bytes: bytes, filename: str, db: asyncpg.Connection 
 
     gemini_result = None
     easyocr_result = None
+    mineru_result = None
     final_result = None
     easyocr_provider = EasyOCRProvider()
+    mineru_provider = MinerUOCRProvider(config.mineru_url or "http://mineru:8000")
 
     if config.provider == "gemini" and config.gemini_api_key:
         try:
-            provider = GeminiOCRProvider(config.gemini_api_key)
-            g_res, e_res = await asyncio.gather(
-                provider.scan(file_bytes, filename, categories=categories, classifier=classifier),
+            gemini_provider = GeminiOCRProvider(config.gemini_api_key)
+            g_res, e_res, m_res = await asyncio.gather(
+                gemini_provider.scan(file_bytes, filename, categories=categories, classifier=classifier),
                 easyocr_provider.scan(file_bytes, filename, categories=categories, classifier=classifier),
+                mineru_provider.scan(file_bytes, filename, categories=categories, classifier=classifier),
                 return_exceptions=True,
             )
+            if not isinstance(e_res, Exception):
+                easyocr_result = e_res
+            else:
+                logger.error(f"EasyOCR failed in parallel scan: {e_res}")
+
+            if not isinstance(m_res, Exception):
+                mineru_result = m_res
+            else:
+                logger.error(f"MinerU failed in background parallel scan: {m_res}")
+
             if isinstance(g_res, Exception):
                 logger.error(f"Gemini OCR failed, falling back to EasyOCR: {g_res}")
                 if isinstance(e_res, Exception):
                     raise Exception(f"Both OCR providers failed. Gemini: {g_res}, EasyOCR: {e_res}")
-                easyocr_result = e_res
                 final_result = e_res.copy()
                 final_result["warnings"].append(f"Gemini OCR failed: {g_res}. Fell back to local EasyOCR.")
             else:
                 gemini_result = g_res
-                if isinstance(e_res, Exception):
-                    logger.error(f"EasyOCR failed in parallel scan: {e_res}")
-                else:
-                    easyocr_result = e_res
                 final_result = g_res
         except Exception as exc:
             logger.error(f"Parallel OCR scan failed: {exc}")
             return _empty_result([f"Scan failed: {exc}"])
 
     elif config.provider == "mineru":
-        # MinerU is the active provider; run EasyOCR in parallel for comparison tracking
-        mineru_provider = MinerUOCRProvider(config.mineru_url or "http://mineru:8000")
         try:
             m_res, e_res = await asyncio.gather(
                 mineru_provider.scan(file_bytes, filename, categories=categories, classifier=classifier),
                 easyocr_provider.scan(file_bytes, filename, categories=categories, classifier=classifier),
                 return_exceptions=True,
             )
+            if not isinstance(e_res, Exception):
+                easyocr_result = e_res
+            else:
+                logger.error(f"EasyOCR failed in parallel scan: {e_res}")
+
             if isinstance(m_res, Exception):
                 logger.error(f"MinerU OCR failed, falling back to EasyOCR: {m_res}")
                 if isinstance(e_res, Exception):
                     raise Exception(f"Both OCR providers failed. MinerU: {m_res}, EasyOCR: {e_res}")
-                easyocr_result = e_res
                 final_result = e_res.copy()
                 final_result["warnings"].append(f"MinerU OCR failed: {m_res}. Fell back to local EasyOCR.")
             else:
-                # Store MinerU result in the gemini_* columns of ocr_comparisons
-                # so the comparison dashboard shows MinerU vs EasyOCR side-by-side
-                gemini_result = m_res
-                if isinstance(e_res, Exception):
-                    logger.error(f"EasyOCR failed in parallel scan: {e_res}")
-                else:
-                    easyocr_result = e_res
+                mineru_result = m_res
                 final_result = m_res
         except Exception as exc:
             logger.error(f"MinerU parallel scan failed: {exc}")
@@ -636,19 +646,21 @@ async def scan_receipt(file_bytes: bytes, filename: str, db: asyncpg.Connection 
     try:
         provider_name = config.provider if config else "easyocr"
         if db:
-            comparison_id = await save_ocr_comparison(db, filename, gemini_result, easyocr_result, provider=provider_name)
+            comparison_id = await save_ocr_comparison(
+                db, filename, gemini_result, easyocr_result, provider=provider_name, mineru_result=mineru_result
+            )
         else:
             from ..database import get_pool
             pool = get_pool()
             async with pool.acquire() as conn:
-                comparison_id = await save_ocr_comparison(conn, filename, gemini_result, easyocr_result, provider=provider_name)
+                comparison_id = await save_ocr_comparison(
+                    conn, filename, gemini_result, easyocr_result, provider=provider_name, mineru_result=mineru_result
+                )
     except Exception as e:
         logger.error(f"Failed to save OCR comparison record: {e}")
 
     final_result["comparison_id"] = comparison_id
     return final_result
-
-
 
 
 def extract_amount(lines: list[str]) -> tuple[float | None, str | None]:

@@ -472,9 +472,8 @@ export default function OcrAdminPage() {
                             <th className="p-3 border-r border-slate-200 dark:border-slate-800">Receipt / Date</th>
                             <th className="p-3">Field</th>
                             <th className="p-3">EasyOCR (Local)</th>
-                            <th className="p-3 font-semibold text-indigo-600 dark:text-indigo-400">
-                              Active OCR
-                            </th>
+                            <th className="p-3 font-semibold text-indigo-600 dark:text-indigo-400">Gemini (Cloud)</th>
+                            <th className="p-3 font-semibold text-emerald-600 dark:text-emerald-400">MinerU 2.5 (Local)</th>
                             <th className="p-3 bg-blue-50/50 dark:bg-blue-950/20 font-bold text-blue-800 dark:text-blue-300">Final (Ground Truth)</th>
                           </tr>
                         </thead>
@@ -494,24 +493,28 @@ export default function OcrAdminPage() {
                                 name: "Amount",
                                 easy: row.easyocr_amount !== null ? `${row.easyocr_amount}` : null,
                                 gem: row.gemini_amount !== null ? `${row.gemini_amount}` : null,
+                                min: row.mineru_amount !== null ? `${row.mineru_amount}` : null,
                                 final: isLinked ? (row.final_amount !== null ? `${row.final_amount}` : "—") : null,
                               },
                               {
                                 name: "Merchant",
                                 easy: row.easyocr_merchant || null,
                                 gem: row.gemini_merchant || null,
+                                min: row.mineru_merchant || null,
                                 final: isLinked ? (row.final_merchant || "—") : null,
                               },
                               {
                                 name: "Date",
                                 easy: row.easyocr_date || null,
                                 gem: row.gemini_date || null,
+                                min: row.mineru_date || null,
                                 final: isLinked ? (row.final_date || "—") : null,
                               },
                               {
                                 name: "Category",
                                 easy: formatCat(row.easyocr_category_id),
                                 gem: formatCat(row.gemini_category_id),
+                                min: formatCat(row.mineru_category_id),
                                 final: isLinked ? (formatCat(row.final_category_id) ?? "—") : null,
                               },
                             ];
@@ -552,6 +555,15 @@ export default function OcrAdminPage() {
                                   {f.gem !== null ? (
                                     <span className={`px-2 py-0.5 rounded border text-[11px] font-medium ${isLinked ? getStatusColor(f.gem, f.final) : "text-slate-600 bg-slate-100/50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-800"}`}>
                                       {f.gem}
+                                    </span>
+                                  ) : (
+                                    <span className="text-slate-400">—</span>
+                                  )}
+                                </td>
+                                <td className="p-3">
+                                  {f.min !== null ? (
+                                    <span className={`px-2 py-0.5 rounded border text-[11px] font-medium ${isLinked ? getStatusColor(f.min, f.final) : "text-slate-600 bg-slate-100/50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-800"}`}>
+                                      {f.min}
                                     </span>
                                   ) : (
                                     <span className="text-slate-400">—</span>

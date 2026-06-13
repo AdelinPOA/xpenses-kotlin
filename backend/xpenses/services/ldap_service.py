@@ -361,9 +361,7 @@ async def sync_users(config: LdapConfig, pool) -> dict:
     return stats
 
 
-async def authenticate_ldap(
-    username: str, password: str, config: LdapConfig
-) -> bool:
+def _authenticate_ldap_sync(username: str, password: str, config: LdapConfig) -> bool:
     if not password:
         raise LDAPBindError("Empty password not allowed")
     try:
@@ -414,3 +412,10 @@ async def authenticate_ldap(
         raise LDAPUnavailableError(str(e)) from e
     except OSError as e:
         raise LDAPUnavailableError(str(e)) from e
+
+
+async def authenticate_ldap(
+    username: str, password: str, config: LdapConfig
+) -> bool:
+    return await asyncio.to_thread(_authenticate_ldap_sync, username, password, config)
+

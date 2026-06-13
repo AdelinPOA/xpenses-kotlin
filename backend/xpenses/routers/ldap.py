@@ -67,7 +67,7 @@ async def update_ldap(body: LdapConfigIn, current_user: dict = require_role("mod
 
     pool = get_pool()
 
-    if body.bind_password == "":
+    if body.bind_password in ("", "***"):
         existing = await get_ldap_config(pool)
         password = existing.bind_password
     else:

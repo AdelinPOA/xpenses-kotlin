@@ -8,7 +8,8 @@ export function middleware(request: NextRequest) {
   }
 
   const accessToken = request.cookies.get("access_token");
-  if (!accessToken) {
+  const refreshToken = request.cookies.get("refresh_token");
+  if (!accessToken && !refreshToken) {
     const loginUrl = new URL("/login", request.url);
     return NextResponse.redirect(loginUrl);
   }

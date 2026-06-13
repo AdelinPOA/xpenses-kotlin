@@ -95,7 +95,7 @@ async def create_expense(body: ExpenseCreate, current_user: dict = Depends(get_c
         raise HTTPException(status_code=502, detail=f"Failed to fetch exchange rate: {e}")
 
     amount_eur = round(body.amount * fx_rate, 2)
-    tax_amount_eur = round(body.tax_amount / fx_rate, 2) if fx_rate else 0.0
+    tax_amount_eur = round(body.tax_amount * fx_rate, 2) if fx_rate else 0.0
 
     now = datetime.now(timezone.utc)
     row = await db.fetchrow(
@@ -170,7 +170,7 @@ async def update_expense(expense_id: int, body: ExpenseUpdate, current_user: dic
         fields["fx_rate"] = fx_rate
         fields["tax_amount"] = eff_tax_amount
         fields["tax_rate"] = eff_tax_rate
-        fields["tax_amount_eur"] = round(float(eff_tax_amount) / fx_rate, 2) if fx_rate else 0.0
+        fields["tax_amount_eur"] = round(float(eff_tax_amount) * fx_rate, 2) if fx_rate else 0.0
 
     for k in ("date", "description", "merchant", "category_id", "raw_ocr_text"):
         if k in raw:

@@ -1,11 +1,36 @@
 # HANDOFF.md — xpenses_copy
 
-> Last updated: 2026-06-13 (session 32)
+> Last updated: 2026-06-13 (session 33)
 > Author: Antigravity AI
 
 ---
 
-## Latest Session (2026-06-13, session 32)
+## Latest Session (2026-06-13, session 33)
+
+### What Was Done
+- **Architectural Audit & Resolution of Critical Bugs**:
+  - **Audit**: Conducted a thorough architectural audit across backend, frontend, and security/DevOps layers using three specialized subagents. Generated a comprehensive audit report at [architecture_audit_report.md](file:///home/poa/.gemini/antigravity-cli/brain/ae04de80-01e3-4606-b6e1-37f5f9db0151/architecture_audit_report.md).
+  - **Backend Fixes**:
+    - **Tax FX Calculation**: Fixed a critical calculation bug in [expenses.py](file:///home/poa/xpenses_copy/backend/xpenses/routers/expenses.py) where tax in EUR (`tax_amount_eur`) was dividing by `fx_rate` instead of multiplying (corrupting foreign tax records).
+    - **LDAP Blocking I/O**: Refactored `authenticate_ldap` in [ldap_service.py](file:///home/poa/xpenses_copy/backend/xpenses/services/ldap_service.py) to run synchronous LDAP socket bindings inside `asyncio.to_thread` to prevent blocking FastAPI's main thread event loop.
+    - **LDAP Password Overwrite**: Fixed a bug in [ldap.py](file:///home/poa/xpenses_copy/backend/xpenses/routers/ldap.py) where saving settings with masked password string `"***"` overwrote the actual saved password in the database.
+  - **Frontend Fixes**:
+    - **Middleware Token Refresh**: Updated the authentication gate in [middleware.ts](file:///home/poa/xpenses_copy/frontend/middleware.ts) to permit page loading if either `access_token` or `refresh_token` cookie is present, solving the race condition where active users were redirect-booted after 15 minutes of inactivity.
+    - **Axios Refresh Failure Eviction**: Modified Axios interceptor in [api.ts](file:///home/poa/xpenses_copy/frontend/lib/api.ts) to hard redirect to `/login` when token refresh fails (expired refresh tokens), preventing silent UI hangs.
+    - **Tailwind CSS v4 Toast Animation**: Defined the missing `--animate-slide-in` CSS variables and `@keyframes` rule inside Tailwind CSS v4 `@theme` directive in [globals.css](file:///home/poa/xpenses_copy/frontend/app/globals.css) to fix abrupt toast appearances.
+  - **Validation**: Ran all **185 tests** successfully (100% green).
+
+### Modified Files
+- `backend/xpenses/routers/expenses.py` — Fixed Tax FX conversion formula.
+- `backend/xpenses/services/ldap_service.py` — Offloaded synchronous LDAP calls.
+- `backend/xpenses/routers/ldap.py` — Prevented masked password string write overwrite.
+- `frontend/middleware.ts` — Updated gate logic to allow refresh token renewal.
+- `frontend/lib/api.ts` — Added redirection logic to login page on refresh failures.
+- `frontend/app/globals.css` — Added slide-in keyframe animations for toast notification layout.
+
+---
+
+## Previous Session (2026-06-13, session 32)
 
 ### What Was Done
 - **Email Forward Ingestion Simulator (Local Testing)**:

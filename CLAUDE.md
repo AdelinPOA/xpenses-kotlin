@@ -25,7 +25,7 @@ docker compose logs -f backend
 # Access PostgreSQL
 docker exec -it xpenses-db psql -U xpenses
 
-# Run all tests (145 tests, ~40s, inside backend container)
+# Run all tests (184 tests, ~40s, inside backend container)
 make test
 
 # Run tests with stop-on-first-failure
@@ -78,7 +78,7 @@ curl http://localhost:8001/api/health
 
 **Auth:** JWT access tokens (15 min) + refresh tokens (7 days), both in httpOnly cookies. `get_current_user()` dependency reads the `access_token` cookie. `require_role(*roles)` stacks on it for role gating. Four roles: `technician`, `manager`, `chef_finance`, `mod`. The `mod` role is a superuser: can create local users (`POST /api/users`), manage LDAP/AD config, and access all admin pages. It does not participate in the expense/report workflow.
 
-**Schema:** `database.py` runs DDL on startup via `init_db()`. No migration tool — uses `CREATE TABLE IF NOT EXISTS` + `ALTER TABLE ADD COLUMN` with existence checks. Seed users created by `seed.py` (gated behind `SEED_DEMO_USERS` env var).
+**Schema:** `database.py` runs DDL on startup via `init_db()`. Schema migrations are managed via **Alembic** (programmatically invoked at startup). If a legacy database without an `alembic_version` table is detected, it is stamped to the head migration. Seed users created by `seed.py` (gated behind `SEED_DEMO_USERS` env var).
 
 **Router prefix:** All API routes are under `/api/` (e.g., `/api/expenses`, `/api/auth/login`).
 

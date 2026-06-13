@@ -1,11 +1,29 @@
 # HANDOFF.md — xpenses_copy
 
-> Last updated: 2026-06-13 (session 30)
+> Last updated: 2026-06-13 (session 31)
 > Author: Antigravity AI
 
 ---
 
-## Latest Session (2026-06-13, session 30)
+## Latest Session (2026-06-13, session 31)
+
+### What Was Done
+- **Documentation & Roadmap Audit**:
+  - Conducted a comprehensive review of all markdown documentation (`README.md`, `CLAUDE.md`, `GEMINI.md`, `HANDOFF.md`, and `AUDIT_FIXES.md`) to verify alignment with the codebase and the roadmap.
+  - Updated the test suite count from 131/145 to **184 tests** across all `.md` instruction and status files to match the actual size of the test suite.
+  - Formally updated the roadmap in `README.md` to mark **Expense duplication** as completed `[x]`, as it is fully implemented in the frontend and backend.
+  - Updated architectural schema references in `CLAUDE.md` and `GEMINI.md` to document the Alembic migrations setup implemented in session 30.
+  - Cleaned up the pending task checklist in `AUDIT_FIXES.md`.
+
+### Modified Files
+- `README.md` — Updated test counts and marked expense duplication as complete.
+- `CLAUDE.md` — Updated test counts and documented the Alembic migrations schema pattern.
+- `GEMINI.md` — Updated test counts and documented the Alembic migrations schema pattern.
+- `AUDIT_FIXES.md` — Cleaned up the pending checklist state.
+
+---
+
+## Previous Session (2026-06-13, session 30)
 
 ### What Was Done
 - **Database Schema Management (Alembic)**:

@@ -2,7 +2,8 @@
 
 ## Pending
 
-- [ ] Fix Non-Atomic Multi-Request Form Submission (ExpenseForm.tsx)
+*(None)*
+
 ## Completed
 - [x] Fix Non-Atomic Multi-Request Form Submission (ExpenseForm.tsx)
 - [x] Refactor Repetitive Manual Database Connection Boilerplate (backend routers)

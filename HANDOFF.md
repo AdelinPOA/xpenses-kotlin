@@ -1,11 +1,41 @@
 # HANDOFF.md — xpenses_copy
 
-> Last updated: 2026-06-13 (session 29)
+> Last updated: 2026-06-13 (session 30)
 > Author: Antigravity AI
 
 ---
 
-## Latest Session (2026-06-13, session 29)
+## Latest Session (2026-06-13, session 30)
+
+### What Was Done
+- **Database Schema Management (Alembic)**:
+  - Integrated `alembic` (v1.13.3) for database schema migrations, replacing the custom SQL migrations runner in `database.py`.
+  - Created a baseline Alembic migration revision that creates all base tables and indexes (reproducing `0001_init.sql` schema).
+  - Created sequential Alembic migrations for adding `raw_ocr_text` (Revision 2) and `ocr_comparisons` table (Revision 3).
+  - Updated `database.py` to run Alembic migrations programmatically on startup using a subprocess executing `alembic upgrade head`, dynamically loading the active database connection string from environment variables and config.
+  - Added a smart baseline stamp check: if a legacy database is detected (tables already exist but no `alembic_version` table is present), the database is stamped directly to the head revision to prevent recreating tables.
+  - Updated `tests/conftest.py` and `tests/test_migrations_cleanup.py` to run under the new Alembic migration system, verifying that the `alembic_version` table is correctly populated.
+- **Premium UI/UX Polish**:
+  - **Stat Cards (`StatCard.tsx`)**: Re-styled with custom CSS gradients, glassmorphism (`backdrop-blur-md bg-white/70 dark:bg-slate-900/75`), hover elevation shifts, and subtle ambient glow details.
+  - **Action Cards (`DashboardActionCard.tsx`)**: Re-styled with custom role-based gradients, fine glowing borders, icon zoom transitions, and slide animations on the arrow icon.
+  - **Status Badges (`Badge.tsx`)**: Redesigned to use modern pill styling with fine border outlines and a pulsing status dot.
+  - **Category Spend Progress Chart (`dashboard/page.tsx`)**: Replaced the plain text table with animated horizontal progress bars cycling through vibrant gradient color patterns.
+  - **Sidebar Active States (`Sidebar.tsx`)**: Replaced block active background fills with clean colored border-l accents matching the user's role.
+
+### Modified Files
+- `backend/pyproject.toml` — Added `alembic==1.13.3` to project dependencies.
+- `backend/xpenses/database.py` — Removed manual `CREATE_TABLES` query; refactored `init_db` to run Alembic migrations via subprocess.
+- `backend/xpenses/migrations/` — Generated Alembic structure containing `env.py`, `alembic.ini`, and 3 migrations under `versions/`. Deleted old legacy raw SQL migrations folder.
+- `backend/tests/test_migrations_cleanup.py` — Updated database schema checks to query `alembic_version`.
+- `frontend/components/dashboard/StatCard.tsx` — Styled with gradients, hover micro-interactions, and glassmorphic blurs.
+- `frontend/components/dashboard/DashboardActionCard.tsx` — Styled with role-based gradients, fine borders, and slide animations.
+- `frontend/components/ui/Badge.tsx` — Re-designed pill layout with status indicator dots.
+- `frontend/app/dashboard/page.tsx` — Replaced spend table with visual category progress bars.
+- `frontend/components/layout/Sidebar.tsx` — Styled active nav links with left colored border lines.
+
+---
+
+## Previous Session (2026-06-13, session 29)
 
 ### What Was Done
 - **Expense Image Preview on Upload**:

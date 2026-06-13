@@ -1,4 +1,24 @@
-CREATE TABLE IF NOT EXISTS categories (
+"""baseline_schema
+
+Revision ID: a078be00200b
+Revises: 
+Create Date: 2026-06-13 04:50:50.066384
+
+"""
+from typing import Sequence, Union
+
+from alembic import op
+
+# revision identifiers, used by Alembic.
+revision: str = 'a078be00200b'
+down_revision: Union[str, None] = None
+branch_labels: Union[str, Sequence[str], None] = None
+depends_on: Union[str, Sequence[str], None] = None
+
+
+def upgrade() -> None:
+    sql = """
+CREATE TABLE categories (
     id SERIAL PRIMARY KEY,
     name TEXT NOT NULL UNIQUE,
     limit_amount DOUBLE PRECISION,
@@ -6,7 +26,7 @@ CREATE TABLE IF NOT EXISTS categories (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS users (
+CREATE TABLE users (
     id            SERIAL PRIMARY KEY,
     username      VARCHAR(100) UNIQUE NOT NULL,
     display_name  VARCHAR(200) NOT NULL,
@@ -21,7 +41,7 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at    TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS expense_reports (
+CREATE TABLE expense_reports (
     id SERIAL PRIMARY KEY,
     user_id INTEGER REFERENCES users(id),
     title TEXT NOT NULL,
@@ -42,7 +62,7 @@ CREATE TABLE IF NOT EXISTS expense_reports (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS expenses (
+CREATE TABLE expenses (
     id SERIAL PRIMARY KEY,
     user_id INTEGER REFERENCES users(id),
     category_id INTEGER REFERENCES categories(id),
@@ -63,7 +83,7 @@ CREATE TABLE IF NOT EXISTS expenses (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS receipts (
+CREATE TABLE receipts (
     id SERIAL PRIMARY KEY,
     expense_id INTEGER NOT NULL REFERENCES expenses(id) ON DELETE CASCADE,
     file_path TEXT NOT NULL,
@@ -71,7 +91,7 @@ CREATE TABLE IF NOT EXISTS receipts (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS fx_rates (
+CREATE TABLE fx_rates (
     id SERIAL PRIMARY KEY,
     from_currency TEXT NOT NULL,
     to_currency TEXT NOT NULL,
@@ -81,7 +101,7 @@ CREATE TABLE IF NOT EXISTS fx_rates (
     UNIQUE(from_currency, to_currency, rate_date)
 );
 
-CREATE TABLE IF NOT EXISTS refresh_tokens (
+CREATE TABLE refresh_tokens (
     id         SERIAL PRIMARY KEY,
     user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     token_hash VARCHAR(200) NOT NULL,
@@ -89,7 +109,7 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS advance_payments (
+CREATE TABLE advance_payments (
     id SERIAL PRIMARY KEY,
     report_id INTEGER NOT NULL REFERENCES expense_reports(id) ON DELETE CASCADE,
     user_id INTEGER NOT NULL REFERENCES users(id),
@@ -110,7 +130,7 @@ CREATE TABLE IF NOT EXISTS advance_payments (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS mileage_records (
+CREATE TABLE mileage_records (
     id SERIAL PRIMARY KEY,
     report_id INTEGER NOT NULL REFERENCES expense_reports(id) ON DELETE CASCADE,
     user_id INTEGER NOT NULL REFERENCES users(id),
@@ -128,23 +148,62 @@ CREATE TABLE IF NOT EXISTS mileage_records (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS app_settings (
+CREATE TABLE app_settings (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL,
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_receipts_expense ON receipts(expense_id);
-CREATE INDEX IF NOT EXISTS idx_expenses_report ON expenses(report_id);
-CREATE INDEX IF NOT EXISTS idx_expenses_category ON expenses(category_id);
-CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses(date);
-CREATE INDEX IF NOT EXISTS idx_expenses_status ON expenses(status);
-CREATE INDEX IF NOT EXISTS idx_expenses_user ON expenses(user_id);
-CREATE INDEX IF NOT EXISTS idx_reports_status ON expense_reports(status);
-CREATE INDEX IF NOT EXISTS idx_reports_user ON expense_reports(user_id);
-CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens(user_id);
-CREATE INDEX IF NOT EXISTS idx_refresh_tokens_hash ON refresh_tokens(token_hash);
-CREATE INDEX IF NOT EXISTS idx_advance_payments_report ON advance_payments(report_id);
-CREATE INDEX IF NOT EXISTS idx_advance_payments_user ON advance_payments(user_id);
-CREATE INDEX IF NOT EXISTS idx_advance_payments_status ON advance_payments(status);
-CREATE INDEX IF NOT EXISTS idx_mileage_records_report ON mileage_records(report_id);
+CREATE INDEX idx_receipts_expense ON receipts(expense_id);
+CREATE INDEX idx_expenses_report ON expenses(report_id);
+CREATE INDEX idx_expenses_category ON expenses(category_id);
+CREATE INDEX idx_expenses_date ON expenses(date);
+CREATE INDEX idx_expenses_status ON expenses(status);
+CREATE INDEX idx_expenses_user ON expenses(user_id);
+CREATE INDEX idx_reports_status ON expense_reports(status);
+CREATE INDEX idx_reports_user ON expense_reports(user_id);
+CREATE INDEX idx_refresh_tokens_user ON refresh_tokens(user_id);
+CREATE INDEX idx_refresh_tokens_hash ON refresh_tokens(token_hash);
+CREATE INDEX idx_advance_payments_report ON advance_payments(report_id);
+CREATE INDEX idx_advance_payments_user ON advance_payments(user_id);
+CREATE INDEX idx_advance_payments_status ON advance_payments(status);
+CREATE INDEX idx_mileage_records_report ON mileage_records(report_id);
+    """
+    for statement in sql.split(";"):
+        stmt = statement.strip()
+        if stmt:
+            op.execute(stmt)
+
+
+def downgrade() -> None:
+    sql = """
+DROP INDEX IF EXISTS idx_mileage_records_report;
+DROP INDEX IF EXISTS idx_advance_payments_status;
+DROP INDEX IF EXISTS idx_advance_payments_user;
+DROP INDEX IF EXISTS idx_advance_payments_report;
+DROP INDEX IF EXISTS idx_refresh_tokens_hash;
+DROP INDEX IF EXISTS idx_refresh_tokens_user;
+DROP INDEX IF EXISTS idx_reports_user;
+DROP INDEX IF EXISTS idx_reports_status;
+DROP INDEX IF EXISTS idx_expenses_user;
+DROP INDEX IF EXISTS idx_expenses_status;
+DROP INDEX IF EXISTS idx_expenses_date;
+DROP INDEX IF EXISTS idx_expenses_category;
+DROP INDEX IF EXISTS idx_expenses_report;
+DROP INDEX IF EXISTS idx_receipts_expense;
+
+DROP TABLE IF EXISTS app_settings CASCADE;
+DROP TABLE IF EXISTS mileage_records CASCADE;
+DROP TABLE IF EXISTS advance_payments CASCADE;
+DROP TABLE IF EXISTS refresh_tokens CASCADE;
+DROP TABLE IF EXISTS fx_rates CASCADE;
+DROP TABLE IF EXISTS receipts CASCADE;
+DROP TABLE IF EXISTS expenses CASCADE;
+DROP TABLE IF EXISTS expense_reports CASCADE;
+DROP TABLE IF EXISTS users CASCADE;
+DROP TABLE IF EXISTS categories CASCADE;
+    """
+    for statement in sql.split(";"):
+        stmt = statement.strip()
+        if stmt:
+            op.execute(stmt)

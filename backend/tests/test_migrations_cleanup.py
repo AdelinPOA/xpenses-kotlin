@@ -8,10 +8,10 @@ from tests.conftest import create_expense, login
 
 @pytest.mark.asyncio
 async def test_migrations_applied_on_init(pool):
-    # Verify migration table exists and baseline is registered
+    # Verify Alembic migration table exists and head is registered
     async with pool.acquire() as conn:
-        version = await conn.fetchval("SELECT MAX(version) FROM schema_migrations")
-        assert version >= 1
+        version = await conn.fetchval("SELECT version_num FROM alembic_version")
+        assert version == "9bd9c851f299"
 
 
 @pytest.mark.asyncio

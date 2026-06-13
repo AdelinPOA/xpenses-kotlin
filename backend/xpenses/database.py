@@ -20,7 +20,10 @@ DEFAULT_CATEGORIES = [
 
 async def init_db() -> None:
     import os
-    import subprocess
+    import asyncio
+    from alembic.config import Config
+    from alembic import command
+
     os.makedirs(settings.receipts_dir, exist_ok=True)
     os.makedirs(settings.signatures_dir, exist_ok=True)
 
@@ -38,11 +41,7 @@ async def init_db() -> None:
         )
 
         ini_path = os.path.join(os.path.dirname(__file__), "alembic.ini")
-        head_rev = "9bd9c851f299"
-
-        # Pass current database URL down to the alembic process environment
-        env = os.environ.copy()
-        env["DATABASE_URL"] = settings.database_url
+        alembic_cfg = Config(ini_path)
 
         if not alembic_exists:
             # Check if it's an existing database with tables already created
@@ -50,29 +49,19 @@ async def init_db() -> None:
                 "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name='users')"
             )
             if users_exists:
-                # Stamp the database to the head revision so Alembic knows it is already current
-                subprocess.run(
-                    ["alembic", "-c", ini_path, "stamp", head_rev],
-                    env=env,
-                    check=True,
-                )
+                # Stamp the database to the baseline revision so Alembic knows it is already current
+                # and then upgrade to head to apply any subsequent migrations.
+                await asyncio.to_thread(command.stamp, alembic_cfg, "a078be00200b")
+                await asyncio.to_thread(command.upgrade, alembic_cfg, "head")
             else:
                 # Fresh database, run migrations up to head
-                subprocess.run(
-                    ["alembic", "-c", ini_path, "upgrade", "head"],
-                    env=env,
-                    check=True,
-                )
+                await asyncio.to_thread(command.upgrade, alembic_cfg, "head")
             
             # Clean up the legacy migrations table if it exists
             await conn.execute("DROP TABLE IF EXISTS schema_migrations")
         else:
             # Upgrade database to head (apply any new migrations)
-            subprocess.run(
-                ["alembic", "-c", ini_path, "upgrade", "head"],
-                env=env,
-                check=True,
-            )
+            await asyncio.to_thread(command.upgrade, alembic_cfg, "head")
 
         # Seed default categories
         for name, limit in DEFAULT_CATEGORIES:

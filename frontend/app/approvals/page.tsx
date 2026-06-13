@@ -16,7 +16,7 @@ function formatEur(amount: number) {
 }
 
 export default function ApprovalsPage() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const qc = useQueryClient();
   const toast = useToast();
   const [rejectingId, setRejectingId] = useState<number | null>(null);
@@ -60,6 +60,16 @@ export default function ApprovalsPage() {
       toast.error(msg);
     },
   });
+
+  if (loading) {
+    return (
+      <AppShell>
+        <div className="flex items-center justify-center min-h-[50vh]">
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+        </div>
+      </AppShell>
+    );
+  }
 
   if (!user || (user.role !== "manager" && user.role !== "chef_finance")) {
     return (

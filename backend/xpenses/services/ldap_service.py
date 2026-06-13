@@ -279,84 +279,85 @@ async def sync_users(config: LdapConfig, pool) -> dict:
     async with pool.acquire() as conn_db:
         now = datetime.datetime.now(datetime.timezone.utc)
 
-        for entry in entries:
-            username = _attr(entry, config.attr_username)
-            if not username:
-                continue
+        async with conn_db.transaction():
+            for entry in entries:
+                username = _attr(entry, config.attr_username)
+                if not username:
+                    continue
 
-            directory_usernames.add(username)
-            email = _attr(entry, config.attr_email)
-            display_name = _attr(entry, config.attr_display_name)
-            groups = _attr_list(entry, config.attr_role)
-            role = _map_role(groups, config.role_map, config.default_role)
-            used_default = role == config.default_role
+                directory_usernames.add(username)
+                email = _attr(entry, config.attr_email)
+                display_name = _attr(entry, config.attr_display_name)
+                groups = _attr_list(entry, config.attr_role)
+                role = _map_role(groups, config.role_map, config.default_role)
+                used_default = role == config.default_role
 
-            row = await conn_db.fetchrow(
-                "SELECT id, username, display_name, email, role, is_active, auth_source"
-                " FROM users WHERE username = $1",
-                username,
-            )
-
-            if not row:
-                await conn_db.execute(
-                    """
-                    INSERT INTO users
-                        (username, display_name, email, password_hash,
-                         auth_source, role, is_active, created_at, updated_at)
-                    VALUES ($1, $2, $3, NULL, 'ldap', $4, true, $5, $5)
-                    """,
+                row = await conn_db.fetchrow(
+                    "SELECT id, username, display_name, email, role, is_active, auth_source"
+                    " FROM users WHERE username = $1",
                     username,
-                    display_name,
-                    email,
-                    role,
-                    now,
                 )
-                stats["created"] += 1
-                if used_default:
-                    stats["default_role_assigned"] += 1
 
-            elif row["auth_source"] == "local":
-                stats["skipped"] += 1
-
-            else:
-                changed = (
-                    row["display_name"] != display_name
-                    or row["email"] != email
-                    or row["role"] != role
-                    or not row["is_active"]
-                )
-                if changed:
+                if not row:
                     await conn_db.execute(
                         """
-                        UPDATE users
-                        SET display_name=$1, email=$2, role=$3,
-                            is_active=true, updated_at=$4
-                        WHERE username=$5
+                        INSERT INTO users
+                            (username, display_name, email, password_hash,
+                             auth_source, role, is_active, created_at, updated_at)
+                        VALUES ($1, $2, $3, NULL, 'ldap', $4, true, $5, $5)
                         """,
+                        username,
                         display_name,
                         email,
                         role,
                         now,
-                        username,
                     )
-                    stats["updated"] += 1
+                    stats["created"] += 1
+                    if used_default:
+                        stats["default_role_assigned"] += 1
 
-        # Deactivate LDAP users no longer in directory
-        ldap_rows = await conn_db.fetch(
-            "SELECT id, username FROM users WHERE auth_source='ldap' AND is_active=true"
-        )
-        for ldap_row in ldap_rows:
-            if ldap_row["username"] not in directory_usernames:
-                await conn_db.execute(
-                    "UPDATE users SET is_active=false, updated_at=$1 WHERE id=$2",
-                    now,
-                    ldap_row["id"],
-                )
-                await conn_db.execute(
-                    "DELETE FROM refresh_tokens WHERE user_id=$1",
-                    ldap_row["id"],
-                )
-                stats["deactivated"] += 1
+                elif row["auth_source"] == "local":
+                    stats["skipped"] += 1
+
+                else:
+                    changed = (
+                        row["display_name"] != display_name
+                        or row["email"] != email
+                        or row["role"] != role
+                        or not row["is_active"]
+                    )
+                    if changed:
+                        await conn_db.execute(
+                            """
+                            UPDATE users
+                            SET display_name=$1, email=$2, role=$3,
+                                is_active=true, updated_at=$4
+                            WHERE username=$5
+                            """,
+                            display_name,
+                            email,
+                            role,
+                            now,
+                            username,
+                        )
+                        stats["updated"] += 1
+
+            # Deactivate LDAP users no longer in directory
+            ldap_rows = await conn_db.fetch(
+                "SELECT id, username FROM users WHERE auth_source='ldap' AND is_active=true"
+            )
+            for ldap_row in ldap_rows:
+                if ldap_row["username"] not in directory_usernames:
+                    await conn_db.execute(
+                        "UPDATE users SET is_active=false, updated_at=$1 WHERE id=$2",
+                        now,
+                        ldap_row["id"],
+                    )
+                    await conn_db.execute(
+                        "DELETE FROM refresh_tokens WHERE user_id=$1",
+                        ldap_row["id"],
+                    )
+                    stats["deactivated"] += 1
 
     return stats
 

@@ -608,12 +608,21 @@ async def generate_report_pdf(
     cached_paths = {}
     if db_conn:
         from ..services.storage import get_local_path
-        for exp in expenses:
-            if exp.get("receipt_path"):
-                try:
-                    cached_paths[exp["receipt_path"]] = await get_local_path(exp["receipt_path"], db_conn)
-                except Exception:
-                    pass
+
+        async def _fetch_path(path):
+            try:
+                local_path = await get_local_path(path, db_conn)
+                return path, local_path
+            except Exception:
+                return path, None
+
+        paths_to_fetch = [exp["receipt_path"] for exp in expenses if exp.get("receipt_path")]
+        if paths_to_fetch:
+            tasks = [_fetch_path(p) for p in paths_to_fetch]
+            results = await asyncio.gather(*tasks)
+            for path, local_path in results:
+                if local_path is not None:
+                    cached_paths[path] = local_path
 
     main_buf, pdf_receipts = await asyncio.to_thread(
         _build_main_pdf, report, expenses, advances, mileage, signer, cached_paths

@@ -67,7 +67,7 @@ const smtpConfigSchema = z.object({
 );
 
 export default function EmailAdminPage() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
   const qc = useQueryClient();
   const toast = useToast();
@@ -90,8 +90,22 @@ export default function EmailAdminPage() {
   const smtpPass = watch("smtp_pass");
 
   useEffect(() => {
-    if (user && user.role !== "mod") router.replace("/dashboard");
-  }, [user, router]);
+    if (!loading && (!user || user.role !== "mod")) router.replace("/dashboard");
+  }, [user, loading, router]);
+
+  if (loading) {
+    return (
+      <AppShell>
+        <div className="flex items-center justify-center min-h-[50vh]">
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (!user || user.role !== "mod") {
+    return null;
+  }
 
   const { data } = useQuery({
     queryKey: emailKeys.config(),

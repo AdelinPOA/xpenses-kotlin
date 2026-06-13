@@ -300,10 +300,36 @@ export interface ImapTestResult {
   message: string;
 }
 
+export interface EmailSimulationIn {
+  from_address: string;
+  body_text: string;
+}
+
+export interface EmailSimulationParsed {
+  title: string;
+  date_from: string;
+  date_to: string;
+  description: string;
+}
+
+export interface EmailSimulationOut {
+  success: boolean;
+  error?: string | null;
+  report_id?: number | null;
+  parsed?: EmailSimulationParsed | null;
+  user_display_name?: string | null;
+}
+
+export async function simulateEmailIngestion(payload: EmailSimulationIn): Promise<EmailSimulationOut> {
+  const { data } = await api.post<EmailSimulationOut>("/settings/imap/simulate", payload);
+  return data;
+}
+
 export async function duplicateExpense(expenseId: number): Promise<Expense> {
   const { data } = await api.post(`/expenses/${expenseId}/duplicate`);
   return data;
 }
+
 
 export interface OcrConfig {
   provider: string;
@@ -424,6 +450,10 @@ export interface OCRComparisonRow {
   easyocr_date: string | null;
   easyocr_merchant: string | null;
   easyocr_category_id: number | null;
+  mineru_amount: number | null;
+  mineru_date: string | null;
+  mineru_merchant: string | null;
+  mineru_category_id: number | null;
   provider: string;
   final_amount: number | null;
   final_date: string | null;

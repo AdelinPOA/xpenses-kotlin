@@ -103,3 +103,41 @@ async def test_imap_settings(
     )
     result = await test_imap_connection(config)
     return result
+
+
+class EmailSimulationIn(BaseModel):
+    from_address: str
+    body_text: str
+
+
+class EmailSimulationParsed(BaseModel):
+    title: str
+    date_from: str
+    date_to: str
+    description: str
+
+
+class EmailSimulationOut(BaseModel):
+    success: bool
+    error: str | None = None
+    report_id: int | None = None
+    parsed: EmailSimulationParsed | None = None
+    user_display_name: str | None = None
+
+
+@router.post("/simulate", response_model=EmailSimulationOut)
+async def simulate_email_ingestion(
+    body: EmailSimulationIn,
+    current_user: dict = require_role("mod"),
+    db: asyncpg.Connection = Depends(get_db),
+):
+    from ..services.email_import_service import simulate_incoming_email
+    result = await simulate_incoming_email(body.from_address, body.body_text, db)
+    return EmailSimulationOut(
+        success=result["success"],
+        error=result.get("error"),
+        report_id=result.get("report_id"),
+        parsed=result.get("parsed"),
+        user_display_name=result.get("user_display_name"),
+    )
+

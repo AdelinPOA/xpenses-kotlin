@@ -159,3 +159,50 @@ async def test_imap_settings_test_endpoint_failure(client: AsyncClient, pool):
         data = resp.json()
         assert data["success"] is False
         assert "Connection timed out" in data["message"]
+
+
+@pytest.mark.asyncio
+async def test_imap_simulation_endpoint(client: AsyncClient, pool):
+    await login(client, "mod1")
+
+    # Insert a temporary user with a specific email
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "INSERT INTO users (username, display_name, email, password_hash, role, auth_source) VALUES ($1, $2, $3, $4, $5, $6)",
+            "testtech2", "Test Tech 2", "testtech2@nt-automation.eu", "hash", "technician", "local"
+        )
+
+    email_text = """
+Starttermin              20.04.2026
+Endtermin                22.05.2026
+Kundenauftrag            0007038319
+Kunde                    0022265695     PJSC CARLSBERG UKRAINE
+TechnPlatz               C374981        Lwiw
+"""
+    payload = {
+        "from_address": "testtech2@nt-automation.eu",
+        "body_text": email_text,
+    }
+    resp = await client.post("/api/settings/imap/simulate", json=payload)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["success"] is True
+    assert data["report_id"] is not None
+    assert data["user_display_name"] == "Test Tech 2"
+    assert data["parsed"]["title"] == "Delegation: PJSC CARLSBERG UKRAINE (Lwiw)"
+
+    # Verify database state
+    async with pool.acquire() as conn:
+        report = await conn.fetchrow("SELECT * FROM expense_reports WHERE id = $1", data["report_id"])
+        assert report is not None
+        assert report["title"] == "Delegation: PJSC CARLSBERG UKRAINE (Lwiw)"
+        
+        # Cleanup
+        await conn.execute("DELETE FROM expense_reports WHERE id = $1", data["report_id"])
+        await conn.execute("DELETE FROM users WHERE username = 'testtech2'")
+
+    # Non-mod role should be forbidden
+    await login(client, "tech1")
+    resp_forbidden = await client.post("/api/settings/imap/simulate", json=payload)
+    assert resp_forbidden.status_code == 403
+

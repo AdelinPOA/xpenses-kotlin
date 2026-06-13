@@ -134,7 +134,7 @@ The PDF export matches Zoho Expenses quality:
 
 ## Current Status
 
-**Phase 7 complete + test suite** — UI/UX Redesign, Mileage, dark mode, OCR, mobile responsive, and 184 backend tests.
+**Phase 7 complete + test suite** — UI/UX Redesign, Mileage, dark mode, OCR, mobile responsive, and 185 backend tests.
 
 - [x] Expenses CRUD with multi-currency FX conversion
 - [x] Multiple receipt uploads per expense
@@ -159,7 +159,7 @@ The PDF export matches Zoho Expenses quality:
 - [x] Mileage recording with driving time tracking + dual tax rates (CFO-editable)
 - [x] UI/UX Redesign: Role-based color themes, personalized dashboard with time-of-day greetings and contextual action cards
 - [x] Signature Pad: Fixed drawing offset via coordinate scaling; full responsiveness
-- [x] Backend test suite (184 tests: auth, expenses, reports, advances, mileage, settings, categories, users, ocr, ldap)
+- [x] Backend test suite (185 tests: auth, expenses, reports, advances, mileage, settings, categories, users, ocr, ldap)
 - [x] Linting with ruff + Makefile workflow
 
 ## Roadmap

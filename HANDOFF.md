@@ -11,9 +11,12 @@
   - Developed a comprehensive enterprise blueprint, project structure layout, and boilerplate config for migrating the backend to a highly optimized Kotlin + Spring Boot 3.x stack with native AOT compilation.
   - Implemented the complete boilerplate project structure under [backend-kotlin-jpa/](file:///home/poa/xpenses-kotlin/backend-kotlin-jpa/) containing:
     - [build.gradle.kts](file:///home/poa/xpenses-kotlin/backend-kotlin-jpa/build.gradle.kts) and [settings.gradle.kts](file:///home/poa/xpenses-kotlin/backend-kotlin-jpa/settings.gradle.kts).
-    - JPA Models: [Report.kt](file:///home/poa/xpenses-kotlin/backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/models/Report.kt) and [Expense.kt](file:///home/poa/xpenses-kotlin/backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/models/Expense.kt).
+    - JPA Models: [Report.kt](file:///home/poa/xpenses-kotlin/backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/models/Report.kt) and [Expense.kt](file:///home/poa/xpenses-kotlin/backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/models/Expense.kt) configured with `@JsonManagedReference`/`@JsonBackReference` to prevent JSON serialization infinite loops.
     - JPA Repository: [ReportRepository.kt](file:///home/poa/xpenses-kotlin/backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/repositories/ReportRepository.kt) showcasing the eager `JOIN FETCH` HQL/JPQL optimizations to avoid N+1 query problems.
     - JPA Service: [ReportService.kt](file:///home/poa/xpenses-kotlin/backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/ReportService.kt).
+    - REST Controller: [ReportController.kt](file:///home/poa/xpenses-kotlin/backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/ReportController.kt) exposing endpoints at `/api/reports` to test fetch operations.
+    - Database Initializer: [DataInitializer.kt](file:///home/poa/xpenses-kotlin/backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/config/DataInitializer.kt) to seed sample reports and expenses on application startup.
+    - Security Configuration: [SecurityConfig.kt](file:///home/poa/xpenses-kotlin/backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/config/SecurityConfig.kt) to permit all HTTP requests without authentication blocks during local verification.
     - Multi-stage [Dockerfile](file:///home/poa/xpenses-kotlin/backend-kotlin-jpa/Dockerfile) supporting GraalVM native image compiler and minimal runner targets.
     - [deployment.yaml](file:///home/poa/xpenses-kotlin/backend-kotlin-jpa/deployment.yaml) manifest with strict resource boundaries (`memory: 512Mi`, `cpu: 500m`) and health checks.
     - [application.yml](file:///home/poa/xpenses-kotlin/backend-kotlin-jpa/src/main/resources/application.yml) application configuration.
@@ -25,7 +28,7 @@
 ### Modified Files
 - `README.md` — Added link to the new GraalVM Native Image Blueprint.
 - `HANDOFF.md` — Updated session status.
-- `backend-kotlin-jpa/` — Added the complete JPA Spring Boot boilerplate code.
+- `backend-kotlin-jpa/` — Added the complete JPA Spring Boot boilerplate code along with local testing components.
 
 ---
 

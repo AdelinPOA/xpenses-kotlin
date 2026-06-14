@@ -489,68 +489,25 @@ export default function ImapAdminPage() {
                   <>Simulate Email Forward</>
                 )}
               </button>
-            </div>
-          </div>
 
-          {/* Simulation Output Result */}
+                  {/* Simulation Output Result */}
           {simulationResult && (
-            <div className="mt-6 border-t border-slate-100 dark:border-slate-800 pt-6 animate-in fade-in duration-300">
+            <div className="mt-6 border-t border-slate-100 dark:border-slate-800 pt-6 animate-in fade-in duration-300 space-y-6">
               {simulationResult.success ? (
-                <div className="space-y-4">
-                  <div className="bg-emerald-50 border-l-4 border-emerald-500 text-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-300 rounded-r-lg p-4 text-sm flex items-start gap-3 shadow-sm">
-                    <span className="text-xl">✓</span>
-                    <div>
-                      <h4 className="font-semibold text-emerald-900 dark:text-emerald-200">
-                        Draft Report Successfully Created
-                      </h4>
-                      <p className="text-xs mt-0.5">
-                        Matched sender: <strong className="font-semibold">{simulationResult.user_display_name}</strong>
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-4 space-y-3">
-                    <h5 className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                      Parsed Report Details
-                    </h5>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
-                      <div>
-                        <span className="block font-semibold text-slate-500 dark:text-slate-400">Report Title</span>
-                        <span className="text-slate-800 dark:text-slate-200 font-medium">{simulationResult.parsed?.title}</span>
-                      </div>
-                      <div>
-                        <span className="block font-semibold text-slate-500 dark:text-slate-400">Start Date</span>
-                        <span className="text-slate-800 dark:text-slate-200 font-medium">{simulationResult.parsed?.date_from}</span>
-                      </div>
-                      <div>
-                        <span className="block font-semibold text-slate-500 dark:text-slate-400">End Date</span>
-                        <span className="text-slate-800 dark:text-slate-200 font-medium">{simulationResult.parsed?.date_to}</span>
-                      </div>
-                    </div>
-                    <div>
-                      <span className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">
-                        Report Description
-                      </span>
-                      <pre className="text-[11px] font-mono bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800/60 p-3 rounded-lg text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">
-                        {simulationResult.parsed?.description}
-                      </pre>
-                    </div>
-                  </div>
-
-                  <div className="flex justify-start pt-1">
-                    <a
-                      href={`/reports/${simulationResult.report_id}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 px-4 py-2 border border-indigo-600 rounded-lg text-sm font-semibold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/20 active:scale-[0.98] transition-all duration-200 cursor-pointer"
-                    >
-                      View Created Draft Report ↗
-                    </a>
+                <div className="bg-emerald-50 border-l-4 border-emerald-500 text-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-300 rounded-r-lg p-4 text-sm flex items-start gap-3 shadow-sm">
+                  <span className="text-xl font-bold">✓</span>
+                  <div>
+                    <h4 className="font-semibold text-emerald-900 dark:text-emerald-200">
+                      Draft Report Successfully Created
+                    </h4>
+                    <p className="text-xs mt-0.5">
+                      Matched sender: <strong className="font-semibold">{simulationResult.user_display_name}</strong>. The active parser saved the report details.
+                    </p>
                   </div>
                 </div>
               ) : (
                 <div className="bg-rose-50 border-l-4 border-rose-500 text-rose-800 dark:bg-rose-950/20 dark:text-rose-300 rounded-r-lg p-4 text-sm flex items-start gap-3 shadow-sm">
-                  <span className="text-xl">✗</span>
+                  <span className="text-xl font-bold">✗</span>
                   <div>
                     <h4 className="font-semibold text-rose-900 dark:text-rose-200">
                       Simulation Failed
@@ -559,6 +516,113 @@ export default function ImapAdminPage() {
                       {simulationResult.error}
                     </p>
                   </div>
+                </div>
+              )}
+
+              {/* Side-by-side parsers result */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* 1. Local Parser Card */}
+                <div className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-bold text-slate-700 dark:text-slate-200 flex items-center gap-2">
+                      <span className="h-2.5 w-2.5 rounded-full bg-blue-500" />
+                      Local Parser (Offline)
+                    </h4>
+                    <span className="text-[10px] bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-300 px-2 py-0.5 rounded-full font-medium">
+                      Rule-Based
+                    </span>
+                  </div>
+
+                  {simulationResult.local_parsed ? (
+                    <div className="space-y-3 text-xs">
+                      <div>
+                        <span className="block font-semibold text-slate-500 dark:text-slate-400">Report Title</span>
+                        <span className="text-slate-800 dark:text-slate-200 font-medium">{simulationResult.local_parsed.title}</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <span className="block font-semibold text-slate-500 dark:text-slate-400">Start Date</span>
+                          <span className="text-slate-800 dark:text-slate-200 font-medium">{simulationResult.local_parsed.date_from}</span>
+                        </div>
+                        <div>
+                          <span className="block font-semibold text-slate-500 dark:text-slate-400">End Date</span>
+                          <span className="text-slate-800 dark:text-slate-200 font-medium">{simulationResult.local_parsed.date_to}</span>
+                        </div>
+                      </div>
+                      <div>
+                        <span className="block font-semibold text-slate-500 dark:text-slate-400 mb-1">
+                          Description
+                        </span>
+                        <pre className="text-[10px] font-mono bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-2.5 rounded-lg text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-normal">
+                          {simulationResult.local_parsed.description}
+                        </pre>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-xs text-slate-400 dark:text-slate-500 italic py-6 text-center">
+                      Failed to parse email locally (no date patterns found).
+                    </div>
+                  )}
+                </div>
+
+                {/* 2. Gemini Parser Card */}
+                <div className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-bold text-slate-700 dark:text-slate-200 flex items-center gap-2">
+                      <span className="h-2.5 w-2.5 rounded-full bg-violet-500 animate-pulse" />
+                      Gemini Parser (Cloud AI)
+                    </h4>
+                    <span className="text-[10px] bg-violet-50 text-violet-700 dark:bg-violet-950/30 dark:text-violet-300 px-2 py-0.5 rounded-full font-medium">
+                      Generative LLM
+                    </span>
+                  </div>
+
+                  {simulationResult.gemini_parsed ? (
+                    <div className="space-y-3 text-xs">
+                      <div>
+                        <span className="block font-semibold text-slate-500 dark:text-slate-400">Report Title</span>
+                        <span className="text-slate-800 dark:text-slate-200 font-medium">{simulationResult.gemini_parsed.title}</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <span className="block font-semibold text-slate-500 dark:text-slate-400">Start Date</span>
+                          <span className="text-slate-800 dark:text-slate-200 font-medium">{simulationResult.gemini_parsed.date_from}</span>
+                        </div>
+                        <div>
+                          <span className="block font-semibold text-slate-500 dark:text-slate-400">End Date</span>
+                          <span className="text-slate-800 dark:text-slate-200 font-medium">{simulationResult.gemini_parsed.date_to}</span>
+                        </div>
+                      </div>
+                      <div>
+                        <span className="block font-semibold text-slate-500 dark:text-slate-400 mb-1">
+                          Description
+                        </span>
+                        <pre className="text-[10px] font-mono bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-2.5 rounded-lg text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-normal">
+                          {simulationResult.gemini_parsed.description}
+                        </pre>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-amber-50/50 border border-amber-200 dark:bg-amber-950/10 dark:border-amber-900/30 rounded-lg p-4 text-xs text-amber-800 dark:text-amber-300 space-y-1">
+                      <span className="font-bold block text-[10px] uppercase tracking-wider text-amber-600 dark:text-amber-500">Gemini Parsing Inactive / Failed</span>
+                      <p className="leading-relaxed">
+                        {simulationResult.gemini_error || "No response. Ensure Gemini credentials are valid."}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {simulationResult.success && simulationResult.report_id && (
+                <div className="flex justify-center pt-2">
+                  <a
+                    href={`/reports/${simulationResult.report_id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 active:scale-[0.98] transition-all duration-200 cursor-pointer shadow-md shadow-indigo-500/10"
+                  >
+                    View Created Draft Report ↗
+                  </a>
                 </div>
               )}
             </div>

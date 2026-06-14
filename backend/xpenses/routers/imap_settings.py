@@ -122,6 +122,9 @@ class EmailSimulationOut(BaseModel):
     error: str | None = None
     report_id: int | None = None
     parsed: EmailSimulationParsed | None = None
+    local_parsed: EmailSimulationParsed | None = None
+    gemini_parsed: EmailSimulationParsed | None = None
+    gemini_error: str | None = None
     user_display_name: str | None = None
 
 
@@ -138,6 +141,9 @@ async def simulate_email_ingestion(
         error=result.get("error"),
         report_id=result.get("report_id"),
         parsed=result.get("parsed"),
+        local_parsed=result.get("local_parsed"),
+        gemini_parsed=result.get("gemini_parsed"),
+        gemini_error=result.get("gemini_error"),
         user_display_name=result.get("user_display_name"),
     )
 

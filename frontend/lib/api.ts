@@ -320,6 +320,9 @@ export interface EmailSimulationOut {
   error?: string | null;
   report_id?: number | null;
   parsed?: EmailSimulationParsed | null;
+  local_parsed?: EmailSimulationParsed | null;
+  gemini_parsed?: EmailSimulationParsed | null;
+  gemini_error?: string | null;
   user_display_name?: string | null;
 }
 

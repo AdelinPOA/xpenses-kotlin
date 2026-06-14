@@ -160,6 +160,7 @@ The PDF export matches Zoho Expenses quality:
 - [x] UI/UX Redesign: Role-based color themes, personalized dashboard with time-of-day greetings and contextual action cards
 - [x] Signature Pad: Fixed drawing offset via coordinate scaling; full responsiveness
 - [x] Backend test suite (185 tests: auth, expenses, reports, advances, mileage, settings, categories, users, ocr, ldap)
+- [x] Email delegation ingestion with side-by-side Local (multilingv) & Gemini parsing simulation
 - [x] Linting with ruff + Makefile workflow
 
 ## Roadmap

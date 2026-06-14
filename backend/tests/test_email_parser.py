@@ -71,8 +71,8 @@ Kunde                    0022265695     PJSC CARLSBERG UKRAINE
 
 def test_parse_delegation_email_invalid_date_format():
     email_text = """
-Starttermin              20-04-2026
-Endtermin                22/05/2026
+Starttermin              20-13-2026
+Endtermin                22/15/2026
 Kundenauftrag            0007038319
     """
     result = parse_delegation_email(email_text)

@@ -1,11 +1,36 @@
 # HANDOFF.md — xpenses_copy
 
-> Last updated: 2026-06-13 (session 34)
+> Last updated: 2026-06-14 (session 35)
 > Author: Antigravity AI
 
 ---
 
-## Latest Session (2026-06-13, session 34)
+## Latest Session (2026-06-14, session 35)
+
+### What Was Done
+- **Flexible Email Report Ingestion & Side-by-Side Parser Simulation**:
+  - **Backend**:
+    - **Advanced Multilingv Local Parser**: Refactored the local email parser in [email_import_service.py](file:///home/poa/xpenses_copy/backend/xpenses/services/email_import_service.py) to support advanced date detection (flexibly parsing `DD.MM.YYYY`, `DD/MM/YYYY`, `YYYY-MM-DD`, `DD-MM-YYYY` formats), chronological proximity matching, and a dictionary of German, English, and Romanian keyword clues (e.g., Kunde/Customer/Client/Beneficiar, TechnPlatz/Location/Locatie, Positionstyp/Task/Activitate, Kundenauftrag/Order/Comanda).
+    - **Whole Word Boundaries**: Replaced substring containment logic with strict regex word boundaries (`\b`) to prevent conversational matches (e.g., matching the word `order` inside `Kundenauftrag` or sentence structures).
+    - **Gemini Email Ingestion**: Integrated Gemini-based email body parsing utilizing JSON schema matching to extract delegation report details directly from text.
+    - **Simulation Endpoint Upgrades**: Refactored the `/api/settings/imap/simulate` endpoint in [imap_settings.py](file:///home/poa/xpenses_copy/backend/xpenses/routers/imap_settings.py) to run both parsers concurrently and return their outputs.
+    - **Offline Test Seeding**: Seeded USD to EUR exchange rates inside `test_duplicate_expense_success` in [test_expenses.py](file:///home/poa/xpenses_copy/backend/tests/test_expenses.py) to prevent transient DNS and external network errors from failing offline test suite runs.
+  - **Frontend**:
+    - **Side-by-Side Simulation Comparison**: Redesigned the e-mail forward simulator panel on the IMAP settings page `/admin/imap` ([page.tsx](file:///home/poa/xpenses_copy/frontend/app/admin/imap/page.tsx)) to display **Local Parser (Offline)** and **Gemini Parser (Cloud AI)** results side-by-side with full error tracing and visual card status indicators.
+    - **Client Types**: Added `local_parsed`, `gemini_parsed`, and `gemini_error` properties to the simulation response schema in [api.ts](file:///home/poa/xpenses_copy/frontend/lib/api.ts).
+  - **Validation**: Passed all **185 tests** successfully (100% green) and resolved all ruff linting violations.
+
+### Modified Files
+- `backend/xpenses/services/email_import_service.py` — Multi-lingual local parser, Gemini parsing, and side-by-side simulation logic.
+- `backend/xpenses/routers/imap_settings.py` — Extended simulation output schema and route handler.
+- `backend/tests/test_email_parser.py` — Updated date format validation tests for the flexible parser.
+- `backend/tests/test_expenses.py` — Seeded cache database table with USD exchange rates to prevent offline network lookups.
+- `frontend/lib/api.ts` — Updated TypeScript simulation interfaces.
+- `frontend/app/admin/imap/page.tsx` — Built side-by-side local vs. cloud parsed result blocks with clean CSS formatting.
+
+---
+
+## Previous Session (2026-06-13, session 34)
 
 ### What Was Done
 - **Architectural & Performance Optimizations (Backend & Frontend)**:

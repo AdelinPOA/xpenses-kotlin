@@ -234,6 +234,16 @@ async def test_duplicate_expense_success(client, pool):
 
     from xpenses.config import settings
 
+    # Seed USD exchange rate to prevent network call in offline container tests
+    async with pool.acquire() as conn:
+        await conn.execute(
+            """
+            INSERT INTO fx_rates (from_currency, to_currency, rate_date, rate)
+            VALUES ('USD', 'EUR', '2026-01-15', 0.92)
+            ON CONFLICT (from_currency, to_currency, rate_date) DO NOTHING
+            """
+        )
+
     await login(client, "tech1")
     report = await create_report(client)
     expense = await create_expense(

@@ -19,10 +19,11 @@ DEFAULT_CATEGORIES = [
 
 
 async def init_db() -> None:
-    import os
     import asyncio
-    from alembic.config import Config
+    import os
+
     from alembic import command
+    from alembic.config import Config
 
     os.makedirs(settings.receipts_dir, exist_ok=True)
     os.makedirs(settings.signatures_dir, exist_ok=True)

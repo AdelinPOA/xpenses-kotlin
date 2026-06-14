@@ -23,9 +23,11 @@
   - Copied and configured the Gradle wrapper in `backend-kotlin-jpa/`.
   - Tuned the compiler plugins (Kotlin `2.3.21` and Spring Boot `4.1.0`) to resolve incompatibilities with the host's Java 25 runtime.
   - Validated the implementation by executing a complete Gradle AOT-compatible project compilation (`./gradlew build` including `processAot`), achieving 100% success.
+  - Exposed port `5432` in [docker-compose.yml](file:///home/poa/xpenses-kotlin/docker-compose.yml) and verified local functionality by executing the service locally connected to the database. Checked the `/api/reports` HTTP endpoint via `curl` and verified the eager JPQL `JOIN FETCH` queries operate in a single query with zero N+1 database roundtrips.
   - Saved the blueprint document as a persistent design artifact at [kotlin_migration_blueprint.md](file:///home/poa/.gemini/antigravity-cli/brain/23454a6c-af66-4fbd-be99-6a79c289c9eb/kotlin_migration_blueprint.md).
 
 ### Modified Files
+- `docker-compose.yml` — Exposed database port 5432 to host.
 - `README.md` — Added link to the new GraalVM Native Image Blueprint.
 - `HANDOFF.md` — Updated session status.
 - `backend-kotlin-jpa/` — Added the complete JPA Spring Boot boilerplate code along with local testing components.

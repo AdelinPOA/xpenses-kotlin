@@ -134,7 +134,7 @@ The PDF export matches Zoho Expenses quality:
 
 ## Current Status
 
-**Phase 7 complete + test suite** — UI/UX Redesign, Mileage, dark mode, OCR, mobile responsive, and 185 backend tests.
+**Phase 7 complete + test suite** — UI/UX Redesign, Mileage, dark mode, OCR, mobile responsive, resolved React hooks ordering violations, resolved Gemini API DNS connection timeout, and 185 backend tests.
 
 - [x] Expenses CRUD with multi-currency FX conversion
 - [x] Multiple receipt uploads per expense

@@ -1,5 +1,9 @@
 # ── Stage 1: Build & Compile Native Binary using GraalVM ──
 FROM ghcr.io/graalvm/native-image-community:21-ol9 AS builder
+
+# Install findutils (which provides xargs, required by the gradlew wrapper script)
+RUN microdnf install -y findutils && microdnf clean all
+
 WORKDIR /workspace/app
 
 # Copy gradle wrapper and configurations

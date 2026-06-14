@@ -17,7 +17,7 @@
     - REST Controller: [ReportController.kt](file:///home/poa/xpenses-kotlin/backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/ReportController.kt) exposing endpoints at `/api/reports` to test fetch operations.
     - Database Initializer: [DataInitializer.kt](file:///home/poa/xpenses-kotlin/backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/config/DataInitializer.kt) to seed sample reports and expenses on application startup.
     - Security Configuration: [SecurityConfig.kt](file:///home/poa/xpenses-kotlin/backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/config/SecurityConfig.kt) to permit all HTTP requests without authentication blocks during local verification.
-    - Multi-stage [Dockerfile](file:///home/poa/xpenses-kotlin/backend-kotlin-jpa/Dockerfile) supporting GraalVM native image compiler and minimal runner targets.
+    - Multi-stage [Dockerfile](file:///home/poa/xpenses-kotlin/backend-kotlin-jpa/Dockerfile) supporting GraalVM native image compiler and minimal runner targets; updated builder stage to install `findutils` (which provides `xargs`) to resolve a compilation dependency during `./gradlew` execution in Oracle Linux minimal base containers.
     - [deployment.yaml](file:///home/poa/xpenses-kotlin/backend-kotlin-jpa/deployment.yaml) manifest with strict resource boundaries (`memory: 512Mi`, `cpu: 500m`) and health checks.
     - [application.yml](file:///home/poa/xpenses-kotlin/backend-kotlin-jpa/src/main/resources/application.yml) application configuration.
   - Copied and configured the Gradle wrapper in `backend-kotlin-jpa/`.

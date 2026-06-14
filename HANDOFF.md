@@ -1,11 +1,29 @@
 # HANDOFF.md — xpenses_copy
 
-> Last updated: 2026-06-14 (session 35)
+> Last updated: 2026-06-14 (session 36)
 > Author: Antigravity AI
 
 ---
 
-## Latest Session (2026-06-14, session 35)
+## Latest Session (2026-06-14, session 36)
+### What Was Done
+- **React Rules of Hooks Fixes in OCR and SMTP Settings Pages**:
+  - **Frontend**:
+    - Reordered React hooks (`useQuery`, `useEffect`, `useMutation`) in [ocr/page.tsx](file:///home/poa/xpenses_copy/frontend/app/admin/ocr/page.tsx) and [email/page.tsx](file:///home/poa/xpenses_copy/frontend/app/admin/email/page.tsx) to ensure they are unconditionally declared at the top of the component body, resolving the React error "Rendered more hooks than during the previous render".
+    - Consolidated role-checking code and removed duplicate moderator authorization checks.
+  - **Validation**:
+    - Ran type-checking with `npx tsc --noEmit` and confirmed zero TypeScript errors.
+    - Executed the full backend integration test suite via `make test` and verified that all **185 tests** are passing (100% green).
+  - **Git Branching**:
+    - Created the feature branch `fix/ocr-email-hooks-ordering`, committed changes, and pushed to remote origin.
+
+### Modified Files
+- `frontend/app/admin/ocr/page.tsx` — Reordered React hooks to satisfy Rules of Hooks.
+- `frontend/app/admin/email/page.tsx` — Reordered React hooks to satisfy Rules of Hooks.
+
+---
+
+## Previous Session (2026-06-14, session 35)
 ### What Was Done
 - **Flexible Email Report Ingestion & Side-by-Side Parser Simulation**:
   - **Backend**:

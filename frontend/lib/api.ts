@@ -296,6 +296,7 @@ export interface ImapConfig {
   imap_pass?: string;
   imap_folder: string;
   password_set: boolean;
+  active_parser?: string;
 }
 
 export interface ImapTestResult {
@@ -323,6 +324,7 @@ export interface EmailSimulationOut {
   local_parsed?: EmailSimulationParsed | null;
   gemini_parsed?: EmailSimulationParsed | null;
   gemini_error?: string | null;
+  active_parser?: string | null;
   user_display_name?: string | null;
 }
 

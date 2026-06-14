@@ -247,6 +247,27 @@ export default function ImapAdminPage() {
             IMAP Ingestion Settings (Delegation Emails)
           </h1>
 
+          {data && (
+            <div className="bg-indigo-50/50 border border-indigo-100 dark:bg-indigo-950/10 dark:border-indigo-900/30 rounded-xl p-4 text-xs text-indigo-800 dark:text-indigo-300 flex items-center justify-between gap-3 animate-in fade-in duration-300 shadow-sm">
+              <div className="flex items-center gap-2">
+                <span className="text-base">ℹ️</span>
+                <p>
+                  Email ingestion is currently using the{" "}
+                  <strong className="font-bold">
+                    {data.active_parser === "gemini" ? "Gemini Parser (Cloud)" : "Local Parser (Offline)"}
+                  </strong>{" "}
+                  to parse report timeframes and details.
+                </p>
+              </div>
+              <a
+                href="/admin/ocr"
+                className="text-indigo-600 dark:text-indigo-400 hover:underline font-semibold whitespace-nowrap"
+              >
+                Configure at OCR Settings →
+              </a>
+            </div>
+          )}
+
           {saveError && (
             <div className="bg-rose-50 border-l-4 border-rose-500 text-rose-700 dark:bg-rose-950/20 dark:text-rose-300 rounded-r-lg p-4 text-sm flex items-start gap-2 shadow-sm transition-all duration-200">
               <div className="flex-1">{saveError}</div>
@@ -503,7 +524,7 @@ export default function ImapAdminPage() {
                       Draft Report Successfully Created
                     </h4>
                     <p className="text-xs mt-0.5">
-                      Matched sender: <strong className="font-semibold">{simulationResult.user_display_name}</strong>. The active parser saved the report details.
+                      Matched sender: <strong className="font-semibold">{simulationResult.user_display_name}</strong>. Created report using <strong className="font-bold">{simulationResult.active_parser === "gemini" ? "Gemini Parser" : "Local Parser"}</strong>.
                     </p>
                   </div>
                 </div>

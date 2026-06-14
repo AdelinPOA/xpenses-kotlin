@@ -30,6 +30,7 @@ class ImapConfigOut(BaseModel):
     imap_user: str = ""
     imap_folder: str = "INBOX"
     password_set: bool = False
+    active_parser: str = "local"
 
 
 @router.get("", response_model=ImapConfigOut)
@@ -38,6 +39,12 @@ async def get_imap_settings(
     db: asyncpg.Connection = Depends(get_db),
 ):
     config = await get_imap_config(db)
+    
+    # Query ocr settings to determine the active parser
+    from ..services.ocr_service import get_ocr_config
+    ocr_cfg = await get_ocr_config(db)
+    active_parser = "gemini" if (ocr_cfg.ocr_enabled and ocr_cfg.provider == "gemini" and ocr_cfg.gemini_api_key) else "local"
+
     return ImapConfigOut(
         enabled=config.enabled,
         imap_host=config.imap_host,
@@ -45,6 +52,7 @@ async def get_imap_settings(
         imap_user=config.imap_user,
         imap_folder=config.imap_folder,
         password_set=config.password_set,
+        active_parser=active_parser,
     )
 
 
@@ -125,6 +133,7 @@ class EmailSimulationOut(BaseModel):
     local_parsed: EmailSimulationParsed | None = None
     gemini_parsed: EmailSimulationParsed | None = None
     gemini_error: str | None = None
+    active_parser: str | None = None
     user_display_name: str | None = None
 
 
@@ -144,6 +153,7 @@ async def simulate_email_ingestion(
         local_parsed=result.get("local_parsed"),
         gemini_parsed=result.get("gemini_parsed"),
         gemini_error=result.get("gemini_error"),
+        active_parser=result.get("active_parser"),
         user_display_name=result.get("user_display_name"),
     )
 

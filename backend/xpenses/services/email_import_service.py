@@ -378,6 +378,7 @@ async def simulate_incoming_email(
             "local_parsed": local_parsed,
             "gemini_parsed": gemini_parsed,
             "gemini_error": gemini_error,
+            "active_parser": "gemini" if use_gemini else "local",
         }
 
     now = datetime.now(timezone.utc)
@@ -402,6 +403,7 @@ async def simulate_incoming_email(
         "local_parsed": local_parsed,
         "gemini_parsed": gemini_parsed,
         "gemini_error": gemini_error,
+        "active_parser": "gemini" if use_gemini else "local",
         "user_display_name": user_row["display_name"],
     }
 

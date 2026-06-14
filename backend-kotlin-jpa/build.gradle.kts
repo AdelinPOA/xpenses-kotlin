@@ -53,7 +53,7 @@ graalvmNative {
     binaries {
         named("main") {
             imageName = "backend-microservice"
-            mainClass = "eu.nt.xpenses.XpensesApplicationKt"
+            mainClass = "eu.nt.xpenses.XpensesApplication"
             
             buildArgs.addAll(
                 "--no-fallback",

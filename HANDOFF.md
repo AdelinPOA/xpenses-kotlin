@@ -11,15 +11,19 @@
   - **Frontend**:
     - Reordered React hooks (`useQuery`, `useEffect`, `useMutation`) in [ocr/page.tsx](file:///home/poa/xpenses_copy/frontend/app/admin/ocr/page.tsx) and [email/page.tsx](file:///home/poa/xpenses_copy/frontend/app/admin/email/page.tsx) to ensure they are unconditionally declared at the top of the component body, resolving the React error "Rendered more hooks than during the previous render".
     - Consolidated role-checking code and removed duplicate moderator authorization checks.
+- **Gemini API connection DNS Resolution Fix**:
+  - **Docker Setup**:
+    - Added explicit public DNS resolvers (`8.8.8.8`, `1.1.1.1`) to the `backend` service definition in [docker-compose.yml](file:///home/poa/xpenses_copy/docker-compose.yml) to bypass local host-level DNS resolution issues (`Temporary failure in name resolution`) and allow the container to connect to Google's Gemini endpoint.
   - **Validation**:
+    - Merged code successfully back into the `main` branch.
+    - Verified outbound connectivity to `generativelanguage.googleapis.com` from inside the backend container.
     - Ran type-checking with `npx tsc --noEmit` and confirmed zero TypeScript errors.
     - Executed the full backend integration test suite via `make test` and verified that all **185 tests** are passing (100% green).
-  - **Git Branching**:
-    - Created the feature branch `fix/ocr-email-hooks-ordering`, committed changes, and pushed to remote origin.
 
 ### Modified Files
 - `frontend/app/admin/ocr/page.tsx` — Reordered React hooks to satisfy Rules of Hooks.
 - `frontend/app/admin/email/page.tsx` — Reordered React hooks to satisfy Rules of Hooks.
+- `docker-compose.yml` — Configured public DNS servers on the backend container.
 
 ---
 

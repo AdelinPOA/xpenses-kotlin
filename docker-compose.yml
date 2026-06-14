@@ -20,17 +20,19 @@ services:
 
   backend:
     build:
-      context: ./backend-kotlin
+      context: ./backend-kotlin-jpa
       dockerfile: Dockerfile
     container_name: xpenses-backend
     ports:
-      - "8001:8000"
+      - "8001:8080"
     env_file: .env
     dns:
       - 8.8.8.8
       - 1.1.1.1
     environment:
-      - DATABASE_URL=postgresql://xpenses:xpenses@db:5432/xpenses
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/xpenses
+      - SPRING_DATASOURCE_USERNAME=xpenses
+      - SPRING_DATASOURCE_PASSWORD=xpenses
     depends_on:
       db:
         condition: service_healthy

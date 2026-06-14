@@ -24,10 +24,12 @@
   - Tuned the compiler plugins (Kotlin `2.3.21` and Spring Boot `4.1.0`) to resolve incompatibilities with the host's Java 25 runtime.
   - Validated the implementation by executing a complete Gradle AOT-compatible project compilation (`./gradlew build` including `processAot`), achieving 100% success.
   - Exposed port `5432` in [docker-compose.yml](file:///home/poa/xpenses-kotlin/docker-compose.yml) and verified local functionality by executing the service locally connected to the database. Checked the `/api/reports` HTTP endpoint via `curl` and verified the eager JPQL `JOIN FETCH` queries operate in a single query with zero N+1 database roundtrips.
+  - Reconfigured the main `backend` service in [docker-compose.yml](file:///home/poa/xpenses-kotlin/docker-compose.yml) to build from the [backend-kotlin-jpa/](file:///home/poa/xpenses-kotlin/backend-kotlin-jpa/) folder and map external port 8001 to the Spring container's port 8080 (passing in database JDBC connection variables `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, and `SPRING_DATASOURCE_PASSWORD`), thereby integrating it directly with the frontend.
+  - Started the background rebuild/restart of the compose backend stack via `docker compose up -d --build backend`.
   - Saved the blueprint document as a persistent design artifact at [kotlin_migration_blueprint.md](file:///home/poa/.gemini/antigravity-cli/brain/23454a6c-af66-4fbd-be99-6a79c289c9eb/kotlin_migration_blueprint.md).
 
 ### Modified Files
-- `docker-compose.yml` — Exposed database port 5432 to host.
+- `docker-compose.yml` — Exposed database port 5432 to host and re-routed main backend to build and run backend-kotlin-jpa.
 - `README.md` — Added link to the new GraalVM Native Image Blueprint.
 - `HANDOFF.md` — Updated session status.
 - `backend-kotlin-jpa/` — Added the complete JPA Spring Boot boilerplate code along with local testing components.

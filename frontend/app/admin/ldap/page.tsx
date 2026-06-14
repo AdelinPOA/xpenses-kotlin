@@ -127,20 +127,6 @@ export default function LdapAdminPage() {
     if (!loading && (!user || user.role !== "mod")) router.replace("/dashboard");
   }, [user, loading, router]);
 
-  if (loading) {
-    return (
-      <AppShell>
-        <div className="flex items-center justify-center min-h-[50vh]">
-          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
-        </div>
-      </AppShell>
-    );
-  }
-
-  if (!user || user.role !== "mod") {
-    return null;
-  }
-
   const { data } = useQuery({
     queryKey: ldapKeys.config(),
     queryFn: () => api.get<LdapConfig>("/settings/ldap").then((r) => r.data),
@@ -172,6 +158,20 @@ export default function LdapAdminPage() {
       toast.error(`Failed to save LDAP settings: ${msg}`);
     },
   });
+
+  if (loading) {
+    return (
+      <AppShell>
+        <div className="flex items-center justify-center min-h-[50vh]">
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (!user || user.role !== "mod") {
+    return null;
+  }
 
   const onSubmit = (formData: FormState) => {
     setSaveError(null);

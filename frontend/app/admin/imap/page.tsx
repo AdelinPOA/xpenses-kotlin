@@ -489,8 +489,10 @@ export default function ImapAdminPage() {
                   <>Simulate Email Forward</>
                 )}
               </button>
+            </div>
+          </div>
 
-                  {/* Simulation Output Result */}
+          {/* Simulation Output Result */}
           {simulationResult && (
             <div className="mt-6 border-t border-slate-100 dark:border-slate-800 pt-6 animate-in fade-in duration-300 space-y-6">
               {simulationResult.success ? (

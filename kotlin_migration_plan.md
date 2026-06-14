@@ -56,7 +56,7 @@ flowchart TD
 
 | Component | Existing Python Stack | Proposed Kotlin Stack |
 | :--- | :--- | :--- |
-| **Runtime & Language** | Python 3.12 (CPython) | Java 21 / Kotlin 2.x |
+| **Runtime & Language** | Python 3.12 (CPython) | Java 21 / Kotlin 2.x (GraalVM Native Image) |
 | **Framework** | FastAPI (ASGI) | **Spring Boot 3.4 (Spring WebFlux + Kotlin Coroutines)** |
 | **Concurrency Model**| `async`/`await` (AsyncIO) | **Kotlin Coroutines** (Lightweight threads) |
 | **Database Driver** | `asyncpg` (Non-blocking) | **R2DBC (pg-r2dbc)** (Reactive Postgres driver) |
@@ -154,9 +154,10 @@ EasyOCR and the Naive Bayes category classifier are Python-centric. Running Pyth
 - [ ] Implement `PdfService` using OpenPDF to compile Zoho-styled invoice files.
 
 ### Phase 7: Dockerization & Testing
-- [ ] Write Kotlin backend `Dockerfile` using multi-stage builds (`eclipse-temurin:21-jre-alpine`).
-- [ ] Reconfigure `docker-compose.yml` services:
-  - Change `backend` build folder to `./backend-kotlin`.
+- [x] Write Kotlin backend `Dockerfile` using multi-stage GraalVM native compilation (`ghcr.io/graalvm/native-image-community:21-ol9` to Alpine).
+- [x] Reconfigure `docker-compose.yml` services:
+  - Change `backend` build folder to `./backend-kotlin` running the compiled native executable.
+  - Remove Python volumes and run commands.
   - Add `ocr-sidecar` Python service.
 - [ ] Write controllers unit/integration tests using JUnit 5, Mockk, and WebTestClient.
 

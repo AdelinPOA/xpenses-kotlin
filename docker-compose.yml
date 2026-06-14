@@ -18,7 +18,7 @@ services:
 
   backend:
     build:
-      context: ./backend
+      context: ./backend-kotlin
       dockerfile: Dockerfile
     container_name: xpenses-backend
     ports:
@@ -33,12 +33,7 @@ services:
       db:
         condition: service_healthy
     volumes:
-      - ./backend/xpenses:/app/xpenses
-      - ./backend/tests:/app/tests
-      - ./backend/pyproject.toml:/app/pyproject.toml
       - xpenses-data:/app/data
-      - ocr-models:/root/.EasyOCR
-    command: uvicorn xpenses.main:app --host 0.0.0.0 --port 8000 --reload
     networks:
       - xpenses-net
 

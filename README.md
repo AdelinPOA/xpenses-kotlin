@@ -1,6 +1,8 @@
-# xpenses
+# xpenses-kotlin
 
-Self-hosted expense management app for internal company use. Built as a lightweight alternative to Zoho Expenses — no cloud dependency, no monthly costs.
+Self-hosted expense management app for internal company use. This repository is a fork representing the migration and rewrite of the backend in **Kotlin (Spring Boot WebFlux & Coroutines)**.
+
+See the [Kotlin Migration Plan](file:///home/poa/xpenses-kotlin/kotlin_migration_plan.md) for the architecture design, technology choices, and step-by-step roadmap.
 
 ## Features
 

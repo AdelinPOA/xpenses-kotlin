@@ -1,6 +1,8 @@
 spring:
   application:
     name: backend-microservice
+  jackson:
+    property-naming-strategy: SNAKE_CASE
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/xpenses}
     username: ${SPRING_DATASOURCE_USERNAME:xpenses}

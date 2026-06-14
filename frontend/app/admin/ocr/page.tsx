@@ -85,24 +85,6 @@ export default function OcrAdminPage() {
   const provider = watch("provider");
   const passwordSet = watch("gemini_api_key") === "••••••••";
 
-  useEffect(() => {
-    if (!loading && (!user || user.role !== "mod")) router.replace("/dashboard");
-  }, [user, loading, router]);
-
-  if (loading) {
-    return (
-      <AppShell>
-        <div className="flex items-center justify-center min-h-[50vh]">
-          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
-        </div>
-      </AppShell>
-    );
-  }
-
-  if (!user || user.role !== "mod") {
-    return null;
-  }
-
   const { data, isLoading } = useQuery({
     queryKey: ocrKeys.config(),
     queryFn: getOcrConfig,
@@ -199,7 +181,23 @@ export default function OcrAdminPage() {
     }
   }
 
-  if (!user || user.role !== "mod") return null;
+  useEffect(() => {
+    if (!loading && (!user || user.role !== "mod")) router.replace("/dashboard");
+  }, [user, loading, router]);
+
+  if (loading) {
+    return (
+      <AppShell>
+        <div className="flex items-center justify-center min-h-[50vh]">
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (!user || user.role !== "mod") {
+    return null;
+  }
 
   return (
     <AppShell>

@@ -2,6 +2,9 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+> [!IMPORTANT]
+> **Token Optimization Alert**: Read [TOKEN_OPTIMIZATION.md](file:///home/poa/xpenses-kotlin/TOKEN_OPTIMIZATION.md) immediately. The user wants you to optimize your build/migration workflow to save tokens, and introduce them to the `/usage` slash command.
+
 ## AI Workflow
 
 Use **Opus 4.6** for planning, coordination, orchestration, and code review. Use **Sonnet agents** for coding implementation tasks.

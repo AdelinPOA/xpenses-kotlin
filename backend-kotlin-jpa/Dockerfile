@@ -1,8 +1,5 @@
-# ── Stage 1: Build & Compile Native Binary using GraalVM ──
-FROM ghcr.io/graalvm/native-image-community:21-ol9 AS builder
-
-# Install findutils (which provides xargs, required by the gradlew wrapper script)
-RUN microdnf install -y findutils && microdnf clean all
+# ── Stage 1: Build & Compile using JDK 21 ──
+FROM eclipse-temurin:21-jdk-alpine AS builder
 
 WORKDIR /workspace/app
 
@@ -16,23 +13,17 @@ RUN ./gradlew dependencies --no-daemon || true
 # Copy source code
 COPY src src
 
-# Run AOT compiler and produce the standalone executable
-RUN ./gradlew nativeCompile --no-daemon
+# Compile standard Spring Boot executable JAR
+RUN ./gradlew bootJar --no-daemon
 
-# ── Stage 2a (Recommended): Distroless container for standard glibc compatibility ──
-FROM gcr.io/distroless/cc-debian12:nonroot AS release-distroless
+# ── Stage 2: Minimal JRE 21 Runtime ──
+FROM eclipse-temurin:21-jre-alpine AS release
 WORKDIR /app
-COPY --from=builder /workspace/app/build/native/nativeCompile/backend-microservice /app/backend-microservice
-EXPOSE 8080
-ENTRYPOINT ["/app/backend-microservice"]
 
-# ── Stage 2b (Alternative): Alpine Linux with glibc compatibility libraries ──
-FROM alpine:3.19 AS release-alpine
-RUN apk --no-cache add gcompat libc6-compat libstdc++
-# Security hardening: Run as non-root user
+# Hardened security: Run as non-root user
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 USER appuser
-WORKDIR /app
-COPY --from=builder --chown=appuser:appgroup /workspace/app/build/native/nativeCompile/backend-microservice /app/backend-microservice
+
+COPY --from=builder --chown=appuser:appgroup /workspace/app/build/libs/*.jar /app/app.jar
 EXPOSE 8080
-ENTRYPOINT ["/app/backend-microservice"]
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]

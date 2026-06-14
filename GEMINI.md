@@ -2,6 +2,9 @@
 
 This file provides guidance to Antigravity (Gemini-powered AI coding assistant) when working with code in this repository.
 
+> [!IMPORTANT]
+> **Token Optimization Alert**: Read [TOKEN_OPTIMIZATION.md](file:///home/poa/xpenses-kotlin/TOKEN_OPTIMIZATION.md) immediately. The user wants you to optimize your build/migration workflow to save tokens, and introduce them to the `/usage` slash command.
+
 ## AI Workflow & Agent Capabilities
 
 Antigravity operates in a pair-programming mode.

@@ -1,7 +1,7 @@
 plugins {
-    kotlin("jvm") version "2.0.21"
-    kotlin("plugin.spring") version "2.0.21"
-    kotlin("plugin.jpa") version "2.0.21"
+    kotlin("jvm") version "2.1.0"
+    kotlin("plugin.spring") version "2.1.0"
+    kotlin("plugin.jpa") version "2.1.0"
     id("org.springframework.boot") version "3.4.3"
     id("io.spring.dependency-management") version "1.1.7"
     id("org.graalvm.buildtools.native") version "0.10.4"
@@ -26,9 +26,22 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-security")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
+    implementation("org.flywaydb:flyway-core")
+    implementation("org.springframework.boot:spring-boot-starter-data-ldap")
+    implementation("org.springframework.boot:spring-boot-starter-mail")
 
     // Database
     runtimeOnly("org.postgresql:postgresql")
+    implementation("org.flywaydb:flyway-database-postgresql")
+
+    // JWT
+    implementation("io.jsonwebtoken:jjwt-api:0.12.5")
+    runtimeOnly("io.jsonwebtoken:jjwt-impl:0.12.5")
+    runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.12.5")
+
+    // PDF Generation & Parsing
+    implementation("com.github.librepdf:openpdf:2.0.3")
+    implementation("org.apache.pdfbox:pdfbox:3.0.2")
 
     // Kotlin Support
     implementation("org.jetbrains.kotlin:kotlin-reflect")

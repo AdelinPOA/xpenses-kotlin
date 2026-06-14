@@ -1,11 +1,37 @@
-# HANDOFF.md — xpenses_copy
+# HANDOFF.md — xpenses-kotlin
 
-> Last updated: 2026-06-14 (session 38)
+> Last updated: 2026-06-14 (session 39)
 > Author: Antigravity AI
 
 ---
 
-## Latest Session (2026-06-14, session 38)
+## Latest Session (2026-06-14, session 39)
+### What Was Done
+- **JVM Development Mode Alignment**:
+  - Overrode the GraalVM native image compiler build task with standard JVM compilation (`bootJar`) in [Dockerfile](file:///home/poa/xpenses-kotlin/backend-kotlin-jpa/Dockerfile) to accelerate development iteration time from 300+ seconds to ~10-15 seconds.
+  - Copied the previous GraalVM native configuration to [Dockerfile.native](file:///home/poa/xpenses-kotlin/backend-kotlin-jpa/Dockerfile.native) for production deployment.
+- **DTO Mappings & Model Alignments**:
+  - Corrected constructor mapping properties in `DashboardController.kt` and `ReportController.kt` to use camelCase properties matching the `ReceiptOut` and `ExpenseOut` DTO specifications.
+  - Rewrote [DataInitializer.kt](file:///home/poa/xpenses-kotlin/backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/config/DataInitializer.kt) to seed the initial active categories, standard app settings (mileage rates), local test accounts with encoded passwords, and sample draft reports and expenses.
+- **Security & Transaction Handling**:
+  - Resolved `TransactionRequiredException` inside `AuthController.kt` by annotating database-modifying auth endpoints (`login`, `refresh`, `logout`) with `@Transactional`.
+  - Added a dedicated [HealthController.kt](file:///home/poa/xpenses-kotlin/backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/HealthController.kt) exposing `/api/health` to resolve Spring Security authorization gates returning `403` status.
+- **Validation**:
+  - Rebuilt the backend container and verified that the JVM backend starts up in ~6 seconds.
+  - Verified that `/api/health`, `/api/auth/login`, `/api/expenses`, `/api/reports`, and `/api/categories` are fully functional and returning appropriate payloads to the frontend.
+
+### Modified Files
+- `backend-kotlin-jpa/Dockerfile` — Updated to JVM container build.
+- `backend-kotlin-jpa/Dockerfile.native` — Created native image build backup.
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/config/DataInitializer.kt` — Updated database seed logic.
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/HealthController.kt` — Created health endpoint controller.
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/AuthController.kt` — Added `@Transactional` support.
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/DashboardController.kt`, `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/ReportController.kt` — Corrected camelCase property names in mappings.
+- `backend-kotlin-jpa/src/main/resources/META-INF/native-image/reflect-config.json` — Added Flyway and JJWT reflection configurations.
+
+---
+
+## Previous Session (2026-06-14, session 38)
 ### What Was Done
 - **AOT Initializer & GraalVM Native Image Alignment**:
   - Aligned entrypoint class context with Spring Boot AOT compiler expectations by implementing `@JvmStatic main` method inside a companion object of the primary source `@SpringBootApplication class XpensesApplication`.

@@ -137,9 +137,9 @@ The PDF export matches Zoho Expenses quality:
 
 ## Current Status
 
-**Kotlin backend AOT migration + Phase 7 complete** — Developed a fully compiled Spring Boot 3.4.3 + JPA Kotlin backend microservice running on GraalVM Native Image (Alpine runtime), featuring eager `JOIN FETCH` queries, circular reference checks, and sub-second startup times (0.6s) inside Docker.
+**Kotlin backend JVM/AOT migration + Phase 7 complete** — Developed a fully functioning Spring Boot 3.4.3 + JPA Kotlin backend microservice running on JVM (development) and supporting GraalVM Native Image (production compilation) inside Docker, featuring eager `JOIN FETCH` queries, circular reference checks, and transaction handling.
 
-- [x] Spring Boot 3.x + JPA Kotlin backend GraalVM Native Image migration blueprint & implementation
+- [x] Spring Boot 3.x + JPA Kotlin backend migration blueprint & implementation (JVM & Native support)
 - [x] Expenses CRUD with multi-currency FX conversion
 - [x] Multiple receipt uploads per expense
 - [x] Expense reports with date range, attach/submit/recall workflow

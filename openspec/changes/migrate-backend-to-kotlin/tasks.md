@@ -1,25 +1,25 @@
 ## 1. Setup & Schema Migrations
 
-- [ ] 1.1 Configure Flyway migrations under `src/main/resources/db/migration/` to baseline the Postgres database schema (matching Alembic's baseline tables and indexes).
-- [ ] 1.2 Configure `application.yml` profiles and register GraalVM reflection configurations in `reflect-config.json` for database drivers and utility classes.
+- [x] 1.1 Configure Flyway migrations under `src/main/resources/db/migration/` to baseline the Postgres database schema (matching Alembic's baseline tables and indexes).
+- [x] 1.2 Configure `application.yml` profiles and register GraalVM reflection configurations in `reflect-config.json` for database drivers and utility classes.
 
 ## 2. Models & JPA Repositories
 
-- [ ] 2.1 Migrate Pydantic models to Kotlin data classes and JPA entities, including `@Entity` mapping, `@ManyToOne`/`@OneToMany` relations, and JSON circular reference annotations.
-- [ ] 2.2 Implement Spring Data JPA repository interfaces for all domains (Users, Categories, Reports, Expenses, Receipts, FxRates, AppSettings, Advances, Mileage, RefreshTokens).
-- [ ] 2.3 Write custom JPQL/HQL queries using `@Query` with explicit `JOIN FETCH` to eagerly load child associations and prevent N+1 query problems.
+- [x] 2.1 Migrate Pydantic models to Kotlin data classes and JPA entities, including `@Entity` mapping, `@ManyToOne`/`@OneToMany` relations, and JSON circular reference annotations.
+- [x] 2.2 Implement Spring Data JPA repository interfaces for all domains (Users, Categories, Reports, Expenses, Receipts, FxRates, AppSettings, Advances, Mileage, RefreshTokens).
+- [x] 2.3 Write custom JPQL/HQL queries using `@Query` with explicit `JOIN FETCH` to eagerly load child associations and prevent N+1 query problems.
 
 ## 3. Security, Authentication & Users
 
-- [ ] 3.1 Implement JWT token generation, parsing, and validation utility class `JwtTokenProvider`.
-- [ ] 3.2 Create `JwtAuthenticationFilter` to intercept HTTP-only cookies and set up authentication context.
-- [ ] 3.3 Configure Spring Security in `SecurityConfig` to restrict endpoints by role and expose login, logout, and token refresh endpoints.
-- [ ] 3.4 Implement local user registration, profile lookup, and role management under `/api/users` and `/api/auth/me`.
+- [x] 3.1 Implement JWT token generation, parsing, and validation utility class `JwtTokenProvider`.
+- [x] 3.2 Create `JwtAuthenticationFilter` to intercept HTTP-only cookies and set up authentication context.
+- [x] 3.3 Configure Spring Security in `SecurityConfig` to restrict endpoints by role and expose login, logout, and token refresh endpoints.
+- [x] 3.4 Implement local user registration, profile lookup, and role management under `/api/users` and `/api/auth/me`.
 
 ## 4. LDAP Active Directory Integration
 
-- [ ] 4.1 Implement `LdapService` to bind, search, authenticate directory users, and run the background directory sync.
-- [ ] 4.2 Expose the LDAP configuration and synchronization triggers under `/api/settings/ldap`.
+- [x] 4.1 Implement `LdapService` to bind, search, authenticate directory users, and run the background directory sync.
+- [x] 4.2 Expose the LDAP configuration and synchronization triggers under `/api/settings/ldap`.
 
 ## 5. Core Business Logic: Expenses & Reports
 

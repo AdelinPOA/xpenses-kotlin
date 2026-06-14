@@ -20,50 +20,27 @@ services:
 
   backend:
     build:
-      context: ./backend
+      context: ./backend-kotlin-jpa
       dockerfile: Dockerfile
     container_name: xpenses-backend
     ports:
-      - "8001:8000"
+      - "8001:8080"
     env_file: .env
     dns:
       - 8.8.8.8
       - 1.1.1.1
     environment:
-      - DATABASE_URL=postgresql://xpenses:xpenses@db:5432/xpenses
-    depends_on:
-      db:
-        condition: service_healthy
-    volumes:
-      - ./backend/xpenses:/app/xpenses
-      - ./backend/tests:/app/tests
-      - ./backend/pyproject.toml:/app/pyproject.toml
-      - xpenses-data:/app/data
-      - ocr-models:/root/.EasyOCR
-    command: uvicorn xpenses.main:app --host 0.0.0.0 --port 8000 --reload
-    networks:
-      - xpenses-net
-
-  backend-kotlin:
-    build:
-      context: ./backend-kotlin-jpa
-      dockerfile: Dockerfile
-    container_name: xpenses-backend-kotlin
-    ports:
-      - "8003:8080"
-    env_file: .env
-    dns:
-      - 8.8.8.8
-      - 1.1.1.1
-    environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/xpenses_kotlin
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/xpenses
       - SPRING_DATASOURCE_USERNAME=xpenses
       - SPRING_DATASOURCE_PASSWORD=xpenses
+      - JWT_SECRET=dev-secret-change-in-production
     depends_on:
       db:
         condition: service_healthy
     volumes:
+      - /home/poa/xpenses-kotlin:/home/poa/xpenses-kotlin
       - xpenses-data:/app/data
+      - ocr-models:/root/.EasyOCR
     networks:
       - xpenses-net
 
@@ -77,7 +54,7 @@ services:
     environment:
       - NODE_ENV=development
       - NEXT_PUBLIC_API_URL=http://localhost:8001/api
-      - INTERNAL_API_URL=http://backend:8000/api
+      - INTERNAL_API_URL=http://backend:8080/api
     volumes:
       - ./frontend:/app
       - /app/node_modules

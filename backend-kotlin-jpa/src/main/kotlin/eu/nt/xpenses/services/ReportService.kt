@@ -14,6 +14,11 @@ class ReportService(private val reportRepository: ReportRepository) {
     }
 
     @Transactional(readOnly = true)
+    fun getAllReportsWithExpenses(): List<Report> {
+        return reportRepository.findAllWithExpenses()
+    }
+
+    @Transactional(readOnly = true)
     fun processAllReportsEagerly() {
         // Safe database call ensuring children are eagerly fetched in a single query
         val reports = reportRepository.findAllWithExpenses()

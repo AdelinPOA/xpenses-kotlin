@@ -1,5 +1,6 @@
 package eu.nt.xpenses.models
 
+import com.fasterxml.jackson.annotation.JsonBackReference
 import jakarta.persistence.*
 import java.math.BigDecimal
 import java.time.Instant
@@ -20,6 +21,7 @@ class Expense(
     @Column(nullable = false)
     var currency: String,
 
+    @JsonBackReference
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "report_id", nullable = false)
     var report: Report,

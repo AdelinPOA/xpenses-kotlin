@@ -20,17 +20,43 @@ services:
 
   backend:
     build:
-      context: ./backend-kotlin-jpa
+      context: ./backend
       dockerfile: Dockerfile
     container_name: xpenses-backend
     ports:
-      - "8001:8080"
+      - "8001:8000"
     env_file: .env
     dns:
       - 8.8.8.8
       - 1.1.1.1
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/xpenses
+      - DATABASE_URL=postgresql://xpenses:xpenses@db:5432/xpenses
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./backend/xpenses:/app/xpenses
+      - ./backend/tests:/app/tests
+      - ./backend/pyproject.toml:/app/pyproject.toml
+      - xpenses-data:/app/data
+      - ocr-models:/root/.EasyOCR
+    command: uvicorn xpenses.main:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - xpenses-net
+
+  backend-kotlin:
+    build:
+      context: ./backend-kotlin-jpa
+      dockerfile: Dockerfile
+    container_name: xpenses-backend-kotlin
+    ports:
+      - "8003:8080"
+    env_file: .env
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/xpenses_kotlin
       - SPRING_DATASOURCE_USERNAME=xpenses
       - SPRING_DATASOURCE_PASSWORD=xpenses
     depends_on:

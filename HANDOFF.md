@@ -14,10 +14,12 @@
   - Added [reflect-config.json](file:///home/poa/xpenses-kotlin/backend-kotlin-jpa/src/main/resources/META-INF/native-image/reflect-config.json) to explicitly register `eu.nt.xpenses.XpensesApplication__ApplicationContextInitializer` for GraalVM reflection, preventing `AotInitializerNotFoundException` (and `ClassNotFoundException`) during runtime startup.
 - **Spring Boot & Kotlin Compatible Downgrades**:
   - Reverted experimental Spring Boot 4.1.0 to stable production-ready **Spring Boot 3.4.3** and Kotlin **2.0.21** (with GraalVM Native Build Tools 0.10.4) to resolve `SpringApplication$NativeImageRequirementsException` (which demands JDK 25 native compiler support).
-- **Environment Verification**:
-  - Rebuilt the backend native image in docker compose and verified that `xpenses-backend` container starts successfully in **0.601 seconds**.
-  - Verified REST endpoints return clean JSON payloads without circular reference loops, and Hibernate executes eager `JOIN FETCH` queries optimally with zero N+1 database roundtrips.
-  - Started the frontend container (`xpenses-frontend`) and verified the entire compose stack is healthy and up.
+- **Dual-Backend Configuration & Database Isolation**:
+  - Configured [docker-compose.yml](file:///home/poa/xpenses-kotlin/docker-compose.yml) to run **both** the FastAPI python backend and the new Kotlin Spring Boot native backend concurrently:
+    1. **Python FastAPI Backend** (`xpenses-backend`): Mapped to host port `8001:8000` (connecting to `xpenses` database). This serves the frontend completely, ensuring all categories, authentication, and previous app functions are 100% operational.
+    2. **Kotlin Native Backend** (`xpenses-backend-kotlin`): Mapped to host port `8003:8080` (connecting to `xpenses_kotlin` database). This keeps the GraalVM native microservice fully testable and running.
+  - Created the separate database `xpenses_kotlin` inside PostgreSQL to prevent column/table schema conflicts over the `expenses` table.
+  - Dropped old conflicting tables from the `xpenses` database and verified that Alembic migrations ran successfully.
 - **Stopped Legacy Containers**:
   - Verified and stopped all docker compose containers related to the legacy `xpenses_copy` directory to prevent any port clashes or resource conflicts.
 
@@ -25,6 +27,7 @@
 - `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/XpensesApplication.kt` — Updated main entrypoint declaration.
 - `backend-kotlin-jpa/build.gradle.kts` — Updated Spring Boot/Kotlin versions and GraalVM build class mapping.
 - `backend-kotlin-jpa/src/main/resources/META-INF/native-image/reflect-config.json` — Added custom reflection settings.
+- `docker-compose.yml` — Set up dual-backend docker execution (Python on 8001, Kotlin on 8003).
 - `README.md` — Updated status and tech stack details.
 - `HANDOFF.md` — Updated session status history.
 

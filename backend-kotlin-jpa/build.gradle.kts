@@ -59,6 +59,7 @@ graalvmNative {
                 "--no-fallback",
                 "--enable-http",
                 "--enable-https",
+                "--initialize-at-build-time=org.slf4j,ch.qos.logback,org.apache.commons.logging,org.apache.logging.log4j,org.apache.logging.slf4j,org.springframework.core.SpringProperties",
                 "-H:+ReportExceptionStackTraces"
             )
         }

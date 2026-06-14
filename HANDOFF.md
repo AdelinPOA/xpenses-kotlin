@@ -1,11 +1,27 @@
 # HANDOFF.md — xpenses_copy
 
-> Last updated: 2026-06-14 (session 36)
+> Last updated: 2026-06-14 (session 37)
 > Author: Antigravity AI
 
 ---
 
-## Latest Session (2026-06-14, session 36)
+## Latest Session (2026-06-14, session 37)
+### What Was Done
+- **Kotlin Backend Migration & GraalVM Native Image Blueprint**:
+  - Developed a comprehensive enterprise blueprint, project structure layout, and boilerplate config for migrating the backend to a highly optimized Kotlin + Spring Boot 3.x stack with native AOT compilation.
+  - Configured the Gradle Kotlin DSL `build.gradle.kts` file referencing Boot 3.4.1, Java 21, and the GraalVM Native Build Tools plugin.
+  - Designed the JPA models ([Report.kt](file:///home/poa/xpenses-kotlin/backend-kotlin/src/main/kotlin/eu/nt/xpenses/models/Report.kt), [Expense.kt](file:///home/poa/xpenses-kotlin/backend-kotlin/src/main/kotlin/eu/nt/xpenses/models/Expense.kt)) and JPA repository ([ReportRepository.kt](file:///home/poa/xpenses-kotlin/backend-kotlin/src/main/kotlin/eu/nt/xpenses/repositories/ReportRepository.kt)) demonstrating the `JOIN FETCH` eager loading pattern to resolve the N+1 query problem during loops/mappings.
+  - Provided a multi-stage `Dockerfile` with AOT compilation in a GraalVM native image container and runtime stages for both Distroless (`cc-debian12`) and Alpine Linux (configured with glibc compatibility libraries).
+  - Drafted a Kubernetes/OpenShift `deployment.yaml` manifest specifying strict resource limits (`memory: 512Mi`, `cpu: 500m`) and health checks targeting liveness/readiness Actuator probes.
+  - Saved the complete blueprint as an artifact at [kotlin_migration_blueprint.md](file:///home/poa/.gemini/antigravity-cli/brain/23454a6c-af66-4fbd-be99-6a79c289c9eb/kotlin_migration_blueprint.md).
+
+### Modified Files
+- `README.md` — Added link to the new GraalVM Native Image Blueprint.
+- `HANDOFF.md` — Updated session status.
+
+---
+
+## Previous Session (2026-06-14, session 36)
 ### What Was Done
 - **React Rules of Hooks Fixes in OCR and SMTP Settings Pages**:
   - **Frontend**:

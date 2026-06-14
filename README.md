@@ -3,6 +3,7 @@
 Self-hosted expense management app for internal company use. This repository is a fork representing the migration and rewrite of the backend in **Kotlin (Spring Boot WebFlux & Coroutines)**.
 
 See the [Kotlin Migration Plan](file:///home/poa/xpenses-kotlin/kotlin_migration_plan.md) for the architecture design, technology choices, and step-by-step roadmap.
+Also see the [GraalVM Native Image Blueprint](file:///home/poa/.gemini/antigravity-cli/brain/23454a6c-af66-4fbd-be99-6a79c289c9eb/kotlin_migration_blueprint.md) for JPA JOIN FETCH optimization, multi-stage native Dockerfile config, and resource-constrained Kubernetes deployment configurations.
 
 ## Features
 

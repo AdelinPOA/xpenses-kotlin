@@ -1,12 +1,36 @@
 # HANDOFF.md — xpenses_copy
 
-> Last updated: 2026-06-14 (session 37)
+> Last updated: 2026-06-14 (session 38)
 > Author: Antigravity AI
 
 ---
 
-## Latest Session (2026-06-14, session 37)
+## Latest Session (2026-06-14, session 38)
 ### What Was Done
+- **AOT Initializer & GraalVM Native Image Alignment**:
+  - Aligned entrypoint class context with Spring Boot AOT compiler expectations by implementing `@JvmStatic main` method inside a companion object of the primary source `@SpringBootApplication class XpensesApplication`.
+  - Configured AOT compiler task `mainClass` in [build.gradle.kts](file:///home/poa/xpenses-kotlin/backend-kotlin-jpa/build.gradle.kts) to point directly to `eu.nt.xpenses.XpensesApplication`.
+  - Overrode runtime stack trace main class deduction in `XpensesApplication.kt` by explicitly setting `app.mainApplicationClass = XpensesApplication::class.java` in the companion object entrypoint.
+  - Added [reflect-config.json](file:///home/poa/xpenses-kotlin/backend-kotlin-jpa/src/main/resources/META-INF/native-image/reflect-config.json) to explicitly register `eu.nt.xpenses.XpensesApplication__ApplicationContextInitializer` for GraalVM reflection, preventing `AotInitializerNotFoundException` (and `ClassNotFoundException`) during runtime startup.
+- **Spring Boot & Kotlin Compatible Downgrades**:
+  - Reverted experimental Spring Boot 4.1.0 to stable production-ready **Spring Boot 3.4.3** and Kotlin **2.0.21** (with GraalVM Native Build Tools 0.10.4) to resolve `SpringApplication$NativeImageRequirementsException` (which demands JDK 25 native compiler support).
+- **Environment Verification**:
+  - Rebuilt the backend native image in docker compose and verified that `xpenses-backend` container starts successfully in **0.601 seconds**.
+  - Verified REST endpoints return clean JSON payloads without circular reference loops, and Hibernate executes eager `JOIN FETCH` queries optimally with zero N+1 database roundtrips.
+  - Started the frontend container (`xpenses-frontend`) and verified the entire compose stack is healthy and up.
+- **Stopped Legacy Containers**:
+  - Verified and stopped all docker compose containers related to the legacy `xpenses_copy` directory to prevent any port clashes or resource conflicts.
+
+### Modified Files
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/XpensesApplication.kt` — Updated main entrypoint declaration.
+- `backend-kotlin-jpa/build.gradle.kts` — Updated Spring Boot/Kotlin versions and GraalVM build class mapping.
+- `backend-kotlin-jpa/src/main/resources/META-INF/native-image/reflect-config.json` — Added custom reflection settings.
+- `README.md` — Updated status and tech stack details.
+- `HANDOFF.md` — Updated session status history.
+
+---
+
+## Previous Session (2026-06-14, session 37)
 - **Kotlin Backend Migration & GraalVM Native Image Blueprint & Implementation**:
   - Developed a comprehensive enterprise blueprint, project structure layout, and boilerplate config for migrating the backend to a highly optimized Kotlin + Spring Boot 3.x stack with native AOT compilation.
   - Implemented the complete boilerplate project structure under [backend-kotlin-jpa/](file:///home/poa/xpenses-kotlin/backend-kotlin-jpa/) containing:

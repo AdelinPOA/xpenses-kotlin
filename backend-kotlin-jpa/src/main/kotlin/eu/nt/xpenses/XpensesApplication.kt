@@ -4,10 +4,13 @@ import org.springframework.boot.SpringApplication
 import org.springframework.boot.autoconfigure.SpringBootApplication
 
 @SpringBootApplication
-class XpensesApplication
-
-fun main(args: Array<String>) {
-    val app = SpringApplication(XpensesApplication::class.java)
-    app.mainApplicationClass = XpensesApplication::class.java
-    app.run(*args)
+class XpensesApplication {
+    companion object {
+        @JvmStatic
+        fun main(args: Array<String>) {
+            val app = SpringApplication(XpensesApplication::class.java)
+            app.mainApplicationClass = XpensesApplication::class.java
+            app.run(*args)
+        }
+    }
 }

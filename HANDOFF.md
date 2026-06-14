@@ -6,7 +6,6 @@
 ---
 
 ## Latest Session (2026-06-14, session 35)
-
 ### What Was Done
 - **Flexible Email Report Ingestion & Side-by-Side Parser Simulation**:
   - **Backend**:
@@ -15,18 +14,22 @@
     - **Gemini Email Ingestion**: Integrated Gemini-based email body parsing utilizing JSON schema matching to extract delegation report details directly from text.
     - **Simulation Endpoint Upgrades**: Refactored the `/api/settings/imap/simulate` endpoint in [imap_settings.py](file:///home/poa/xpenses_copy/backend/xpenses/routers/imap_settings.py) to run both parsers concurrently and return their outputs.
     - **Offline Test Seeding**: Seeded USD to EUR exchange rates inside `test_duplicate_expense_success` in [test_expenses.py](file:///home/poa/xpenses_copy/backend/tests/test_expenses.py) to prevent transient DNS and external network errors from failing offline test suite runs.
+    - **Active Parser Exposing**: Extended `/api/settings/imap` config response and simulation payload to include `active_parser` flag derived from database configuration.
   - **Frontend**:
     - **Side-by-Side Simulation Comparison**: Redesigned the e-mail forward simulator panel on the IMAP settings page `/admin/imap` ([page.tsx](file:///home/poa/xpenses_copy/frontend/app/admin/imap/page.tsx)) to display **Local Parser (Offline)** and **Gemini Parser (Cloud AI)** results side-by-side with full error tracing and visual card status indicators.
     - **Client Types**: Added `local_parsed`, `gemini_parsed`, and `gemini_error` properties to the simulation response schema in [api.ts](file:///home/poa/xpenses_copy/frontend/lib/api.ts).
-  - **Validation**: Passed all **185 tests** successfully (100% green) and resolved all ruff linting violations.
-
+    - **Active Parser UX Indicators**: Injected a top-level information banner on the IMAP admin page describing the active parser engine, and added a specific indicator in the simulation success banner showing which parser created the report.
+    - **React Rules of Hooks Fixes**: Corrected hook ordering warnings on both `imap/page.tsx` and `ldap/page.tsx` by placing `useQuery`, `useEffect`, and `useMutation` hook definitions unconditionally above the loading and user authorization early return checks.
+  - **Validation**: Passed all **185 tests** successfully (100% green) and resolved all ruff linting and TypeScript compile violations.
+ 
 ### Modified Files
 - `backend/xpenses/services/email_import_service.py` — Multi-lingual local parser, Gemini parsing, and side-by-side simulation logic.
-- `backend/xpenses/routers/imap_settings.py` — Extended simulation output schema and route handler.
+- `backend/xpenses/routers/imap_settings.py` — Extended simulation output schema, configuration models, and active parser lookup.
 - `backend/tests/test_email_parser.py` — Updated date format validation tests for the flexible parser.
 - `backend/tests/test_expenses.py` — Seeded cache database table with USD exchange rates to prevent offline network lookups.
 - `frontend/lib/api.ts` — Updated TypeScript simulation interfaces.
-- `frontend/app/admin/imap/page.tsx` — Built side-by-side local vs. cloud parsed result blocks with clean CSS formatting.
+- `frontend/app/admin/imap/page.tsx` — Built side-by-side local vs. cloud parsed result blocks, info banners, and reordered React hooks.
+- `frontend/app/admin/ldap/page.tsx` — Reordered React hooks to follow Rules of Hooks.
 
 ---
 

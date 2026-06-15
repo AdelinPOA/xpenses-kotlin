@@ -1,11 +1,35 @@
 # HANDOFF.md — xpenses-kotlin
 
-> Last updated: 2026-06-15 (session 43)
+> Last updated: 2026-06-15 (session 44)
 > Author: Antigravity AI
 
 ---
 
-## Latest Session (2026-06-15, session 43)
+## Latest Session (2026-06-15, session 44)
+
+### What Was Done
+
+- **Removed Python FastAPI backend (migration confirmed 100% complete)**:
+  - Verified full endpoint parity: all 14 Python routers map 1:1 to Kotlin controllers (Auth, Expenses, Reports, Advances, Mileage, Categories, Users, Dashboard, OCR, Signature, LDAP, AppSettings/Email/IMAP, Storage).
+  - Deleted `backend/` directory (Python FastAPI + asyncpg, 70 source files, 2.3 MB).
+  - Rewrote `Makefile` — removed broken `make test`/`make lint`/`make format` targets (those ran pytest inside Kotlin JRE container — always failed), replaced with `make build`, `make test-health`, `make test-login`.
+  - Rewrote `.github/workflows/ci.yml` — removed Python setup/pip/ruff/pytest/Codecov steps; now runs `./gradlew bootJar` + Docker image build.
+  - Updated `CLAUDE.md` — removed all Python legacy references, stale notes, fixed CI/CD section.
+
+### Known Remaining Gaps (not blockers)
+- Remote storage (S3/SFTP/SMB/WebDAV) stubbed in `StorageService.kt` — local only
+- No Kotlin unit/integration test suite — future priority (JUnit 5 + MockMvc)
+
+### Modified Files
+- `backend/` — DELETED (entire Python backend)
+- `Makefile` — Rewrote with Kotlin-relevant targets
+- `.github/workflows/ci.yml` — Removed Python CI, added Kotlin bootJar + Docker build
+- `CLAUDE.md` — Removed Python Legacy Reference section, updated stale notes
+- `HANDOFF.md` — This update
+
+---
+
+## Previous Session (2026-06-15, session 43)
 
 ### What Was Done
 

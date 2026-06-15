@@ -25,30 +25,13 @@ docker compose logs -f backend
 # Access PostgreSQL
 docker exec -it xpenses-db psql -U xpenses
 
-# Run all tests (~185 tests, inside backend container — targets the Python test suite)
-make test
-
-# Run tests with stop-on-first-failure
-make test-quick
-
-# Run a single test file
-docker compose exec backend pytest tests/test_auth.py -v
-
-# Run a single test function
-docker compose exec backend pytest tests/test_auth.py::test_login_success -v
-
-# Lint check / auto-fix (Python)
-make lint
-make lint-fix
-
-# Tests with coverage report
-make test-cov
-
-# Run pre-commit hooks on all files (ruff + trailing-whitespace + end-of-file)
-make format
-
 # Build Kotlin backend locally (inside backend-kotlin-jpa/)
-./gradlew bootJar --no-daemon
+make build
+# or: cd backend-kotlin-jpa && ./gradlew bootJar --no-daemon
+
+# Smoke-test the running backend
+make test-health
+make test-login
 
 # Test login (get cookies)
 curl -c /tmp/cookies.txt -X POST http://localhost:8001/api/auth/login \
@@ -72,7 +55,7 @@ curl http://localhost:8001/api/health
 
 ## Active Backend: Kotlin (Spring Boot JPA)
 
-**The live backend is `backend-kotlin-jpa/`**, built as a standard JVM jar (`bootJar`) and served on port 8080 inside the container (mapped to host 8001). The Python `backend/` directory is legacy reference code — its test suite still runs, but the Python process is not running in the current `docker-compose.yml`.
+**The live backend is `backend-kotlin-jpa/`**, built as a standard JVM jar (`bootJar`) and served on port 8080 inside the container (mapped to host 8001). The Python FastAPI backend has been removed — migration is 100% complete.
 
 ### Kotlin Backend Stack
 
@@ -161,7 +144,7 @@ fun findByIdWithExpenses(@Param("id") id: Int): Optional<ExpenseReport>
 
 **Jackson** is configured with `property-naming-strategy: SNAKE_CASE` in `application.yml`, so Kotlin `camelCase` fields serialize to `snake_case` JSON automatically. DTOs that need to override this use explicit `@JsonProperty` annotations.
 
-### Report State Machine (identical to Python)
+### Report State Machine
 
 ```
 draft → submitted → approved → paid
@@ -175,10 +158,10 @@ submitted → draft (via recall, by owner)
 
 ### Key Implementation Notes
 
-- **In-memory filtering**: `ExpenseController.listExpenses` fetches by user (or all) then filters `reportId`, `categoryId`, `status`, `fromDate`, `toDate` in Kotlin. For large datasets this is less efficient than the Python SQL-WHERE approach.
+- **In-memory filtering**: `ExpenseController.listExpenses` fetches by user (or all) then filters `reportId`, `categoryId`, `status`, `fromDate`, `toDate` in Kotlin. For large datasets consider adding SQL-level WHERE clauses via custom repository queries.
 - **Remote storage stubbed**: `StorageService.downloadFile` and `uploadFile` for non-local providers return stub responses or throw — only `local` provider is functional.
 - **OcrService runs EasyOCR as a subprocess**: `runEasyOcrSubprocess()` spawns a Python child process. This requires Python + EasyOCR to be installed in the Kotlin container image (currently handled via the shared Docker volume).
-- **Daily allowance**: hardcoded in `PdfService.calculateDailyAllowance()` and `ReportController` — not yet read from `app_settings` (this was fixed in the Python backend but not yet ported to Kotlin).
+- **Daily allowance**: read from `app_settings` table via `getDailyAllowanceRate()` in `ReportController`. Configurable via `PATCH /api/settings/daily-allowance-rate` by `chef_finance`.
 - **CORS**: hardcoded to `http://localhost:3001` in `SecurityConfig`. Change this for production.
 
 ---
@@ -204,17 +187,6 @@ Frontend uses two URLs to reach the backend:
 - **Client-side:** `NEXT_PUBLIC_API_URL=http://localhost:8001/api` — via host port mapping
 
 `next.config.ts` proxies `/api/*` to `INTERNAL_API_URL`.
-
----
-
-## Python Backend (Legacy Reference)
-
-The `backend/` directory contains the original FastAPI + asyncpg implementation. It is **not running** in the current stack but:
-- Its test suite (`make test`) is the primary automated test coverage for the API contract
-- Its router/service code is the reference for features not yet fully verified in the Kotlin port
-- Raw SQL patterns with `$1, $2` placeholders, no ORM
-
-The Python backend used Alembic for migrations; those migration files are in `backend/xpenses/migrations/versions/`. The Kotlin backend uses a separate Flyway `V1__init.sql` that reproduces the full schema independently.
 
 ---
 
@@ -244,10 +216,8 @@ The Python backend used Alembic for migrations; those migration files are in `ba
 
 Key `.env` settings for development:
 ```
-CORS_ORIGINS=["http://localhost:3001"]        # used by Python backend only
 JWT_SECRET=dev-secret-change-in-production
 COOKIE_SECURE=false
-SEED_DEMO_USERS=true                          # used by Python backend only
 SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/xpenses
 SPRING_DATASOURCE_USERNAME=xpenses
 SPRING_DATASOURCE_PASSWORD=xpenses
@@ -259,13 +229,12 @@ Test accounts (seeded by `DataInitializer.kt`): `tech1/tech1`, `manager1/manager
 
 - **Repo:** `AdelinPOA/xpenses-kotlin`
 - **Branch Policy:** Always implement new features or fixes on dedicated branches (`feat/feature-name` or `fix/bug-fix-name`). Do not develop directly on `main`.
-- **Workflow:** Create branch → implement (use OpenSpec workflow for significant features) → `make test` + `make lint` pass → commit and push → merge to `main`.
+- **Workflow:** Create branch → implement (use OpenSpec workflow for significant features) → `make test-health` + `make build` pass → commit and push → merge to `main`.
 
 ## CI/CD
 
 `.github/workflows/ci.yml` runs on every push/PR to `main`:
-1. PostgreSQL service spun up, Python dependencies installed, lint (`ruff`) + pre-commit hooks run.
-2. Python tests with coverage executed; report uploaded to Codecov.
-3. Docker images built for both backend and frontend.
+1. JDK 21 set up; `./gradlew bootJar --no-daemon` run in `backend-kotlin-jpa/`.
+2. Docker images built (backend + frontend).
 
-Note: CI currently runs the **Python** test suite, not Kotlin tests. Kotlin has no automated test suite yet.
+Note: Kotlin has no automated unit test suite yet. Adding JUnit/MockMvc tests is a future priority.

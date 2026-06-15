@@ -1,11 +1,29 @@
 # HANDOFF.md — xpenses-kotlin
 
-> Last updated: 2026-06-15 (session 42)
+> Last updated: 2026-06-15 (session 43)
 > Author: Antigravity AI
 
 ---
 
-## Latest Session (2026-06-15, session 42)
+## Latest Session (2026-06-15, session 43)
+
+### What Was Done
+
+- **Ported daily allowance rate setting to Kotlin backend**:
+  - Added `GET /api/settings/daily-allowance-rate` (any authenticated user) and `PATCH /api/settings/daily-allowance-rate` (requires `chef_finance`) to `AppSettingsController.kt` with `DailyAllowanceOut` / `DailyAllowanceUpdate` DTOs.
+  - Added `getDailyAllowanceRate()` helper in `ReportController.kt` that reads from `app_settings` table (defaults to `50.0` if unset). `calculateDailyAllowance()` now uses this instead of the hardcoded `50.0 EUR/day`.
+  - Added `dailyAllowanceRate()` query key to `settingsKeys` in `frontend/lib/queryKeys.ts`.
+  - Added **Daily Allowance** card to `frontend/app/admin/settings/page.tsx` — CFO can now read and update the per-diem rate from the UI alongside the existing mileage rates card.
+
+### Modified Files
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/AppSettingsController.kt` — New endpoints + DTOs for daily allowance rate.
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/ReportController.kt` — `getDailyAllowanceRate()` helper; removed hardcoded `50.0`.
+- `frontend/lib/queryKeys.ts` — Added `settingsKeys.dailyAllowanceRate()`.
+- `frontend/app/admin/settings/page.tsx` — Added Daily Allowance section card.
+
+---
+
+## Previous Session (2026-06-15, session 42)
 
 ### What Was Done
 

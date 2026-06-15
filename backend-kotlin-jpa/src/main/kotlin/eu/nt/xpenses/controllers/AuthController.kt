@@ -91,6 +91,9 @@ class AuthController(
                 displayName = user.displayName,
                 email = user.email,
                 role = user.role,
+                isActive = user.isActive,
+                authSource = user.authSource,
+                signaturePath = user.signaturePath,
                 notificationsEnabled = user.notificationsEnabled
             )
         )
@@ -178,7 +181,7 @@ class AuthController(
         if (currentUser.authSource != "local") {
             return ResponseEntity.status(400).body(mapOf("detail" to "Password change is only available for local accounts"))
         }
-        if (currentUser.passwordHash == null || !passwordEncoder.matches(body.currentPassword, currentUser.passwordHash)) {
+        if (currentUser.passwordHash == null || !passwordEncoder.matches(body.oldPassword, currentUser.passwordHash)) {
             return ResponseEntity.status(400).body(mapOf("detail" to "Current password is incorrect"))
         }
         if (body.newPassword.length < 8) {
@@ -202,6 +205,9 @@ class AuthController(
                 displayName = currentUser.displayName,
                 email = currentUser.email,
                 role = currentUser.role,
+                isActive = currentUser.isActive,
+                authSource = currentUser.authSource,
+                signaturePath = currentUser.signaturePath,
                 notificationsEnabled = currentUser.notificationsEnabled
             )
         )
@@ -256,6 +262,9 @@ data class UserResponse(
     @JsonProperty("display_name") val displayName: String,
     val email: String?,
     val role: String,
+    @JsonProperty("is_active") val isActive: Boolean,
+    @JsonProperty("auth_source") val authSource: String,
+    @JsonProperty("signature_path") val signaturePath: String?,
     @JsonProperty("notifications_enabled") val notificationsEnabled: Boolean
 )
 
@@ -265,6 +274,6 @@ data class LoginRequest(
 )
 
 data class ChangePasswordRequest(
-    @JsonProperty("current_password") val currentPassword: String,
+    @JsonProperty("old_password") val oldPassword: String,
     @JsonProperty("new_password") val newPassword: String
 )

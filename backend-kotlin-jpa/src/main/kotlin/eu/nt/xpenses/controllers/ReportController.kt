@@ -286,13 +286,11 @@ class ReportController(
         val subject = "New expense report submitted: ${saved.title}"
         val content = "${currentUser.displayName} has submitted a new expense report: ${saved.title}.\nTotal: ${String.format("%.2f", totalAmount)} ${saved.currency}."
         
-        Thread {
-            for (appr in approvers) {
-                if (!appr.email.isNullOrEmpty() && appr.notificationsEnabled) {
-                    emailSettingsService.sendEmail(appr.email!!, subject, content)
-                }
+        for (appr in approvers) {
+            if (!appr.email.isNullOrEmpty() && appr.notificationsEnabled) {
+                emailSettingsService.sendEmail(appr.email!!, subject, content)
             }
-        }.start()
+        }
 
         return mapReportToOut(saved)
     }
@@ -369,9 +367,7 @@ class ReportController(
         if (owner != null && !owner.email.isNullOrEmpty() && owner.notificationsEnabled) {
             val subject = "Expense report paid: ${saved.title}"
             val content = "Your expense report \"${saved.title}\" has been marked as paid."
-            Thread {
-                emailSettingsService.sendEmail(owner.email!!, subject, content)
-            }.start()
+            emailSettingsService.sendEmail(owner.email!!, subject, content)
         }
 
         return mapReportToOut(saved)
@@ -419,9 +415,7 @@ class ReportController(
         if (owner != null && !owner.email.isNullOrEmpty() && owner.notificationsEnabled) {
             val subject = "Expense report approved: ${saved.title}"
             val content = "Your expense report \"${saved.title}\" has been approved by ${currentUser.displayName}."
-            Thread {
-                emailSettingsService.sendEmail(owner.email!!, subject, content)
-            }.start()
+            emailSettingsService.sendEmail(owner.email!!, subject, content)
         }
 
         return mapReportToOut(saved)
@@ -477,9 +471,7 @@ class ReportController(
         if (owner != null && !owner.email.isNullOrEmpty() && owner.notificationsEnabled) {
             val subject = "Expense report rejected: ${saved.title}"
             val content = "Your expense report \"${saved.title}\" has been rejected by ${currentUser.displayName}.\nReason: $reason."
-            Thread {
-                emailSettingsService.sendEmail(owner.email!!, subject, content)
-            }.start()
+            emailSettingsService.sendEmail(owner.email!!, subject, content)
         }
 
         return mapReportToOut(saved)

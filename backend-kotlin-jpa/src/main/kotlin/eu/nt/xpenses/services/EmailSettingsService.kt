@@ -10,6 +10,7 @@ import jakarta.mail.Session
 import jakarta.mail.Transport
 import jakarta.mail.internet.InternetAddress
 import jakarta.mail.internet.MimeMessage
+import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Service
 import java.time.Instant
 import java.util.*
@@ -179,6 +180,7 @@ class EmailSettingsService(
         }
     }
 
+    @Async
     fun sendEmail(toEmail: String, subject: String, content: String) {
         val config = getSmtpConfig()
         if (!config.emailsEnabled) {

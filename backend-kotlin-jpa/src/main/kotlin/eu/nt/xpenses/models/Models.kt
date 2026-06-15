@@ -1,6 +1,7 @@
 package eu.nt.xpenses.models
 
 import com.fasterxml.jackson.annotation.JsonBackReference
+import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonManagedReference
 import jakarta.persistence.*
 import java.math.BigDecimal
@@ -21,6 +22,7 @@ class User(
 
     var email: String? = null,
 
+    @field:JsonIgnore
     @Column(name = "password_hash")
     var passwordHash: String? = null,
 

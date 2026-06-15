@@ -1,11 +1,34 @@
 # HANDOFF.md — xpenses-kotlin
 
-> Last updated: 2026-06-15 (session 47)
+> Last updated: 2026-06-16 (session 48)
 > Author: Antigravity AI
 
 ---
 
-## Latest Session (2026-06-15, session 47)
+## Latest Session (2026-06-16, session 48)
+
+### What Was Done
+
+- **Codebase Audit & Technical Debt Resolution**:
+  - Addressed findings from a comprehensive system audit checking for bugs and incomplete functions.
+  - **Replaced Unmanaged Threads with @Async**: Refactored `ReportController.kt` to eliminate raw, unmanaged `Thread { ... }.start()` execution for dispatching email notifications. Replaced them with the Spring-native `@Async` execution in `EmailSettingsService.kt` and activated `@EnableAsync` on `XpensesApplication.kt`.
+  - **Removed Orphaned Code**: Deleted the orphaned and unused `backend-kotlin` prototype directory (Spring WebFlux/R2DBC) to eliminate developer confusion and reduce codebase bloat, confirming that `backend-kotlin-jpa` is the single source of truth for the Kotlin backend.
+  - Verified no other `TODO`, `FIXME`, or `HACK` references exist in the active codebase.
+
+### Known Remaining Gaps (not blockers)
+- Remote storage (S3/SFTP/SMB/WebDAV) stubbed in `StorageService.kt` — local only
+- No Kotlin unit/integration test suite — future priority (JUnit 5 + MockMvc)
+
+### Modified/Added Files
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/XpensesApplication.kt` — Enabled @Async.
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/EmailSettingsService.kt` — Annotated `sendEmail` with @Async.
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/ReportController.kt` — Cleaned up raw threads on submit, pay, approve, and reject endpoints.
+- `backend-kotlin/` — DELETED (obsolete prototype).
+- `HANDOFF.md` — Incremented session history.
+
+---
+
+## Previous Session (2026-06-15, session 47)
 
 ### What Was Done
 

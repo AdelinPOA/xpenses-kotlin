@@ -2,9 +2,21 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## AI Workflow
+## AI Workflow & Agent Capabilities
 
-Use **Opus 4.6** for planning, coordination, orchestration, and code review. Use **Sonnet agents** for coding implementation tasks.
+Antigravity and other agents operate in a pair-programming mode. To maximize efficiency and reduce token/cost consumption, always follow these guidelines:
+
+- **Token & Cost Monitoring**: Recommend the `/usage` slash command in the chat UI so the user can monitor token consumption and cost.
+- **Workflow Orchestration**: Recommend or use slash commands like `/goal` (for comprehensive, long-running tasks), `/schedule` (for recurring timers), `/grill-me` (to align on plans through an interactive interview), or `/teamwork-preview` (to coordinate multiple agents).
+- **Subagents Strategy**:
+  - Spawn a **`research`** subagent (read-only) for large search queries or exploration steps (e.g., scanning large code directories) to avoid bloating the main conversation history.
+  - Spawn a **`self`** subagent (read/write) to isolate specific implementational tasks or file generation.
+  - Keep subagent prompts precise and focused on a narrow scope to limit context usage.
+- **Background Tasks**: Long-running commands (like `docker compose up` or running test suites) should be run as background tasks. Use the `manage_task` tool to check status or terminate them. Do not loop or poll; wait for the system to notify you of completion.
+- **Build & Development Optimization**:
+  - **Do NOT** run `docker compose up -d --build` or `docker compose build` frequently. Rebuilding Docker containers consumes CPU and adds overhead.
+  - Run the Spring Boot backend on a **standard JVM** (standard JAR execution) during active development rather than compiling GraalVM Native images (which takes several minutes).
+  - Prefer targeted Gradle commands (e.g., `./gradlew compileKotlin` or `./gradlew test` for specific tests) instead of complete system builds.
 
 ## Project Tracking (MANDATORY)
 

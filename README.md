@@ -33,7 +33,7 @@ Also see the [GraalVM Native Image Blueprint](file:///home/poa/.gemini/antigravi
 | Data fetching | TanStack Query v5 |
 | PDF generation | OpenPDF + PDFBox |
 | Containerization | Docker Compose (5 services: db, backend, frontend, mineru, ocr-sidecar) |
-| AI Workflow | Opus 4.6 (planning, orchestration, code review) + Sonnet agents (coding) |
+| AI Workflow | Antigravity (Gemini-powered assistant) + Subagents & slash commands |
 
 ## Quick Start
 

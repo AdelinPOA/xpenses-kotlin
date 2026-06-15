@@ -1,11 +1,34 @@
 # HANDOFF.md — xpenses-kotlin
 
-> Last updated: 2026-06-15 (session 46)
+> Last updated: 2026-06-15 (session 47)
 > Author: Antigravity AI
 
 ---
 
-## Latest Session (2026-06-15, session 46)
+## Latest Session (2026-06-15, session 47)
+
+### What Was Done
+
+- **Optimized Antigravity Agent Configuration and Documentation**:
+  - Rewrote the AI Workflow sections of [GEMINI.md](file:///home/poa/xpenses-kotlin/GEMINI.md) and [CLAUDE.md](file:///home/poa/xpenses-kotlin/CLAUDE.md) to integrate strict token optimization rules and best practices.
+  - Added instructions to proactively recommend the `/usage` slash command in the chat UI for monitoring token usage.
+  - Established concrete strategies for utilizing `research` (read-only) and `self` (read-write) subagents, keeping contexts minimal.
+  - Advised against frequent container rebuilds and native compilation during active development, prioritizing fast JVM compilation cycles.
+  - Updated AI Workflow references in [README.md](file:///home/poa/xpenses-kotlin/README.md).
+
+### Known Remaining Gaps (not blockers)
+- Remote storage (S3/SFTP/SMB/WebDAV) stubbed in `StorageService.kt` — local only
+- No Kotlin unit/integration test suite — future priority (JUnit 5 + MockMvc)
+
+### Modified/Added Files
+- `GEMINI.md` — Updated agent workflows, subagent guidelines, and build optimization.
+- `CLAUDE.md` — Updated agent workflows, subagent guidelines, and build optimization.
+- `README.md` — Aligned tech stack AI workflow entry.
+- `HANDOFF.md` — Incremented session history.
+
+---
+
+## Previous Session (2026-06-15, session 46)
 
 ### What Was Done
 

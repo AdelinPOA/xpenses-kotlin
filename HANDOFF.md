@@ -1,11 +1,26 @@
 # HANDOFF.md — xpenses-kotlin
 
-> Last updated: 2026-06-16 (session 48)
+> Last updated: 2026-06-16 (session 49)
 > Author: Antigravity AI
 
 ---
 
-## Latest Session (2026-06-16, session 48)
+## Latest Session (2026-06-16, session 49)
+
+### What Was Done
+
+- **Audit pass — auth/user contract bugs (3 fixed, runtime-verified)**:
+  1. **[SECURITY] `password_hash` leak** — the `User` JPA entity had no `@JsonIgnore` on `passwordHash`, and `GET /users`, `GET /users/{id}`, `POST /users`, `PATCH /users/me`, and the role/active update endpoints all return the raw entity. Any `mod` listing users received every user's bcrypt hash. Added `@field:JsonIgnore` to `User.passwordHash` — fixes all endpoints at once. Verified: `GET /users` as `mod1` no longer includes `password_hash`.
+  2. **[HIGH] change-password contract mismatch** — `POST /api/auth/change-password` (added session 47-era) expected `current_password`, but the frontend profile page sends `old_password`. Every password change failed with "Current password is incorrect". Changed the DTO field to `old_password`. Verified: wrong old password returns 400, correct contract accepted.
+  3. **[MEDIUM] `/auth/me` + `/auth/login` missing fields** — `UserResponse` omitted `auth_source`, `signature_path`, and `is_active`. On fresh login the report-detail "Sign Report" button never appeared (signature_path always undefined) and the LDAP password-form guard on the profile page never triggered. Added the three fields to `UserResponse` and populated them in login + me. Verified: login response now includes all three.
+
+### Modified Files
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/models/Models.kt` — `@field:JsonIgnore` on `User.passwordHash` + import.
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/AuthController.kt` — `ChangePasswordRequest.old_password`; extended `UserResponse` with `is_active`/`auth_source`/`signature_path`; updated login + me construction.
+
+---
+
+## Previous Session (2026-06-16, session 48)
 
 ### What Was Done
 

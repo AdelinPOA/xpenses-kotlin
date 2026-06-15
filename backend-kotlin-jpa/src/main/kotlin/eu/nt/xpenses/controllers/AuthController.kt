@@ -166,6 +166,30 @@ class AuthController(
         return ResponseEntity.ok(mapOf("status" to "logged out"))
     }
 
+    @PostMapping("/change-password")
+    @Transactional
+    fun changePassword(
+        @RequestBody body: ChangePasswordRequest,
+        request: HttpServletRequest
+    ): ResponseEntity<*> {
+        val currentUser = request.getAttribute("currentUser") as? User
+            ?: return ResponseEntity.status(401).body(mapOf("detail" to "Not authenticated"))
+
+        if (currentUser.authSource != "local") {
+            return ResponseEntity.status(400).body(mapOf("detail" to "Password change is only available for local accounts"))
+        }
+        if (currentUser.passwordHash == null || !passwordEncoder.matches(body.currentPassword, currentUser.passwordHash)) {
+            return ResponseEntity.status(400).body(mapOf("detail" to "Current password is incorrect"))
+        }
+        if (body.newPassword.length < 8) {
+            return ResponseEntity.status(400).body(mapOf("detail" to "New password must be at least 8 characters"))
+        }
+
+        currentUser.passwordHash = passwordEncoder.encode(body.newPassword)
+        userRepository.save(currentUser)
+        return ResponseEntity.ok(mapOf("status" to "password changed"))
+    }
+
     @GetMapping("/me")
     fun getMe(request: HttpServletRequest): ResponseEntity<*> {
         val currentUser = request.getAttribute("currentUser") as? User
@@ -238,4 +262,9 @@ data class UserResponse(
 data class LoginRequest(
     val username: String,
     val password: String
+)
+
+data class ChangePasswordRequest(
+    @JsonProperty("current_password") val currentPassword: String,
+    @JsonProperty("new_password") val newPassword: String
 )

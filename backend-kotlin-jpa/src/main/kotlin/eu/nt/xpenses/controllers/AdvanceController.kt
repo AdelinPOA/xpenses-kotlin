@@ -140,7 +140,8 @@ class AdvanceController(
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
 
         val report = verifyReportOwnership(reportId, currentUser)
-        if (report.user?.id != currentUser.id) {
+        val isPrivileged = currentUser.role in listOf("manager", "chef_finance", "mod")
+        if (!isPrivileged && report.user?.id != currentUser.id) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Only the report owner can modify advance payments")
         }
         if (report.status != "draft") {

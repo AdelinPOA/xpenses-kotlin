@@ -19,6 +19,7 @@ class OcrController(
 ) {
 
     @PostMapping("/scan")
+    @PreAuthorize("isAuthenticated()")
     fun scanReceipt(
         @RequestParam("file") file: MultipartFile
     ): ResponseEntity<*> {

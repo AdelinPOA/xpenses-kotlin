@@ -316,7 +316,7 @@ class ExpenseController(
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Only the owner can perform this action")
         }
         if (expense.status != "draft") {
-            throw ResponseStatusException(HttpStatus.BAD_GATEWAY, "Only draft expenses can be deleted")
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Only draft expenses can be deleted")
         }
 
         // Delete all receipts from storage

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 import eu.nt.xpenses.models.AppSetting
 import eu.nt.xpenses.repositories.AppSettingRepository
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.io.File
 import java.time.Instant
@@ -14,6 +15,7 @@ class StorageService(
     private val cryptoService: CryptoService,
     private val objectMapper: ObjectMapper
 ) {
+    private val logger = LoggerFactory.getLogger(StorageService::class.java)
     private val defaultReceiptsDir = "/app/data/receipts"
     private val cryptoInfo = "xpenses-storage-settings"
 
@@ -112,8 +114,7 @@ class StorageService(
         val config = getStorageConfig()
         val providerType = config["provider_type"] as? String ?: "local"
         if (providerType != "local") {
-            // In a real environment, we would upload to the remote client here
-            println("Mock upload of $relativePath to $providerType storage")
+            logger.info("Remote sync not implemented: upload of $relativePath to $providerType storage skipped")
         }
     }
 
@@ -136,7 +137,7 @@ class StorageService(
         val config = getStorageConfig()
         val providerType = config["provider_type"] as? String ?: "local"
         if (providerType != "local") {
-            println("Mock delete of $relativePath from $providerType storage")
+            logger.info("Remote sync not implemented: delete of $relativePath from $providerType storage skipped")
         }
     }
 
@@ -170,6 +171,7 @@ class StorageService(
             try {
                 section[fieldKey] = cryptoService.decrypt(encrypted, cryptoInfo)
             } catch (e: Exception) {
+                logger.warn("Failed to decrypt storage config field '$sectionKey.$fieldKey': ${e.message}")
                 section[fieldKey] = ""
             }
         }

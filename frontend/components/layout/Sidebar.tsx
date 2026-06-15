@@ -7,7 +7,6 @@ import { LayoutDashboard, Receipt, FileText, Tag, Users, CheckSquare, Banknote, 
 import clsx from "clsx";
 import { useAuth } from "@/components/AuthProvider";
 import { useTheme } from "@/components/ThemeProvider";
-import { ROLE_BG_COLORS } from "@/lib/themes";
 
 interface NavItem {
   href: string;
@@ -85,7 +84,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
               height={36}
               className={clsx(
                 "rounded-full border-2",
-                user ? ROLE_BG_COLORS[user.role] : "border-transparent"
+                user ? "border-slate-600" : "border-transparent"
               )}
             />
             <span className="text-lg font-bold text-white tracking-tight">xpenses</span>
@@ -105,13 +104,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                 className={clsx(
                   "flex items-center gap-3 px-3 py-2.5 rounded-lg mb-1 text-sm font-semibold transition-all duration-200 border-l-4",
                   active
-                    ? clsx(
-                        "text-white bg-slate-800/80",
-                        user?.role === "technician" && "border-blue-500",
-                        user?.role === "manager" && "border-amber-500",
-                        user?.role === "chef_finance" && "border-emerald-500",
-                        user?.role === "mod" && "border-indigo-500"
-                      )
+                    ? "text-white bg-slate-800/80 border-blue-500"
                     : "text-slate-400 border-transparent hover:bg-slate-800/40 hover:text-white"
                 )}
               >
@@ -144,13 +137,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                     className={clsx(
                       "flex items-center gap-3 px-3 py-2.5 rounded-lg mb-1 text-sm font-semibold transition-all duration-200 border-l-4",
                       active
-                        ? clsx(
-                            "text-white bg-slate-800/80",
-                            user?.role === "technician" && "border-blue-500",
-                            user?.role === "manager" && "border-amber-500",
-                            user?.role === "chef_finance" && "border-emerald-500",
-                            user?.role === "mod" && "border-indigo-500"
-                          )
+                        ? "text-white bg-slate-800/80 border-blue-500"
                         : "text-slate-400 border-transparent hover:bg-slate-800/40 hover:text-white"
                     )}
                   >
@@ -174,13 +161,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                     className={clsx(
                       "flex items-center gap-3 px-3 py-2.5 rounded-lg mb-1 text-sm font-semibold transition-all duration-200 border-l-4",
                       active
-                        ? clsx(
-                            "text-white bg-slate-800/80",
-                            user?.role === "technician" && "border-blue-500",
-                            user?.role === "manager" && "border-amber-500",
-                            user?.role === "chef_finance" && "border-emerald-500",
-                            user?.role === "mod" && "border-indigo-500"
-                          )
+                        ? "text-white bg-slate-800/80 border-blue-500"
                         : "text-slate-400 border-transparent hover:bg-slate-800/40 hover:text-white"
                     )}
                   >

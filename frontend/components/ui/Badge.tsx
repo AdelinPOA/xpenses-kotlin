@@ -9,10 +9,10 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 const ROLE_STYLES: Record<string, string> = {
-  technician: "bg-blue-50/80 border border-blue-200/60 text-blue-700 dark:bg-blue-950/20 dark:border-blue-900/30 dark:text-blue-400",
-  manager: "bg-amber-50/80 border border-amber-200/60 text-amber-700 dark:bg-amber-950/20 dark:border-amber-900/30 dark:text-amber-400",
-  chef_finance: "bg-emerald-50/80 border border-emerald-200/60 text-emerald-700 dark:bg-emerald-950/20 dark:border-emerald-900/30 dark:text-emerald-400",
-  mod: "bg-indigo-50/80 border border-indigo-200/60 text-indigo-700 dark:bg-indigo-950/20 dark:border-indigo-900/30 dark:text-indigo-400",
+  technician: "bg-slate-100/80 border border-slate-200/60 text-slate-600 dark:bg-slate-800/80 dark:border-slate-700/60 dark:text-slate-300",
+  manager: "bg-slate-100/80 border border-slate-200/60 text-slate-600 dark:bg-slate-800/80 dark:border-slate-700/60 dark:text-slate-300",
+  chef_finance: "bg-slate-100/80 border border-slate-200/60 text-slate-600 dark:bg-slate-800/80 dark:border-slate-700/60 dark:text-slate-300",
+  mod: "bg-slate-100/80 border border-slate-200/60 text-slate-600 dark:bg-slate-800/80 dark:border-slate-700/60 dark:text-slate-300",
 };
 
 export default function Badge({ status, type = "status" }: { status: string; type?: "status" | "role" }) {

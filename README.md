@@ -20,7 +20,7 @@ Also see the [GraalVM Native Image Blueprint](file:///home/poa/.gemini/antigravi
 - **Digital signatures** — canvas-based signature pad; sign reports with one click
 - **Categories** — with optional EUR spending limits
 - **Dashboard** — monthly totals, spend by category (clickable, links to filtered expenses), recent expenses (clickable), role-specific action cards
-- **Role-differentiated UX** — color themes per role; each role sees only the actions relevant to them; managers see approval queue, CFO sees payment queue
+- **Role-differentiated UX** — each role sees only the actions relevant to them; managers see approval queue, CFO sees payment queue
 
 ## Tech Stack
 
@@ -153,7 +153,7 @@ The PDF export matches Zoho Expenses quality:
 - [x] Mobile responsive layout (collapsible sidebar drawer, responsive tables, flex-wrap filters)
 - [x] OCR receipt scanning (auto-fill merchant, amount, date)
 - [x] Mileage recording with driving time tracking + dual tax rates (CFO-editable)
-- [x] UI/UX Redesign: Role-based color themes, personalized dashboard with time-of-day greetings and contextual action cards
+- [x] UI/UX Redesign: Personalized dashboard with time-of-day greetings and contextual action cards
 - [x] Signature Pad: Fixed drawing offset via coordinate scaling; full responsiveness
 - [x] Backend test suite (185 tests: auth, expenses, reports, advances, mileage, settings, categories, users, ocr, ldap)
 - [x] Email delegation ingestion with side-by-side Local (multilingv) & Gemini parsing simulation

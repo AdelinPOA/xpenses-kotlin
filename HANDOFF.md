@@ -1,11 +1,30 @@
 # HANDOFF.md — xpenses-kotlin
 
-> Last updated: 2026-06-16 (session 49)
+> Last updated: 2026-06-16 (session 50)
 > Author: Antigravity AI
 
 ---
 
-## Latest Session (2026-06-16, session 49)
+## Latest Session (2026-06-16, session 50)
+
+### What Was Done
+
+- **No new code changes this session** — session focused on context recovery after compaction and HANDOFF.md synchronization.
+- All prior session 49 fixes confirmed in `HEAD` (runtime-verified before compaction):
+  - `@field:JsonIgnore` on `User.passwordHash` in `Models.kt`
+  - `ChangePasswordRequest` field renamed to `old_password` in `AuthController.kt`
+  - `UserResponse` extended with `is_active`, `auth_source`, `signature_path`
+
+### Known Remaining Gaps (not blockers)
+- Remote storage (S3/SFTP/SMB/WebDAV) stubbed in `StorageService.kt` — local only
+- No Kotlin unit/integration test suite — future priority (JUnit 5 + MockMvc)
+
+### Modified Files
+- `HANDOFF.md` — This update.
+
+---
+
+## Previous Session (2026-06-16, session 49)
 
 ### What Was Done
 

@@ -277,7 +277,7 @@ class OcrService(
         categories: List<eu.nt.xpenses.models.Category>,
         classifier: NaiveBayesClassifier?
     ): Map<String, Any?> {
-        val lines = runEasyOcrSubprocess(fileBytes, filename)
+        val lines = runEasyOcrSidecar(fileBytes, filename)
         val rawText = lines.joinToString("\n")
 
         val (amount, currency) = extractAmount(lines)
@@ -326,32 +326,36 @@ class OcrService(
         )
     }
 
-    private fun runEasyOcrSubprocess(fileBytes: ByteArray, filename: String): List<String> {
+    private fun runEasyOcrSidecar(fileBytes: ByteArray, filename: String): List<String> {
+        val url = "http://ocr-sidecar:5000/api/scan"
         return try {
-            val tempFile = File.createTempFile("ocr_", filename)
-            tempFile.writeBytes(fileBytes)
-            
-            // Execute subprocess using the project venv Python interpreter
-            val pb = ProcessBuilder(
-                "/home/poa/xpenses-kotlin/venv/bin/python",
-                "/home/poa/xpenses-kotlin/backend-kotlin-jpa/src/main/resources/easyocr_scan.py",
-                tempFile.absolutePath
-            )
-            pb.redirectErrorStream(true)
-            val process = pb.start()
-            val output = process.inputStream.bufferedReader().use { it.readText() }
-            process.waitFor()
-            tempFile.delete()
+            val resource = object : ByteArrayResource(fileBytes) {
+                override fun getFilename(): String = filename
+            }
 
-            val response: Map<*, *> = objectMapper.readValue(output)
+            val parts = LinkedMultiValueMap<String, Any>().apply {
+                add("file", resource)
+            }
+
+            val headers = HttpHeaders().apply {
+                contentType = MediaType.MULTIPART_FORM_DATA
+            }
+
+            val response = restClient.post()
+                .uri(url)
+                .headers { it.addAll(headers) }
+                .body(parts)
+                .retrieve()
+                .body<Map<String, Any>>() ?: throw Exception("Empty response from EasyOCR sidecar")
+
             if (response.containsKey("error")) {
-                println("EasyOCR python error: ${response["error"]}")
+                println("EasyOCR sidecar error: ${response["error"]}")
                 emptyList()
             } else {
                 (response["lines"] as? List<*>)?.map { it.toString() } ?: emptyList()
             }
         } catch (e: Exception) {
-            println("Subprocess EasyOCR failed: ${e.message}")
+            println("EasyOCR sidecar API call failed: ${e.message}")
             emptyList()
         }
     }

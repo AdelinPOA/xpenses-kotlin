@@ -26,13 +26,13 @@ Also see the [GraalVM Native Image Blueprint](file:///home/poa/.gemini/antigravi
 
 | Layer | Technology |
 |-------|-----------|
-| Backend | FastAPI + Python 3.12 |
-| Database | PostgreSQL 16 (asyncpg) |
+| Backend | Kotlin 2.1.0 / Spring Boot 3.4.3 (JPA/Hibernate) |
+| Database | PostgreSQL 16 (JDBC) |
 | Frontend | Next.js 15 + React 19 + TypeScript |
 | Styling | Tailwind CSS v4 |
 | Data fetching | TanStack Query v5 |
-| PDF generation | reportlab + pypdf |
-| Containerization | Docker Compose (3 services: db, backend, frontend) |
+| PDF generation | OpenPDF + PDFBox |
+| Containerization | Docker Compose (5 services: db, backend, frontend, mineru, ocr-sidecar) |
 | AI Workflow | Opus 4.6 (planning, orchestration, code review) + Sonnet agents (coding) |
 
 ## Quick Start
@@ -50,34 +50,24 @@ docker compose up -d --build
 
 ```
 xpenses/
-├── backend/
-│   └── xpenses/
-│       ├── main.py              # FastAPI app, CORS, lifespan
-│       ├── database.py          # PostgreSQL pool, schema, init
-│       ├── models.py            # Pydantic models
-│       ├── config.py            # Settings (pydantic-settings)
-│       ├── assets/
-│       │   └── company_logo.png # NT logo for PDF export
-│       ├── routers/
-│       │   ├── expenses.py      # CRUD + receipt upload
-│       │   ├── reports.py       # Reports + attach/submit/recall/export
-│           ├── categories.py    # Categories CRUD
-│           └── dashboard.py     # Dashboard stats (with role-based pending counts)
-
-│       └── services/
-│           ├── fx_service.py    # FX rate fetching + caching (asyncpg)
-│           ├── pdf_export.py    # PDF report generation (Zoho-style)
-│           └── storage.py       # Receipt file storage
-├── frontend/
+├── backend-kotlin-jpa/          # Kotlin Spring Boot JPA Backend
+│   ├── src/
+│   │   ├── main/
+│   │   │   ├── kotlin/          # Kotlin MVC Controllers & Services
+│   │   │   └── resources/       # Application config & Flyway migrations
+│   │   └── test/
+│   ├── build.gradle.kts
+│   └── Dockerfile
+├── ocr-sidecar/                 # Python EasyOCR API microservice
+│   ├── app.py
+│   ├── requirements.txt
+│   └── Dockerfile
+├── frontend/                    # Next.js Frontend (unchanged)
 │   ├── app/                     # Next.js App Router pages
 │   ├── components/              # React components
-│   │   ├── dashboard/           # Greeting and ActionCard components
-│   │   ├── layout/              # Sidebar with role-based themes
-│   │   └── signature/           # Signature pad with coordinate scaling
 │   ├── lib/                     # API client, types, themes (role colors)
 │   └── public/
-│       └── logo.png             # NT logo for sidebar
-└── docker-compose.yml           # PostgreSQL + backend + frontend
+└── docker-compose.yml           # PostgreSQL + backend + frontend + sidecars
 ```
 
 ## Docker Compose Services
@@ -85,8 +75,10 @@ xpenses/
 | Service | Image | Port | Notes |
 |---------|-------|------|-------|
 | `db` | postgres:16-alpine | 5432 (internal) | Health check with `pg_isready` |
-| `backend` | Python 3.12 + FastAPI | 8001 → 8000 | Hot-reload via volume mount |
+| `backend` | Kotlin + Spring Boot | 8001 → 8080 | Active Java JVM MVC backend |
 | `frontend` | Node 22 + Next.js 15 | 3001 → 3000 | Turbopack dev server |
+| `ocr-sidecar` | Python + EasyOCR | 8004 → 5000 | Persistent EasyOCR scanner |
+| `mineru` | Python + MinerU | 8002 → 8000 | Optional local MinerU API |
 
 ## FX Rate Conversion
 

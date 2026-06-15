@@ -37,6 +37,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      ocr-sidecar:
+        condition: service_started
     volumes:
       - /home/poa/xpenses-kotlin:/home/poa/xpenses-kotlin
       - xpenses-data:/app/data
@@ -87,6 +89,24 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s  # give time for models to load on first start
+
+  ocr-sidecar:
+    build:
+      context: ./ocr-sidecar
+      dockerfile: Dockerfile
+    container_name: xpenses-ocr-sidecar
+    ports:
+      - "8004:5000"
+    volumes:
+      - ocr-models:/root/.EasyOCR
+    networks:
+      - xpenses-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:5000/health')\" || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
 networks:
   xpenses-net:

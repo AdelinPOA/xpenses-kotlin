@@ -1,11 +1,37 @@
 # HANDOFF.md — xpenses-kotlin
 
-> Last updated: 2026-06-15 (session 44)
+> Last updated: 2026-06-15 (session 45)
 > Author: Antigravity AI
 
 ---
 
-## Latest Session (2026-06-15, session 44)
+## Latest Session (2026-06-15, session 45)
+
+### What Was Done
+
+- **Implemented EasyOCR Python sidecar service (decoding model pre-load API)**:
+  - Designed and created the `ocr-sidecar` microservice running a FastAPI endpoint `/api/scan` that pre-loads `easyocr.Reader` in RAM on app startup to resolve the 5-15s subprocess spin-up latency.
+  - Refactored `OcrService.kt` in `backend-kotlin-jpa` to consume the new `ocr-sidecar` service via HTTP Multipart requests instead of calling `ProcessBuilder` on local CLI scripts.
+  - Configured `docker-compose.yml` to spin up `xpenses-ocr-sidecar` dynamically, mounting the persistent `ocr-models` volume to `/root/.EasyOCR` to avoid model re-downloading.
+  - Removed the legacy `easyocr_scan.py` script.
+  - Cleaned up hardcoded local venv execution paths in the Kotlin backend.
+  - Managed the entire lifecycle using the `openspec` CLI tool, validating all specifications and archiving the change as `2026-06-15-implement-ocr-sidecar`.
+
+### Known Remaining Gaps (not blockers)
+- Remote storage (S3/SFTP/SMB/WebDAV) stubbed in `StorageService.kt` — local only
+- No Kotlin unit/integration test suite — future priority (JUnit 5 + MockMvc)
+
+### Modified/Added Files
+- `ocr-sidecar/` — NEW Python sidecar service directory (app.py, requirements.txt, Dockerfile)
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/OcrService.kt` — Refactored to make HTTP calls to sidecar instead of spawning subprocess
+- `docker-compose.yml` — Added `ocr-sidecar` service, updated `backend` service's `depends_on`
+- `backend-kotlin-jpa/src/main/resources/easyocr_scan.py` — DELETED (obsolete)
+- `README.md` — Updated Tech Stack, Project Structure diagram, and Docker services table
+- `HANDOFF.md` — This update
+
+---
+
+## Previous Session (2026-06-15, session 44)
 
 ### What Was Done
 

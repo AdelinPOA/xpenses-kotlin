@@ -22,7 +22,7 @@ The system SHALL expose API endpoints for managing the OCR configuration, restri
 - **THEN** the backend makes a successful mock connectivity call to Google's API and returns `{"success": true, "message": "Connection successful!"}`.
 
 ### Requirement: Factory-based OCR Parsing with Automatic Fallback
-The system SHALL dynamically instantiate the selected OCR provider at runtime. If the provider is set to `"gemini"` and the API request fails (e.g., due to rate limits or connectivity issues), the system MUST automatically run the local `"easyocr"` provider as a fallback and append a warning to the response.
+The system SHALL dynamically instantiate the selected OCR provider at runtime. If the provider is set to `"gemini"` and the API request fails (e.g., due to rate limits or connectivity issues), the system MUST automatically run the local `"easyocr"` provider as a fallback and append a warning to the response. The local `"easyocr"` provider SHALL execute scans by performing an HTTP request to the `ocr-sidecar` service.
 
 #### Scenario: Scan receipt with Gemini successfully
 - **WHEN** the user uploads a receipt when Gemini is the selected provider
@@ -30,7 +30,7 @@ The system SHALL dynamically instantiate the selected OCR provider at runtime. I
 
 #### Scenario: Scan receipt with Gemini fails and falls back to EasyOCR
 - **WHEN** the user uploads a receipt when Gemini is selected, but the API request raises an exception
-- **THEN** the system executes the local EasyOCR scan, parses fields, and returns the results with a warning: `["Gemini OCR failed: <error>. Fell back to local EasyOCR."]`.
+- **THEN** the system executes the EasyOCR scan by sending a POST request containing the image file to the `ocr-sidecar` service, parses fields, and returns the results with a warning: `["Gemini OCR failed: <error>. Fell back to local EasyOCR."]`.
 
 ### Requirement: Admin Settings UI for OCR Configuration
 The Next.js frontend SHALL provide a dashboard view at `/admin/ocr` for configuring settings and testing the Gemini API.

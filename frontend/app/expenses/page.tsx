@@ -4,12 +4,12 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import api, { Expense, API_BASE_URL, duplicateExpense } from "@/lib/api";
+import api, { Expense, API_BASE_URL, duplicateExpense, downloadBlob } from "@/lib/api";
 import { expenseKeys, dashboardKeys } from "@/lib/queryKeys";
 import AppShell from "@/components/layout/AppShell";
 import Badge from "@/components/ui/Badge";
 import EmptyState from "@/components/ui/EmptyState";
-import { Plus, Trash2, Pencil, Copy } from "lucide-react";
+import { Plus, Trash2, Pencil, Copy, Download } from "lucide-react";
 
 function formatAmount(amount: number, currency: string) {
   return new Intl.NumberFormat("en-EU", { style: "currency", currency }).format(amount);
@@ -19,6 +19,23 @@ export default function ExpensesPage() {
   const qc = useQueryClient();
   const router = useRouter();
   const [statusFilter, setStatusFilter] = useState("");
+  const [exporting, setExporting] = useState(false);
+
+  async function handleExport(format: "csv" | "xlsx") {
+    setExporting(true);
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      await downloadBlob(
+        "/expenses/export",
+        { format, ...(statusFilter ? { status: statusFilter } : {}) },
+        `expenses_${today}.${format}`
+      );
+    } catch {
+      alert("Export failed. Please try again.");
+    } finally {
+      setExporting(false);
+    }
+  }
 
   const { data: expenses, isLoading } = useQuery<Expense[]>({
     queryKey: expenseKeys.list({ status: statusFilter }),
@@ -50,13 +67,38 @@ export default function ExpensesPage() {
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Expenses</h1>
           <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">{expenses?.length ?? 0} total</p>
         </div>
-        <Link
-          href="/expenses/new"
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 w-fit"
-        >
-          <Plus className="w-4 h-4" />
-          Add expense
-        </Link>
+        <div className="flex items-center gap-2">
+          <div className="relative group">
+            <button
+              disabled={exporting}
+              className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 disabled:opacity-50"
+            >
+              <Download className="w-4 h-4" />
+              {exporting ? "Exporting…" : "Export"}
+            </button>
+            <div className="absolute right-0 top-full mt-1 w-36 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg hidden group-hover:block z-10">
+              <button
+                onClick={() => handleExport("csv")}
+                className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-t-lg"
+              >
+                Download CSV
+              </button>
+              <button
+                onClick={() => handleExport("xlsx")}
+                className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-b-lg"
+              >
+                Download XLSX
+              </button>
+            </div>
+          </div>
+          <Link
+            href="/expenses/new"
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 w-fit"
+          >
+            <Plus className="w-4 h-4" />
+            Add expense
+          </Link>
+        </div>
       </div>
 
       <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm">

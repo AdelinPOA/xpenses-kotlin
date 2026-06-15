@@ -3,12 +3,12 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import api, { Report } from "@/lib/api";
+import api, { Report, downloadBlob } from "@/lib/api";
 import { reportKeys, dashboardKeys } from "@/lib/queryKeys";
 import AppShell from "@/components/layout/AppShell";
 import Badge from "@/components/ui/Badge";
 import EmptyState from "@/components/ui/EmptyState";
-import { Plus, Trash2, Eye, Send, ChevronUp, ChevronDown, Search } from "lucide-react";
+import { Plus, Trash2, Eye, Send, ChevronUp, ChevronDown, Search, Download } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import clsx from "clsx";
 import { useRouter } from "next/navigation";
@@ -32,6 +32,7 @@ export default function ReportsPage() {
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [ownerFilter, setOwnerFilter] = useState("");
   const [delError, setDelError] = useState("");
+  const [exporting, setExporting] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isPrivileged = user?.role === "chef_finance" || user?.role === "mod" || user?.role === "manager";
@@ -71,6 +72,22 @@ export default function ReportsPage() {
       qc.invalidateQueries({ queryKey: dashboardKeys.all });
     },
   });
+
+  async function handleExport(format: "csv" | "xlsx") {
+    setExporting(true);
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      await downloadBlob(
+        "/reports/export",
+        { format, all: showAll, ...(statusFilter ? { status: statusFilter } : {}) },
+        `reports_${today}.${format}`
+      );
+    } catch {
+      alert("Export failed. Please try again.");
+    } finally {
+      setExporting(false);
+    }
+  }
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -135,6 +152,29 @@ export default function ReportsPage() {
               {showAll ? "Show My Reports" : "Show All Reports"}
             </button>
           )}
+          <div className="relative group">
+            <button
+              disabled={exporting}
+              className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 disabled:opacity-50"
+            >
+              <Download className="w-4 h-4" />
+              {exporting ? "Exporting…" : "Export"}
+            </button>
+            <div className="absolute right-0 top-full mt-1 w-36 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg hidden group-hover:block z-10">
+              <button
+                onClick={() => handleExport("csv")}
+                className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-t-lg"
+              >
+                Download CSV
+              </button>
+              <button
+                onClick={() => handleExport("xlsx")}
+                className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-b-lg"
+              >
+                Download XLSX
+              </button>
+            </div>
+          </div>
           <Link
             href="/reports/new"
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 w-fit"

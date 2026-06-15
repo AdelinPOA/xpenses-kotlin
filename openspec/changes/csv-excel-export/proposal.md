@@ -9,7 +9,7 @@ Users need a way to extract their expense and report data into spreadsheet forma
 - New `GET /api/reports/export` endpoint — exports a summary of reports (one row per report) as CSV or XLSX, respecting the same `all` / `user_id` / `status` filters as the existing list endpoint.
 - Format controlled via `?format=csv` (default) or `?format=xlsx` query param.
 - Frontend download buttons added to the Expenses page and the Reports list/detail pages.
-- `openpyxl` added as a backend dependency for XLSX generation.
+- Apache POI (`poi-ooxml`) added as a backend dependency for XLSX generation.
 
 ## Capabilities
 
@@ -21,7 +21,7 @@ Users need a way to extract their expense and report data into spreadsheet forma
 
 ## Impact
 
-- **Backend**: New router endpoints in `expenses.py` and `reports.py`; new `export_service.py` handling CSV/XLSX serialisation; `pyproject.toml` gains `openpyxl`.
-- **Frontend**: New download buttons on `/expenses` page and `/reports` page + report detail page; uses direct anchor `href` with cookie credentials (or a fetch-blob approach via axios).
+- **Backend**: New endpoints in `ExpenseController.kt` and `ReportController.kt`; new `ExportService.kt` handling CSV/XLSX serialisation; `build.gradle.kts` gains `poi-ooxml`.
+- **Frontend**: New download buttons on `/expenses` page and `/reports` page + report detail page; uses blob-fetch via axios (same pattern as PDF download).
 - **No breaking changes** — existing endpoints and PDF export are untouched.
-- **Auth/scoping**: Export endpoints reuse `get_current_user` + the same `all` flag logic already present in list endpoints.
+- **Auth/scoping**: Export endpoints reuse the same `currentUser` attribute pattern and `all` flag logic already present in list endpoints.

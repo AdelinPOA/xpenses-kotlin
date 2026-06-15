@@ -43,6 +43,9 @@ dependencies {
     implementation("com.github.librepdf:openpdf:2.0.3")
     implementation("org.apache.pdfbox:pdfbox:3.0.2")
 
+    // Excel/CSV Export
+    implementation("org.apache.poi:poi-ooxml:5.3.0")
+
     // Kotlin Support
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")

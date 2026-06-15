@@ -4,9 +4,11 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import eu.nt.xpenses.models.*
 import eu.nt.xpenses.repositories.*
 import eu.nt.xpenses.services.EmailSettingsService
+import eu.nt.xpenses.services.ExportService
 import eu.nt.xpenses.services.PdfService
 import eu.nt.xpenses.services.StorageService
 import jakarta.servlet.http.HttpServletRequest
+import org.springframework.http.ContentDisposition
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
@@ -18,6 +20,7 @@ import java.math.BigDecimal
 import java.math.RoundingMode
 import java.time.Duration
 import java.time.Instant
+import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
@@ -30,7 +33,8 @@ class ReportController(
     private val userRepository: UserRepository,
     private val emailSettingsService: EmailSettingsService,
     private val pdfService: PdfService,
-    private val storageService: StorageService
+    private val storageService: StorageService,
+    private val exportService: ExportService
 ) {
 
     @GetMapping
@@ -703,6 +707,137 @@ class ReportController(
         } catch (e: Exception) {
             0.0
         }
+    }
+
+    @GetMapping("/export")
+    fun exportReports(
+        @RequestParam(value = "format", required = false, defaultValue = "csv") format: String,
+        @RequestParam(value = "status", required = false) status: String?,
+        @RequestParam(value = "all", required = false, defaultValue = "false") all: Boolean,
+        @RequestParam(value = "user_id", required = false) userId: Int?,
+        request: HttpServletRequest
+    ): ResponseEntity<ByteArray> {
+        if (format !in listOf("csv", "xlsx")) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported format '$format'. Use 'csv' or 'xlsx'.")
+        }
+
+        val currentUser = request.getAttribute("currentUser") as? User
+            ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
+
+        if (userId != null && userId != currentUser.id) {
+            if (currentUser.role !in listOf("chef_finance", "mod", "manager")) {
+                throw ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden")
+            }
+        }
+
+        var reports = if (all && currentUser.role in listOf("chef_finance", "mod", "manager")) {
+            if (userId != null) expenseReportRepository.findAllByUserId(userId)
+            else expenseReportRepository.findAll()
+        } else {
+            val targetUid = userId ?: currentUser.id!!
+            expenseReportRepository.findAllByUserId(targetUid)
+        }
+
+        if (status != null) reports = reports.filter { it.status == status }
+        reports = reports.sortedByDescending { it.createdAt }
+
+        val isoFmt = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'")
+        val columns = listOf("id", "title", "status", "date_from", "date_to", "total_amount", "currency",
+            "submitted_at", "approved_at", "paid_at", "user")
+
+        val rows = reports.map { r ->
+            buildMap {
+                put("id", r.id)
+                put("title", r.title)
+                put("status", r.status)
+                put("date_from", r.dateFrom ?: "")
+                put("date_to", r.dateTo ?: "")
+                put("total_amount", r.totalAmount)
+                put("currency", r.currency ?: "EUR")
+                put("submitted_at", r.submittedAt?.let { isoFmt.format(it.atZone(java.time.ZoneOffset.UTC)) } ?: "")
+                put("approved_at", r.approvedAt?.let { isoFmt.format(it.atZone(java.time.ZoneOffset.UTC)) } ?: "")
+                put("paid_at", r.paidAt?.let { isoFmt.format(it.atZone(java.time.ZoneOffset.UTC)) } ?: "")
+                put("user", r.user?.displayName ?: "")
+            }
+        }
+
+        val today = LocalDate.now()
+        val (bytes, contentType, ext) = when (format) {
+            "xlsx" -> Triple(
+                exportService.buildXlsx(rows, columns),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                "xlsx"
+            )
+            else -> Triple(exportService.buildCsv(rows, columns), "text/csv", "csv")
+        }
+
+        val headers = HttpHeaders().apply {
+            set(HttpHeaders.CONTENT_TYPE, contentType)
+            contentDisposition = ContentDisposition.attachment().filename("reports_$today.$ext").build()
+        }
+        return ResponseEntity(bytes, headers, HttpStatus.OK)
+    }
+
+    @GetMapping("/{reportId}/export-csv")
+    fun exportReportExpenses(
+        @PathVariable reportId: Int,
+        @RequestParam(value = "format", required = false, defaultValue = "csv") format: String,
+        request: HttpServletRequest
+    ): ResponseEntity<ByteArray> {
+        if (format !in listOf("csv", "xlsx")) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported format '$format'. Use 'csv' or 'xlsx'.")
+        }
+
+        val currentUser = request.getAttribute("currentUser") as? User
+            ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
+
+        val report = expenseReportRepository.findByIdWithExpenses(reportId)
+            .orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND, "Report not found") }
+
+        if (currentUser.role !in listOf("chef_finance", "mod", "manager") && report.user?.id != currentUser.id) {
+            throw ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden")
+        }
+
+        val columns = listOf("id", "date", "merchant", "description", "category",
+            "amount_original", "currency", "amount_eur", "fx_rate",
+            "tax_amount", "tax_rate", "tax_amount_eur", "status", "report_id")
+
+        val expenses = report.expenses.sortedByDescending { it.date }
+        val rows = expenses.map { e ->
+            buildMap {
+                put("id", e.id)
+                put("date", e.date)
+                put("merchant", e.merchant ?: "")
+                put("description", e.description ?: "")
+                put("category", e.category?.name ?: "")
+                put("amount_original", e.amountOriginal)
+                put("currency", e.currencyOriginal)
+                put("amount_eur", e.amountEur)
+                put("fx_rate", e.fxRate)
+                put("tax_amount", e.taxAmount.toDouble())
+                put("tax_rate", e.taxRate?.toDouble() ?: "")
+                put("tax_amount_eur", e.taxAmountEur.toDouble())
+                put("status", e.status)
+                put("report_id", reportId)
+            }
+        }
+
+        val today = LocalDate.now()
+        val (bytes, contentType, ext) = when (format) {
+            "xlsx" -> Triple(
+                exportService.buildXlsx(rows, columns),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                "xlsx"
+            )
+            else -> Triple(exportService.buildCsv(rows, columns), "text/csv", "csv")
+        }
+
+        val headers = HttpHeaders().apply {
+            set(HttpHeaders.CONTENT_TYPE, contentType)
+            contentDisposition = ContentDisposition.attachment()
+                .filename("report_${reportId}_expenses_$today.$ext").build()
+        }
+        return ResponseEntity(bytes, headers, HttpStatus.OK)
     }
 
     private fun mapReportToOut(report: ExpenseReport): ReportOut {

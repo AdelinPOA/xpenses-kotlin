@@ -3,10 +3,13 @@ package eu.nt.xpenses.controllers
 import com.fasterxml.jackson.annotation.JsonProperty
 import eu.nt.xpenses.models.*
 import eu.nt.xpenses.repositories.*
+import eu.nt.xpenses.services.ExportService
 import eu.nt.xpenses.services.FxService
 import eu.nt.xpenses.services.StorageService
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
+import org.springframework.http.ContentDisposition
+import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
@@ -18,6 +21,7 @@ import java.math.BigDecimal
 import java.math.RoundingMode
 import java.net.URLConnection
 import java.time.Instant
+import java.time.LocalDate
 
 @RestController
 @RequestMapping("/api/expenses")
@@ -28,7 +32,8 @@ class ExpenseController(
     private val receiptRepository: ReceiptRepository,
     private val ocrComparisonRepository: OcrComparisonRepository,
     private val fxService: FxService,
-    private val storageService: StorageService
+    private val storageService: StorageService,
+    private val exportService: ExportService
 ) {
 
     @GetMapping
@@ -520,6 +525,83 @@ class ExpenseController(
 
         storageService.uploadFile(relativePath, content)
         return relativePath
+    }
+
+    @GetMapping("/export")
+    fun exportExpenses(
+        @RequestParam(value = "format", required = false, defaultValue = "csv") format: String,
+        @RequestParam(value = "report_id", required = false) reportId: Int?,
+        @RequestParam(value = "category_id", required = false) categoryId: Int?,
+        @RequestParam(value = "status", required = false) status: String?,
+        @RequestParam(value = "from", required = false) fromDate: String?,
+        @RequestParam(value = "to", required = false) toDate: String?,
+        @RequestParam(value = "all", required = false, defaultValue = "false") all: Boolean,
+        request: HttpServletRequest
+    ): ResponseEntity<ByteArray> {
+        if (format !in listOf("csv", "xlsx")) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported format '$format'. Use 'csv' or 'xlsx'.")
+        }
+
+        val currentUser = request.getAttribute("currentUser") as? User
+            ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
+
+        var expenses = if (all && currentUser.role in listOf("chef_finance", "mod", "manager")) {
+            expenseRepository.findAll()
+        } else {
+            expenseRepository.findAllByUserId(currentUser.id!!)
+        }
+
+        if (reportId != null) expenses = expenses.filter { it.report?.id == reportId }
+        if (categoryId != null) expenses = expenses.filter { it.category?.id == categoryId }
+        if (status != null) expenses = expenses.filter { it.status == status }
+        if (fromDate != null) expenses = expenses.filter { it.date >= fromDate }
+        if (toDate != null) expenses = expenses.filter { it.date <= toDate }
+        expenses = expenses.sortedByDescending { it.date }
+
+        val includeUser = all && currentUser.role in listOf("chef_finance", "mod", "manager")
+        val columns = listOfNotNull(
+            "id", "date", "merchant", "description", "category",
+            "amount_original", "currency", "amount_eur", "fx_rate",
+            "tax_amount", "tax_rate", "tax_amount_eur", "status", "report_id",
+            if (includeUser) "user" else null
+        )
+
+        val rows = expenses.map { e ->
+            buildMap {
+                put("id", e.id)
+                put("date", e.date)
+                put("merchant", e.merchant ?: "")
+                put("description", e.description ?: "")
+                put("category", e.category?.name ?: "")
+                put("amount_original", e.amountOriginal)
+                put("currency", e.currencyOriginal)
+                put("amount_eur", e.amountEur)
+                put("fx_rate", e.fxRate)
+                put("tax_amount", e.taxAmount.toDouble())
+                put("tax_rate", e.taxRate?.toDouble() ?: "")
+                put("tax_amount_eur", e.taxAmountEur.toDouble())
+                put("status", e.status)
+                put("report_id", e.report?.id ?: "")
+                if (includeUser) put("user", e.user?.displayName ?: "")
+            }
+        }
+
+        val today = LocalDate.now()
+        val (bytes, contentType, ext) = when (format) {
+            "xlsx" -> Triple(
+                exportService.buildXlsx(rows, columns),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                "xlsx"
+            )
+            else -> Triple(exportService.buildCsv(rows, columns), "text/csv", "csv")
+        }
+
+        val headers = HttpHeaders().apply {
+            set(HttpHeaders.CONTENT_TYPE, contentType)
+            contentDisposition = ContentDisposition.attachment()
+                .filename("expenses_$today.$ext").build()
+        }
+        return ResponseEntity(bytes, headers, HttpStatus.OK)
     }
 
     private fun mapReceiptToOut(receipt: Receipt): ReceiptOut {

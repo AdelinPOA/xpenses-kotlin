@@ -1,11 +1,45 @@
 # HANDOFF.md — xpenses-kotlin
 
-> Last updated: 2026-06-15 (session 40)
+> Last updated: 2026-06-15 (session 41)
 > Author: Antigravity AI
 
 ---
 
-## Latest Session (2026-06-15, session 40)
+## Latest Session (2026-06-15, session 41)
+
+### What Was Done
+- **Security & Bug Audit — Full Codebase Review**:
+  - Conducted a manual audit of all backend routers and services without using any markdown documentation files.
+  - Identified and fixed 4 confirmed bugs/security issues:
+
+1. **Critical Bug — `duplicate_expense` tax_amount_eur arithmetic** (`expenses.py`):
+   - `tax_amount_eur` was calculated using `/ fx_rate` instead of `* fx_rate` in the `POST /api/expenses/{id}/duplicate` handler. For non-EUR currencies, this produced an inverted EUR tax value (e.g., 100 RON at 0.2 EUR/RON rate → 500 EUR instead of 20 EUR).
+
+2. **Bug — Manager IDOR inconsistency on single expense GET** (`expenses.py`):
+   - `GET /api/expenses?all=true` allowed managers to list all expenses org-wide, but `GET /api/expenses/{id}` only allowed `chef_finance` and `mod` to access other users' expenses by ID. Added `"manager"` to the allowed roles on the single-expense endpoint to match the list endpoint behavior.
+
+3. **Feature Fix — Hardcoded daily allowance rate** (`reports.py`, `pdf_export.py`, `app_settings.py`, `models.py`):
+   - Daily allowance was hard-coded as `50.0` EUR/day in two separate places (`_fetch_report` in `reports.py` and `_build_main_pdf` in `pdf_export.py`). Moved to a DB-backed setting following the same pattern as mileage rates:
+     - Added `DailyAllowanceOut` / `DailyAllowanceUpdate` Pydantic models to `models.py`.
+     - Added `get_daily_allowance_rate()` helper in `app_settings.py`.
+     - Added `GET /api/settings/daily-allowance-rate` (any authenticated user) and `PATCH /api/settings/daily-allowance-rate` (requires `chef_finance` role) endpoints.
+     - `_fetch_report` and `export_report_pdf` now fetch the rate from DB and pass it through.
+     - `_build_main_pdf` and `generate_report_pdf` now accept a `daily_allowance_rate: float` parameter (defaults to `50.0` for backward compatibility).
+
+4. **Security Fix — Receipt filename insufficient sanitization** (`storage/__init__.py`):
+   - `save_receipt` only replaced spaces with underscores in the filename stem. Characters like `;`, `%`, `null bytes`, and double dots were passed through unmodified. The path traversal guard (`is_relative_to`) was only applied in the local-fallback code path when `db_conn=None`. Added strict stem sanitization: only `[a-zA-Z0-9\-_]` characters are retained, capped at 100 chars, before constructing the relative path.
+
+### Modified Files
+- `backend/xpenses/routers/expenses.py` — Fixed `* fx_rate` in duplicate, added `"manager"` to single GET auth check.
+- `backend/xpenses/routers/reports.py` — Replaced hardcoded `50.0` with `get_daily_allowance_rate()` call; passes rate to PDF generator.
+- `backend/xpenses/routers/app_settings.py` — Added `get_daily_allowance_rate()` helper, `GET/PATCH /settings/daily-allowance-rate` endpoints.
+- `backend/xpenses/services/pdf_export.py` — Added `daily_allowance_rate` param to `_build_main_pdf` and `generate_report_pdf`.
+- `backend/xpenses/models.py` — Added `DailyAllowanceOut` and `DailyAllowanceUpdate` Pydantic models.
+- `backend/xpenses/services/storage/__init__.py` — Strict filename stem sanitization in `save_receipt`.
+
+---
+
+## Previous Session (2026-06-15, session 40)
 ### What Was Done
 - **Finalized Kotlin Migration & Documentation Alignment**:
   - Aligned and verified all Kotlin Spring Boot JPA endpoints, controllers, and services.

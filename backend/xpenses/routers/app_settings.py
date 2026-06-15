@@ -8,6 +8,8 @@ from ..auth import get_current_user, require_role
 from ..config import settings
 from ..database import get_db, get_pool
 from ..models import (
+    DailyAllowanceOut,
+    DailyAllowanceUpdate,
     MileageRatesOut,
     MileageRatesUpdate,
     OCRConfigOut,
@@ -71,6 +73,47 @@ async def update_mileage_rates(
         )
     bt, at = await get_mileage_rates(db)
     return MileageRatesOut(mileage_rate_before_tax=bt, mileage_rate_after_tax=at)
+
+
+DEFAULT_DAILY_ALLOWANCE_RATE = 50.0
+
+
+async def get_daily_allowance_rate(db: asyncpg.Connection) -> float:
+    row = await db.fetchrow(
+        "SELECT value FROM app_settings WHERE key = 'daily_allowance_rate'"
+    )
+    if not row:
+        return DEFAULT_DAILY_ALLOWANCE_RATE
+    try:
+        return float(row["value"])
+    except (TypeError, ValueError):
+        return DEFAULT_DAILY_ALLOWANCE_RATE
+
+
+@router.get("/daily-allowance-rate", response_model=DailyAllowanceOut)
+async def read_daily_allowance_rate(
+    current_user: dict = Depends(get_current_user),
+    db: asyncpg.Connection = Depends(get_db),
+):
+    rate = await get_daily_allowance_rate(db)
+    return DailyAllowanceOut(daily_allowance_rate=rate)
+
+
+@router.patch("/daily-allowance-rate", response_model=DailyAllowanceOut)
+async def update_daily_allowance_rate(
+    body: DailyAllowanceUpdate,
+    current_user: dict = require_role("chef_finance"),
+    db: asyncpg.Connection = Depends(get_db),
+):
+    now = datetime.now(timezone.utc)
+    await db.execute(
+        """INSERT INTO app_settings (key, value, updated_at)
+           VALUES ('daily_allowance_rate', $1, $2)
+           ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = $2""",
+        str(body.daily_allowance_rate), now,
+    )
+    rate = await get_daily_allowance_rate(db)
+    return DailyAllowanceOut(daily_allowance_rate=rate)
 
 
 @router.post("/receipts/scan")

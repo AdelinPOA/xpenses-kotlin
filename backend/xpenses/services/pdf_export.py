@@ -80,6 +80,7 @@ def _build_main_pdf(
     mileage: list[dict] | None = None,
     signer: dict | None = None,
     cached_paths: dict[str, str] | None = None,
+    daily_allowance_rate: float = 50.0,
 ) -> tuple[BytesIO, list]:
     buf = BytesIO()
     doc = SimpleDocTemplate(
@@ -405,7 +406,7 @@ def _build_main_pdf(
             d_to = datetime.strptime(report["date_to"][:10], "%Y-%m-%d")
             days = (d_to - d_from).days + 1
             if days > 0:
-                allowance = days * 50.0
+                allowance = days * daily_allowance_rate
         except ValueError:
             pass
 
@@ -604,6 +605,7 @@ async def generate_report_pdf(
     mileage: list[dict] | None = None,
     signer: dict | None = None,
     db_conn = None,
+    daily_allowance_rate: float = 50.0,
 ) -> bytes:
     cached_paths = {}
     if db_conn:
@@ -625,7 +627,7 @@ async def generate_report_pdf(
                     cached_paths[path] = local_path
 
     main_buf, pdf_receipts = await asyncio.to_thread(
-        _build_main_pdf, report, expenses, advances, mileage, signer, cached_paths
+        _build_main_pdf, report, expenses, advances, mileage, signer, cached_paths, daily_allowance_rate
     )
 
     if pdf_receipts:

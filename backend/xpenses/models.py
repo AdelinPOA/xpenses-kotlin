@@ -299,6 +299,21 @@ class MileageRatesUpdate(BaseModel):
         return v
 
 
+class DailyAllowanceOut(BaseModel):
+    daily_allowance_rate: float
+
+
+class DailyAllowanceUpdate(BaseModel):
+    daily_allowance_rate: float
+
+    @field_validator("daily_allowance_rate", mode="before")
+    @classmethod
+    def must_be_non_negative(cls, v):
+        if v < 0:
+            raise ValueError("Daily allowance rate must be non-negative")
+        return v
+
+
 # ── OCR ──────────────────────────────────────────────────────────────────────
 
 class OCRScanResponse(BaseModel):

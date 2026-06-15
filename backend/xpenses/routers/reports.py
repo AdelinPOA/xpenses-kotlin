@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from ..auth import get_current_user, require_role
 from ..database import get_db
 from ..models import ReportCreate, ReportOut, ReportSubmit, ReportUpdate
+from .app_settings import get_daily_allowance_rate
 from ..services.email_service import (
     get_approval_email,
     get_payment_email,
@@ -79,6 +80,7 @@ async def _fetch_report(db: asyncpg.Connection, report_id: int) -> dict:
 
     total_expenses = sum(e["amount_eur"] for e in report["expenses"])
 
+    daily_rate = await get_daily_allowance_rate(db)
     allowance = 0.0
     if report.get("date_from") and report.get("date_to"):
         try:
@@ -86,7 +88,7 @@ async def _fetch_report(db: asyncpg.Connection, report_id: int) -> dict:
             d_to = datetime.strptime(report["date_to"][:10], "%Y-%m-%d")
             days = (d_to - d_from).days + 1
             if days > 0:
-                allowance = days * 50.0
+                allowance = days * daily_rate
         except ValueError:
             pass
     report["daily_allowance"] = allowance
@@ -420,7 +422,8 @@ async def export_report_pdf(report_id: int, current_user: dict = Depends(get_cur
         if signer_row:
             signer = dict(signer_row)
 
-    pdf_bytes = await generate_report_pdf(report, expenses, advances, mileage, signer, db)
+    daily_rate = await get_daily_allowance_rate(db)
+    pdf_bytes = await generate_report_pdf(report, expenses, advances, mileage, signer, db, daily_rate)
     safe_title = "".join(c if c.isalnum() or c in "-_ " else "_" for c in report["title"])
     filename = f"report_{report_id}_{safe_title[:40].strip()}.pdf"
 

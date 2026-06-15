@@ -25,7 +25,10 @@ async def save_receipt(expense_id: int, file: UploadFile, db_conn: asyncpg.Conne
 
     now = datetime.now()
     subdir = f"{now.year}/{now.month:02d}"
-    safe_name = f"{expense_id}_{raw_filename}".replace(" ", "_")
+    # Sanitize: keep only safe characters to prevent path manipulation via filename
+    stem = os.path.splitext(raw_filename)[0]
+    safe_stem = "".join(c if c.isalnum() or c in "-_" else "_" for c in stem)[:100]
+    safe_name = f"{expense_id}_{safe_stem}{ext}"
     relative_path = f"{subdir}/{safe_name}"
 
     content = await file.read()

@@ -126,7 +126,7 @@ async def get_expense(expense_id: int, current_user: dict = Depends(get_current_
     if not row:
         raise HTTPException(status_code=404, detail="Expense not found")
     row_dict = dict(row)
-    if current_user["role"] not in ("chef_finance", "mod") and row_dict.get("user_id") != current_user["id"]:
+    if current_user["role"] not in ("chef_finance", "mod", "manager") and row_dict.get("user_id") != current_user["id"]:
         raise HTTPException(status_code=403, detail="Not your expense")
     expenses = await _enrich_with_receipts(db, [row_dict])
     return expenses[0]
@@ -228,7 +228,7 @@ async def duplicate_expense(expense_id: int, current_user: dict = Depends(get_cu
 
     amount_eur = round(row["amount_original"] * fx_rate, 2)
     tax_amount = float(row["tax_amount"]) if row["tax_amount"] is not None else 0.0
-    tax_amount_eur = round(tax_amount / fx_rate, 2) if fx_rate else 0.0
+    tax_amount_eur = round(tax_amount * fx_rate, 2) if fx_rate else 0.0
 
     now = datetime.now(timezone.utc)
     new_row = await db.fetchrow(

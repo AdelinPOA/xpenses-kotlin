@@ -3,6 +3,7 @@ package eu.nt.xpenses.controllers
 import com.fasterxml.jackson.annotation.JsonProperty
 import eu.nt.xpenses.models.*
 import eu.nt.xpenses.repositories.*
+import eu.nt.xpenses.repositories.AppSettingRepository
 import eu.nt.xpenses.services.EmailSettingsService
 import eu.nt.xpenses.services.ExportService
 import eu.nt.xpenses.services.PdfService
@@ -34,7 +35,8 @@ class ReportController(
     private val emailSettingsService: EmailSettingsService,
     private val pdfService: PdfService,
     private val storageService: StorageService,
-    private val exportService: ExportService
+    private val exportService: ExportService,
+    private val appSettingRepository: AppSettingRepository
 ) {
 
     @GetMapping
@@ -696,6 +698,9 @@ class ReportController(
         )
     }
 
+    private fun getDailyAllowanceRate(): Double =
+        appSettingRepository.findById("daily_allowance_rate").orElse(null)?.value?.toDoubleOrNull() ?: 50.0
+
     private fun calculateDailyAllowance(dateFrom: String?, dateTo: String?): Double {
         if (dateFrom.isNullOrEmpty() || dateTo.isNullOrEmpty()) return 0.0
         return try {
@@ -703,7 +708,7 @@ class ReportController(
             val dFrom = java.time.LocalDate.parse(dateFrom.take(10), formatter)
             val dTo = java.time.LocalDate.parse(dateTo.take(10), formatter)
             val days = Duration.between(dFrom.atStartOfDay(), dTo.atStartOfDay()).toDays() + 1
-            if (days > 0) days * 50.0 else 0.0
+            if (days > 0) days * getDailyAllowanceRate() else 0.0
         } catch (e: Exception) {
             0.0
         }

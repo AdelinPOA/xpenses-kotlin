@@ -19,6 +19,23 @@ class AppSettingsController(
     private val emailImportService: EmailImportService
 ) {
 
+    // --- Daily Allowance Rate ---
+    @GetMapping("/daily-allowance-rate")
+    fun readDailyAllowanceRate(): ResponseEntity<DailyAllowanceOut> {
+        val value = appSettingRepository.findById("daily_allowance_rate").orElse(null)?.value?.toDoubleOrNull() ?: 50.0
+        return ResponseEntity.ok(DailyAllowanceOut(value))
+    }
+
+    @PatchMapping("/daily-allowance-rate")
+    @PreAuthorize("hasRole('chef_finance')")
+    fun updateDailyAllowanceRate(@RequestBody body: DailyAllowanceUpdate): ResponseEntity<DailyAllowanceOut> {
+        if (body.dailyAllowanceRate < 0) {
+            return ResponseEntity.badRequest().build()
+        }
+        appSettingRepository.save(AppSetting("daily_allowance_rate", body.dailyAllowanceRate.toString(), Instant.now()))
+        return ResponseEntity.ok(DailyAllowanceOut(body.dailyAllowanceRate))
+    }
+
     // --- Mileage Rates ---
     @GetMapping("/mileage-rates")
     fun readMileageRates(): ResponseEntity<MileageRatesOut> {
@@ -343,6 +360,14 @@ class AppSettingsController(
         return ResponseEntity.ok(mapOf("cleaned_count" to 0))
     }
 }
+
+data class DailyAllowanceOut(
+    @JsonProperty("daily_allowance_rate") val dailyAllowanceRate: Double
+)
+
+data class DailyAllowanceUpdate(
+    @JsonProperty("daily_allowance_rate") val dailyAllowanceRate: Double
+)
 
 data class MileageRatesOut(
     @JsonProperty("mileage_rate_before_tax") val mileageRateBeforeTax: Double,

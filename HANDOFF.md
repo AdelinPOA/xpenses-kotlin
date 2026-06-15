@@ -27,7 +27,7 @@
 - **Codebase Audit & Technical Debt Resolution**:
   - Addressed findings from a comprehensive system audit checking for bugs and incomplete functions.
   - **Replaced Unmanaged Threads with @Async**: Refactored `ReportController.kt` to eliminate raw, unmanaged `Thread { ... }.start()` execution for dispatching email notifications. Replaced them with the Spring-native `@Async` execution in `EmailSettingsService.kt` and activated `@EnableAsync` on `XpensesApplication.kt`.
-  - **Removed Orphaned Code**: Deleted the orphaned and unused `backend-kotlin` prototype directory (Spring WebFlux/R2DBC) to eliminate developer confusion and reduce codebase bloat, confirming that `backend-kotlin-jpa` is the single source of truth for the Kotlin backend.
+  - **Restored Production Codebase**: Restored the `backend-kotlin/` directory (Spring WebFlux/R2DBC), clarifying that this is the intended **production** stack, while the `backend-kotlin-jpa/` implementation is strictly intended for testing.
   - Verified no other `TODO`, `FIXME`, or `HACK` references exist in the active codebase.
 
 ### Known Remaining Gaps (not blockers)
@@ -38,7 +38,7 @@
 - `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/XpensesApplication.kt` — Enabled @Async.
 - `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/EmailSettingsService.kt` — Annotated `sendEmail` with @Async.
 - `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/ReportController.kt` — Cleaned up raw threads on submit, pay, approve, and reject endpoints.
-- `backend-kotlin/` — DELETED (obsolete prototype).
+- `backend-kotlin/` — RESTORED (production stack).
 - `HANDOFF.md` — Incremented session history.
 
 ---

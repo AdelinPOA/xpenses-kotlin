@@ -66,7 +66,7 @@ class ExportService {
                     }
                     is LocalDateTime -> cell.setCellValue(v.format(isoDateTime))
                     is Boolean -> cell.setCellValue(v)
-                    else -> cell.setCellValue(v.toString())
+                    else -> cell.setCellValue(sanitizeFormula(v.toString()))
                 }
             }
         }
@@ -83,8 +83,12 @@ class ExportService {
         is LocalDateTime -> v.format(isoDateTime)
         is Double -> "%.2f".format(v)
         is Float -> "%.2f".format(v)
-        else -> v.toString()
+        else -> sanitizeFormula(v.toString())
     }
+
+    // Prevent CSV formula injection: prefix dangerous lead characters with a single quote.
+    private fun sanitizeFormula(s: String): String =
+        if (s.isNotEmpty() && s[0] in charArrayOf('=', '+', '-', '@', '\t', '\r')) "'$s" else s
 
     private fun quoteField(s: String): String {
         val escaped = s.replace("\"", "\"\"")

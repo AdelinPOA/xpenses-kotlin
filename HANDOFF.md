@@ -14,6 +14,7 @@
   - Added instructions to proactively recommend the `/usage` slash command in the chat UI for monitoring token usage.
   - Established concrete strategies for utilizing `research` (read-only) and `self` (read-write) subagents, keeping contexts minimal.
   - Advised against frequent container rebuilds and native compilation during active development, prioritizing fast JVM compilation cycles.
+  - Installed the `google-antigravity` SDK in the python virtual environment and created a boilerplate custom agent script.
   - Updated AI Workflow references in [README.md](file:///home/poa/xpenses-kotlin/README.md).
 
 ### Known Remaining Gaps (not blockers)
@@ -24,6 +25,7 @@
 - `GEMINI.md` — Updated agent workflows, subagent guidelines, and build optimization.
 - `CLAUDE.md` — Updated agent workflows, subagent guidelines, and build optimization.
 - `README.md` — Aligned tech stack AI workflow entry.
+- `scripts/setup_antigravity_agent.py` — New Python boilerplate for SDK agent execution.
 - `HANDOFF.md` — Incremented session history.
 
 ---

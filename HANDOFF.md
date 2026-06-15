@@ -1,11 +1,50 @@
 # HANDOFF.md — xpenses-kotlin
 
-> Last updated: 2026-06-15 (session 41)
+> Last updated: 2026-06-15 (session 42)
 > Author: Antigravity AI
 
 ---
 
-## Latest Session (2026-06-15, session 41)
+## Latest Session (2026-06-15, session 42)
+
+### What Was Done
+
+- **CLAUDE.md rewritten to reflect Kotlin backend**:
+  - Previous CLAUDE.md described only the legacy Python FastAPI backend. Fully rewrote it to document the active Kotlin Spring Boot 3.4.3 + JPA stack: source layout, auth pattern (`JwtAuthenticationFilter` → `request.getAttribute("currentUser")`), JPA/Flyway patterns, Jackson SNAKE_CASE config, key implementation caveats (in-memory filtering, remote storage stubs, daily allowance not yet DB-backed in Kotlin), and `docker-compose.yml` networking.
+
+- **OpenSpec CSV/Excel export plan updated for Kotlin**:
+  - The plan was originally written targeting the Python FastAPI backend. Updated all three artifacts (`proposal.md`, `design.md`, `tasks.md`) to reference the Kotlin stack: Apache POI (`poi-ooxml`) instead of `openpyxl`, `build.gradle.kts` instead of `pyproject.toml`, Kotlin controller/service files instead of Python routers, `ResponseEntity<ByteArray>` instead of `StreamingResponse`.
+
+- **CSV/Excel export implemented — all tasks complete**:
+  1. Added `org.apache.poi:poi-ooxml:5.3.0` to `backend-kotlin-jpa/build.gradle.kts`.
+  2. Created `ExportService.kt` with `buildCsv()` (JDK `StringWriter`, RFC 4180 quoting) and `buildXlsx()` (Apache POI `XSSFWorkbook` with auto-filter and auto-sized columns).
+  3. Added `GET /api/expenses/export` to `ExpenseController.kt` — reuses existing in-memory filter logic; returns CSV or XLSX with correct `Content-Disposition` header.
+  4. Added `GET /api/reports/export` to `ReportController.kt` — mirrors `listReports` scoping (`all`, `status`, `user_id`).
+  5. Added `GET /api/reports/{id}/export-csv` to `ReportController.kt` — per-report expense export; access control mirrors `getReport` (owner or privileged role; 403/404 on violation).
+  6. Added `downloadBlob(url, params, filename)` utility to `frontend/lib/api.ts` using axios blob-fetch → `URL.createObjectURL` → synthetic anchor click pattern (same as existing PDF download).
+  7. Added hover-dropdown Export buttons (CSV / XLSX) to `app/expenses/page.tsx`, `app/reports/page.tsx`, and `app/reports/[id]/page.tsx`.
+
+- **Security fix — CSV formula injection**:
+  - Automated security review flagged that merchant/description fields starting with `=`, `+`, `-`, `@`, `\t`, or `\r` would be interpreted as formulas by Excel/Sheets.
+  - Added `sanitizeFormula()` helper in `ExportService.kt` that prefixes dangerous lead characters with `'`. Applied to both the CSV `quoteField` path and the XLSX string-cell path in `buildXlsx`.
+
+### Modified Files
+- `CLAUDE.md` — Full rewrite for Kotlin backend accuracy.
+- `openspec/changes/csv-excel-export/proposal.md` — Updated for Kotlin stack.
+- `openspec/changes/csv-excel-export/design.md` — Updated context, decisions, and migration plan for Kotlin.
+- `openspec/changes/csv-excel-export/tasks.md` — Updated all task descriptions to reference Kotlin files.
+- `backend-kotlin-jpa/build.gradle.kts` — Added `poi-ooxml:5.3.0`.
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/ExportService.kt` — New file.
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/ExpenseController.kt` — Added `GET /api/expenses/export`.
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/ReportController.kt` — Added `GET /api/reports/export` and `GET /api/reports/{id}/export-csv`.
+- `frontend/lib/api.ts` — Added `downloadBlob()` utility.
+- `frontend/app/expenses/page.tsx` — Export dropdown button.
+- `frontend/app/reports/page.tsx` — Export dropdown button.
+- `frontend/app/reports/[id]/page.tsx` — Export expenses dropdown button.
+
+---
+
+## Previous Session (2026-06-15, session 41)
 
 ### What Was Done
 - **Security & Bug Audit — Full Codebase Review**:

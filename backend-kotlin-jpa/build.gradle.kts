@@ -29,6 +29,7 @@ dependencies {
     implementation("org.flywaydb:flyway-core")
     implementation("org.springframework.boot:spring-boot-starter-data-ldap")
     implementation("org.springframework.boot:spring-boot-starter-mail")
+    implementation("org.springframework.boot:spring-boot-starter-validation")
 
     // Database
     runtimeOnly("org.postgresql:postgresql")
@@ -46,6 +47,9 @@ dependencies {
     // Excel/CSV Export
     implementation("org.apache.poi:poi-ooxml:5.3.0")
 
+    // S3 Storage
+    implementation("software.amazon.awssdk:s3:2.30.0")
+
     // Kotlin Support
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
@@ -53,6 +57,19 @@ dependencies {
     // Testing
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.security:spring-security-test")
+    testImplementation("org.testcontainers:junit-jupiter")
+    testImplementation("org.testcontainers:postgresql")
+}
+
+dependencyManagement {
+    imports {
+        // Override Spring Boot's managed Testcontainers to 1.21.x so we get a current
+        // testcontainers-bom. The actual Docker API version fix is handled via the
+        // systemProperty("api.version", ...) in tasks.withType<Test> below — Testcontainers
+        // shades docker-java internally and defaults to API 1.32, which is rejected by
+        // Docker 29+ (minimum 1.40).
+        mavenBom("org.testcontainers:testcontainers-bom:1.21.0")
+    }
 }
 
 kotlin {
@@ -63,6 +80,9 @@ kotlin {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+    // Docker 29+ requires API >= 1.40; docker-java (shaded in Testcontainers) defaults to 1.32.
+    // Pass the api.version system property so the shaded DefaultDockerClientConfig picks it up.
+    systemProperty("api.version", "1.45")
 }
 
 graalvmNative {

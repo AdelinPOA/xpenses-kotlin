@@ -1,11 +1,72 @@
 # HANDOFF.md — xpenses-kotlin
 
-> Last updated: 2026-06-16 (session 51)
-> Author: Antigravity AI
+> Last updated: 2026-06-16 (session 52)
+> Author: Reasonix
 
 ---
 
-## Latest Session (2026-06-16, session 51)
+## Latest Session (2026-06-16, session 52)
+
+### What Was Done
+
+- **Comprehensive bugfix pass** — 15 issues fixed across 25 files, spanning HIGH and MEDIUM severity findings from a full codebase audit.
+
+### Fixed Issues
+
+#### HIGH Severity (8 fixes)
+
+1. **[BUG] Sign endpoint allowed signing in ANY state** — Added status check requiring `submitted` or `approved` reports only. Previously a user could sign draft/rejected/paid reports. (`ReportController.kt`)
+2. **[BUG] Reject orphaning all expenses** — Replaced `exp.report = null` + `report.expenses.clear()` with keeping the relationship intact; expenses are set to `"draft"` but remain attached. (`ReportController.kt`)
+3. **[PERF/RACE] No optimistic locking on state transitions** — Added `@Version` field to `ExpenseReport` entity + Flyway `V3__add_version_column.sql`. Prevents double-approve/double-pay from concurrent requests. (`Models.kt`, `Repositories.kt`)
+4. **[BUG] Missing `@Transactional` on 7 multi-entity write operations** — Added `@Transactional` to `submitReport`, `approveReport`, `rejectReport`, `payReport`, `recallReport`, `deleteReport`, `attachExpenses`. Prevents partial writes. (`ReportController.kt`)
+5. **[BUG] `AdvancePaymentCreate.type` free-text bypass** — Added explicit `listOf("request", "paid")` validation with clear error. Unknown types are now rejected. (`AdvanceController.kt`)
+6. **[CONFIG] CORS hardcoded to localhost** — Made origins configurable via `cors.allowed-origins` property (default: `http://localhost:3001,http://127.0.0.1:3001`). (`SecurityConfig.kt`, `application.yml`)
+7. **[SECURITY] JWT key derived via zero-padding** — Replaced `padEnd(32, '0')` with PBKDF2WithHmacSHA256 (65536 iterations, 256-bit output). Any-length secrets now produce strong keys. (`JwtTokenProvider.kt`)
+8. **[BUG] Inconsistent error response format** — Fixed `OcrController` to return JSON `{"detail": "..."}` instead of plain strings. (`OcrController.kt`)
+
+#### MEDIUM Severity (7 fixes)
+
+9. **[PERF] BigDecimal precision loss via Double multiplication** — Fixed 7 locations across `ExpenseController`, `AdvanceController`, `MileageController` to use `BigDecimal.valueOf().multiply()` instead of `BigDecimal(double * double)`. (`ExpenseController.kt`, `AdvanceController.kt`, `MileageController.kt`)
+10. **[TECH DEBT] Empty catch blocks in PdfService** — Added SLF4J `log.warn()` to all 6 empty `catch (e: Exception) {}` blocks. (`PdfService.kt`)
+11. **[PERF] N+1 in export endpoint** — Changed `findAllByUserId()`/`findAll()` to `*WithExpenses()` JOIN FETCH variants. (`ReportController.kt`)
+12. **[BUG] ExpenseMapper force-unwraps nullable IDs** — Replaced `!!` with `requireNotNull()` providing meaningful error messages. (`ExpenseMapper.kt`)
+13. **[BUG] Frontend IMAP simulation error silently swallowed** — Added `console.error` logging + axios error details in toast. (`frontend/app/admin/imap/page.tsx`)
+14. **[TECH DEBT] Frontend `any` types** — Typed `failedQueue`, `EmptyState.icon`, OCR callback params with proper interfaces. (`frontend/lib/api.ts`, `frontend/components/ui/EmptyState.tsx`, `frontend/app/admin/ocr/page.tsx`)
+15. **[CONFIG] Build artifacts tracked in git** — Added `.kotlin/errors/` and `tsconfig.tsbuildinfo` to `.gitignore`. Cleaned tracked artifacts. (`.gitignore`)
+
+### Known Remaining Gaps (not blockers)
+- Remote storage (S3/SFTP/SMB/WebDAV) stubbed in `StorageService.kt` — local only
+- No Kotlin unit/integration test suite — future priority (JUnit 5 + MockMvc)
+- Kotlin backend does not compile on JDK 25 (Kotlin 2.1.0 requires ≤ JDK 22) — environment issue, not code
+- Input validation — no `@Valid` / Bean Validation on any request body (would require `spring-boot-starter-validation` + annotations)
+- `<UserController>` returns raw entities instead of response DTOs (protected by `@JsonIgnore` but brittle)
+
+### Modified Files
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/models/Models.kt` — Added `@Version` field
+- `backend-kotlin-jpa/src/main/resources/db/migration/V3__add_version_column.sql` — NEW Flyway migration
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/ReportController.kt` — Sign status check, reject keep expenses, @Transactional, N+1 fix, import
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/ExpenseController.kt` — BigDecimal fix, dead code removal
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/AdvanceController.kt` — Type validation, BigDecimal fix
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/MileageController.kt` — BigDecimal fix
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/OcrController.kt` — JSON error responses
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/config/SecurityConfig.kt` — Configurable CORS origins
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/security/JwtTokenProvider.kt` — PBKDF2 key derivation
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/PdfService.kt` — Logger + logging in catch blocks
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/ExpenseMapper.kt` — `requireNotNull` instead of `!!`
+- `backend-kotlin-jpa/src/main/resources/application.yml` — Added `cors.allowed-origins` property
+- `.gitignore` — Added .kotlin/ and tsconfig.tsbuildinfo
+- `frontend/app/admin/imap/page.tsx` — Error logging + axios detail
+- `frontend/app/admin/ocr/page.tsx` — Typed callback params
+- `frontend/components/ui/EmptyState.tsx` — Typed icon prop
+- `frontend/lib/api.ts` — Typed failedQueue
+
+### Build Verification
+- `./gradlew compileKotlin` — BUILD SUCCESSFUL
+- `npx tsc --noEmit` — exit code 0 (no errors)
+
+---
+
+## Previous Session (2026-06-16, session 51)
 
 ### What Was Done
 

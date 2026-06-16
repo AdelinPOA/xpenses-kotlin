@@ -4,6 +4,7 @@ import eu.nt.xpenses.IntegrationTestBase
 import eu.nt.xpenses.models.Expense
 import eu.nt.xpenses.models.ExpenseReport
 import jakarta.persistence.EntityManager
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.MediaType
@@ -24,7 +25,8 @@ class ReportStateMachineTest : IntegrationTestBase() {
 
     private fun makeExpense(username: String, report: ExpenseReport? = null): Expense {
         val user = userRepository.findByUsername(username)!!
-        val category = categoryRepository.findAll().first()
+        val category = categoryRepository.findAll().firstOrNull()
+            ?: error("No seeded category found — check DataInitializer")
         return expenseRepository.save(
             Expense(
                 user = user,
@@ -125,7 +127,7 @@ class ReportStateMachineTest : IntegrationTestBase() {
             .andExpect(jsonPath("$.status").value("draft"))
 
         val refreshed = expenseRepository.findById(expense.id!!).get()
-        assert(refreshed.status == "draft") { "expense status should revert to draft" }
+        assertEquals("draft", refreshed.status, "expense status should revert to draft")
     }
 
     @Test

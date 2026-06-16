@@ -10,6 +10,7 @@ import org.mockito.ArgumentMatchers.anyString
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
@@ -17,8 +18,15 @@ import org.springframework.test.web.servlet.MockMvc
 import org.springframework.transaction.annotation.Transactional
 import org.testcontainers.containers.PostgreSQLContainer
 
+// @Transactional wraps each test method and rolls back, giving isolation without truncation.
+// MockMvc (WebEnvironment.MOCK) dispatches synchronously in the same thread, so controller
+// writes participate in the test transaction and are also rolled back.
+// NOTE: data saved in a test method is visible to subsequent repository calls in the SAME
+// transaction but NOT to a second controller dispatch (which uses its own transaction scope).
+// authHelper.loginAs() queries committed seeded data only — never test-created entities.
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
 @AutoConfigureMockMvc
+@ActiveProfiles("test")
 @Transactional
 abstract class IntegrationTestBase {
 

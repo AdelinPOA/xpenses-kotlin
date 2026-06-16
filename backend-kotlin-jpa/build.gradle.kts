@@ -80,7 +80,8 @@ kotlin {
 
 tasks.withType<Test> {
     useJUnitPlatform()
-    // Docker 29+ requires API >= 1.40; docker-java (shaded in Testcontainers) defaults to 1.32.
+    // Testcontainers 1.21 on Docker 29+ requires API negotiation >= 1.40.
+    // docker-java (shaded inside Testcontainers) reads this property as its API version override.
     systemProperty("api.version", "1.45")
 }
 

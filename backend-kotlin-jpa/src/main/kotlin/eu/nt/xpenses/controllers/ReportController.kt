@@ -148,6 +148,16 @@ class ReportController(
         if (body.dateFrom != null) report.dateFrom = body.dateFrom
         if (body.dateTo != null) report.dateTo = body.dateTo
         if (body.currency != null) report.currency = body.currency.uppercase()
+        if (body.kundenauftrag != null) report.kundenauftrag = body.kundenauftrag.ifBlank { null }
+        if (body.auftragsart != null) report.auftragsart = body.auftragsart.ifBlank { null }
+        if (body.positionstyp != null) report.positionstyp = body.positionstyp.ifBlank { null }
+        if (body.technplatzRaw != null) report.technplatzRaw = body.technplatzRaw.ifBlank { null }
+        if (body.kundeCode != null) report.kundeCode = body.kundeCode.ifBlank { null }
+        if (body.kundeName != null) report.kundeName = body.kundeName.ifBlank { null }
+        if (body.adresse != null) report.adresse = body.adresse.ifBlank { null }
+        if (body.vorgang != null) report.vorgang = body.vorgang.ifBlank { null }
+        if (body.arbeitsplatz != null) report.arbeitsplatz = body.arbeitsplatz.ifBlank { null }
+        if (body.techniker != null) report.techniker = body.techniker.ifBlank { null }
 
         report.updatedAt = Instant.now()
         val saved = expenseReportRepository.save(report)
@@ -851,7 +861,18 @@ class ReportController(
             mileageRecords = mileageOut,
             totalMileageEur = totalMileage,
             dailyAllowance = allowance,
-            totalReimbursable = totalReimbursable
+            totalReimbursable = totalReimbursable,
+            kundenauftrag = report.kundenauftrag,
+            auftragsart = report.auftragsart,
+            positionstyp = report.positionstyp,
+            technplatzRaw = report.technplatzRaw,
+            technplatzLine = report.technplatzLine,
+            kundeCode = report.kundeCode,
+            kundeName = report.kundeName,
+            adresse = report.adresse,
+            vorgang = report.vorgang,
+            arbeitsplatz = report.arbeitsplatz,
+            techniker = report.techniker
         )
     }
 }
@@ -873,7 +894,17 @@ data class ReportUpdate(
     val description: String? = null,
     @JsonProperty("date_from") val dateFrom: String? = null,
     @JsonProperty("date_to") val dateTo: String? = null,
-    val currency: String? = null
+    val currency: String? = null,
+    val kundenauftrag: String? = null,
+    val auftragsart: String? = null,
+    val positionstyp: String? = null,
+    @JsonProperty("technplatz_raw") val technplatzRaw: String? = null,
+    @JsonProperty("kunde_code") val kundeCode: String? = null,
+    @JsonProperty("kunde_name") val kundeName: String? = null,
+    val adresse: String? = null,
+    val vorgang: String? = null,
+    val arbeitsplatz: String? = null,
+    val techniker: String? = null
 )
 
 data class ReportSubmit(
@@ -908,5 +939,17 @@ data class ReportOut(
     @JsonProperty("mileage_records") val mileageRecords: List<MileageRecordOut> = emptyList(),
     @JsonProperty("total_mileage_eur") val totalMileageEur: Double = 0.0,
     @JsonProperty("daily_allowance") val dailyAllowance: Double = 0.0,
-    @JsonProperty("total_reimbursable") val totalReimbursable: Double = 0.0
+    @JsonProperty("total_reimbursable") val totalReimbursable: Double = 0.0,
+    // Delegation email import fields
+    val kundenauftrag: String? = null,
+    val auftragsart: String? = null,
+    val positionstyp: String? = null,
+    @JsonProperty("technplatz_raw") val technplatzRaw: String? = null,
+    @JsonProperty("technplatz_line") val technplatzLine: Boolean = false,
+    @JsonProperty("kunde_code") val kundeCode: String? = null,
+    @JsonProperty("kunde_name") val kundeName: String? = null,
+    val adresse: String? = null,
+    val vorgang: String? = null,
+    val arbeitsplatz: String? = null,
+    val techniker: String? = null
 )

@@ -11,6 +11,7 @@ import api, {
   ImapTestResult,
   simulateEmailIngestion,
   EmailSimulationOut,
+  EmailSimulationParsed,
   User,
 } from "@/lib/api";
 import { imapKeys } from "@/lib/queryKeys";
@@ -582,6 +583,7 @@ export default function ImapAdminPage() {
                           {simulationResult.local_parsed.description}
                         </pre>
                       </div>
+                      <DelegationFields parsed={simulationResult.local_parsed} />
                     </div>
                   ) : (
                     <div className="text-xs text-slate-400 dark:text-slate-500 italic py-6 text-center">
@@ -626,6 +628,7 @@ export default function ImapAdminPage() {
                           {simulationResult.gemini_parsed.description}
                         </pre>
                       </div>
+                      <DelegationFields parsed={simulationResult.gemini_parsed} />
                     </div>
                   ) : (
                     <div className="bg-amber-50/50 border border-amber-200 dark:bg-amber-950/10 dark:border-amber-900/30 rounded-lg p-4 text-xs text-amber-800 dark:text-amber-300 space-y-1">
@@ -655,5 +658,53 @@ export default function ImapAdminPage() {
         </section>
       </div>
     </AppShell>
+  );
+}
+
+/** Renders structured delegation fields in a compact table grid */
+function DelegationFields({ parsed }: { parsed: EmailSimulationParsed | null | undefined }) {
+  if (!parsed) return null;
+
+  const fields: { label: string; value: string | boolean | undefined | null; badge?: boolean }[] = [
+    { label: "Kundenauftrag", value: parsed.kundenauftrag },
+    { label: "Auftragsart", value: parsed.auftragsart },
+    { label: "Positionstyp", value: parsed.positionstyp },
+    { label: "TechnPlatz", value: parsed.technplatz_raw, badge: parsed.technplatz_line === true },
+    { label: "Kunden-Nr.", value: parsed.kunde_code },
+    { label: "Kundenname", value: parsed.kunde_name },
+    { label: "Adresse", value: parsed.adresse },
+    { label: "Vorgang", value: parsed.vorgang },
+    { label: "Arbeitsplatz", value: parsed.arbeitsplatz },
+    { label: "Techniker", value: parsed.techniker },
+  ];
+
+  const hasAny = fields.some((f) => f.value && String(f.value).length > 0);
+  if (!hasAny) return null;
+
+  return (
+    <div>
+      <span className="block font-semibold text-slate-500 dark:text-slate-400 mb-2 text-xs uppercase tracking-wider">
+        Delegation Details
+      </span>
+      <div className="grid grid-cols-1 gap-y-1.5 text-[11px]">
+        {fields
+          .filter((f) => f.value && String(f.value).length > 0)
+          .map((f) => (
+            <div key={f.label} className="flex items-start gap-2">
+              <span className="text-slate-400 dark:text-slate-500 font-medium shrink-0 w-24">
+                {f.label}
+              </span>
+              <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                <span className="text-slate-800 dark:text-slate-200 break-words">{String(f.value)}</span>
+                {f.badge && (
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                    Production Line
+                  </span>
+                )}
+              </div>
+            </div>
+          ))}
+      </div>
+    </div>
   );
 }

@@ -9,6 +9,18 @@ import AppShell from "@/components/layout/AppShell";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
+const inputCls =
+  "w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:text-slate-100";
+
+function Field({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <div>
+      <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{label}</label>
+      <input type="text" value={value} onChange={(e) => onChange(e.target.value)} className={inputCls} />
+    </div>
+  );
+}
+
 export default function EditReportPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
@@ -19,6 +31,18 @@ export default function EditReportPage({ params }: { params: Promise<{ id: strin
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [error, setError] = useState("");
+
+  // Delegation fields
+  const [kundenauftrag, setKundenauftrag] = useState("");
+  const [auftragsart, setAuftragsart] = useState("");
+  const [positionstyp, setPositionstyp] = useState("");
+  const [technplatzRaw, setTechnplatzRaw] = useState("");
+  const [kundeCode, setKundeCode] = useState("");
+  const [kundeName, setKundeName] = useState("");
+  const [adresse, setAdresse] = useState("");
+  const [vorgang, setVorgang] = useState("");
+  const [arbeitsplatz, setArbeitsplatz] = useState("");
+  const [techniker, setTechniker] = useState("");
 
   const { data: report, isLoading } = useQuery<Report>({
     queryKey: reportKeys.detail(parseInt(id)),
@@ -31,8 +55,24 @@ export default function EditReportPage({ params }: { params: Promise<{ id: strin
       setDescription(report.description ?? "");
       setDateFrom(report.date_from ?? "");
       setDateTo(report.date_to ?? "");
+      setKundenauftrag(report.kundenauftrag ?? "");
+      setAuftragsart(report.auftragsart ?? "");
+      setPositionstyp(report.positionstyp ?? "");
+      setTechnplatzRaw(report.technplatz_raw ?? "");
+      setKundeCode(report.kunde_code ?? "");
+      setKundeName(report.kunde_name ?? "");
+      setAdresse(report.adresse ?? "");
+      setVorgang(report.vorgang ?? "");
+      setArbeitsplatz(report.arbeitsplatz ?? "");
+      setTechniker(report.techniker ?? "");
     }
   }, [report]);
+
+  const hasDelegation = !!(
+    report?.kundenauftrag || report?.auftragsart || report?.positionstyp ||
+    report?.technplatz_raw || report?.kunde_code || report?.kunde_name ||
+    report?.adresse || report?.vorgang || report?.arbeitsplatz || report?.techniker
+  );
 
   const save = useMutation({
     mutationFn: () =>
@@ -41,6 +81,18 @@ export default function EditReportPage({ params }: { params: Promise<{ id: strin
         description: description || null,
         date_from: dateFrom || null,
         date_to: dateTo || null,
+        ...(hasDelegation && {
+          kundenauftrag: kundenauftrag || null,
+          auftragsart: auftragsart || null,
+          positionstyp: positionstyp || null,
+          technplatz_raw: technplatzRaw || null,
+          kunde_code: kundeCode || null,
+          kunde_name: kundeName || null,
+          adresse: adresse || null,
+          vorgang: vorgang || null,
+          arbeitsplatz: arbeitsplatz || null,
+          techniker: techniker || null,
+        }),
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: reportKeys.all });
@@ -84,7 +136,7 @@ export default function EditReportPage({ params }: { params: Promise<{ id: strin
             required
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:text-slate-100"
+            className={inputCls}
           />
         </div>
 
@@ -96,7 +148,7 @@ export default function EditReportPage({ params }: { params: Promise<{ id: strin
               required
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
-              className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:text-slate-100"
+              className={inputCls}
             />
           </div>
           <div>
@@ -106,7 +158,7 @@ export default function EditReportPage({ params }: { params: Promise<{ id: strin
               required
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
-              className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:text-slate-100"
+              className={inputCls}
             />
           </div>
         </div>
@@ -120,6 +172,30 @@ export default function EditReportPage({ params }: { params: Promise<{ id: strin
             className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none dark:bg-slate-800 dark:text-slate-100"
           />
         </div>
+
+        {hasDelegation && (
+          <div className="border border-slate-200 dark:border-slate-700 rounded-lg p-4 space-y-3">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+              Delegation Details
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Kundenauftrag" value={kundenauftrag} onChange={setKundenauftrag} />
+              <Field label="Auftragsart" value={auftragsart} onChange={setAuftragsart} />
+            </div>
+            <Field label="Positionstyp" value={positionstyp} onChange={setPositionstyp} />
+            <Field label="Techn. Platz" value={technplatzRaw} onChange={setTechnplatzRaw} />
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Kunden-Nr." value={kundeCode} onChange={setKundeCode} />
+              <Field label="Kundenname" value={kundeName} onChange={setKundeName} />
+            </div>
+            <Field label="Adresse" value={adresse} onChange={setAdresse} />
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Vorgang" value={vorgang} onChange={setVorgang} />
+              <Field label="Techniker" value={techniker} onChange={setTechniker} />
+            </div>
+            <Field label="Arbeitsplatz" value={arbeitsplatz} onChange={setArbeitsplatz} />
+          </div>
+        )}
 
         <div className="flex gap-3 pt-2">
           <button

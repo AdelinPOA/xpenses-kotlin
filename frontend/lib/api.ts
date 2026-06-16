@@ -183,6 +183,18 @@ export interface Report {
   total_mileage_eur: number;
   daily_allowance: number;
   total_reimbursable: number;
+  // Delegation email import fields
+  kundenauftrag?: string | null;
+  auftragsart?: string | null;
+  positionstyp?: string | null;
+  technplatz_raw?: string | null;
+  technplatz_line?: boolean;
+  kunde_code?: string | null;
+  kunde_name?: string | null;
+  adresse?: string | null;
+  vorgang?: string | null;
+  arbeitsplatz?: string | null;
+  techniker?: string | null;
 }
 
 export interface DashboardStats {
@@ -314,6 +326,17 @@ export interface EmailSimulationParsed {
   date_from: string;
   date_to: string;
   description: string;
+  kundenauftrag?: string;
+  auftragsart?: string;
+  positionstyp?: string;
+  technplatz_raw?: string;
+  technplatz_line?: boolean;
+  kunde_code?: string;
+  kunde_name?: string;
+  adresse?: string;
+  vorgang?: string;
+  arbeitsplatz?: string;
+  techniker?: string;
 }
 
 export interface EmailSimulationOut {

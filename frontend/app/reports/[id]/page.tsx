@@ -257,6 +257,8 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
         </div>
       </div>
 
+      <DelegationReportDetails report={report} />
+
       {/* Mutation error banner */}
       {mutationError && (
         <div className="mb-4 flex items-center gap-2 px-4 py-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg text-sm text-red-700 dark:text-red-400">
@@ -563,5 +565,65 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
       </div>
 
     </AppShell>
+  );
+}
+
+/** Shows delegation email import details when present on a report */
+function DelegationReportDetails({ report }: { report: Report }) {
+  const hasAny = !!(
+    report.kundenauftrag || report.auftragsart || report.positionstyp ||
+    report.technplatz_raw || report.kunde_code || report.kunde_name ||
+    report.adresse || report.vorgang || report.arbeitsplatz || report.techniker
+  );
+  if (!hasAny) return null;
+
+  const Row = ({ label, value }: { label: string; value?: string | null }) =>
+    value ? (
+      <div className="flex gap-2 py-1.5 border-b border-slate-100 dark:border-slate-800 last:border-0">
+        <span className="text-[11px] font-medium text-slate-400 dark:text-slate-500 w-28 shrink-0 pt-px">{label}</span>
+        <span className="text-[12px] text-slate-800 dark:text-slate-200 leading-snug">{value}</span>
+      </div>
+    ) : null;
+
+  return (
+    <div className="mt-6 rounded-xl border border-indigo-100 dark:border-indigo-900/40 bg-indigo-50/50 dark:bg-indigo-950/20 overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center gap-2 px-4 py-2.5 bg-indigo-100/60 dark:bg-indigo-900/30 border-b border-indigo-100 dark:border-indigo-900/40">
+        <svg className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" viewBox="0 0 16 16" fill="currentColor">
+          <path d="M2 2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2zm4 0v1h4V2H6zm-1 3a1 1 0 0 0 0 2h6a1 1 0 0 0 0-2H5zm0 3a1 1 0 0 0 0 2h4a1 1 0 0 0 0-2H5z"/>
+        </svg>
+        <span className="text-[11px] font-semibold uppercase tracking-widest text-indigo-600 dark:text-indigo-400">
+          Delegation Details
+        </span>
+        <span className="ml-auto text-[10px] text-indigo-400 dark:text-indigo-500 font-medium">Email import</span>
+      </div>
+
+      {/* Two-column layout for compact fields */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 px-4 py-3">
+        {/* Column 1: Order identifiers */}
+        <div>
+          <Row label="Kundenauftrag" value={report.kundenauftrag} />
+          <Row label="Auftragsart" value={report.auftragsart} />
+          <Row label="Positionstyp" value={report.positionstyp} />
+          <Row label="Vorgang" value={report.vorgang} />
+          <Row
+            label="Techn. Platz"
+            value={report.technplatz_raw
+              ? report.technplatz_line
+                ? `${report.technplatz_raw} · Production Line`
+                : report.technplatz_raw
+              : null}
+          />
+        </div>
+        {/* Column 2: Client + personnel */}
+        <div>
+          <Row label="Kunden-Nr." value={report.kunde_code} />
+          <Row label="Kundenname" value={report.kunde_name} />
+          <Row label="Adresse" value={report.adresse} />
+          <Row label="Arbeitsplatz" value={report.arbeitsplatz} />
+          <Row label="Techniker" value={report.techniker} />
+        </div>
+      </div>
+    </div>
   );
 }

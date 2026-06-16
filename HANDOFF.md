@@ -1,11 +1,26 @@
 # HANDOFF.md — xpenses-kotlin
 
-> Last updated: 2026-06-16 (session 52)
-> Author: Reasonix
+> Last updated: 2026-06-16 (session 53)
+> Author: Antigravity AI
 
 ---
 
-## Latest Session (2026-06-16, session 52)
+## Latest Session (2026-06-16, session 53)
+
+### What Was Done
+
+- **Removed incomplete `backend-kotlin/` reactive prototype**: The repo had two backend directories — `backend-kotlin/` (Spring WebFlux + R2DBC, only 1 controller) and `backend-kotlin-jpa/` (Spring MVC + JPA, 13 controllers, fully complete). After confirming with the user that the reactive stack provided no benefit for an internal expense app (~50 users), the incomplete prototype was deleted. `backend-kotlin-jpa/` is now the single, canonical backend.
+- **Rebuilt README.md from scratch**: Rewrote the entire README to accurately reflect the single-backend architecture, full tech stack, project structure, all API endpoints, Docker services, OCR system, and roadmap.
+- **Updated GEMINI.md and HANDOFF.md** to remove stale dual-backend references.
+
+### Modified/Deleted Files
+- `backend-kotlin/` — DELETED (incomplete WebFlux prototype, only had AuthController)
+- `README.md` — Full rewrite with accurate architecture documentation
+- `HANDOFF.md` — Session 53 added
+
+---
+
+## Previous Session (2026-06-16, session 52)
 
 ### What Was Done
 

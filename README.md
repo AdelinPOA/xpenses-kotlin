@@ -1,6 +1,6 @@
 # xpenses-kotlin
 
-Self-hosted expense management application for internal company use. Built with a **Kotlin + Spring Boot** backend, **Next.js 15** frontend, and **PostgreSQL** database, all orchestrated via Docker Compose.
+Self-hosted expense management application for internal company use. Built with a **Kotlin + Spring Boot 3.4** backend (MVC + JPA/Hibernate), **Next.js 15** frontend, and **PostgreSQL 16** database, all orchestrated via Docker Compose.
 
 ## Features
 
@@ -38,8 +38,7 @@ submitted → draft (via recall, by owner)
 
 | Layer | Technology |
 |-------|------------|
-| Backend (production target) | Kotlin 2.3 / Spring Boot 4.1 / WebFlux + R2DBC + Coroutines |
-| Backend (current active) | Kotlin 2.1 / Spring Boot 3.4 / MVC + JPA/Hibernate |
+| Backend | Kotlin 2.1 / Spring Boot 3.4.3 / MVC + JPA/Hibernate |
 | Database | PostgreSQL 16 (Flyway migrations) |
 | Frontend | Next.js 15 + React 19 + TypeScript 5 |
 | Styling | Tailwind CSS v4 (CSS-first config) |
@@ -77,14 +76,9 @@ docker compose up -d --build
 
 ```
 xpenses-kotlin/
-├── backend-kotlin/              # Production backend (WebFlux + R2DBC + Coroutines)
-│   ├── src/main/kotlin/         #   Reactive controllers, models, repositories
-│   ├── src/main/resources/      #   Config & Flyway migrations
-│   ├── build.gradle.kts         #   Spring Boot 4.1.0, Kotlin 2.3.21
-│   └── Dockerfile
-├── backend-kotlin-jpa/          # Active backend (MVC + JPA/Hibernate)
+├── backend-kotlin-jpa/          # Kotlin Spring Boot backend
 │   ├── src/main/kotlin/         #   13 controllers, 11 services, models, repositories
-│   ├── src/main/resources/      #   Config & Flyway migrations
+│   ├── src/main/resources/      #   application.yml & Flyway migrations
 │   ├── build.gradle.kts         #   Spring Boot 3.4.3, Kotlin 2.1.0
 │   └── Dockerfile
 ├── frontend/                    # Next.js 15 frontend
@@ -101,34 +95,25 @@ xpenses-kotlin/
 ├── Makefile                     # Common dev commands
 ├── .env / .env.example          # Environment configuration
 ├── HANDOFF.md                   # Session-by-session development history
-├── GEMINI.md                    # AI assistant instructions (Antigravity)
-└── kotlin_migration_plan.md     # Migration design & roadmap
+└── GEMINI.md                    # AI assistant instructions (Antigravity)
 ```
 
-## Dual Backend Architecture
+## Backend Architecture
 
-This project maintains two backend implementations:
+The backend is built with **Spring Boot 3.4.3** + **Spring MVC** + **JPA/Hibernate** running on **Kotlin 2.1**.
 
-### `backend-kotlin/` — Production Target (Reactive)
-
-- **Spring Boot 4.1.0** with **WebFlux** + **R2DBC** + **Kotlin Coroutines**
-- Non-blocking, async I/O for high-concurrency production workloads
-- Repositories extend `CoroutineCrudRepository` (using `Flow` and `suspend`)
-- **Status**: Work-in-progress — currently has auth, models, repositories, and security. Remaining controllers and services are being ported from the JPA backend.
-
-### `backend-kotlin-jpa/` — Currently Active (Blocking)
-
-- **Spring Boot 3.4.3** with **Spring MVC** + **JPA/Hibernate** + **JDBC**
-- Synchronous/blocking — simpler to develop and debug
-- 13 controllers, 11 services, full feature parity with the frontend
-- **Status**: Complete and running in `docker-compose.yml`. Used for development and testing while the reactive backend is completed.
+- **13 controllers**: Auth, Expenses, Reports, Dashboard, Categories, Users, Advances, Mileage, Signatures, OCR, LDAP Settings, App Settings, Health
+- **11 services**: FX conversion, PDF generation, OCR (hybrid), email, LDAP, storage, crypto, export, and more
+- **Flyway migrations** for schema management
+- **Spring Security** with JWT filter chain
+- **@Async** email notifications on report status changes
 
 ## Docker Compose Services
 
 | Service | Build Context | Ports | Notes |
 |---------|--------------|-------|-------|
 | `db` | `postgres:16-alpine` | 5432 (internal) | Health check via `pg_isready` |
-| `backend` | `./backend-kotlin-jpa` | 8001 → 8080 | JPA backend (active) |
+| `backend` | `./backend-kotlin-jpa` | 8001 → 8080 | Kotlin Spring Boot backend |
 | `frontend` | `./frontend` | 3001 → 3000 | Next.js Turbopack dev server |
 | `ocr-sidecar` | `./ocr-sidecar` | 8004 → 5000 | EasyOCR (en + ro), CPU-only |
 | `mineru` | `./mineru` | 8002 → 8000 | Opt-in: `docker compose --profile mineru up` |
@@ -216,7 +201,7 @@ make test-login  # curl POST /api/auth/login (tech1)
 
 ## Roadmap
 
-- [ ] Complete reactive backend migration (`backend-kotlin/` → full feature parity)
+- [ ] Unit & integration test suite (JUnit 5 + MockMvc)
 - [ ] Spend trends over time (charts)
 - [ ] Category budget vs. actual tracking
 - [ ] Per-user / per-team spending reports

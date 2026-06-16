@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service
 import org.springframework.util.LinkedMultiValueMap
 import org.springframework.web.client.RestClient
 import org.springframework.web.client.body
+import org.slf4j.LoggerFactory
 import java.io.File
 import java.math.BigDecimal
 import java.time.Instant
@@ -99,6 +100,7 @@ class OcrService(
     private val cryptoService: CryptoService,
     private val objectMapper: ObjectMapper
 ) {
+    private val log = LoggerFactory.getLogger(OcrService::class.java)
     private val restClient = RestClient.builder().build()
 
     fun getOcrConfig(): OCRConfig {
@@ -245,15 +247,15 @@ class OcrService(
         try {
             val comparison = OcrComparison(
                 receiptFilename = filename,
-                geminiAmount = geminiResult?.get("amount")?.toString()?.let { BigDecimal(it) },
+                geminiAmount = (geminiResult?.get("amount") as? Number)?.let { BigDecimal.valueOf(it.toDouble()) },
                 geminiDate = geminiResult?.get("date") as? String,
                 geminiMerchant = geminiResult?.get("merchant") as? String,
                 geminiCategoryId = geminiResult?.get("category_id") as? Int,
-                easyocrAmount = easyocrResult?.get("amount")?.toString()?.let { BigDecimal(it) },
+                easyocrAmount = (easyocrResult?.get("amount") as? Number)?.let { BigDecimal.valueOf(it.toDouble()) },
                 easyocrDate = easyocrResult?.get("date") as? String,
                 easyocrMerchant = easyocrResult?.get("merchant") as? String,
                 easyocrCategoryId = easyocrResult?.get("category_id") as? Int,
-                mineruAmount = mineruResult?.get("amount")?.toString()?.let { BigDecimal(it) },
+                mineruAmount = (mineruResult?.get("amount") as? Number)?.let { BigDecimal.valueOf(it.toDouble()) },
                 mineruDate = mineruResult?.get("date") as? String,
                 mineruMerchant = mineruResult?.get("merchant") as? String,
                 mineruCategoryId = mineruResult?.get("category_id") as? Int,
@@ -265,7 +267,7 @@ class OcrService(
             mutableResult["ocr_comparison_id"] = savedComparison.id
             finalResult = mutableResult
         } catch (e: Exception) {
-            println("Failed to save OCR comparison record: ${e.message}")
+            log.warn("Failed to save OCR comparison record: {}", e.message)
         }
 
         return finalResult
@@ -349,13 +351,13 @@ class OcrService(
                 .body<Map<String, Any>>() ?: throw Exception("Empty response from EasyOCR sidecar")
 
             if (response.containsKey("error")) {
-                println("EasyOCR sidecar error: ${response["error"]}")
+                log.warn("EasyOCR sidecar error: {}", response["error"])
                 emptyList()
             } else {
                 (response["lines"] as? List<*>)?.map { it.toString() } ?: emptyList()
             }
         } catch (e: Exception) {
-            println("EasyOCR sidecar API call failed: ${e.message}")
+            log.warn("EasyOCR sidecar API call failed: {}", e.message)
             emptyList()
         }
     }

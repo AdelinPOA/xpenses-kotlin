@@ -10,6 +10,7 @@ import jakarta.mail.Session
 import jakarta.mail.Transport
 import jakarta.mail.internet.InternetAddress
 import jakarta.mail.internet.MimeMessage
+import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Service
 import java.time.Instant
@@ -41,6 +42,7 @@ class EmailSettingsService(
     private val cryptoService: CryptoService,
     private val objectMapper: ObjectMapper
 ) {
+    private val log = LoggerFactory.getLogger(EmailSettingsService::class.java)
     private val smtpCryptoInfo = "xpenses-smtp-pw"
     private val imapCryptoInfo = "xpenses-imap-pw"
 
@@ -184,7 +186,7 @@ class EmailSettingsService(
     fun sendEmail(toEmail: String, subject: String, content: String) {
         val config = getSmtpConfig()
         if (!config.emailsEnabled) {
-            println("Email disabled. Would have sent to $toEmail: $subject")
+            log.info("Email disabled. Would have sent to {}: {}", toEmail, subject)
             return
         }
 
@@ -219,9 +221,9 @@ class EmailSettingsService(
             } else {
                 Transport.send(message)
             }
-            println("Email successfully sent to $toEmail: $subject")
+            log.info("Email successfully sent to {}: {}", toEmail, subject)
         } catch (e: Exception) {
-            System.err.println("Failed to send email to $toEmail: ${e.message}")
+            log.error("Failed to send email to {}: {}", toEmail, e.message)
         }
     }
 }

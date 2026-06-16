@@ -1,30 +1,53 @@
 # HANDOFF.md — xpenses-kotlin
 
-> Last updated: 2026-06-16 (session 50)
+> Last updated: 2026-06-16 (session 51)
 > Author: Antigravity AI
 
 ---
 
-## Latest Session (2026-06-16, session 50)
+## Latest Session (2026-06-16, session 51)
 
 ### What Was Done
 
-- **No new code changes this session** — session focused on context recovery after compaction and HANDOFF.md synchronization.
-- All prior session 49 fixes confirmed in `HEAD` (runtime-verified before compaction):
-  - `@field:JsonIgnore` on `User.passwordHash` in `Models.kt`
-  - `ChangePasswordRequest` field renamed to `old_password` in `AuthController.kt`
-  - `UserResponse` extended with `is_active`, `auth_source`, `signature_path`
+- **Code quality fix pass** — 9 issues fixed across 12 files (see full list below).
+
+### Fixed Issues
+
+1. **[BUG] `rejectReport` overwrote `approvedBy`/`approvedAt`** — Added `rejectedBy`/`rejectedAt` fields to `ExpenseReport` entity + `V2__add_rejected_fields.sql` Flyway migration. `rejectReport` now uses proper rejection fields.
+2. **[TECH DEBT] Duplicate mapping functions** — Created `ExpenseMapper` component. Removed duplicate `mapExpenseToOut`/`mapReceiptToOut` from `ExpenseController`, `DashboardController`, `ReportController` — all now use the shared mapper.
+3. **[PERF] In-memory filtering** — Added 7 custom `@Query` methods for DB-level filtering (status, date range, user+status) in `ExpenseRepository` and `ExpenseReportRepository`.
+4. **[PERF] N+1 on report listing** — `listReports` now uses `*WithExpenses()` JOIN FETCH queries instead of `findAll()`.
+5. **[BUG] BigDecimal lossy conversion** — `OcrService` changed `.toString()?.let { BigDecimal(it) }` → `BigDecimal.valueOf(double)`.
+6. **[BUG] Silent exception swallowing** — Empty catch blocks in `ExpenseController` delete endpoints now log via SLF4J.
+7. **[TECH DEBT] `println` → SLF4J** — Replaced all `println`/`System.err.println` with proper logging across 5 files (`DataInitializer`, `OcrService`, `EmailSettingsService`, `EmailImportService`, `ReportService`).
+8. **[TECH DEBT] `var` → `val` in DTOs** — `LdapConfigIn`/`LdapConfigOut` data class fields changed to `val`.
+9. **[CONFIG] Production readiness** — Set `spring.jpa.show-sql: false`.
 
 ### Known Remaining Gaps (not blockers)
 - Remote storage (S3/SFTP/SMB/WebDAV) stubbed in `StorageService.kt` — local only
 - No Kotlin unit/integration test suite — future priority (JUnit 5 + MockMvc)
+- Kotlin backend does not compile on JDK 25 (Kotlin 2.1.0 requires ≤ JDK 22) — environment issue, not code
 
 ### Modified Files
-- `HANDOFF.md` — This update.
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/models/Models.kt` — Added `rejectedBy`/`rejectedAt` fields
+- `backend-kotlin-jpa/src/main/resources/db/migration/V2__add_rejected_fields.sql` — NEW migration
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/ExpenseMapper.kt` — NEW shared mapper
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/ReportController.kt` — Fixed reject, JOIN FETCH, removed duplicate mapper
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/ExpenseController.kt` — DB filters, silent catch logging, use mapper
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/DashboardController.kt` — Use mapper, removed duplicates
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/repositories/Repositories.kt` — Added filtered JPQL queries
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/OcrService.kt` — Fixed BigDecimal, added logger
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/EmailSettingsService.kt` — Logger migration
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/EmailImportService.kt` — Logger migration
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/ReportService.kt` — Logger migration
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/config/DataInitializer.kt` — Logger migration
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/LdapSettingsController.kt` — `var` → `val` in DTOs
+- `backend-kotlin-jpa/src/main/resources/application.yml` — `show-sql: false`
+- `HANDOFF.md` — This update
 
 ---
 
-## Previous Session (2026-06-16, session 49)
+## Previous Session (2026-06-16, session 50)
 
 ### What Was Done
 

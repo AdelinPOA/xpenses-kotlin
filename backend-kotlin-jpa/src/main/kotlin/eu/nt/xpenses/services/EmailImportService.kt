@@ -6,6 +6,7 @@ import com.fasterxml.jackson.module.kotlin.readValue
 import eu.nt.xpenses.models.ExpenseReport
 import eu.nt.xpenses.repositories.ExpenseReportRepository
 import eu.nt.xpenses.repositories.UserRepository
+import org.slf4j.LoggerFactory
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -23,6 +24,7 @@ class EmailImportService(
     private val ocrService: OcrService,
     private val objectMapper: ObjectMapper
 ) {
+    private val log = LoggerFactory.getLogger(EmailImportService::class.java)
     private val restClient = RestClient.builder().build()
 
     fun parseDateFlexible(dtStr: String): String? {
@@ -283,7 +285,7 @@ class EmailImportService(
                 "description" to (result["description"]?.toString() ?: "").trim()
             )
         } catch (e: Exception) {
-            println("Gemini email parsing failed: ${e.message}")
+            log.warn("Gemini email parsing failed: {}", e.message)
             null
         }
     }
@@ -306,11 +308,11 @@ class EmailImportService(
 
         val user = userRepository.findAll().firstOrNull { it.email?.lowercase() == emailClean.lowercase() }
         if (user == null) {
-            println("Email import skipped: no user found with email $emailClean")
+            log.info("Email import skipped: no user found with email {}", emailClean)
             return false
         }
         if (!user.isActive) {
-            println("Email import skipped: user $emailClean is inactive")
+            log.info("Email import skipped: user {} is inactive", emailClean)
             return false
         }
 

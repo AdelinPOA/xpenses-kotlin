@@ -7,6 +7,7 @@ import eu.nt.xpenses.models.*
 import org.apache.pdfbox.Loader
 import org.apache.pdfbox.pdmodel.PDDocument
 import org.springframework.stereotype.Service
+import org.slf4j.LoggerFactory
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.text.DecimalFormat
@@ -20,6 +21,7 @@ import java.util.Locale
 class PdfService(
     private val storageService: StorageService
 ) {
+    private val log = LoggerFactory.getLogger(PdfService::class.java)
     private val decimalFormat = DecimalFormat("###,##0.00")
     private val dateFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy").withZone(ZoneId.of("UTC"))
     private val dateTimeFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm").withZone(ZoneId.of("UTC"))
@@ -497,6 +499,7 @@ class PdfService(
                 sigImg.scaleToFit(120f, 45f)
                 document.add(sigImg)
             } catch (e: Exception) {
+                log.warn("Failed to load signature image: {} - {}", signer.signaturePath, e.message)
                 document.add(Paragraph(" ", fontBody))
             }
             val signedAtText = if (report.signedAt != null) {
@@ -555,6 +558,7 @@ class PdfService(
                         imgTable.addCell(cell)
                     }
                 } catch (e: Exception) {
+                    log.warn("Failed to load receipt image at {}: {}", rPath, e.message)
                     val cell = PdfPCell(Phrase("[Image Load Error: $rPath]", fontSmall))
                     imgTable.addCell(cell)
                 }
@@ -590,7 +594,7 @@ class PdfService(
                         }
                     }
                 } catch (e: Exception) {
-                    // ignore malformed PDFs
+                    log.warn("Failed to merge PDF page: {}", e.message)
                 }
             }
             val outStream = ByteArrayOutputStream()

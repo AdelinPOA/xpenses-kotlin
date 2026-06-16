@@ -16,6 +16,10 @@ __pycache__/
 node_modules/
 .next/
 .turbo/
+tsconfig.tsbuildinfo
+
+# Kotlin
+.kotlin/
 
 # OS
 .DS_Store

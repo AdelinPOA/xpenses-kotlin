@@ -1,3 +1,4 @@
+import React from "react";
 import { Inbox } from "lucide-react";
 import clsx from "clsx";
 
@@ -5,7 +6,7 @@ interface EmptyStateProps {
   message?: string;
   actionLabel?: string;
   onAction?: () => void;
-  icon?: any;
+  icon?: React.ElementType;
 }
 
 export default function EmptyState({

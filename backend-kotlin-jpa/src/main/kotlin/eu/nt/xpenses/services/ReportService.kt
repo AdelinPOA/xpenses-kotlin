@@ -2,11 +2,13 @@ package eu.nt.xpenses.services
 
 import eu.nt.xpenses.models.ExpenseReport
 import eu.nt.xpenses.repositories.ExpenseReportRepository
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
 @Service
 class ReportService(private val reportRepository: ExpenseReportRepository) {
+    private val log = LoggerFactory.getLogger(ReportService::class.java)
 
     @Transactional(readOnly = true)
     fun getReportWithExpenses(id: Int): ExpenseReport? {
@@ -22,9 +24,9 @@ class ReportService(private val reportRepository: ExpenseReportRepository) {
     fun processAllReportsEagerly() {
         val reports = reportRepository.findAllWithExpenses()
         for (report in reports) {
-            println("Processing Report: ${report.title} (Status: ${report.status})")
+            log.info("Processing Report: {} (Status: {})", report.title, report.status)
             for (expense in report.expenses) {
-                println(" - Expense: ${expense.description} of ${expense.amountOriginal} ${expense.currencyOriginal}")
+                log.info(" - Expense: {} of {} {}", expense.description, expense.amountOriginal, expense.currencyOriginal)
             }
         }
     }

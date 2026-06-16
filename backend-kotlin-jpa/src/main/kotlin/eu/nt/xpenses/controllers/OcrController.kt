@@ -25,18 +25,18 @@ class OcrController(
     ): ResponseEntity<*> {
         val config = ocrService.getOcrConfig()
         if (!config.ocrEnabled) {
-            return ResponseEntity.status(503).body("OCR is disabled")
+            return ResponseEntity.status(503).body(mapOf("detail" to "OCR is disabled"))
         }
 
         val filename = file.originalFilename ?: "unknown"
         val ext = filename.substringAfterLast('.', "").lowercase()
         val allowedExtensions = setOf("jpg", "jpeg", "png", "pdf", "webp")
         if (ext !in allowedExtensions) {
-            return ResponseEntity.status(400).body("File type not supported for OCR")
+            return ResponseEntity.status(400).body(mapOf("detail" to "File type not supported for OCR"))
         }
 
         if (file.size > 10 * 1024 * 1024) {
-            return ResponseEntity.status(400).body("File exceeds 10MB limit")
+            return ResponseEntity.status(400).body(mapOf("detail" to "File exceeds 10MB limit"))
         }
 
         val result = ocrService.scanReceipt(file.bytes, filename)

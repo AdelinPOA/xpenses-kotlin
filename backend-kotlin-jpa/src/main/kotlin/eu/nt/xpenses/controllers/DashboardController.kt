@@ -3,6 +3,7 @@ package eu.nt.xpenses.controllers
 import com.fasterxml.jackson.annotation.JsonProperty
 import eu.nt.xpenses.models.*
 import eu.nt.xpenses.repositories.*
+import eu.nt.xpenses.services.ExpenseMapper
 import jakarta.servlet.http.HttpServletRequest
 import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.*
@@ -16,7 +17,8 @@ import java.time.ZoneOffset
 class DashboardController(
     private val expenseRepository: ExpenseRepository,
     private val expenseReportRepository: ExpenseReportRepository,
-    private val categoryRepository: CategoryRepository
+    private val categoryRepository: CategoryRepository,
+    private val expenseMapper: ExpenseMapper
 ) {
 
     @GetMapping
@@ -81,7 +83,7 @@ class DashboardController(
         val recentExpenses = expenses
             .sortedByDescending { it.createdAt }
             .take(10)
-            .map { mapExpenseToOut(it) }
+            .map { expenseMapper.toExpenseOut(it) }
 
         return DashboardStats(
             expenseCountTotal = expenseCountTotal,
@@ -97,44 +99,6 @@ class DashboardController(
         )
     }
 
-    private fun mapReceiptToOut(receipt: Receipt): ReceiptOut {
-        return ReceiptOut(
-            id = receipt.id!!,
-            expenseId = receipt.expense.id!!,
-            filePath = receipt.filePath,
-            originalName = receipt.originalName,
-            createdAt = receipt.createdAt
-        )
-    }
-
-    private fun mapExpenseToOut(expense: Expense): ExpenseOut {
-        val receipts = expense.receipts.map { mapReceiptToOut(it) }
-        val receiptPath = if (receipts.isNotEmpty()) receipts[0].filePath else expense.receiptPath
-        return ExpenseOut(
-            id = expense.id!!,
-            userId = expense.user?.id,
-            userDisplayName = expense.user?.displayName,
-            categoryId = expense.category?.id,
-            categoryName = expense.category?.name,
-            reportId = expense.report?.id,
-            amountOriginal = expense.amountOriginal,
-            currencyOriginal = expense.currencyOriginal,
-            amountEur = expense.amountEur,
-            fxRate = expense.fxRate,
-            taxAmount = expense.taxAmount.toDouble(),
-            taxRate = expense.taxRate?.toDouble(),
-            taxAmountEur = expense.taxAmountEur.toDouble(),
-            date = expense.date,
-            description = expense.description,
-            merchant = expense.merchant,
-            receiptPath = receiptPath,
-            receipts = receipts,
-            status = expense.status,
-            rawOcrText = expense.rawOcrText,
-            createdAt = expense.createdAt,
-            updatedAt = expense.updatedAt
-        )
-    }
 }
 
 data class CategorySpend(

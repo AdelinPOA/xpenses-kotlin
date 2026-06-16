@@ -6,7 +6,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import api, { OcrConfig, getOcrConfig, updateOcrConfig, testOcrConfig, testMinerUConfig, getOcrComparisons } from "@/lib/api";
+import api, { Category, OcrConfig, getOcrConfig, updateOcrConfig, testOcrConfig, testMinerUConfig, getOcrComparisons } from "@/lib/api";
 import { ocrKeys, categoryKeys } from "@/lib/queryKeys";
 import AppShell from "@/components/layout/AppShell";
 import { useAuth } from "@/components/AuthProvider";
@@ -41,7 +41,7 @@ const ocrConfigSchema = z.object({
   }
 );
 
-const getStatusColor = (ocrVal: any, finalVal: any) => {
+const getStatusColor = (ocrVal: string | number | null | undefined, finalVal: string | number | null | undefined) => {
   if (ocrVal === null || ocrVal === undefined || ocrVal === "" || ocrVal === "None") {
     return "text-slate-400 bg-slate-100/50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-800";
   }
@@ -493,7 +493,7 @@ export default function OcrAdminPage() {
                           {compData.history.map((row) => {
                             const formatCat = (id: number | null) => {
                               if (!id) return null;
-                              const cat = categories?.find((c: any) => c.id === id);
+                              const cat = categories?.find((c: Category) => c.id === id);
                               return cat ? cat.name : `ID: ${id}`;
                             };
 

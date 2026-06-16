@@ -5,10 +5,12 @@ import eu.nt.xpenses.models.*
 import eu.nt.xpenses.repositories.*
 import eu.nt.xpenses.repositories.AppSettingRepository
 import eu.nt.xpenses.services.EmailSettingsService
+import eu.nt.xpenses.services.ExpenseMapper
 import eu.nt.xpenses.services.ExportService
 import eu.nt.xpenses.services.PdfService
 import eu.nt.xpenses.services.StorageService
 import jakarta.servlet.http.HttpServletRequest
+import org.slf4j.LoggerFactory
 import org.springframework.http.ContentDisposition
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
@@ -16,6 +18,7 @@ import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 import org.springframework.web.server.ResponseStatusException
+import org.springframework.transaction.annotation.Transactional
 import java.io.ByteArrayOutputStream
 import java.math.BigDecimal
 import java.math.RoundingMode
@@ -36,8 +39,10 @@ class ReportController(
     private val pdfService: PdfService,
     private val storageService: StorageService,
     private val exportService: ExportService,
+    private val expenseMapper: ExpenseMapper,
     private val appSettingRepository: AppSettingRepository
 ) {
+    private val log = LoggerFactory.getLogger(ReportController::class.java)
 
     @GetMapping
     fun listReports(
@@ -57,17 +62,16 @@ class ReportController(
 
         var reports = if (all && currentUser.role in listOf("chef_finance", "mod", "manager")) {
             if (userId != null) {
-                expenseReportRepository.findAllByUserId(userId)
+                if (status != null) expenseReportRepository.findAllByUserIdAndStatusWithExpenses(userId, status)
+                else expenseReportRepository.findAllByUserIdWithExpenses(userId)
             } else {
-                expenseReportRepository.findAll()
+                if (status != null) expenseReportRepository.findAllByStatusWithExpenses(status)
+                else expenseReportRepository.findAllWithExpenses()
             }
         } else {
             val targetUid = userId ?: currentUser.id!!
-            expenseReportRepository.findAllByUserId(targetUid)
-        }
-
-        if (status != null) {
-            reports = reports.filter { it.status == status }
+            if (status != null) expenseReportRepository.findAllByUserIdAndStatusWithExpenses(targetUid, status)
+            else expenseReportRepository.findAllByUserIdWithExpenses(targetUid)
         }
 
         // Sort by created_at DESC
@@ -150,6 +154,7 @@ class ReportController(
         return mapReportToOut(saved)
     }
 
+    @Transactional
     @DeleteMapping("/{reportId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     fun deleteReport(
@@ -182,6 +187,7 @@ class ReportController(
         expenseReportRepository.delete(report)
     }
 
+    @Transactional
     @PostMapping("/{reportId}/attach")
     fun attachExpenses(
         @PathVariable reportId: Int,
@@ -225,6 +231,7 @@ class ReportController(
         return mapReportToOut(saved)
     }
 
+    @Transactional
     @PostMapping("/{reportId}/submit")
     fun submitReport(
         @PathVariable reportId: Int,
@@ -295,6 +302,7 @@ class ReportController(
         return mapReportToOut(saved)
     }
 
+    @Transactional
     @PostMapping("/{reportId}/recall")
     fun recallReport(
         @PathVariable reportId: Int,
@@ -329,6 +337,7 @@ class ReportController(
         return mapReportToOut(saved)
     }
 
+    @Transactional
     @PostMapping("/{reportId}/pay")
     fun payReport(
         @PathVariable reportId: Int,
@@ -373,6 +382,7 @@ class ReportController(
         return mapReportToOut(saved)
     }
 
+    @Transactional
     @PostMapping("/{reportId}/approve")
     fun approveReport(
         @PathVariable reportId: Int,
@@ -421,6 +431,7 @@ class ReportController(
         return mapReportToOut(saved)
     }
 
+    @Transactional
     @PostMapping("/{reportId}/reject")
     fun rejectReport(
         @PathVariable reportId: Int,
@@ -450,19 +461,17 @@ class ReportController(
         
         report.status = "rejected"
         report.totalAmount = 0.0
-        report.approvedBy = currentUser
-        report.approvedAt = now
+        report.rejectedBy = currentUser
+        report.rejectedAt = now
         report.rejectedReason = reason
         report.updatedAt = now
 
-        // Detach expenses back to draft
+        // Keep expenses attached to report but set back to draft
         for (exp in report.expenses) {
             exp.status = "draft"
-            exp.report = null
             exp.updatedAt = now
             expenseRepository.save(exp)
         }
-        report.expenses.clear()
 
         val saved = expenseReportRepository.save(report)
 
@@ -495,6 +504,11 @@ class ReportController(
 
         if (currentUser.signaturePath.isNullOrEmpty()) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "No signature saved. Record your signature first.")
+        }
+
+        // Only allow signing on submitted or approved reports
+        if (report.status !in listOf("submitted", "approved")) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Only submitted or approved reports can be signed")
         }
 
         val now = Instant.now()
@@ -604,45 +618,6 @@ class ReportController(
             .body(zipBytes)
     }
 
-    private fun mapReceiptToOut(receipt: Receipt): ReceiptOut {
-        return ReceiptOut(
-            id = receipt.id!!,
-            expenseId = receipt.expense.id!!,
-            filePath = receipt.filePath,
-            originalName = receipt.originalName,
-            createdAt = receipt.createdAt
-        )
-    }
-
-    private fun mapExpenseToOut(expense: Expense): ExpenseOut {
-        val receipts = expense.receipts.map { mapReceiptToOut(it) }
-        val receiptPath = if (receipts.isNotEmpty()) receipts[0].filePath else expense.receiptPath
-        return ExpenseOut(
-            id = expense.id!!,
-            userId = expense.user?.id,
-            userDisplayName = expense.user?.displayName,
-            categoryId = expense.category?.id,
-            categoryName = expense.category?.name,
-            reportId = expense.report?.id,
-            amountOriginal = expense.amountOriginal,
-            currencyOriginal = expense.currencyOriginal,
-            amountEur = expense.amountEur,
-            fxRate = expense.fxRate,
-            taxAmount = expense.taxAmount.toDouble(),
-            taxRate = expense.taxRate?.toDouble(),
-            taxAmountEur = expense.taxAmountEur.toDouble(),
-            date = expense.date,
-            description = expense.description,
-            merchant = expense.merchant,
-            receiptPath = receiptPath,
-            receipts = receipts,
-            status = expense.status,
-            rawOcrText = expense.rawOcrText,
-            createdAt = expense.createdAt,
-            updatedAt = expense.updatedAt
-        )
-    }
-
     private fun mapAdvanceToOut(adv: AdvancePayment): AdvancePaymentOut {
         return AdvancePaymentOut(
             id = adv.id!!,
@@ -728,11 +703,11 @@ class ReportController(
         }
 
         var reports = if (all && currentUser.role in listOf("chef_finance", "mod", "manager")) {
-            if (userId != null) expenseReportRepository.findAllByUserId(userId)
-            else expenseReportRepository.findAll()
+            if (userId != null) expenseReportRepository.findAllByUserIdWithExpenses(userId)
+            else expenseReportRepository.findAllWithExpenses()
         } else {
             val targetUid = userId ?: currentUser.id!!
-            expenseReportRepository.findAllByUserId(targetUid)
+            expenseReportRepository.findAllByUserIdWithExpenses(targetUid)
         }
 
         if (status != null) reports = reports.filter { it.status == status }
@@ -838,7 +813,7 @@ class ReportController(
     }
 
     private fun mapReportToOut(report: ExpenseReport): ReportOut {
-        val expensesOut = report.expenses.sortedBy { it.date }.map { mapExpenseToOut(it) }
+        val expensesOut = report.expenses.sortedBy { it.date }.map { expenseMapper.toExpenseOut(it) }
         val advancesOut = report.advances.sortedBy { it.date }.map { mapAdvanceToOut(it) }
         val mileageOut = report.mileageRecords.sortedBy { it.startTime }.map { mapRecordToOut(it) }
 
@@ -861,6 +836,8 @@ class ReportController(
             paidAt = report.paidAt,
             approvedBy = report.approvedBy?.id,
             approvedAt = report.approvedAt,
+            rejectedBy = report.rejectedBy?.id,
+            rejectedAt = report.rejectedAt,
             rejectedReason = report.rejectedReason,
             signerId = report.signer?.id,
             signedAt = report.signedAt,
@@ -916,6 +893,8 @@ data class ReportOut(
     @JsonProperty("paid_at") val paidAt: Instant?,
     @JsonProperty("approved_by") val approvedBy: Int?,
     @JsonProperty("approved_at") val approvedAt: Instant?,
+    @JsonProperty("rejected_by") val rejectedBy: Int?,
+    @JsonProperty("rejected_at") val rejectedAt: Instant?,
     @JsonProperty("rejected_reason") val rejectedReason: String?,
     @JsonProperty("signer_id") val signerId: Int?,
     @JsonProperty("signed_at") val signedAt: Instant?,

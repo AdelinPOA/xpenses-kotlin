@@ -119,8 +119,19 @@ class ExpenseReport(
     @Column(name = "approved_at")
     var approvedAt: Instant? = null,
 
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "rejected_by")
+    var rejectedBy: User? = null,
+
+    @Column(name = "rejected_at")
+    var rejectedAt: Instant? = null,
+
     @Column(name = "rejected_reason")
     var rejectedReason: String? = null,
+
+    @Version
+    @Column(nullable = false)
+    var version: Int = 0,
 
     @Column(name = "created_at", nullable = false)
     var createdAt: Instant = Instant.now(),

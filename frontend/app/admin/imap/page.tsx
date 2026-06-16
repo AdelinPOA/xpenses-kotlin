@@ -231,7 +231,9 @@ export default function ImapAdminPage() {
         toast.error(`Simulation failed: ${res.error}`);
       }
     } catch (err) {
-      toast.error("Simulation failed to run.");
+      console.error("IMAP simulation error:", err);
+      const axiosErr = err as { response?: { data?: { detail?: string } } };
+      toast.error(axiosErr?.response?.data?.detail || "Simulation failed to run.");
     } finally {
       setSimulating(false);
     }

@@ -67,6 +67,10 @@ class AdvanceController(
 
         val now = Instant.now()
 
+        if (body.type !in listOf("request", "paid")) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid advance type. Must be \"request\" or \"paid\"")
+        }
+
         if (body.type == "request") {
             if (!isOwner) {
                 throw ResponseStatusException(HttpStatus.FORBIDDEN, "Only the report owner can request advances")
@@ -107,7 +111,7 @@ class AdvanceController(
             throw ResponseStatusException(HttpStatus.BAD_GATEWAY, "Failed to fetch exchange rate: ${e.message}")
         }
 
-        val amountEur = BigDecimal(body.amount * fxRate).setScale(2, RoundingMode.HALF_UP).toDouble()
+        val amountEur = BigDecimal.valueOf(body.amount).multiply(BigDecimal.valueOf(fxRate)).setScale(2, RoundingMode.HALF_UP).toDouble()
 
         val advance = AdvancePayment(
             report = report,
@@ -175,7 +179,7 @@ class AdvanceController(
             adv.amountOriginal = effAmount
             adv.currencyOriginal = effCurrency
             adv.fxRate = fxRate
-            adv.amountEur = BigDecimal(effAmount * fxRate).setScale(2, RoundingMode.HALF_UP).toDouble()
+            adv.amountEur = BigDecimal.valueOf(effAmount).multiply(BigDecimal.valueOf(fxRate)).setScale(2, RoundingMode.HALF_UP).toDouble()
         }
 
         if (body.date != null) adv.date = body.date
@@ -262,7 +266,7 @@ class AdvanceController(
             throw ResponseStatusException(HttpStatus.BAD_GATEWAY, "Failed to fetch exchange rate: ${e.message}")
         }
 
-        val amountEur = BigDecimal(body.amount * fxRate).setScale(2, RoundingMode.HALF_UP).toDouble()
+        val amountEur = BigDecimal.valueOf(body.amount).multiply(BigDecimal.valueOf(fxRate)).setScale(2, RoundingMode.HALF_UP).toDouble()
         val now = Instant.now()
 
         adv.amountOriginal = body.amount

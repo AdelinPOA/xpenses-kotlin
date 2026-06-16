@@ -9,6 +9,8 @@ import java.security.SecureRandom
 import java.time.Instant
 import java.util.*
 import javax.crypto.SecretKey
+import javax.crypto.SecretKeyFactory
+import javax.crypto.spec.PBEKeySpec
 
 @Component
 class JwtTokenProvider(
@@ -19,12 +21,11 @@ class JwtTokenProvider(
 ) {
 
     private val key: SecretKey by lazy {
-        val keyBytes = if (jwtSecret.length >= 32) {
-            jwtSecret.toByteArray()
-        } else {
-            jwtSecret.padEnd(32, '0').toByteArray()
-        }
-        Keys.hmacShaKeyFor(keyBytes)
+        // Derive a proper 256-bit HMAC key using PBKDF2 instead of zero-padding short secrets
+        val spec = PBEKeySpec(jwtSecret.toCharArray(), "xpenses-jwt-salt".toByteArray(), 65536, 256)
+        val factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
+        val derived = factory.generateSecret(spec).encoded
+        Keys.hmacShaKeyFor(derived)
     }
 
     private val secureRandom = SecureRandom()

@@ -3,6 +3,7 @@ package eu.nt.xpenses.controllers
 import com.fasterxml.jackson.annotation.JsonProperty
 import eu.nt.xpenses.models.*
 import eu.nt.xpenses.repositories.*
+import eu.nt.xpenses.services.ExpenseMapper
 import eu.nt.xpenses.services.ExportService
 import eu.nt.xpenses.services.FxService
 import eu.nt.xpenses.services.StorageService
@@ -19,6 +20,7 @@ import org.springframework.web.server.ResponseStatusException
 import java.io.File
 import java.math.BigDecimal
 import java.math.RoundingMode
+import org.slf4j.LoggerFactory
 import java.net.URLConnection
 import java.time.Instant
 import java.time.LocalDate
@@ -33,8 +35,10 @@ class ExpenseController(
     private val ocrComparisonRepository: OcrComparisonRepository,
     private val fxService: FxService,
     private val storageService: StorageService,
-    private val exportService: ExportService
+    private val exportService: ExportService,
+    private val expenseMapper: ExpenseMapper
 ) {
+    private val log = LoggerFactory.getLogger(ExpenseController::class.java)
 
     @GetMapping
     fun listExpenses(
@@ -49,33 +53,33 @@ class ExpenseController(
         val currentUser = request.getAttribute("currentUser") as? User
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
 
-        var expenses = if (all && currentUser.role in listOf("chef_finance", "mod", "manager")) {
-            expenseRepository.findAll()
-        } else {
-            expenseRepository.findAllByUserId(currentUser.id!!)
+        val uid = currentUser.id!!
+        val isOrgWide = all && currentUser.role in listOf("chef_finance", "mod", "manager")
+
+        var expenses = when {
+            isOrgWide -> expenseRepository.findAll()
+            status != null && fromDate != null && toDate != null ->
+                expenseRepository.findAllByUserIdAndDateBetween(uid, fromDate, toDate)
+                    .filter { it.status == status }
+            status != null ->
+                expenseRepository.findAllByUserIdAndStatus(uid, status)
+            fromDate != null && toDate != null ->
+                expenseRepository.findAllByUserIdAndDateBetween(uid, fromDate, toDate)
+            fromDate != null ->
+                expenseRepository.findAllByUserIdAndDateFrom(uid, fromDate)
+            toDate != null ->
+                expenseRepository.findAllByUserIdAndDateTo(uid, toDate)
+            else -> expenseRepository.findAllByUserId(uid)
         }
 
-        // Apply filters in-memory
-        if (reportId != null) {
-            expenses = expenses.filter { it.report?.id == reportId }
-        }
-        if (categoryId != null) {
-            expenses = expenses.filter { it.category?.id == categoryId }
-        }
-        if (status != null) {
-            expenses = expenses.filter { it.status == status }
-        }
-        if (fromDate != null) {
-            expenses = expenses.filter { it.date >= fromDate }
-        }
-        if (toDate != null) {
-            expenses = expenses.filter { it.date <= toDate }
-        }
+        // Apply in-memory filters for report_id and category_id (join-dependent)
+        if (reportId != null) expenses = expenses.filter { it.report?.id == reportId }
+        if (categoryId != null) expenses = expenses.filter { it.category?.id == categoryId }
 
         // Sort by date DESC
         expenses = expenses.sortedByDescending { it.date }
 
-        return expenses.map { mapExpenseToOut(it) }
+        return expenses.map { expenseMapper.toExpenseOut(it) }
     }
 
     @PostMapping
@@ -92,8 +96,8 @@ class ExpenseController(
             throw ResponseStatusException(HttpStatus.BAD_GATEWAY, "Failed to fetch exchange rate: ${e.message}")
         }
 
-        val amountEur = BigDecimal(body.amount * fxRate).setScale(2, RoundingMode.HALF_UP).toDouble()
-        val taxAmountEur = BigDecimal(body.taxAmount * fxRate).setScale(2, RoundingMode.HALF_UP)
+        val amountEur = BigDecimal.valueOf(body.amount).multiply(BigDecimal.valueOf(fxRate)).setScale(2, RoundingMode.HALF_UP).toDouble()
+        val taxAmountEur = BigDecimal.valueOf(body.taxAmount).multiply(BigDecimal.valueOf(fxRate)).setScale(2, RoundingMode.HALF_UP)
 
         val category = body.categoryId?.let {
             categoryRepository.findById(it).orElseThrow {
@@ -144,7 +148,7 @@ class ExpenseController(
             }
         }
 
-        return ResponseEntity.status(HttpStatus.CREATED).body(mapExpenseToOut(savedExpense))
+        return ResponseEntity.status(HttpStatus.CREATED).body(expenseMapper.toExpenseOut(savedExpense))
     }
 
     @GetMapping("/{expenseId}")
@@ -163,7 +167,7 @@ class ExpenseController(
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Not your expense")
         }
 
-        return mapExpenseToOut(expense)
+        return expenseMapper.toExpenseOut(expense)
     }
 
     @PatchMapping("/{expenseId}")
@@ -204,10 +208,10 @@ class ExpenseController(
             expense.amountOriginal = effAmount
             expense.currencyOriginal = effCurrency
             expense.fxRate = fxRate
-            expense.amountEur = BigDecimal(effAmount * fxRate).setScale(2, RoundingMode.HALF_UP).toDouble()
+            expense.amountEur = BigDecimal.valueOf(effAmount).multiply(BigDecimal.valueOf(fxRate)).setScale(2, RoundingMode.HALF_UP).toDouble()
             expense.taxAmount = BigDecimal(effTaxAmount)
             expense.taxRate = effTaxRate?.let { BigDecimal(it) }
-            expense.taxAmountEur = BigDecimal(effTaxAmount * fxRate).setScale(2, RoundingMode.HALF_UP)
+            expense.taxAmountEur = BigDecimal.valueOf(effTaxAmount).multiply(BigDecimal.valueOf(fxRate)).setScale(2, RoundingMode.HALF_UP)
         }
 
         if (body.date != null) expense.date = body.date
@@ -232,8 +236,8 @@ class ExpenseController(
                 throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Can only attach expenses to draft reports")
             }
             expense.report = rep
-        } else if (body.reportId == null && body.categoryId == null) {
-            // report_id was explicitly set to null or not passed.
+        } else if (body.categoryId == null) {
+            // reportId is null and no category is being set — detach from report
             expense.report = null
         }
 
@@ -248,7 +252,7 @@ class ExpenseController(
             }
         }
 
-        return mapExpenseToOut(saved)
+        return expenseMapper.toExpenseOut(saved)
     }
 
     @PostMapping("/{expenseId}/duplicate")
@@ -273,8 +277,8 @@ class ExpenseController(
             throw ResponseStatusException(HttpStatus.BAD_GATEWAY, "Failed to fetch exchange rate: ${e.message}")
         }
 
-        val amountEur = BigDecimal(expense.amountOriginal * fxRate).setScale(2, RoundingMode.HALF_UP).toDouble()
-        val taxAmountEur = BigDecimal(expense.taxAmount.toDouble() * fxRate).setScale(2, RoundingMode.HALF_UP)
+        val amountEur = BigDecimal.valueOf(expense.amountOriginal).multiply(BigDecimal.valueOf(fxRate)).setScale(2, RoundingMode.HALF_UP).toDouble()
+        val taxAmountEur = expense.taxAmount.multiply(BigDecimal.valueOf(fxRate)).setScale(2, RoundingMode.HALF_UP)
 
         val newExpense = Expense(
             user = currentUser,
@@ -296,7 +300,7 @@ class ExpenseController(
         )
 
         val saved = expenseRepository.save(newExpense)
-        return ResponseEntity.status(HttpStatus.CREATED).body(mapExpenseToOut(saved))
+        return ResponseEntity.status(HttpStatus.CREATED).body(expenseMapper.toExpenseOut(saved))
     }
 
     @DeleteMapping("/{expenseId}")
@@ -324,7 +328,7 @@ class ExpenseController(
             try {
                 storageService.deleteFile(receipt.filePath)
             } catch (e: Exception) {
-                // ignore or log
+                log.warn("Failed to delete receipt file '{}': {}", receipt.filePath, e.message)
             }
         }
 
@@ -419,7 +423,7 @@ class ExpenseController(
         try {
             storageService.deleteFile(receipt.filePath)
         } catch (e: Exception) {
-            // ignore
+            log.warn("Failed to delete receipt file '{}': {}", receipt.filePath, e.message)
         }
 
         receiptRepository.delete(receipt)
@@ -604,44 +608,6 @@ class ExpenseController(
         return ResponseEntity(bytes, headers, HttpStatus.OK)
     }
 
-    private fun mapReceiptToOut(receipt: Receipt): ReceiptOut {
-        return ReceiptOut(
-            id = receipt.id!!,
-            expenseId = receipt.expense.id!!,
-            filePath = receipt.filePath,
-            originalName = receipt.originalName,
-            createdAt = receipt.createdAt
-        )
-    }
-
-    private fun mapExpenseToOut(expense: Expense): ExpenseOut {
-        val receipts = expense.receipts.map { mapReceiptToOut(it) }
-        val receiptPath = if (receipts.isNotEmpty()) receipts[0].filePath else expense.receiptPath
-        return ExpenseOut(
-            id = expense.id!!,
-            userId = expense.user?.id,
-            userDisplayName = expense.user?.displayName,
-            categoryId = expense.category?.id,
-            categoryName = expense.category?.name,
-            reportId = expense.report?.id,
-            amountOriginal = expense.amountOriginal,
-            currencyOriginal = expense.currencyOriginal,
-            amountEur = expense.amountEur,
-            fxRate = expense.fxRate,
-            taxAmount = expense.taxAmount.toDouble(),
-            taxRate = expense.taxRate?.toDouble(),
-            taxAmountEur = expense.taxAmountEur.toDouble(),
-            date = expense.date,
-            description = expense.description,
-            merchant = expense.merchant,
-            receiptPath = receiptPath,
-            receipts = receipts,
-            status = expense.status,
-            rawOcrText = expense.rawOcrText,
-            createdAt = expense.createdAt,
-            updatedAt = expense.updatedAt
-        )
-    }
 }
 
 data class ReceiptOut(

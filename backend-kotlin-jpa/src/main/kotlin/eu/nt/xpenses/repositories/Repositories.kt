@@ -21,7 +21,6 @@ interface CategoryRepository : JpaRepository<Category, Int> {
 @Repository
 interface ExpenseReportRepository : JpaRepository<ExpenseReport, Int> {
     fun findAllByUserId(userId: Int): List<ExpenseReport>
-    fun findAllByStatus(status: String): List<ExpenseReport>
 
     @Query("SELECT DISTINCT r FROM ExpenseReport r LEFT JOIN FETCH r.expenses WHERE r.id = :id")
     fun findByIdWithExpenses(@Param("id") id: Int): Optional<ExpenseReport>
@@ -31,16 +30,33 @@ interface ExpenseReportRepository : JpaRepository<ExpenseReport, Int> {
 
     @Query("SELECT DISTINCT r FROM ExpenseReport r LEFT JOIN FETCH r.expenses WHERE r.user.id = :userId")
     fun findAllByUserIdWithExpenses(@Param("userId") userId: Int): List<ExpenseReport>
+
+    @Query("SELECT DISTINCT r FROM ExpenseReport r LEFT JOIN FETCH r.expenses WHERE r.status = :status")
+    fun findAllByStatusWithExpenses(@Param("status") status: String): List<ExpenseReport>
+
+    @Query("SELECT DISTINCT r FROM ExpenseReport r LEFT JOIN FETCH r.expenses WHERE r.user.id = :userId AND r.status = :status")
+    fun findAllByUserIdAndStatusWithExpenses(@Param("userId") userId: Int, @Param("status") status: String): List<ExpenseReport>
 }
 
 @Repository
 interface ExpenseRepository : JpaRepository<Expense, Int> {
     fun findAllByUserId(userId: Int): List<Expense>
     fun findAllByReportId(reportId: Int): List<Expense>
-    fun findAllByStatus(status: String): List<Expense>
 
     @Query("SELECT e FROM Expense e WHERE e.report IS NULL AND e.user.id = :userId")
     fun findUnattachedByUserId(@Param("userId") userId: Int): List<Expense>
+
+    @Query("SELECT e FROM Expense e WHERE e.user.id = :userId AND e.status = :status")
+    fun findAllByUserIdAndStatus(@Param("userId") userId: Int, @Param("status") status: String): List<Expense>
+
+    @Query("SELECT e FROM Expense e WHERE e.user.id = :userId AND e.date >= :fromDate AND e.date <= :toDate")
+    fun findAllByUserIdAndDateBetween(@Param("userId") userId: Int, @Param("fromDate") fromDate: String, @Param("toDate") toDate: String): List<Expense>
+
+    @Query("SELECT e FROM Expense e WHERE e.user.id = :userId AND e.date >= :fromDate")
+    fun findAllByUserIdAndDateFrom(@Param("userId") userId: Int, @Param("fromDate") fromDate: String): List<Expense>
+
+    @Query("SELECT e FROM Expense e WHERE e.user.id = :userId AND e.date <= :toDate")
+    fun findAllByUserIdAndDateTo(@Param("userId") userId: Int, @Param("toDate") toDate: String): List<Expense>
 }
 
 @Repository

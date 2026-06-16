@@ -2,6 +2,7 @@ package eu.nt.xpenses.config
 
 import eu.nt.xpenses.models.*
 import eu.nt.xpenses.repositories.*
+import org.slf4j.LoggerFactory
 import org.springframework.boot.CommandLineRunner
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder
 import org.springframework.stereotype.Component
@@ -18,6 +19,8 @@ class DataInitializer(
     private val appSettingRepository: AppSettingRepository,
     private val passwordEncoder: BCryptPasswordEncoder
 ) : CommandLineRunner {
+
+    private val log = LoggerFactory.getLogger(DataInitializer::class.java)
 
     @Transactional
     override fun run(vararg args: String) {
@@ -36,7 +39,7 @@ class DataInitializer(
                 Category(name = "Other")
             )
             categoryRepository.saveAll(categories)
-            println("=== Seeded default categories ===")
+            log.info("Seeded default categories")
         }
 
         // 2. Seed default mileage rates
@@ -80,7 +83,7 @@ class DataInitializer(
                 )
             )
             userRepository.saveAll(users)
-            println("=== Seeded default users ===")
+            log.info("Seeded default users")
         }
 
         // 4. Seed sample reports and expenses for tech1 if no reports exist
@@ -154,7 +157,7 @@ class DataInitializer(
                 report2.totalAmount = 150.0
                 expenseReportRepository.save(report2)
 
-                println("=== Seeded sample reports and expenses ===")
+                log.info("Seeded sample reports and expenses")
             }
         }
     }

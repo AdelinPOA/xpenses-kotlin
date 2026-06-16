@@ -73,8 +73,8 @@ class MileageController(
         }
 
         val (rateBt, rateAt) = getMileageRates()
-        val amountBeforeTax = BigDecimal(body.distanceKm * rateBt).setScale(2, RoundingMode.HALF_UP).toDouble()
-        val amountEur = BigDecimal(body.distanceKm * rateAt).setScale(2, RoundingMode.HALF_UP).toDouble()
+        val amountBeforeTax = BigDecimal.valueOf(body.distanceKm).multiply(BigDecimal.valueOf(rateBt)).setScale(2, RoundingMode.HALF_UP).toDouble()
+        val amountEur = BigDecimal.valueOf(body.distanceKm).multiply(BigDecimal.valueOf(rateAt)).setScale(2, RoundingMode.HALF_UP).toDouble()
 
         val record = MileageRecord(
             report = report,
@@ -136,8 +136,8 @@ class MileageController(
 
         if (body.distanceKm != null) {
             rec.distanceKm = body.distanceKm
-            rec.amountBeforeTax = BigDecimal(body.distanceKm * rec.rateBeforeTax).setScale(2, RoundingMode.HALF_UP).toDouble()
-            rec.amountEur = BigDecimal(body.distanceKm * rec.rateAfterTax).setScale(2, RoundingMode.HALF_UP).toDouble()
+            rec.amountBeforeTax = BigDecimal.valueOf(body.distanceKm).multiply(BigDecimal.valueOf(rec.rateBeforeTax)).setScale(2, RoundingMode.HALF_UP).toDouble()
+            rec.amountEur = BigDecimal.valueOf(body.distanceKm).multiply(BigDecimal.valueOf(rec.rateAfterTax)).setScale(2, RoundingMode.HALF_UP).toDouble()
         }
 
         rec.updatedAt = Instant.now()

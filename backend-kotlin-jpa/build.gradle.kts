@@ -81,9 +81,11 @@ kotlin {
 tasks.withType<Test> {
     useJUnitPlatform()
     // Docker 29+ requires API >= 1.40; docker-java (shaded in Testcontainers) defaults to 1.32.
-    // Pass the api.version system property so the shaded DefaultDockerClientConfig picks it up.
     systemProperty("api.version", "1.45")
 }
+
+// GraalVM native AOT processing tries to spin up a Spring context with Docker — skip it.
+tasks.named("processTestAot") { enabled = false }
 
 graalvmNative {
     binaries {

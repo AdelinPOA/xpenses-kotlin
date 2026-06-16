@@ -10,7 +10,7 @@ import org.mockito.ArgumentMatchers.anyString
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
 import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.boot.test.mock.mockito.MockBean
+import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
 import org.springframework.test.web.servlet.MockMvc
@@ -43,9 +43,9 @@ abstract class IntegrationTestBase {
     @Autowired lateinit var expenseReportRepository: ExpenseReportRepository
     @Autowired lateinit var advancePaymentRepository: AdvancePaymentRepository
 
-    @MockBean lateinit var emailSettingsService: EmailSettingsService
-    @MockBean lateinit var fxService: FxService
-    @MockBean lateinit var ocrService: OcrService
+    @MockitoBean lateinit var emailSettingsService: EmailSettingsService
+    @MockitoBean lateinit var fxService: FxService
+    @MockitoBean lateinit var ocrService: OcrService
 
     lateinit var authHelper: TestAuthHelper
 

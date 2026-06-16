@@ -147,4 +147,142 @@ class ReportStateMachineTest : IntegrationTestBase() {
         mockMvc.perform(post("/api/reports/${report.id}/recall").cookie(cookie))
             .andExpect(status().isBadRequest)
     }
+
+    // ── Approve ───────────────────────────────────────────────────────────────
+
+    @Test
+    fun `manager approves submitted report → status becomes approved`() {
+        val report = makeReport("tech1").also { it.status = "submitted"; expenseReportRepository.save(it) }
+        makeExpense("tech1", report)
+        entityManager.flush()
+        entityManager.clear()
+        val cookie = authHelper.loginAs("manager1", "manager1")
+
+        mockMvc.perform(post("/api/reports/${report.id}/approve").cookie(cookie))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.status").value("approved"))
+    }
+
+    @Test
+    fun `manager cannot approve own submitted report → 400`() {
+        val report = makeReport("manager1").also { it.status = "submitted"; expenseReportRepository.save(it) }
+        entityManager.flush()
+        entityManager.clear()
+        val cookie = authHelper.loginAs("manager1", "manager1")
+
+        mockMvc.perform(post("/api/reports/${report.id}/approve").cookie(cookie))
+            .andExpect(status().isBadRequest)
+    }
+
+    @Test
+    fun `technician cannot approve report → 403`() {
+        val report = makeReport("manager1").also { it.status = "submitted"; expenseReportRepository.save(it) }
+        entityManager.flush()
+        entityManager.clear()
+        val cookie = authHelper.loginAs("tech1", "tech1")
+
+        mockMvc.perform(post("/api/reports/${report.id}/approve").cookie(cookie))
+            .andExpect(status().isForbidden)
+    }
+
+    @Test
+    fun `approve draft report → 400`() {
+        val report = makeReport("tech1")
+        entityManager.flush()
+        entityManager.clear()
+        val cookie = authHelper.loginAs("manager1", "manager1")
+
+        mockMvc.perform(post("/api/reports/${report.id}/approve").cookie(cookie))
+            .andExpect(status().isBadRequest)
+    }
+
+    // ── Reject ────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `manager rejects submitted report → status rejected and expenses revert to draft`() {
+        val report = makeReport("tech1").also { it.status = "submitted"; expenseReportRepository.save(it) }
+        val expense = makeExpense("tech1", report).also { it.status = "submitted"; expenseRepository.save(it) }
+        entityManager.flush()
+        entityManager.clear()
+        val cookie = authHelper.loginAs("manager1", "manager1")
+
+        mockMvc.perform(
+            post("/api/reports/${report.id}/reject")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"reason":"missing receipts"}""")
+                .cookie(cookie)
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.status").value("rejected"))
+
+        val refreshed = expenseRepository.findById(expense.id!!).get()
+        assertEquals("draft", refreshed.status, "expense should revert to draft after rejection")
+    }
+
+    @Test
+    fun `technician cannot reject report → 403`() {
+        val report = makeReport("manager1").also { it.status = "submitted"; expenseReportRepository.save(it) }
+        entityManager.flush()
+        entityManager.clear()
+        val cookie = authHelper.loginAs("tech1", "tech1")
+
+        mockMvc.perform(
+            post("/api/reports/${report.id}/reject")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"reason":"test"}""")
+                .cookie(cookie)
+        ).andExpect(status().isForbidden)
+    }
+
+    @Test
+    fun `reject approved report → 400`() {
+        val report = makeReport("tech1").also { it.status = "approved"; expenseReportRepository.save(it) }
+        entityManager.flush()
+        entityManager.clear()
+        val cookie = authHelper.loginAs("manager1", "manager1")
+
+        mockMvc.perform(
+            post("/api/reports/${report.id}/reject")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"reason":"test"}""")
+                .cookie(cookie)
+        ).andExpect(status().isBadRequest)
+    }
+
+    // ── Pay ───────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `chef_finance pays approved report → status becomes paid`() {
+        val report = makeReport("tech1").also { it.status = "approved"; expenseReportRepository.save(it) }
+        makeExpense("tech1", report).also { it.status = "approved"; expenseRepository.save(it) }
+        entityManager.flush()
+        entityManager.clear()
+        val cookie = authHelper.loginAs("cfo1", "cfo1")
+
+        mockMvc.perform(post("/api/reports/${report.id}/pay").cookie(cookie))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.status").value("paid"))
+    }
+
+    @Test
+    fun `manager cannot pay approved report → 403`() {
+        val report = makeReport("tech1").also { it.status = "approved"; expenseReportRepository.save(it) }
+        entityManager.flush()
+        entityManager.clear()
+        val cookie = authHelper.loginAs("manager1", "manager1")
+
+        mockMvc.perform(post("/api/reports/${report.id}/pay").cookie(cookie))
+            .andExpect(status().isForbidden)
+    }
+
+    @Test
+    fun `pay submitted (not approved) report → 400`() {
+        val report = makeReport("tech1").also { it.status = "submitted"; expenseReportRepository.save(it) }
+        entityManager.flush()
+        entityManager.clear()
+        val cookie = authHelper.loginAs("cfo1", "cfo1")
+
+        mockMvc.perform(post("/api/reports/${report.id}/pay").cookie(cookie))
+            .andExpect(status().isBadRequest)
+    }
 }

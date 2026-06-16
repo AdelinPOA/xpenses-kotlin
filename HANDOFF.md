@@ -1,11 +1,152 @@
 # HANDOFF.md — xpenses-kotlin
 
-> Last updated: 2026-06-16 (session 53)
-> Author: Antigravity AI
+> Last updated: 2026-06-16 (session 56)
+> Author: Claude Sonnet 4.6
 
 ---
 
-## Latest Session (2026-06-16, session 53)
+## Latest Session (2026-06-16, session 56)
+
+### What Was Done
+
+- **Fixed IMAP delegation details overflow** — `DelegationFields` component on IMAP admin page changed from `grid-cols-1 sm:grid-cols-2` (two fields per row) to single-column list with `break-words`, fixing text overflow inside side-by-side parser cards.
+
+- **Exposed delegation fields in API** — `ReportOut` DTO now includes all 11 delegation fields (kundenauftrag, auftragsart, positionstyp, technplatz_raw, technplatz_line, kunde_code, kunde_name, adresse, vorgang, arbeitsplatz, techniker). Previously they were stored in DB but never serialized.
+
+- **Made delegation fields editable** — Added all 11 fields to `ReportUpdate` DTO and wired them into the `updateReport` controller. Blank strings saved as null.
+
+- **Edit report page redesigned** — Delegation section replaced the read-only block with individual editable `<input>` fields grouped in a labeled card. Fields are pre-populated from report data and submitted on save.
+
+- **Report detail page redesigned** — `DelegationReportDetails` component moved out of the title `<div>` to a full-width card below the header row. New design: indigo-tinted card with header bar (icon + "DELEGATION DETAILS" label + "Email import" badge), two-column layout (left: order identifiers; right: client + personnel), row dividers for scannability.
+
+- **Backend rebuild** — Local JDK 25 incompatible with Kotlin compiler; build done inside Docker (`docker compose build backend`). Verified API returns delegation fields for report 9.
+
+### Commit
+- `6fb8866` — feat: expose and edit delegation fields on report pages
+
+### Modified Files
+- `backend-kotlin-jpa/.../controllers/ReportController.kt` — ReportOut + ReportUpdate extended, updateReport wired
+- `frontend/app/admin/imap/page.tsx` — DelegationFields overflow fix
+- `frontend/app/reports/[id]/edit/page.tsx` — Editable delegation inputs
+- `frontend/app/reports/[id]/page.tsx` — Redesigned delegation card
+- `frontend/lib/api.ts` — Already had types (no change needed)
+
+---
+
+## Previous Session (2026-06-16, session 55)
+
+### What Was Done
+
+- **Implemented improved IMAP email delegation parser** — planned via OpenSpec (`openspec/changes/improved-imap-email-parser/`), implemented end-to-end. All 4 specs delivered.
+
+#### Spec 1: Local Parser Enhancement (EmailImportService.kt)
+- Rewrote `parseDelegationEmailLocal()` to extract 12+ structured fields as first-class map entries instead of concatenating into description text.
+- Added keyword groups: `vorgangKws`, `arbeitsplatzKws`, `auftragsartKws`, `technikerKws`, `adresseKws` — all supporting German/English/Romanian synonyms.
+- Implemented `extractAfterKeyword()` and `extractMultiTokenAfterKeyword()` helper functions to reduce duplication.
+- Implemented multi-line `extractAddress()` function for collecting address lines after `Adresse` keyword.
+- **TechnPlatz Cxxxxxx line detection**: `TechnPlatz C374981` → `technplatz_line = true` (regex: `^C\d{6,}`).
+- Customer code/name split: `0022265695 PJSC CARLSBERG UKRAINE` → `kunde_code` + `kunde_name`.
+- Fixed `split("\\n")` → `split("\n")` for correct line-based parsing of actual newline characters from HTTP request body.
+- Clean description built from structured fields instead of raw string concatenation.
+
+#### Spec 2: Gemini Parser Schema (EmailImportService.kt)
+- Extended Gemini response schema from 4 properties (title, date_from, date_to, description) to 15 properties.
+- Added 11 new fields: kundenauftrag, auftragsart, positionstyp, technplatz_raw, technplatz_line (boolean), kunde_code, kunde_name, adresse, vorgang, arbeitsplatz, techniker.
+- Prompt instructs Gemini to: split Kunde into code+name, detect C+6+digits pattern for technplatz_line.
+- Backend maps Gemini response to extended map with null defaults for missing optional fields.
+
+#### Spec 3: ExpenseReport Entity & Flyway Migration
+- Created `V4__add_delegation_fields.sql`: 10 nullable TEXT columns + 1 BOOLEAN column on `expense_reports` table, all using `ADD COLUMN IF NOT EXISTS`.
+- Added 11 properties to `ExpenseReport` entity in `Models.kt`: kundenauftrag, auftragsart, positionstyp, technplatzRaw, technplatzLine, kundeCode, kundeName, adresse, vorgang, arbeitsplatz, techniker — with `@JsonProperty` snake_case annotations.
+- Updated `processIncomingEmail()` and `simulateIncomingEmail()` to map new parser fields to entity fields.
+- Updated frontend `Report` interface in `lib/api.ts` with delegation fields.
+
+#### Spec 4: Frontend Structured Display
+- Extended `EmailSimulationParsed` TypeScript type with 11 optional fields.
+- Extended `Report` TypeScript type with delegation fields.
+- Created `<DelegationFields>` component on IMAP admin page — renders 2-column grid of field→value pairs with amber "Production Line" badge for `technplatz_line: true`.
+- Created `<DelegationReportDetails>` component on report detail page — shows delegation fields in 3-column grid when present.
+- Both components gracefully hide when no delegation fields are present.
+
+### Build & Deployment
+- **Docker rebuild required**: First attempt hit compilation errors — `@JsonProperty` import removed from `AuthController.kt` + `NoSuchFileException` constructor mismatch in `StorageService.kt` + `S3StorageProvider.kt`.
+- Fixed all 3 errors, rebuilt backend (`BUILD SUCCESSFUL in 4m 12s`), rebuilt frontend — both containers restarted and verified as healthy.
+
+### Modified/Added Files
+- `backend-kotlin-jpa/src/main/resources/db/migration/V4__add_delegation_fields.sql` — NEW
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/models/Models.kt` — +11 fields + @JsonProperty import
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/EmailImportService.kt` — Major parser refactoring
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/AuthController.kt` — Restored @JsonProperty import
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/storage/S3StorageProvider.kt` — Fixed NoSuchFileException
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/StorageService.kt` — Fixed NoSuchFileException
+- `frontend/lib/api.ts` — Extended EmailSimulationParsed + Report interfaces
+- `frontend/app/admin/imap/page.tsx` — DelegationFields component with Production Line badge
+- `frontend/app/reports/[id]/page.tsx` — DelegationReportDetails component
+- `openspec/changes/improved-imap-email-parser/` — NEW (proposal, 4 specs, design, tasks)
+- `HANDOFF.md` — This update
+
+---
+
+## Previous Session (2026-06-16, session 54)
+
+### What Was Done
+
+- **Addressed all 4 remaining code quality gaps** — planned via OpenSpec (`openspec/changes/code-quality-gaps-round-2/`), implemented end-to-end.
+
+#### Gap 1: UserController returns response DTOs instead of raw entities
+
+- Extracted `UserResponse` data class from `AuthController.kt` to `models/UserResponse.kt` with `UserResponse.fromUser(user)` companion factory.
+- All 6 `UserController` endpoints (`createUser`, `listUsers`, `getUser`, `updateRole`, `updateActive`, `updateMe`) now return `UserResponse` instead of raw `User` JPA entities.
+- `AuthController` imports `UserResponse` from models instead of defining it locally.
+
+#### Gap 2: Bean Validation on request DTOs
+
+- Added `spring-boot-starter-validation` dependency.
+- Created `config/ValidationExceptionHandler.kt` with `@RestControllerAdvice` for consistent `400 {"detail": "..."}` error responses.
+- Added `@Valid` to `AuthController.login`, `AuthController.changePassword`, `UserController.createUser`, `UserController.updateRole`.
+- Added `@NotBlank`, `@Size(min=8)`, `@Pattern` annotations to `LoginRequest`, `ChangePasswordRequest`, `UserCreateRequest`, `RoleUpdateRequest`.
+
+#### Gap 3: S3 remote storage provider
+
+- Added `software.amazon.awssdk:s3:2.30.0` dependency.
+- Created `services/storage/StorageProvider.kt` interface with `upload`, `download`, `delete`, `testConnection`.
+- Created `services/storage/S3StorageProvider.kt` — implements all 4 operations using AWS SDK v2; supports access key auth, custom endpoint (S3-compatible), and region config.
+- Refactored `StorageService.kt` — uses `@PostConstruct` to initialize a `StorageProvider` based on config; `uploadFile`/`downloadFile`/`deleteFile`/`testConnection` delegate to the provider for non-local providers; local cache fallback for remote reads.
+- SFTP/SMB/WebDAV stubs now return `mapOf("ok" to false, "error" to "not implemented")` instead of misleading `mapOf("ok" to true)`.
+
+#### Gap 4: JDK 25 compatibility guidance
+
+- Created `.java-version` file (JDK 21) for SDKMAN!/jEnv/asdf.
+- Added `make check-java-version` target that detects wrong JDK versions with a clear error message.
+- Added `check-java-version` as a prerequisite of `make build`.
+- Added "Local Development Requirements" section to `README.md` with SDKMAN! instructions and Docker workaround.
+
+### Build Verification
+
+- `make check-java-version` — correctly exits with error on host JDK 25
+- `./gradlew dependencies --configuration compileClasspath` — spring-boot-starter-validation and awssdk:s3 resolve correctly
+- `npx tsc --noEmit` — exit code 0 (zero errors)
+- Kotlin compile blocked by JDK 25 environment — Docker build expected to work
+
+### Modified/Added Files
+
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/models/UserResponse.kt` — NEW
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/config/ValidationExceptionHandler.kt` — NEW
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/storage/StorageProvider.kt` — NEW
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/storage/S3StorageProvider.kt` — NEW
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/StorageService.kt` — Refactored for provider pattern
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/AuthController.kt` — Removed local UserResponse, use model, +@Valid
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/UserController.kt` — UserResponse DTOs, +@Valid, validation annotations on DTOs
+- `backend-kotlin-jpa/build.gradle.kts` — Added spring-boot-starter-validation + awssdk:s3
+- `.java-version` — NEW (pinned to JDK 21)
+- `Makefile` — Added check-java-version target + build prerequisite
+- `README.md` — Added Local Development Requirements section
+- `openspec/changes/code-quality-gaps-round-2/` — NEW (proposal, 4 specs, design, tasks)
+- `HANDOFF.md` — This update
+
+---
+
+## Previous Session (2026-06-16, session 53)
 
 ### What Was Done
 

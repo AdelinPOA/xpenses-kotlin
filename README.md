@@ -1,39 +1,55 @@
 # xpenses-kotlin
 
-Self-hosted expense management app for internal company use. This repository is a fork representing the migration and rewrite of the backend in **Kotlin (Spring Boot WebFlux & Coroutines)**.
-
-See the [Kotlin Migration Plan](file:///home/poa/xpenses-kotlin/kotlin_migration_plan.md) for the architecture design, technology choices, and step-by-step roadmap.
-Also see the [GraalVM Native Image Blueprint](file:///home/poa/.gemini/antigravity-cli/brain/23454a6c-af66-4fbd-be99-6a79c289c9eb/kotlin_migration_blueprint.md) for JPA JOIN FETCH optimization, multi-stage native Dockerfile config, and resource-constrained Kubernetes deployment configurations.
+Self-hosted expense management application for internal company use. Built with a **Kotlin + Spring Boot** backend, **Next.js 15** frontend, and **PostgreSQL** database, all orchestrated via Docker Compose.
 
 ## Features
 
-- **Expenses CRUD** — create, edit, delete expenses with merchant, category, date, description
-- **Multi-currency** — supports 50+ currencies with automatic EUR conversion using ECB rates (Frankfurter API + fallback provider for exotic currencies like UAH, GEL, HUF, etc.)
-- **Multiple receipts & interactive preview** — attach multiple photos/PDFs per expense (JPG, PNG, PDF, WEBP), with side-by-side interactive image zoom & pan preview directly in the creation/edit forms.
-- **Expense reports** — group expenses into reports with date range; full state machine: `draft → submitted → approved → paid`, with recall and reject
-- **Report approval workflow** — managers and CFOs approve/reject submitted reports; rejection reason captured and displayed prominently; cannot approve your own report
+- **Expenses CRUD** — create, edit, delete, duplicate expenses with merchant, category, date, description
+- **Multi-currency** — 200+ currencies with automatic EUR conversion using ECB rates (Frankfurter API + fawazahmed0 fallback); rates cached per (currency, date)
+- **Multiple receipts & interactive preview** — attach multiple photos/PDFs per expense (JPG, PNG, PDF, WEBP, max 10MB), with side-by-side interactive zoom & pan preview in create/edit forms
+- **Expense reports** — group expenses into reports with date range; full state machine workflow
+- **Approval workflow** — managers and CFOs approve/reject submitted reports; rejection reason captured; cannot approve your own report
 - **Report recall** — retract a submitted or rejected report back to draft
-- **PDF export** — Zoho-style PDF with company branding, FX rates per expense, currency summary, reimbursable summary, signature area, and 2-per-row receipt grid with merged PDF receipts
-- **Receipts ZIP download** — download all receipts from a report as a ZIP file
-- **Advance payments** — full workflow for requesting, approving, and attaching cash advances to reports
+- **PDF export** — Zoho-style PDF with company branding, FX rates per expense, currency summary, reimbursable summary, digital signature area, and 2-per-row receipt grid with merged PDF receipts
+- **Excel/CSV export** — export expense data via Apache POI
+- **Receipts ZIP download** — download all report receipts as a single ZIP
+- **Advance payments** — full workflow for requesting, approving, and attaching cash advances to reports; manager direct-pay support
 - **Mileage recording** — km tracking with driving time (start/end), dual tax rates (before/after), CFO-editable rates via settings
-- **Digital signatures** — canvas-based signature pad; sign reports with one click
+- **Digital signatures** — canvas-based signature pad; sign reports with one click; stored per-user
 - **Categories** — with optional EUR spending limits
-- **Dashboard** — monthly totals, spend by category (clickable, links to filtered expenses), recent expenses (clickable), role-specific action cards
-- **Role-differentiated UX** — each role sees only the actions relevant to them; managers see approval queue, CFO sees payment queue
+- **OCR receipt scanning** — hybrid local & cloud system: EasyOCR (local), Gemini 2.5 Flash (cloud), MinerU (opt-in local); auto-fill category, description, amount, currency, date, merchant, tax; includes Naive Bayes category classifier
+- **Email receipt import** — IMAP-based ingestion with side-by-side local & Gemini parsing
+- **Dashboard** — monthly totals, spend by category (clickable), recent expenses (clickable), time-of-day greetings, role-specific action cards
+- **Role-differentiated UX** — 4 roles (Technician, Manager, Chef of Finances, Moderator); each sees only relevant actions
+- **LDAP/AD integration** — production authentication with Moderator-managed config, sync, and test UI
+- **Email notifications** — async SMTP notifications on report status changes
+- **Dark mode** — system preference detection + manual toggle (light/dark/system)
+- **Mobile responsive** — collapsible sidebar drawer, responsive tables, flex-wrap filters
+
+## Report State Machine
+
+```
+draft → submitted → approved → paid
+                  → rejected (expenses detached, reset to draft)
+submitted → draft (via recall, by owner)
+```
 
 ## Tech Stack
 
 | Layer | Technology |
-|-------|-----------|
-| Backend | Kotlin 2.1.0 / Spring Boot 3.4.3 (JPA/Hibernate) |
-| Database | PostgreSQL 16 (JDBC) |
-| Frontend | Next.js 15 + React 19 + TypeScript |
-| Styling | Tailwind CSS v4 |
-| Data fetching | TanStack Query v5 |
-| PDF generation | OpenPDF + PDFBox |
-| Containerization | Docker Compose (5 services: db, backend, frontend, mineru, ocr-sidecar) |
-| AI Workflow | Antigravity (Gemini-powered assistant) + Subagents & slash commands |
+|-------|------------|
+| Backend (production target) | Kotlin 2.3 / Spring Boot 4.1 / WebFlux + R2DBC + Coroutines |
+| Backend (current active) | Kotlin 2.1 / Spring Boot 3.4 / MVC + JPA/Hibernate |
+| Database | PostgreSQL 16 (Flyway migrations) |
+| Frontend | Next.js 15 + React 19 + TypeScript 5 |
+| Styling | Tailwind CSS v4 (CSS-first config) |
+| Data fetching | TanStack Query v5 + axios |
+| Forms & validation | react-hook-form 7 + zod 4 |
+| PDF generation | OpenPDF 2.0 + PDFBox 3.0 |
+| Excel export | Apache POI 5.3 |
+| OCR | EasyOCR (sidecar) + Gemini 2.5 Flash (cloud) + MinerU 2.5 (opt-in) |
+| Auth | JWT (access 15min + refresh 7d) in httpOnly cookies |
+| Containerization | Docker Compose (5 services) |
 
 ## Quick Start
 
@@ -42,156 +58,174 @@ cp .env.example .env
 docker compose up -d --build
 ```
 
-- Frontend: http://localhost:3001
-- Backend API: http://localhost:8001/api
-- PostgreSQL: internal (port 5432, not exposed)
+| Service | URL |
+|---------|-----|
+| Frontend | http://localhost:3001 |
+| Backend API | http://localhost:8001/api |
+| Health check | http://localhost:8001/api/health |
+
+**Test accounts** (when `SEED_DEMO_USERS=true`):
+
+| User | Password | Role |
+|------|----------|------|
+| `tech1` | `tech1` | Technician |
+| `manager1` | `manager1` | Manager |
+| `cfo1` | `cfo1` | Chef of Finances |
+| `mod1` | `mod1` | Moderator |
 
 ## Project Structure
 
 ```
-xpenses/
-├── backend-kotlin-jpa/          # Kotlin Spring Boot JPA Backend
-│   ├── src/
-│   │   ├── main/
-│   │   │   ├── kotlin/          # Kotlin MVC Controllers & Services
-│   │   │   └── resources/       # Application config & Flyway migrations
-│   │   └── test/
-│   ├── build.gradle.kts
+xpenses-kotlin/
+├── backend-kotlin/              # Production backend (WebFlux + R2DBC + Coroutines)
+│   ├── src/main/kotlin/         #   Reactive controllers, models, repositories
+│   ├── src/main/resources/      #   Config & Flyway migrations
+│   ├── build.gradle.kts         #   Spring Boot 4.1.0, Kotlin 2.3.21
 │   └── Dockerfile
-├── ocr-sidecar/                 # Python EasyOCR API microservice
+├── backend-kotlin-jpa/          # Active backend (MVC + JPA/Hibernate)
+│   ├── src/main/kotlin/         #   13 controllers, 11 services, models, repositories
+│   ├── src/main/resources/      #   Config & Flyway migrations
+│   ├── build.gradle.kts         #   Spring Boot 3.4.3, Kotlin 2.1.0
+│   └── Dockerfile
+├── frontend/                    # Next.js 15 frontend
+│   ├── app/                     #   App Router pages (10 route groups + admin panel)
+│   ├── components/              #   React components (dashboard, expenses, layout, ui)
+│   ├── lib/                     #   API client, auth, query keys, themes
+│   └── Dockerfile
+├── ocr-sidecar/                 # Python FastAPI — EasyOCR microservice
 │   ├── app.py
-│   ├── requirements.txt
 │   └── Dockerfile
-├── frontend/                    # Next.js Frontend (unchanged)
-│   ├── app/                     # Next.js App Router pages
-│   ├── components/              # React components
-│   ├── lib/                     # API client, types, themes (role colors)
-│   └── public/
-└── docker-compose.yml           # PostgreSQL + backend + frontend + sidecars
+├── mineru/                      # MinerU 2.5 local OCR (opt-in profile)
+│   └── Dockerfile
+├── docker-compose.yml           # Service orchestration
+├── Makefile                     # Common dev commands
+├── .env / .env.example          # Environment configuration
+├── HANDOFF.md                   # Session-by-session development history
+├── GEMINI.md                    # AI assistant instructions (Antigravity)
+└── kotlin_migration_plan.md     # Migration design & roadmap
 ```
+
+## Dual Backend Architecture
+
+This project maintains two backend implementations:
+
+### `backend-kotlin/` — Production Target (Reactive)
+
+- **Spring Boot 4.1.0** with **WebFlux** + **R2DBC** + **Kotlin Coroutines**
+- Non-blocking, async I/O for high-concurrency production workloads
+- Repositories extend `CoroutineCrudRepository` (using `Flow` and `suspend`)
+- **Status**: Work-in-progress — currently has auth, models, repositories, and security. Remaining controllers and services are being ported from the JPA backend.
+
+### `backend-kotlin-jpa/` — Currently Active (Blocking)
+
+- **Spring Boot 3.4.3** with **Spring MVC** + **JPA/Hibernate** + **JDBC**
+- Synchronous/blocking — simpler to develop and debug
+- 13 controllers, 11 services, full feature parity with the frontend
+- **Status**: Complete and running in `docker-compose.yml`. Used for development and testing while the reactive backend is completed.
 
 ## Docker Compose Services
 
-| Service | Image | Port | Notes |
-|---------|-------|------|-------|
-| `db` | postgres:16-alpine | 5432 (internal) | Health check with `pg_isready` |
-| `backend` | Kotlin + Spring Boot | 8001 → 8080 | Active Java JVM MVC backend |
-| `frontend` | Node 22 + Next.js 15 | 3001 → 3000 | Turbopack dev server |
-| `ocr-sidecar` | Python + EasyOCR | 8004 → 5000 | Persistent EasyOCR scanner |
-| `mineru` | Python + MinerU | 8002 → 8000 | Optional local MinerU API |
+| Service | Build Context | Ports | Notes |
+|---------|--------------|-------|-------|
+| `db` | `postgres:16-alpine` | 5432 (internal) | Health check via `pg_isready` |
+| `backend` | `./backend-kotlin-jpa` | 8001 → 8080 | JPA backend (active) |
+| `frontend` | `./frontend` | 3001 → 3000 | Next.js Turbopack dev server |
+| `ocr-sidecar` | `./ocr-sidecar` | 8004 → 5000 | EasyOCR (en + ro), CPU-only |
+| `mineru` | `./mineru` | 8002 → 8000 | Opt-in: `docker compose --profile mineru up` |
+
+**Volumes**: `pgdata`, `xpenses-data`, `ocr-models`, `mineru-models`
+**Network**: `xpenses-net` (bridge), backend uses public DNS (`8.8.8.8`, `1.1.1.1`)
+
+## Frontend Architecture
+
+**Dual-URL pattern** for Docker networking:
+
+| Context | Variable | URL |
+|---------|----------|-----|
+| Server-side (SSR/rewrites) | `INTERNAL_API_URL` | `http://backend:8080/api` |
+| Client-side (browser) | `NEXT_PUBLIC_API_URL` | `http://localhost:8001/api` |
+
+**Pages**: Dashboard, Expenses (list/new/edit), Reports (list/new/edit), Advances, Approvals, Payments, Categories, Profile, Admin panel (Email, IMAP, LDAP, OCR, Receipts, Settings, Storage, Users)
+
+**Auth flow**: `AuthProvider` context → `useAuth()` hook → `JwtAuthenticationFilter` on backend. Next.js `middleware.ts` redirects unauthenticated users by checking the `access_token` cookie.
+
+## API Endpoints
+
+All routes prefixed with `/api/`.
+
+| Area | Endpoints |
+|------|-----------|
+| Auth | `POST /auth/login`, `POST /auth/logout`, `POST /auth/refresh`, `GET /auth/me`, `POST /auth/change-password` |
+| Expenses | `GET/POST /expenses`, `GET/PUT/DELETE /expenses/:id`, `POST /expenses/:id/receipts`, `POST /expenses/:id/scan` |
+| Reports | `GET/POST /reports`, `GET/PUT/DELETE /reports/:id`, `POST /reports/:id/submit\|approve\|reject\|pay\|recall`, `GET /reports/:id/pdf\|receipts-zip` |
+| Advances | `GET/POST /reports/:id/advances`, `GET /advances/pending`, `POST /advances/:id/pay` |
+| Mileage | `GET/POST/DELETE /reports/:id/mileage` |
+| Signatures | `POST /users/me/signature`, `POST /reports/:id/sign` |
+| Categories | `GET/POST /categories`, `PUT/DELETE /categories/:id` |
+| Dashboard | `GET /dashboard` |
+| Users | `GET/POST /users`, `PUT /users/:id` |
+| Settings | `GET/PATCH /settings/mileage-rates`, `GET/PATCH /settings/ocr`, `GET/PATCH /settings/email`, `GET/PATCH /settings/imap`, `GET/PATCH /settings/storage`, `GET/PATCH /settings/daily-allowance-rate` |
+| LDAP | `GET/PATCH /settings/ldap`, `POST /settings/ldap/test\|sync` |
+| Health | `GET /health` |
 
 ## FX Rate Conversion
 
-Expenses in any currency are automatically converted to EUR at the date of the expense:
-
 1. **Primary**: Frankfurter API (ECB rates, ~30 major currencies)
-2. **Fallback**: fawazahmed0/currency-api (200+ currencies)
-3. Rates are cached in PostgreSQL per (currency, date) pair
+2. **Fallback**: fawazahmed0/currency-api (200+ currencies including UAH, GEL, HUF, etc.)
+3. Rates cached in PostgreSQL per `(currency, date)` pair
+4. Changing amount/currency/date on an expense triggers automatic recalculation
 
-## PDF Export
+## OCR System
 
-The PDF export matches Zoho Expenses quality:
+Three providers with automatic fallback:
 
-- Company logo + name (Newtech Automation)
-- Report ID, status, total amount
-- Submitted By (name + email)
-- Report duration in DD.MM.YYYY format
-- Expense summary table with FX rates per expense
-- Report summary by currency (breakdown per currency with EUR equivalents)
-- Report summary (Total - Non Reimbursable - Advance = Total Reimbursable)
-- Signature area
-- Receipt images in 2-per-row grid layout
-- PDF receipts merged as additional pages
+| Provider | Type | Setup |
+|----------|------|-------|
+| **EasyOCR** | Local (sidecar) | Always available, en + ro |
+| **Gemini 2.5 Flash** | Cloud API | API key configured in admin panel |
+| **MinerU 2.5** | Local (opt-in) | `docker compose --profile mineru up` |
 
-## Report Workflow
+Features:
+- Structured JSON extraction (category, description, amount, currency, date, merchant, tax)
+- Naive Bayes category classifier trained on historical scan texts
+- Drag-and-drop receipt upload with full form autofill
 
-1. Create expenses (draft)
-2. Create a report with title, date range, description
-3. Attach expenses to the report
-4. Submit the report (expenses + report move to "submitted")
-5. Mark as paid when reimbursed
-6. Recall to draft if needed (revert submitted → draft)
+## Makefile
+
+```bash
+make up          # docker compose up -d --build
+make down        # docker compose down
+make rebuild     # rebuild backend only
+make logs        # tail backend logs
+make build       # build JAR locally (./gradlew bootJar)
+make test-health # curl /api/health
+make test-login  # curl POST /api/auth/login (tech1)
+```
 
 ## Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `CORS_ORIGINS` | `["http://localhost:3001"]` | Allowed CORS origins |
+| `CORS_ORIGINS` | `["http://localhost:3001"]` | Allowed CORS origins (JSON array) |
 | `DATA_DIR` | `/app/data` | Receipts storage path |
-| `DEFAULT_CURRENCY` | `EUR` | Base currency |
-| `DATABASE_URL` | `postgresql://xpenses:xpenses@db:5432/xpenses` | PostgreSQL connection (set in docker-compose) |
-| `JWT_SECRET` | (random) | Secret for signing JWT tokens (set a stable value in prod) |
+| `DEFAULT_CURRENCY` | `EUR` | Base currency for conversions |
+| `JWT_SECRET` | (required) | Secret for signing JWT tokens |
 | `COOKIE_SECURE` | `false` | Set `true` in production (HTTPS-only cookies) |
-| `SEED_DEMO_USERS` | `true` | Set `false` in production (disables test accounts) |
+| `SEED_DEMO_USERS` | `true` | Set `false` in production |
 | `COMPANY_NAME` | `Newtech Automation` | Company name in PDF exports |
-| `SUBMITTER_NAME` | `Popescu Adelin` | Submitter name in PDF exports |
-| `SUBMITTER_EMAIL` | `adelin.popescu@nt-automation.eu` | Submitter email in PDF exports |
-
-## Current Status
-
-**Kotlin backend JVM/AOT migration + Phase 7 complete** — Developed a fully functioning Spring Boot 3.4.3 + JPA Kotlin backend microservice running on JVM (development) and supporting GraalVM Native Image (production compilation) inside Docker, featuring eager `JOIN FETCH` queries, circular reference checks, and transaction handling.
-
-- [x] Spring Boot 3.x + JPA Kotlin backend migration blueprint & implementation (JVM & Native support)
-- [x] Expenses CRUD with multi-currency FX conversion
-- [x] Multiple receipt uploads per expense
-- [x] Expense reports with date range, attach/submit/recall workflow
-- [x] PDF export with company branding, FX rates, currency summary, signature area
-- [x] Receipts ZIP download
-- [x] Categories with EUR spending limits
-- [x] Dashboard with monthly EUR totals and spend by category
-- [x] Docker Compose with PostgreSQL + backend + frontend
-- [x] FX fallback provider for 200+ currencies
-- [x] Company branding (NT logo in sidebar + PDF)
-- [x] JWT authentication with httpOnly cookies (access + refresh tokens)
-- [x] 4 roles: Technician, Manager, Chef of Finances, Moderator
-- [x] Approval workflow: submit → approve → pay (or reject)
-- [x] Role-based UI: login page, role-aware sidebar, approvals/payments/user management pages
-- [x] Data isolation: users only see their own expenses/reports
-- [x] Local test accounts (tech1, manager1, cfo1, mod1) for development
-- [x] LDAP integration with dedicated Moderator UI for configuration and sync
-- [x] Dark mode with system preference detection + manual toggle (light/dark/system)
-- [x] Mobile responsive layout (collapsible sidebar drawer, responsive tables, flex-wrap filters)
-- [x] OCR receipt scanning (auto-fill merchant, amount, date)
-- [x] Mileage recording with driving time tracking + dual tax rates (CFO-editable)
-- [x] UI/UX Redesign: Personalized dashboard with time-of-day greetings and contextual action cards
-- [x] Signature Pad: Fixed drawing offset via coordinate scaling; full responsiveness
-- [x] Backend test suite (185 tests: auth, expenses, reports, advances, mileage, settings, categories, users, ocr, ldap)
-- [x] Email delegation ingestion with side-by-side Local (multilingv) & Gemini parsing simulation
-- [x] Linting with ruff + Makefile workflow
 
 ## Roadmap
 
-### Phase 4 — Authentication & Users
-- [x] Active Directory / LDAP integration for production
-- [x] JWT-based auth for dev/testing
-- [x] User roles (submitter, approver, admin)
-- [x] Per-user expense and report isolation
-
-### Phase 5 — Approval Workflow
-- [x] Manager approval step (submitted → approved → paid)
-- [x] Email notifications on status changes
-
-
-### Phase 6 — Analytics & Reporting
-- Spend trends over time (charts)
-- Category budget vs. actual tracking
-- Per-user / per-team spending reports
-- CSV/Excel export
-
-### Phase 7 — Quality of Life
-- [x] Dark mode
-- [x] Mobile-responsive improvements
-- [x] OCR receipt scanning (auto-fill merchant, amount, date)
-- [x] Expense duplication
-- Recurring expenses
-- Manual FX rate override option
-- Bulk expense import from CSV
-
-### Phase 8 — Production Hardening
-- Backup/restore tooling
-- Audit log (who changed what, when)
-- Rate limiting and API key auth
-- Monitoring and health checks
+- [ ] Complete reactive backend migration (`backend-kotlin/` → full feature parity)
+- [ ] Spend trends over time (charts)
+- [ ] Category budget vs. actual tracking
+- [ ] Per-user / per-team spending reports
+- [ ] Recurring expenses
+- [ ] Manual FX rate override
+- [ ] Bulk expense import from CSV
+- [ ] Backup/restore tooling
+- [ ] Audit log (who changed what, when)
+- [ ] Rate limiting
 
 ## License
 

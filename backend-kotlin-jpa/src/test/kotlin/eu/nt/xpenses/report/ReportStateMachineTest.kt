@@ -70,6 +70,8 @@ class ReportStateMachineTest : IntegrationTestBase() {
     fun `submit report by non-owner → 403`() {
         val report = makeReport("tech1")
         makeExpense("tech1", report)
+        entityManager.flush()
+        entityManager.clear()
         val cookie = authHelper.loginAs("manager1", "manager1")
 
         mockMvc.perform(
@@ -83,6 +85,8 @@ class ReportStateMachineTest : IntegrationTestBase() {
     @Test
     fun `submit report with no expenses attached → 400`() {
         val report = makeReport("tech1")
+        entityManager.flush()
+        entityManager.clear()
         val cookie = authHelper.loginAs("tech1", "tech1")
 
         mockMvc.perform(
@@ -95,7 +99,11 @@ class ReportStateMachineTest : IntegrationTestBase() {
 
     @Test
     fun `submit already-submitted report → 400`() {
-        val report = makeReport("tech1").also { it.status = "submitted"; expenseReportRepository.save(it) }
+        val report = makeReport("tech1")
+        report.status = "submitted"
+        expenseReportRepository.save(report)
+        entityManager.flush()
+        entityManager.clear()
         val cookie = authHelper.loginAs("tech1", "tech1")
 
         mockMvc.perform(
@@ -126,6 +134,8 @@ class ReportStateMachineTest : IntegrationTestBase() {
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.status").value("draft"))
 
+        // entityManager.clear() before MockMvc emptied the cache; the controller wrote within
+        // the same outer transaction, so findById here sees the controller's committed-to-session writes.
         val refreshed = expenseRepository.findById(expense.id!!).get()
         assertEquals("draft", refreshed.status, "expense status should revert to draft")
     }
@@ -151,9 +161,9 @@ class ReportStateMachineTest : IntegrationTestBase() {
     // ── Approve ───────────────────────────────────────────────────────────────
 
     @Test
-    fun `manager approves submitted report → status becomes approved`() {
+    fun `manager approves submitted report → status approved and expenses approved`() {
         val report = makeReport("tech1").also { it.status = "submitted"; expenseReportRepository.save(it) }
-        makeExpense("tech1", report)
+        val expense = makeExpense("tech1", report).also { it.status = "submitted"; expenseRepository.save(it) }
         entityManager.flush()
         entityManager.clear()
         val cookie = authHelper.loginAs("manager1", "manager1")
@@ -161,6 +171,9 @@ class ReportStateMachineTest : IntegrationTestBase() {
         mockMvc.perform(post("/api/reports/${report.id}/approve").cookie(cookie))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.status").value("approved"))
+
+        val refreshed = expenseRepository.findById(expense.id!!).get()
+        assertEquals("approved", refreshed.status, "expense status should become approved")
     }
 
     @Test

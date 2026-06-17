@@ -70,6 +70,18 @@ export default api;
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
+export interface PagedResponse<T> {
+  data: T[];
+  page: number;
+  size: number;
+  total_elements: number;
+  total_pages: number;
+}
+
+export function isPagedResponse<T>(r: T[] | PagedResponse<T>): r is PagedResponse<T> {
+  return !Array.isArray(r) && r.data !== undefined;
+}
+
 export interface Category {
   id: number;
   name: string;

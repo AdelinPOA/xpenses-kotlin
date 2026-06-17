@@ -50,8 +50,12 @@ class DashboardController(
         val canApprove = currentUser.role in listOf("manager", "chef_finance", "mod")
         val canPay = currentUser.role in listOf("chef_finance", "mod")
 
-        val reports = expenseReportRepository.findAll()
-        val userOrOrgReports = if (isOrgWide) reports else reports.filter { it.user?.id == currentUser.id }
+        val reports = if (isOrgWide) {
+            expenseReportRepository.findAll()
+        } else {
+            expenseReportRepository.findAllByUserId(currentUser.id!!)
+        }
+        val userOrOrgReports = reports
 
         val draftCount = userOrOrgReports.count { it.status == "draft" }
         val submittedCount = userOrOrgReports.count { it.status == "submitted" }

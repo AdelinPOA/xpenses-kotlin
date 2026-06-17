@@ -52,8 +52,10 @@ class ReportController(
         @RequestParam(value = "status", required = false) status: String?,
         @RequestParam(value = "all", required = false, defaultValue = "false") all: Boolean,
         @RequestParam(value = "user_id", required = false) userId: Int?,
+        @RequestParam(value = "page", required = false) page: Int?,
+        @RequestParam(value = "size", required = false, defaultValue = "20") size: Int,
         request: HttpServletRequest
-    ): List<ReportOut> {
+    ): Any {
         val currentUser = request.getAttribute("currentUser") as? User
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
 
@@ -77,10 +79,23 @@ class ReportController(
             else expenseReportRepository.findAllByUserIdWithExpenses(targetUid)
         }
 
-        // Sort by created_at DESC
         reports = reports.sortedByDescending { it.createdAt }
 
-        return reports.map { mapReportToOut(it) }
+        return if (page != null) {
+            val total = reports.size
+            val fromIndex = page * size
+            val toIndex = minOf(fromIndex + size, total)
+            val pageContent = if (fromIndex < total) reports.subList(fromIndex, toIndex) else emptyList()
+            eu.nt.xpenses.models.PagedResponse(
+                data = pageContent.map { mapReportToOut(it) },
+                page = page,
+                size = size,
+                totalElements = total.toLong(),
+                totalPages = if (size > 0) (total + size - 1) / size else 1
+            )
+        } else {
+            reports.map { mapReportToOut(it) }
+        }
     }
 
     @PostMapping

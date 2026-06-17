@@ -3,7 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect, useRef, Suspense } from "react";
 import Link from "next/link";
-import api, { Report, downloadBlob } from "@/lib/api";
+import api, { Report, downloadBlob, isPagedResponse, PagedResponse } from "@/lib/api";
 import { reportKeys, dashboardKeys } from "@/lib/queryKeys";
 import AppShell from "@/components/layout/AppShell";
 import Badge from "@/components/ui/Badge";
@@ -63,7 +63,10 @@ function ReportsPageContent() {
       api.get("/reports", { params: {
         status: statusFilter || undefined,
         all: showAll
-      }}).then((r) => r.data),
+      }}).then((r) => {
+        const payload = r.data as Report[] | PagedResponse<Report>;
+        return isPagedResponse(payload) ? payload.data : payload;
+      }),
   });
 
   const del = useMutation({

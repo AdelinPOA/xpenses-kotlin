@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import api, { Expense, Category, API_BASE_URL, duplicateExpense, downloadBlob } from "@/lib/api";
+import api, { Expense, Category, API_BASE_URL, duplicateExpense, downloadBlob, isPagedResponse, PagedResponse } from "@/lib/api";
 import { expenseKeys, dashboardKeys, categoryKeys } from "@/lib/queryKeys";
 import AppShell from "@/components/layout/AppShell";
 import Badge from "@/components/ui/Badge";
@@ -51,7 +51,10 @@ function ExpensesPageContent() {
   const { data: expenses, isLoading } = useQuery<Expense[]>({
     queryKey: expenseKeys.list({ status: statusFilter, category_id: categoryFilter }),
     queryFn: () =>
-      api.get("/expenses", { params: { ...(statusFilter ? { status: statusFilter } : {}), ...(categoryFilter ? { category_id: categoryFilter } : {}) } }).then((r) => r.data),
+      api.get("/expenses", { params: { ...(statusFilter ? { status: statusFilter } : {}), ...(categoryFilter ? { category_id: categoryFilter } : {}) } }).then((r) => {
+        const payload = r.data as Expense[] | PagedResponse<Expense>;
+        return isPagedResponse(payload) ? payload.data : payload;
+      }),
   });
 
   const { data: categories } = useQuery<Category[]>({

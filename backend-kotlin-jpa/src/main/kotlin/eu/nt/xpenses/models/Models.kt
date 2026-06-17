@@ -76,7 +76,7 @@ class ExpenseReport(
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     var id: Int? = null,
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
     var user: User? = null,
 
@@ -106,21 +106,21 @@ class ExpenseReport(
     @Column(nullable = false)
     var currency: String = "EUR",
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "signer_id")
     var signer: User? = null,
 
     @Column(name = "signed_at")
     var signedAt: Instant? = null,
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "approved_by")
     var approvedBy: User? = null,
 
     @Column(name = "approved_at")
     var approvedAt: Instant? = null,
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "rejected_by")
     var rejectedBy: User? = null,
 
@@ -173,11 +173,11 @@ class Expense(
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     var id: Int? = null,
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
     var user: User? = null,
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id")
     var category: Category? = null,
 
@@ -286,7 +286,7 @@ class RefreshToken(
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     var id: Int? = null,
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     var user: User,
 
@@ -312,7 +312,7 @@ class AdvancePayment(
     @JoinColumn(name = "report_id", nullable = false)
     var report: ExpenseReport,
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     var user: User,
 
@@ -342,14 +342,14 @@ class AdvancePayment(
     @Column(name = "requested_currency")
     var requestedCurrency: String? = null,
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "paid_by")
     var paidBy: User? = null,
 
     @Column(name = "paid_at")
     var paidAt: Instant? = null,
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "rejected_by")
     var rejectedBy: User? = null,
 
@@ -375,7 +375,7 @@ class MileageRecord(
     @JoinColumn(name = "report_id", nullable = false)
     var report: ExpenseReport,
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     var user: User,
 
@@ -435,7 +435,7 @@ class OcrComparison(
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     var id: Int? = null,
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "expense_id")
     var expense: Expense? = null,
 

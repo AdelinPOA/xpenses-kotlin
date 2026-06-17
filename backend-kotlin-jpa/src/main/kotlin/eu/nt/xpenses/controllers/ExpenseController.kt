@@ -53,38 +53,29 @@ class ExpenseController(
         @RequestParam(value = "from", required = false) fromDate: String?,
         @RequestParam(value = "to", required = false) toDate: String?,
         @RequestParam(value = "all", required = false, defaultValue = "false") all: Boolean,
+        @RequestParam(value = "page", required = false) page: Int?,
+        @RequestParam(value = "size", required = false, defaultValue = "20") size: Int,
         request: HttpServletRequest
-    ): List<ExpenseOut> {
+    ): Any {
         val currentUser = request.getAttribute("currentUser") as? User
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
 
-        val uid = currentUser.id!!
-        val isOrgWide = all && currentUser.role in listOf("chef_finance", "mod", "manager")
+        val uid = if (all && currentUser.role in listOf("chef_finance", "mod", "manager")) null else currentUser.id!!
 
-        var expenses = when {
-            isOrgWide -> expenseRepository.findAll()
-            status != null && fromDate != null && toDate != null ->
-                expenseRepository.findAllByUserIdAndDateBetween(uid, fromDate, toDate)
-                    .filter { it.status == status }
-            status != null ->
-                expenseRepository.findAllByUserIdAndStatus(uid, status)
-            fromDate != null && toDate != null ->
-                expenseRepository.findAllByUserIdAndDateBetween(uid, fromDate, toDate)
-            fromDate != null ->
-                expenseRepository.findAllByUserIdAndDateFrom(uid, fromDate)
-            toDate != null ->
-                expenseRepository.findAllByUserIdAndDateTo(uid, toDate)
-            else -> expenseRepository.findAllByUserId(uid)
+        return if (page != null) {
+            val pageable = org.springframework.data.domain.PageRequest.of(page, size)
+            val result = expenseRepository.findAllWithFiltersPaged(uid, status, reportId, categoryId, fromDate, toDate, pageable)
+            eu.nt.xpenses.models.PagedResponse(
+                data = result.content.map { expenseMapper.toExpenseOut(it) },
+                page = result.number,
+                size = result.size,
+                totalElements = result.totalElements,
+                totalPages = result.totalPages
+            )
+        } else {
+            expenseRepository.findAllWithFilters(uid, status, reportId, categoryId, fromDate, toDate)
+                .map { expenseMapper.toExpenseOut(it) }
         }
-
-        // Apply in-memory filters for report_id and category_id (join-dependent)
-        if (reportId != null) expenses = expenses.filter { it.report?.id == reportId }
-        if (categoryId != null) expenses = expenses.filter { it.category?.id == categoryId }
-
-        // Sort by date DESC
-        expenses = expenses.sortedByDescending { it.date }
-
-        return expenses.map { expenseMapper.toExpenseOut(it) }
     }
 
     @PostMapping

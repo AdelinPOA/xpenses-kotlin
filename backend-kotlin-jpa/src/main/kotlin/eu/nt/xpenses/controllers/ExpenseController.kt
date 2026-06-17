@@ -531,6 +531,7 @@ class ExpenseController(
         if (ext !in allowedExtensions) {
             throw IllegalArgumentException("File type .$ext not allowed")
         }
+        validateMagicBytes(content, ext)
         if (content.size > 10 * 1024 * 1024) {
             throw IllegalArgumentException("File exceeds 10MB limit")
         }
@@ -544,6 +545,21 @@ class ExpenseController(
 
         storageService.uploadFile(relativePath, content)
         return relativePath
+    }
+
+    private fun validateMagicBytes(content: ByteArray, ext: String) {
+        val signatures = mapOf(
+            "jpg" to byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte()),
+            "jpeg" to byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte()),
+            "png" to byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A),
+            "gif" to byteArrayOf(0x47, 0x49, 0x46, 0x38),
+            "pdf" to byteArrayOf(0x25, 0x50, 0x44, 0x46),
+            "webp" to byteArrayOf(0x52, 0x49, 0x46, 0x46)
+        )
+        val expected = signatures[ext] ?: return
+        if (content.size < expected.size || !content.copyOfRange(0, expected.size).contentEquals(expected)) {
+            throw IllegalArgumentException("File content does not match .$ext format")
+        }
     }
 
     @GetMapping("/export")

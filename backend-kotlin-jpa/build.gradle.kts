@@ -35,6 +35,7 @@ dependencies {
     implementation("com.giffing.bucket4j.spring.boot.starter:bucket4j-spring-boot-starter:0.12.8")
     implementation("org.springframework.boot:spring-boot-starter-cache")
     implementation("com.github.ben-manes.caffeine:caffeine")
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.6.0")
     implementation("javax.cache:cache-api:1.1.1")
     implementation("com.github.ben-manes.caffeine:jcache")
 

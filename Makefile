@@ -1,4 +1,4 @@
-.PHONY: up down rebuild logs build test-health check-java-version
+.PHONY: up down rebuild logs build test test-health check-java-version
 
 up:
 	docker compose up -d --build
@@ -25,6 +25,10 @@ check-java-version:
 # Build the Kotlin JAR locally (requires JDK 21)
 build: check-java-version
 	cd backend-kotlin-jpa && ./gradlew bootJar --no-daemon
+
+# Run the Kotlin test suite (requires JDK 21)
+test: check-java-version
+	cd backend-kotlin-jpa && ./gradlew test --no-daemon
 
 # Smoke-test the running backend
 test-health:

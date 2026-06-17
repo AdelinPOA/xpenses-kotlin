@@ -7,6 +7,7 @@ import eu.nt.xpenses.models.*
 import eu.nt.xpenses.repositories.AppSettingRepository
 import org.apache.pdfbox.Loader
 import org.apache.pdfbox.pdmodel.PDDocument
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 import org.slf4j.LoggerFactory
 import java.io.ByteArrayOutputStream
@@ -21,7 +22,8 @@ import java.util.Locale
 @Service
 class PdfService(
     private val storageService: StorageService,
-    private val appSettingRepository: AppSettingRepository
+    private val appSettingRepository: AppSettingRepository,
+    @Value("\${company.name:Newtech Automation}") private val companyName: String
 ) {
     private val log = LoggerFactory.getLogger(PdfService::class.java)
     private val decimalFormat = DecimalFormat("###,##0.00")
@@ -87,19 +89,20 @@ class PdfService(
         val leftCell = PdfPCell()
         leftCell.border = Rectangle.NO_BORDER
         
-        // Try to draw logo
-        val logoFile = File("/app/backend-kotlin-jpa/src/main/resources/company_logo.png")
-        if (logoFile.exists()) {
+        // Try to draw logo from classpath resource
+        val logoStream = this::class.java.getResourceAsStream("/company_logo.png")
+        if (logoStream != null) {
             try {
-                val logoImg = Image.getInstance(logoFile.absolutePath)
+                val logoBytes = logoStream.readAllBytes()
+                val logoImg = Image.getInstance(logoBytes)
                 logoImg.scaleToFit(80f, 80f)
                 leftCell.addElement(logoImg)
                 leftCell.addElement(Paragraph(" ", fontSmall))
             } catch (e: Exception) {
-                log.warn("Failed to load company logo from {}: {}", logoFile.absolutePath, e.message)
+                log.warn("Failed to load company logo: {}", e.message)
             }
         }
-        leftCell.addElement(Paragraph("Newtech Automation", Font(Font.HELVETICA, 12f, Font.BOLD, java.awt.Color(30, 41, 59))))
+        leftCell.addElement(Paragraph(companyName, Font(Font.HELVETICA, 12f, Font.BOLD, java.awt.Color(30, 41, 59))))
         headerTable.addCell(leftCell)
 
         // Right side: Report Title & Total

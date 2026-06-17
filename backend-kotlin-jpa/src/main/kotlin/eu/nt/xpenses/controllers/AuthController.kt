@@ -182,6 +182,7 @@ class AuthController(
 
         currentUser.passwordHash = passwordEncoder.encode(body.newPassword)
         userRepository.save(currentUser)
+        refreshTokenRepository.deleteByUserId(currentUser.id!!)
         return ResponseEntity.ok(mapOf("status" to "password changed"))
     }
 

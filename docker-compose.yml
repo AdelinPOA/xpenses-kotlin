@@ -20,6 +20,7 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+    restart: unless-stopped
 
   backend:
     image: xpenses-backend:latest
@@ -53,11 +54,12 @@ services:
           cpus: '1.0'
           memory: 1024M
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/api/health || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/api/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 3
       start_period: 15s
+    restart: unless-stopped
 
   frontend:
     image: xpenses-frontend:latest
@@ -77,11 +79,12 @@ services:
           cpus: '0.5'
           memory: 512M
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000 || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000 || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 3
       start_period: 15s
+    restart: unless-stopped
     networks:
       - xpenses-net
 

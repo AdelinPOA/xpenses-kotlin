@@ -37,7 +37,10 @@ class SecurityConfig(
             .authorizeHttpRequests { authorize ->
                 authorize
                     .requestMatchers("/api/auth/login", "/api/auth/logout", "/api/auth/refresh").permitAll()
-                    .requestMatchers("/api/health", "/actuator/**").permitAll()
+                    .requestMatchers("/api/health").permitAll()
+                    .requestMatchers("/actuator/health", "/actuator/info").permitAll()
+                    .requestMatchers("/actuator/**").hasRole("mod")
+                    .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                     .requestMatchers("/api/settings/ocr/**").hasRole("mod")
                     .requestMatchers("/api/settings/ldap/**").hasRole("mod")
                     .requestMatchers("/api/settings/imap/**").hasRole("mod")

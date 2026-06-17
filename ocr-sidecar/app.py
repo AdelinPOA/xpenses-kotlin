@@ -1,8 +1,11 @@
 import os
 import tempfile
+import numpy as np
 from fastapi import FastAPI, File, UploadFile
 from fastapi.responses import JSONResponse
 import easyocr
+from pdf2image import convert_from_path
+from PIL import Image
 
 app = FastAPI(title="xpenses OCR Sidecar")
 
@@ -19,17 +22,33 @@ def health():
 async def scan_receipt(file: UploadFile = File(...)):
     try:
         # Write bytes to a temporary file
-        suffix = os.path.splitext(file.filename)[1] if file.filename else ".tmp"
+        suffix = os.path.splitext(file.filename)[1].lower() if file.filename else ".tmp"
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
             content = await file.read()
             tmp.write(content)
             tmp_path = tmp.name
 
         try:
-            # Run EasyOCR
-            results = reader.readtext(tmp_path)
-            lines = [text for (_bbox, text, _conf) in results]
-            confidences = [conf for (_bbox, _text, conf) in results]
+            lines = []
+            confidences = []
+
+            if suffix == ".pdf":
+                # Convert PDF to images
+                images = convert_from_path(tmp_path)
+                for image in images:
+                    # Convert PIL image to numpy array for EasyOCR
+                    img_np = np.array(image)
+                    results = reader.readtext(img_np)
+                    for (_bbox, text, conf) in results:
+                        lines.append(text)
+                        confidences.append(conf)
+            else:
+                # Run EasyOCR on image
+                results = reader.readtext(tmp_path)
+                for (_bbox, text, conf) in results:
+                    lines.append(text)
+                    confidences.append(conf)
+
             mean_conf = sum(confidences) / len(confidences) if confidences else 0.0
 
             return {

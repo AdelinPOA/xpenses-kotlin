@@ -911,7 +911,7 @@ data class ReportCreate(
 )
 
 data class ReportUpdate(
-    @field:NotBlank val title: String? = null,
+    val title: String? = null,
     @field:Size(max = 1000) val description: String? = null,
     @JsonProperty("date_from") val dateFrom: String? = null,
     @JsonProperty("date_to") val dateTo: String? = null,

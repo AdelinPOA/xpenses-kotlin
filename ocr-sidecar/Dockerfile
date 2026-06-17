@@ -7,6 +7,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1 \
     libglib2.0-0 \
     g++ \
+    poppler-utils \
     && rm -rf /var/lib/apt/lists/*
 
 # Add non-root user ocr and configure home directory

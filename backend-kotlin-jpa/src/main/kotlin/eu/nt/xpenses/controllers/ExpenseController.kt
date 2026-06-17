@@ -673,8 +673,8 @@ data class ExpenseCreate(
     @JsonProperty("tax_amount") val taxAmount: Double = 0.0,
     @JsonProperty("tax_rate") val taxRate: Double? = null,
     @field:NotBlank val date: String,
-    @field:NotBlank val description: String? = null,
-    @field:NotBlank val merchant: String? = null,
+    val description: String? = null,
+    val merchant: String? = null,
     @JsonProperty("raw_ocr_text") val rawOcrText: String? = null,
     @JsonProperty("comparison_id") val comparisonId: Int? = null
 )
@@ -687,8 +687,8 @@ data class ExpenseUpdate(
     @JsonProperty("tax_amount") val taxAmount: Double? = null,
     @JsonProperty("tax_rate") val taxRate: Double? = null,
     val date: String? = null,
-    @field:NotBlank val description: String? = null,
-    @field:NotBlank val merchant: String? = null,
+    val description: String? = null,
+    val merchant: String? = null,
     @JsonProperty("raw_ocr_text") val rawOcrText: String? = null,
     @JsonProperty("comparison_id") val comparisonId: Int? = null
 )

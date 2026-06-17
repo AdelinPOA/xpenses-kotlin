@@ -20,10 +20,17 @@ RUN ./gradlew bootJar --no-daemon
 FROM eclipse-temurin:21-jre-alpine@sha256:704db3c40204a44f471191446ddd9cda5d60dab40f0e15c6507b815ed897238b AS release
 WORKDIR /app
 
+# Install curl for healthchecks + su-exec for privilege dropping
+RUN apk add --no-cache curl su-exec
+
 # Hardened security: Run as non-root user
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
-USER appuser
+
+# Create data directory with correct ownership (for named volume init)
+RUN mkdir -p /app/data/receipts /app/data/signatures && chown -R appuser:appgroup /app/data
 
 COPY --from=builder --chown=appuser:appgroup /workspace/app/build/libs/*.jar /app/app.jar
 EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+
+# Fix volume permissions on startup, then drop to appuser
+ENTRYPOINT ["sh", "-c", "chown -R appuser:appgroup /app/data 2>/dev/null || true; exec su-exec appuser java -jar /app/app.jar"]

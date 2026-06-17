@@ -378,7 +378,8 @@ class OcrService(
         val parts = LinkedMultiValueMap<String, Any>().apply {
             add("files", resource)
             add("backend", "pipeline")
-            add("return_md", "true")
+            add("lang_list", "latin")
+            add("return_md", true)
         }
 
         val headers = HttpHeaders().apply {

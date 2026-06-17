@@ -90,7 +90,7 @@ data class CategoryCreateRequest(
 )
 
 data class CategoryUpdateRequest(
-    @field:NotBlank val name: String? = null,
+    val name: String? = null,
     @JsonProperty("limit_amount") val limitAmount: Double? = null,
     @JsonProperty("is_active") val isActive: Boolean? = null
 )

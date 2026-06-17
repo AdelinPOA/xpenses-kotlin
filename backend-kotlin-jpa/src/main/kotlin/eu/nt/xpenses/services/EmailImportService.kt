@@ -6,8 +6,11 @@ import com.fasterxml.jackson.module.kotlin.readValue
 import eu.nt.xpenses.models.ExpenseReport
 import eu.nt.xpenses.repositories.ExpenseReportRepository
 import eu.nt.xpenses.repositories.UserRepository
+import jakarta.mail.*
+import jakarta.mail.search.FlagTerm
 import org.slf4j.LoggerFactory
 import org.springframework.http.MediaType
+import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.client.RestClient
@@ -22,7 +25,8 @@ class EmailImportService(
     private val userRepository: UserRepository,
     private val expenseReportRepository: ExpenseReportRepository,
     private val ocrService: OcrService,
-    private val objectMapper: ObjectMapper
+    private val objectMapper: ObjectMapper,
+    private val emailSettingsService: EmailSettingsService
 ) {
     private val log = LoggerFactory.getLogger(EmailImportService::class.java)
     private val restClient = RestClient.builder().build()
@@ -101,112 +105,167 @@ class EmailImportService(
             return null
         }
 
-        var customer: String? = null
-        var location: String? = null
-        var order: String? = null
-        var task: String? = null
-
-        val customerKws = listOf("kunde", "customer", "client", "beneficiar")
-        val locationKws = listOf("technplatz", "location", "ort", "locatie", "place", "site", "santier")
-        val orderKws = listOf("kundenauftrag", "auftrag", "order", "comanda", "project", "projekt")
-        val taskKws = listOf("positionstyp", "task", "position", "activitate", "work")
-
-        // Extract Order
-        for (kw in orderKws) {
-            val pattern = Pattern.compile("\\b${Pattern.quote(kw)}\\b", Pattern.CASE_INSENSITIVE)
-            for (line in lines) {
-                val m = pattern.matcher(line)
-                if (m.find()) {
-                    val idx = m.start()
-                    val valPart = line.substring(idx + kw.length).trim().replace(Regex("^[:\\s\\t\\-]+"), "")
-                    if (valPart.isNotEmpty()) {
-                        val codeMatch = Pattern.compile("^(\\w+)").matcher(valPart)
-                        if (codeMatch.find()) {
-                            val code = codeMatch.group(1)
-                            if (code.lowercase() !in setOf("for", "the", "a", "of", "to", "in", "on", "job", "work", "is", "are", "with")) {
-                                order = code
-                                break
+        // Helper: extract value after keyword on the same line
+        fun extractAfterKeyword(lines: List<String>, keywords: List<String>): String? {
+            val wordPat = Pattern.compile("^(\\S+)")
+            for (kw in keywords) {
+                val pattern = Pattern.compile("\\b${Pattern.quote(kw)}\\b", Pattern.CASE_INSENSITIVE)
+                for (line in lines) {
+                    val m = pattern.matcher(line)
+                    if (m.find()) {
+                        val idx = m.start()
+                        val valPart = line.substring(idx + kw.length).trim().replace(Regex("^[:\\s\\t\\-]+"), "")
+                        if (valPart.isNotEmpty()) {
+                            val wordMatch = wordPat.matcher(valPart)
+                            if (wordMatch.find()) {
+                                val word = wordMatch.group(1)
+                                if (word.lowercase() !in setOf("for", "the", "a", "of", "to", "in", "on", "job", "work", "is", "are", "with", "und", "der", "die", "das")) {
+                                    return valPart.replace(Regex("\\s+"), " ").trim()
+                                }
                             }
                         }
                     }
                 }
             }
-            if (order != null) break
+            return null
         }
 
-        // Extract Customer
-        for (kw in customerKws) {
-            val pattern = Pattern.compile("\\b${Pattern.quote(kw)}\\b", Pattern.CASE_INSENSITIVE)
-            for (line in lines) {
-                val m = pattern.matcher(line)
-                if (m.find()) {
-                    val idx = m.start()
-                    val valPart = line.substring(idx + kw.length).trim().replace(Regex("^[:\\s\\t\\-]+"), "")
-                    if (valPart.isNotEmpty()) {
-                        val cleanedVal = valPart.replace(Regex("^\\d+\\s+"), "")
-                        if (cleanedVal.isNotEmpty()) {
-                            customer = cleanedVal
-                            break
+        fun extractMultiTokenAfterKeyword(lines: List<String>, keywords: List<String>): String? {
+            val stopWords = setOf("for", "the", "a", "of", "to", "in", "on", "job", "work", "is", "are", "with", "und", "der", "die", "das")
+            for (kw in keywords) {
+                val pattern = Pattern.compile("\\b${Pattern.quote(kw)}\\b", Pattern.CASE_INSENSITIVE)
+                for (line in lines) {
+                    val m = pattern.matcher(line)
+                    if (m.find()) {
+                        val idx = m.start()
+                        var valPart = line.substring(idx + kw.length).trim().replace(Regex("^[:\\s\\t\\-]+"), "")
+                        if (valPart.isNotEmpty()) {
+                            // Remove leading code-like tokens that are likely not the value
+                            val tokens = valPart.split(Regex("\\s+"))
+                            val filtered = tokens.dropWhile { it.length <= 6 && it.any { c -> c.isDigit() } }
+                            if (filtered.isNotEmpty()) {
+                                valPart = filtered.joinToString(" ")
+                            }
+                            return valPart.replace(Regex("\\s+"), " ").trim()
                         }
                     }
                 }
             }
-            if (customer != null) break
+            return null
         }
 
-        // Extract Location
-        for (kw in locationKws) {
-            val pattern = Pattern.compile("\\b${Pattern.quote(kw)}\\b", Pattern.CASE_INSENSITIVE)
-            for (line in lines) {
-                val m = pattern.matcher(line)
-                if (m.find()) {
-                    val idx = m.start()
-                    val valPart = line.substring(idx + kw.length).trim().replace(Regex("^[:\\s\\t\\-]+"), "")
-                    if (valPart.isNotEmpty()) {
-                        val cleanedVal = valPart.replace(Regex("^[A-Z]\\d+\\s+"), "")
-                        if (cleanedVal.isNotEmpty()) {
-                            location = cleanedVal
-                            break
+        // Extract multi-line address after Adresse keyword
+        fun extractAddress(lines: List<String>): String? {
+            val addrKws = listOf("adresse", "address", "adresă")
+            val knownKwLines = setOf(
+                "kundenauftrag", "auftragsart", "positionstyp", "starttermin", "endtermin",
+                "vorgang", "arbeitsplatz", "techniker", "technplatz", "kunde", "adresse",
+                "address", "adresă", "start date", "end date", "start", "end", "from", "to",
+                "customer", "client", "order", "location", "locatie", "site", "santier", "ort",
+                "task", "activitate", "work", "project", "projekt", "comanda",
+                "kundenauftrag", "auftrag", "kunde"
+            )
+            for (kw in addrKws) {
+                val pattern = Pattern.compile("\\b${Pattern.quote(kw)}\\b", Pattern.CASE_INSENSITIVE)
+                for ((i, line) in lines.withIndex()) {
+                    val m = pattern.matcher(line)
+                    if (m.find()) {
+                        val idx = m.start()
+                        val firstLine = line.substring(idx + kw.length).trim().replace(Regex("^[:\\s\\t\\-]+"), "")
+                        val addrLines = mutableListOf<String>()
+                        if (firstLine.isNotEmpty() && firstLine.length > 3) {
+                            addrLines.add(firstLine)
+                        }
+                        // Collect subsequent non-blank, non-keyword lines
+                        for (j in (i + 1) until lines.size) {
+                            val nextLine = lines[j].trim()
+                            if (nextLine.isEmpty()) break
+                            val lowerNext = nextLine.lowercase()
+                            if (knownKwLines.any { lowerNext.startsWith(it) }) break
+                            addrLines.add(nextLine)
+                        }
+                        if (addrLines.isNotEmpty()) {
+                            return addrLines.joinToString(", ")
                         }
                     }
                 }
             }
-            if (location != null) break
+            return null
         }
 
-        // Extract Task
-        for (kw in taskKws) {
-            val pattern = Pattern.compile("\\b${Pattern.quote(kw)}\\b", Pattern.CASE_INSENSITIVE)
-            for (line in lines) {
-                val m = pattern.matcher(line)
-                if (m.find()) {
-                    val idx = m.start()
-                    val valPart = line.substring(idx + kw.length).trim().replace(Regex("^[:\\s\\t\\-]+"), "")
-                    if (valPart.isNotEmpty()) {
-                        val codeMatch = Pattern.compile("^(\\w+)").matcher(valPart)
-                        if (codeMatch.find() && codeMatch.group(1).lowercase() !in setOf("for", "on", "in", "to", "with", "the", "a")) {
-                            task = valPart
-                            break
-                        }
-                    }
-                }
+        val orderKws = listOf("kundenauftrag", "auftrag", "order", "comanda", "project", "projekt")
+        val auftragsartKws = listOf("auftragsart", "order type", "tip comanda")
+        val positionstypKws = listOf("positionstyp", "position", "task", "activitate", "work", "job type")
+        val vorgangKws = listOf("vorgang", "process", "proces", "operation")
+        val arbeitsplatzKws = listOf("arbeitsplatz", "workplace", "workstation", "loc de munca")
+        val technikerKws = listOf("techniker", "technician", "tehnician")
+        val technplatzKws = listOf("technplatz", "location", "ort", "locatie", "place", "site", "santier")
+        val customerKws = listOf("kunde", "customer", "client", "beneficiar")
+
+        val kundenauftrag = extractAfterKeyword(lines, orderKws)
+        val auftragsart = extractAfterKeyword(lines, auftragsartKws)
+        val positionstyp = extractMultiTokenAfterKeyword(lines, positionstypKws)
+        val vorgang = extractAfterKeyword(lines, vorgangKws)
+        val arbeitsplatz = extractMultiTokenAfterKeyword(lines, arbeitsplatzKws)
+        val techniker = extractAfterKeyword(lines, technikerKws)
+        val technplatzRaw = extractAfterKeyword(lines, technplatzKws)
+        val customerRaw = extractAfterKeyword(lines, customerKws)
+        val adresse = extractAddress(lines)
+
+        // Split customer into code + name
+        var kundeCode: String? = null
+        var kundeName: String? = null
+        if (customerRaw != null) {
+            val codeMatch = Pattern.compile("^(\\d+)\\s+(\\S.*)").matcher(customerRaw.trim())
+            if (codeMatch.find()) {
+                kundeCode = codeMatch.group(1)
+                kundeName = codeMatch.group(2).trim()
+            } else {
+                kundeName = customerRaw.trim()
             }
-            if (task != null) break
         }
 
-        val finalCustomer = customer?.trim()?.replace(Regex("\\s+"), " ") ?: "Unknown Customer"
-        val finalLocation = location?.trim()?.replace(Regex("\\s+"), " ") ?: "Unknown Location"
-        val finalOrder = order?.trim() ?: "Unknown Order"
-        val finalTask = task?.trim()?.replace(Regex("\\s+"), " ") ?: "Installation"
+        // Split TechnPlatz into raw value and line detection
+        var technplatzLine = false
+        var technplatzDisplay = technplatzRaw
+        if (technplatzRaw != null) {
+            val firstToken = technplatzRaw.trim().split(Regex("\\s+")).firstOrNull()
+            if (firstToken != null && Pattern.matches("^C\\d{6,}", firstToken)) {
+                technplatzLine = true
+                technplatzDisplay = firstToken
+            }
+        }
 
-        val title = "Delegation: $finalCustomer ($finalLocation)"
-        val description = "Kundenauftrag: $finalOrder\nLocation: $finalLocation\nTask: $finalTask"
+        val finalCustomerName = kundeName ?: "Unknown Customer"
+        val finalTechnplatz = technplatzDisplay ?: "Unknown Location"
+
+        val title = "Delegation: $finalCustomerName ($finalTechnplatz)".take(200)
+
+        // Build a clean description from structured fields
+        val descParts = mutableListOf<String>()
+        if (kundenauftrag != null) descParts.add("Order: $kundenauftrag")
+        if (auftragsart != null) descParts.add("Type: $auftragsart")
+        if (positionstyp != null) descParts.add("Task: $positionstyp")
+        if (vorgang != null) descParts.add("Process: $vorgang")
+        if (technplatzRaw != null) descParts.add("Location: $technplatzRaw")
+        val description = descParts.joinToString("; ")
 
         return mapOf(
-            "title" to title.take(200),
+            "title" to title,
             "date_from" to dateFrom!!,
             "date_to" to dateTo!!,
-            "description" to description
+            "description" to description,
+            "kundenauftrag" to (kundenauftrag ?: ""),
+            "auftragsart" to (auftragsart ?: ""),
+            "positionstyp" to (positionstyp ?: ""),
+            "technplatz_raw" to (technplatzRaw ?: ""),
+            "technplatz_line" to technplatzLine.toString(),
+            "kunde_code" to (kundeCode ?: ""),
+            "kunde_name" to (kundeName ?: ""),
+            "adresse" to (adresse ?: ""),
+            "vorgang" to (vorgang ?: ""),
+            "arbeitsplatz" to (arbeitsplatz ?: ""),
+            "techniker" to (techniker ?: "")
         )
     }
 
@@ -223,7 +282,18 @@ class EmailImportService(
                                 "title (a concise summary like 'Delegation: [Customer] ([Location])', max 200 characters), " +
                                 "date_from (start date in YYYY-MM-DD format), " +
                                 "date_to (end date in YYYY-MM-DD format), " +
-                                "and description (a brief, human-friendly summary of key details, such as order number, location, and tasks)."
+                                "description (a brief, human-friendly summary of key details), " +
+                                "kundenauftrag (customer order number, e.g. '0007038319'), " +
+                                "auftragsart (order type code, e.g. 'KR20'), " +
+                                "positionstyp (task/position type, e.g. 'Mechanical full installation'), " +
+                                "technplatz_raw (full TechnPlatz value from the email), " +
+                                "technplatz_line (boolean: true if technplatz_raw starts with 'C' followed by 6+ digits), " +
+                                "kunde_code (numeric customer code, e.g. '0022265695'), " +
+                                "kunde_name (customer name without the code), " +
+                                "adresse (full address), " +
+                                "vorgang (process number), " +
+                                "arbeitsplatz (workplace info), " +
+                                "techniker (technician name)."
                             )
                         ),
                         mapOf(
@@ -240,7 +310,18 @@ class EmailImportService(
                         "title" to mapOf("type" to "STRING"),
                         "date_from" to mapOf("type" to "STRING"),
                         "date_to" to mapOf("type" to "STRING"),
-                        "description" to mapOf("type" to "STRING")
+                        "description" to mapOf("type" to "STRING"),
+                        "kundenauftrag" to mapOf("type" to "STRING"),
+                        "auftragsart" to mapOf("type" to "STRING"),
+                        "positionstyp" to mapOf("type" to "STRING"),
+                        "technplatz_raw" to mapOf("type" to "STRING"),
+                        "technplatz_line" to mapOf("type" to "BOOLEAN"),
+                        "kunde_code" to mapOf("type" to "STRING"),
+                        "kunde_name" to mapOf("type" to "STRING"),
+                        "adresse" to mapOf("type" to "STRING"),
+                        "vorgang" to mapOf("type" to "STRING"),
+                        "arbeitsplatz" to mapOf("type" to "STRING"),
+                        "techniker" to mapOf("type" to "STRING")
                     ),
                     "required" to listOf("title", "date_from", "date_to", "description")
                 )
@@ -282,7 +363,18 @@ class EmailImportService(
                 "title" to (result["title"]?.toString() ?: "Delegation Report").take(200),
                 "date_from" to dateFrom,
                 "date_to" to dateTo,
-                "description" to (result["description"]?.toString() ?: "").trim()
+                "description" to (result["description"]?.toString() ?: "").trim(),
+                "kundenauftrag" to (result["kundenauftrag"]?.toString() ?: ""),
+                "auftragsart" to (result["auftragsart"]?.toString() ?: ""),
+                "positionstyp" to (result["positionstyp"]?.toString() ?: ""),
+                "technplatz_raw" to (result["technplatz_raw"]?.toString() ?: ""),
+                "technplatz_line" to (result["technplatz_line"]?.toString() ?: "false"),
+                "kunde_code" to (result["kunde_code"]?.toString() ?: ""),
+                "kunde_name" to (result["kunde_name"]?.toString() ?: ""),
+                "adresse" to (result["adresse"]?.toString() ?: ""),
+                "vorgang" to (result["vorgang"]?.toString() ?: ""),
+                "arbeitsplatz" to (result["arbeitsplatz"]?.toString() ?: ""),
+                "techniker" to (result["techniker"]?.toString() ?: "")
             )
         } catch (e: Exception) {
             log.warn("Gemini email parsing failed: {}", e.message)
@@ -325,6 +417,17 @@ class EmailImportService(
             dateTo = parsed["date_to"],
             status = "draft",
             user = user,
+            kundenauftrag = parsed["kundenauftrag"]?.ifEmpty { null },
+            auftragsart = parsed["auftragsart"]?.ifEmpty { null },
+            positionstyp = parsed["positionstyp"]?.ifEmpty { null },
+            technplatzRaw = parsed["technplatz_raw"]?.ifEmpty { null },
+            technplatzLine = parsed["technplatz_line"]?.toBoolean() ?: false,
+            kundeCode = parsed["kunde_code"]?.ifEmpty { null },
+            kundeName = parsed["kunde_name"]?.ifEmpty { null },
+            adresse = parsed["adresse"]?.ifEmpty { null },
+            vorgang = parsed["vorgang"]?.ifEmpty { null },
+            arbeitsplatz = parsed["arbeitsplatz"]?.ifEmpty { null },
+            techniker = parsed["techniker"]?.ifEmpty { null },
             createdAt = Instant.now(),
             updatedAt = Instant.now()
         )
@@ -393,6 +496,17 @@ class EmailImportService(
             dateTo = finalParsed["date_to"],
             status = "draft",
             user = user,
+            kundenauftrag = finalParsed["kundenauftrag"]?.ifEmpty { null },
+            auftragsart = finalParsed["auftragsart"]?.ifEmpty { null },
+            positionstyp = finalParsed["positionstyp"]?.ifEmpty { null },
+            technplatzRaw = finalParsed["technplatz_raw"]?.ifEmpty { null },
+            technplatzLine = finalParsed["technplatz_line"]?.toBoolean() ?: false,
+            kundeCode = finalParsed["kunde_code"]?.ifEmpty { null },
+            kundeName = finalParsed["kunde_name"]?.ifEmpty { null },
+            adresse = finalParsed["adresse"]?.ifEmpty { null },
+            vorgang = finalParsed["vorgang"]?.ifEmpty { null },
+            arbeitsplatz = finalParsed["arbeitsplatz"]?.ifEmpty { null },
+            techniker = finalParsed["techniker"]?.ifEmpty { null },
             createdAt = Instant.now(),
             updatedAt = Instant.now()
         )
@@ -408,5 +522,104 @@ class EmailImportService(
             "active_parser" to if (useGemini) "gemini" else "local",
             "user_display_name" to user.displayName
         )
+    }
+
+    @Scheduled(fixedDelayString = "\${imap.poll-interval:300000}")
+    fun pollAndProcessEmails() {
+        val config = emailSettingsService.getImapConfig()
+        if (!config.enabled || config.imapHost.isBlank() || config.imapUser.isBlank()) {
+            return
+        }
+        log.info("Starting scheduled IMAP polling on host: {}, user: {}", config.imapHost, config.imapUser)
+
+        var store: Store? = null
+        var folder: Folder? = null
+        try {
+            val props = java.util.Properties().apply {
+                put("mail.imap.connectiontimeout", "10000")
+                put("mail.imap.timeout", "10000")
+                put("mail.imap.ssl.enable", (config.imapPort == 993).toString())
+            }
+            val session = Session.getInstance(props)
+            val protocol = if (config.imapPort == 993) "imaps" else "imap"
+            store = session.getStore(protocol)
+            store.connect(config.imapHost, config.imapPort, config.imapUser, config.imapPass)
+
+            folder = store.getFolder(config.imapFolder)
+            if (!folder.exists()) {
+                log.warn("IMAP folder '{}' does not exist", config.imapFolder)
+                return
+            }
+            folder.open(Folder.READ_WRITE)
+
+            val unseenTerm = FlagTerm(Flags(Flags.Flag.SEEN), false)
+            val messages = folder.search(unseenTerm)
+            log.info("Found {} unseen emails to process", messages.size)
+
+            for (message in messages) {
+                try {
+                    val fromAddresses = message.from
+                    val fromAddress = fromAddresses?.firstOrNull()?.toString() ?: continue
+                    val bodyText = getTextFromMessage(message)
+
+                    log.info("Processing email from: {}", fromAddress)
+                    val processed = processIncomingEmail(fromAddress, bodyText)
+                    if (processed) {
+                        log.info("Successfully processed email from {}", fromAddress)
+                        message.setFlag(Flags.Flag.SEEN, true)
+                    } else {
+                        log.info("Email from {} was not processed (e.g. user not found or no delegation patterns)", fromAddress)
+                        message.setFlag(Flags.Flag.SEEN, true)
+                    }
+                } catch (e: Exception) {
+                    log.error("Failed to process message: {}", e.message, e)
+                }
+            }
+        } catch (e: Exception) {
+            log.error("Error during IMAP polling: {}", e.message)
+        } finally {
+            try {
+                folder?.close(true)
+            } catch (e: Exception) {
+                // ignore
+            }
+            try {
+                store?.close()
+            } catch (e: Exception) {
+                // ignore
+            }
+        }
+    }
+
+    private fun getTextFromMessage(message: Message): String {
+        return when {
+            message.isMimeType("text/plain") -> message.content.toString()
+            message.isMimeType("text/html") -> message.content.toString()
+            message.isMimeType("multipart/*") -> {
+                val mimeMultipart = message.content as Multipart
+                getTextFromMimeMultipart(mimeMultipart)
+            }
+            else -> ""
+        }
+    }
+
+    private fun getTextFromMimeMultipart(mimeMultipart: Multipart): String {
+        val result = StringBuilder()
+        val count = mimeMultipart.count
+        for (i in 0 until count) {
+            val bodyPart = mimeMultipart.getBodyPart(i)
+            when {
+                bodyPart.isMimeType("text/plain") -> {
+                    result.append(bodyPart.content.toString())
+                }
+                bodyPart.isMimeType("text/html") -> {
+                    result.append(bodyPart.content.toString())
+                }
+                bodyPart.content is Multipart -> {
+                    result.append(getTextFromMimeMultipart(bodyPart.content as Multipart))
+                }
+            }
+        }
+        return result.toString()
     }
 }

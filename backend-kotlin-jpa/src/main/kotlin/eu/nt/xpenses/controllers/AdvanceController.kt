@@ -5,9 +5,14 @@ import eu.nt.xpenses.models.*
 import eu.nt.xpenses.repositories.*
 import eu.nt.xpenses.services.FxService
 import jakarta.servlet.http.HttpServletRequest
+import jakarta.validation.Valid
+import jakarta.validation.constraints.Min
+import jakarta.validation.constraints.NotBlank
+import jakarta.validation.constraints.Pattern
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.security.access.prepost.PreAuthorize
+import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.bind.annotation.*
 import org.springframework.web.server.ResponseStatusException
 import java.math.BigDecimal
@@ -35,27 +40,27 @@ class AdvanceController(
     @GetMapping("/api/reports/{reportId}/advances")
     fun listAdvances(
         @PathVariable reportId: Int,
-        @RequestParam(value = "status", required = false) status: String?,
         request: HttpServletRequest
     ): List<AdvancePaymentOut> {
         val currentUser = request.getAttribute("currentUser") as? User
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
 
-        verifyReportOwnership(reportId, currentUser)
+        val report = verifyReportOwnership(reportId, currentUser)
+        val advances = advancePaymentRepository.findAllByReportId(reportId)
 
-        val advances = if (status != null) {
-            advancePaymentRepository.findAllByReportId(reportId).filter { it.status == status }
-        } else {
-            advancePaymentRepository.findAllByReportId(reportId)
+        // Scoping: technicians see only their own advances
+        if (currentUser.role !in listOf("chef_finance", "mod", "manager") && report.user?.id != currentUser.id) {
+            throw ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden")
         }
 
         return advances.sortedBy { it.date }.map { mapAdvanceToOut(it) }
     }
 
     @PostMapping("/api/reports/{reportId}/advances")
+    @Transactional
     fun createAdvance(
         @PathVariable reportId: Int,
-        @RequestBody body: AdvancePaymentCreate,
+        @Valid @RequestBody body: AdvancePaymentCreate,
         request: HttpServletRequest
     ): ResponseEntity<AdvancePaymentOut> {
         val currentUser = request.getAttribute("currentUser") as? User
@@ -134,10 +139,11 @@ class AdvanceController(
     }
 
     @PatchMapping("/api/reports/{reportId}/advances/{advanceId}")
+    @Transactional
     fun updateAdvance(
         @PathVariable reportId: Int,
         @PathVariable advanceId: Int,
-        @RequestBody body: AdvancePaymentUpdate,
+        @Valid @RequestBody body: AdvancePaymentUpdate,
         request: HttpServletRequest
     ): AdvancePaymentOut {
         val currentUser = request.getAttribute("currentUser") as? User
@@ -192,6 +198,7 @@ class AdvanceController(
 
     @DeleteMapping("/api/reports/{reportId}/advances/{advanceId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Transactional
     fun deleteAdvance(
         @PathVariable reportId: Int,
         @PathVariable advanceId: Int,
@@ -233,10 +240,11 @@ class AdvanceController(
     }
 
     @PostMapping("/api/reports/{reportId}/advances/{advanceId}/pay")
+    @Transactional
     fun payAdvance(
         @PathVariable reportId: Int,
         @PathVariable advanceId: Int,
-        @RequestBody body: AdvancePayBody,
+        @Valid @RequestBody body: AdvancePayBody,
         request: HttpServletRequest
     ): AdvancePaymentOut {
         val currentUser = request.getAttribute("currentUser") as? User
@@ -284,10 +292,11 @@ class AdvanceController(
     }
 
     @PostMapping("/api/reports/{reportId}/advances/{advanceId}/reject")
+    @Transactional
     fun rejectAdvance(
         @PathVariable reportId: Int,
         @PathVariable advanceId: Int,
-        @RequestBody(required = false) body: AdvanceRejectBody?,
+        @Valid @RequestBody(required = false) body: AdvanceRejectBody?,
         request: HttpServletRequest
     ): AdvancePaymentOut {
         val currentUser = request.getAttribute("currentUser") as? User
@@ -339,8 +348,8 @@ class AdvanceController(
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden")
         }
 
-        val pending = advancePaymentRepository.findAllByStatus("requested")
-        return pending.map { mapAdvanceToPendingOut(it) }
+        val advances = advancePaymentRepository.findAllByStatus("requested")
+        return advances.sortedByDescending { it.createdAt }.map { mapPendingAdvanceToOut(it) }
     }
 
     private fun mapAdvanceToOut(adv: AdvancePayment): AdvancePaymentOut {
@@ -368,7 +377,7 @@ class AdvanceController(
         )
     }
 
-    private fun mapAdvanceToPendingOut(adv: AdvancePayment): PendingAdvanceOut {
+    private fun mapPendingAdvanceToOut(adv: AdvancePayment): PendingAdvanceOut {
         return PendingAdvanceOut(
             id = adv.id!!,
             reportId = adv.report.id!!,
@@ -397,24 +406,24 @@ class AdvanceController(
 }
 
 data class AdvancePaymentCreate(
-    val type: String = "paid",
-    val amount: Double,
-    val currency: String = "EUR",
+    @field:NotBlank val type: String = "paid",
+    @field:Min(0) val amount: Double,
+    @field:NotBlank @field:Pattern(regexp = "^[A-Z]{3}$") val currency: String = "EUR",
     val date: String? = null,
     val description: String? = null
 )
 
 data class AdvancePaymentUpdate(
-    val amount: Double? = null,
-    val currency: String? = null,
+    @field:Min(0) val amount: Double? = null,
+    @field:Pattern(regexp = "^[A-Z]{3}$") val currency: String? = null,
     val date: String? = null,
     val description: String? = null
 )
 
 data class AdvancePayBody(
-    val amount: Double,
-    val currency: String = "EUR",
-    val date: String
+    @field:Min(0) val amount: Double,
+    @field:NotBlank @field:Pattern(regexp = "^[A-Z]{3}$") val currency: String = "EUR",
+    @field:NotBlank val date: String
 )
 
 data class AdvanceRejectBody(

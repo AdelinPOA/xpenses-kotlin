@@ -7,6 +7,7 @@ import { reportKeys, expenseKeys, dashboardKeys } from "@/lib/queryKeys";
 import AppShell from "@/components/layout/AppShell";
 import Badge from "@/components/ui/Badge";
 import EmptyState from "@/components/ui/EmptyState";
+import { useToast } from "@/components/ToastProvider";
 import { AlertTriangle, ArrowLeft, Check, DollarSign, FileDown, FolderDown, PenLine, Pencil, Plus, Send, Undo2, X } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/components/AuthProvider";
@@ -19,19 +20,22 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
   const { id } = use(params);
   const qc = useQueryClient();
   const { user } = useAuth();
+  const toast = useToast();
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [mutationError, setMutationError] = useState("");
   const [showRejectInput, setShowRejectInput] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
   const [exporting, setExporting] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
 
   async function handleExportExpenses(format: "csv" | "xlsx") {
     setExporting(true);
+    setExportOpen(false);
     try {
       const today = new Date().toISOString().slice(0, 10);
       await downloadBlob(`/reports/${id}/export-csv`, { format }, `report_${id}_expenses_${today}.${format}`);
     } catch {
-      alert("Export failed. Please try again.");
+      toast.error("Export failed. Please try again.");
     } finally {
       setExporting(false);
     }
@@ -210,31 +214,38 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
               <FolderDown className="w-4 h-4" />
               Download receipts
             </a>
-            <div className="relative group">
+            <div className="relative">
               <button
                 disabled={exporting}
-                className="flex items-center gap-2 px-3 py-1.5 border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 text-sm font-medium rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50"
+                onClick={() => setExportOpen((v) => !v)}
+                aria-expanded={exportOpen}
+                className="flex items-center gap-2 px-3 py-1.5 border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 text-sm font-medium rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50 cursor-pointer"
               >
                 <FileDown className="w-4 h-4" />
                 {exporting ? "Exporting…" : "Export expenses"}
               </button>
-              <div className="absolute right-0 top-full mt-1 w-36 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg hidden group-hover:block z-10">
-                <button
-                  onClick={() => handleExportExpenses("csv")}
-                  className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-t-lg"
-                >
-                  Download CSV
-                </button>
-                <button
-                  onClick={() => handleExportExpenses("xlsx")}
-                  className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-b-lg"
-                >
-                  Download XLSX
-                </button>
-              </div>
+              {exportOpen && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setExportOpen(false)} />
+                  <div className="absolute right-0 top-full mt-1 w-36 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg z-20">
+                    <button
+                      onClick={() => handleExportExpenses("csv")}
+                      className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-t-lg"
+                    >
+                      Download CSV
+                    </button>
+                    <button
+                      onClick={() => handleExportExpenses("xlsx")}
+                      className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-b-lg"
+                    >
+                      Download XLSX
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
             {!report.signed_at && user && report.user_id === user.id && (
-              user.signature_path ? (
+              user.has_signature ? (
                 <button
                   onClick={() => sign.mutate()}
                   disabled={sign.isPending}

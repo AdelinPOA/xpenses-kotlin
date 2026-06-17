@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import Link from "next/link";
 import api, { Report, downloadBlob } from "@/lib/api";
 import { reportKeys, dashboardKeys } from "@/lib/queryKeys";
@@ -10,8 +10,9 @@ import Badge from "@/components/ui/Badge";
 import EmptyState from "@/components/ui/EmptyState";
 import { Plus, Trash2, Eye, Send, ChevronUp, ChevronDown, Search, Download } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
+import { useToast } from "@/components/ToastProvider";
 import clsx from "clsx";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 function formatEur(amount: number) {
   return new Intl.NumberFormat("en-EU", { style: "currency", currency: "EUR" }).format(amount);
@@ -20,11 +21,14 @@ function formatEur(amount: number) {
 type SortKey = "title" | "total" | "submitted_at";
 type SortDir = "asc" | "desc";
 
-export default function ReportsPage() {
+function ReportsPageContent() {
   const { user } = useAuth();
   const qc = useQueryClient();
   const router = useRouter();
+  const toast = useToast();
+  const searchParams = useSearchParams();
   const [statusFilter, setStatusFilter] = useState("");
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [showAll, setShowAll] = useState(false);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -33,9 +37,15 @@ export default function ReportsPage() {
   const [ownerFilter, setOwnerFilter] = useState("");
   const [delError, setDelError] = useState("");
   const [exporting, setExporting] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isPrivileged = user?.role === "chef_finance" || user?.role === "mod" || user?.role === "manager";
+
+  useEffect(() => {
+    const status = searchParams.get("status");
+    if (status) setStatusFilter(status);
+  }, [searchParams]);
 
   useEffect(() => {
     if (isPrivileged && user?.role === "manager") setShowAll(true);
@@ -75,6 +85,7 @@ export default function ReportsPage() {
 
   async function handleExport(format: "csv" | "xlsx") {
     setExporting(true);
+    setExportOpen(false);
     try {
       const today = new Date().toISOString().slice(0, 10);
       await downloadBlob(
@@ -83,7 +94,7 @@ export default function ReportsPage() {
         `reports_${today}.${format}`
       );
     } catch {
-      alert("Export failed. Please try again.");
+      toast.error("Export failed. Please try again.");
     } finally {
       setExporting(false);
     }
@@ -152,28 +163,35 @@ export default function ReportsPage() {
               {showAll ? "Show My Reports" : "Show All Reports"}
             </button>
           )}
-          <div className="relative group">
+          <div className="relative">
             <button
               disabled={exporting}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 disabled:opacity-50"
+              onClick={() => setExportOpen((v) => !v)}
+              aria-expanded={exportOpen}
+              className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 disabled:opacity-50 cursor-pointer"
             >
               <Download className="w-4 h-4" />
               {exporting ? "Exporting…" : "Export"}
             </button>
-            <div className="absolute right-0 top-full mt-1 w-36 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg hidden group-hover:block z-10">
-              <button
-                onClick={() => handleExport("csv")}
-                className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-t-lg"
-              >
-                Download CSV
-              </button>
-              <button
-                onClick={() => handleExport("xlsx")}
-                className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-b-lg"
-              >
-                Download XLSX
-              </button>
-            </div>
+            {exportOpen && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setExportOpen(false)} />
+                <div className="absolute right-0 top-full mt-1 w-36 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg z-20">
+                  <button
+                    onClick={() => handleExport("csv")}
+                    className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-t-lg"
+                  >
+                    Download CSV
+                  </button>
+                  <button
+                    onClick={() => handleExport("xlsx")}
+                    className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-b-lg"
+                  >
+                    Download XLSX
+                  </button>
+                </div>
+              </>
+            )}
           </div>
           <Link
             href="/reports/new"
@@ -343,11 +361,7 @@ export default function ReportsPage() {
                               <Send className="w-4 h-4 text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400" />
                             </button>
                             <button
-                              onClick={() => {
-                                if (window.confirm(`Delete report "${r.title}"?`)) {
-                                  del.mutate(r.id);
-                                }
-                              }}
+                              onClick={() => setConfirmDeleteId(r.id)}
                               disabled={del.isPending}
                             >
                               <Trash2 className="w-4 h-4 text-slate-400 hover:text-red-500" />
@@ -363,6 +377,46 @@ export default function ReportsPage() {
           </div>
         )}
       </div>
+
+      {confirmDeleteId !== null && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xl max-w-sm w-full p-6 space-y-4">
+            <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Delete Report</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              Are you sure you want to delete this report? This action is permanent and cannot be undone.
+            </p>
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                onClick={() => setConfirmDeleteId(null)}
+                className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-lg transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  del.mutate(confirmDeleteId);
+                  setConfirmDeleteId(null);
+                }}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-lg transition-colors cursor-pointer"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AppShell>
+  );
+}
+
+export default function ReportsPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    }>
+      <ReportsPageContent />
+    </Suspense>
   );
 }

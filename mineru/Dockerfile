@@ -1,11 +1,8 @@
 # MinerU 2.5 — CPU-only API server
 # Uses the "pipeline" backend (no GPU/CUDA required).
 # Starts mineru-api on port 8000.
-#
-# Build: docker compose --profile mineru build mineru
-# Run:   docker compose --profile mineru up mineru
 
-FROM python:3.11-slim
+FROM python:3.11-slim@sha256:ae52c5bef62a6bdd42cd1e8dffef86b9cd284bde9427da79839de7a4b983e7ca
 
 # System dependencies for image/PDF processing
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -19,14 +16,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         fonts-noto-core \
     && rm -rf /var/lib/apt/lists/*
 
+# Add non-root user mineru
+RUN useradd -u 1000 -m mineru
+
 # Install uv for fast dependency resolution
 RUN pip install --no-cache-dir uv
 
 # Install MinerU with all extras (pipeline + api server)
 RUN uv pip install --system --no-cache "mineru[all]"
 
-# Pre-download models at build time so first scan isn't slow.
-# This runs the MinerU model downloader in pipeline (CPU) mode.
+# Download models as user mineru
+USER mineru
+WORKDIR /home/mineru
+
 RUN python -c "from mineru.utils.download_models import download_models_hf; download_models_hf()" || true
 
 EXPOSE 8000

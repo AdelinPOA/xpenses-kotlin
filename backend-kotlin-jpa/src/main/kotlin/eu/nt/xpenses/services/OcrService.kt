@@ -152,10 +152,11 @@ class OcrService(
     }
 
     fun testGeminiConnection(apiKey: String): Map<String, Any> {
-        val url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash?key=$apiKey"
+        val url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash"
         return try {
             val response = restClient.get()
                 .uri(url)
+                .header("x-goog-api-key", apiKey)
                 .retrieve()
                 .toEntity(String::class.java)
             if (response.statusCode.is2xxSuccessful) {
@@ -468,7 +469,7 @@ class OcrService(
         categories: List<eu.nt.xpenses.models.Category>
     ): Map<String, Any?> {
         val b64Data = Base64.getEncoder().encodeToString(fileBytes)
-        val url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$apiKey"
+        val url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
         val categoriesStr = categories.joinToString(", ") { "${it.id}: ${it.name}" }
 
         val payload = mapOf(
@@ -516,6 +517,7 @@ class OcrService(
 
         val response = restClient.post()
             .uri(url)
+            .header("x-goog-api-key", apiKey)
             .contentType(MediaType.APPLICATION_JSON)
             .body(payload)
             .retrieve()

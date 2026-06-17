@@ -1,6 +1,6 @@
 services:
   db:
-    image: postgres:16-alpine
+    image: postgres:16-alpine@sha256:16bc17c64a573ef34162af9298258d1aec548232985b33ed7b1eac33ba35c229
     container_name: xpenses-db
     environment:
       POSTGRES_USER: xpenses
@@ -8,10 +8,13 @@ services:
       POSTGRES_DB: xpenses
     volumes:
       - pgdata:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
     networks:
       - xpenses-net
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1024M
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U xpenses"]
       interval: 5s
@@ -19,6 +22,7 @@ services:
       retries: 5
 
   backend:
+    image: xpenses-backend:latest
     build:
       context: ./backend-kotlin-jpa
       dockerfile: Dockerfile
@@ -33,20 +37,30 @@ services:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/xpenses
       - SPRING_DATASOURCE_USERNAME=xpenses
       - SPRING_DATASOURCE_PASSWORD=xpenses
-      - JWT_SECRET=dev-secret-change-in-production
+      - SEED_DEMO_USERS=${SEED_DEMO_USERS:-true}
     depends_on:
       db:
         condition: service_healthy
       ocr-sidecar:
-        condition: service_started
+        condition: service_healthy
     volumes:
-      - /home/poa/xpenses-kotlin:/home/poa/xpenses-kotlin
       - xpenses-data:/app/data
-      - ocr-models:/root/.EasyOCR
     networks:
       - xpenses-net
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1024M
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
 
   frontend:
+    image: xpenses-frontend:latest
     build:
       context: ./frontend
       dockerfile: Dockerfile
@@ -54,14 +68,20 @@ services:
     ports:
       - "3001:3000"
     environment:
-      - NODE_ENV=development
+      - NODE_ENV=production
       - NEXT_PUBLIC_API_URL=http://localhost:8001/api
       - INTERNAL_API_URL=http://backend:8080/api
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-      - /app/.next
-    command: npm run dev
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     networks:
       - xpenses-net
 
@@ -70,6 +90,7 @@ services:
   # Or rebuild:  docker compose --profile mineru build mineru
   # Accessible from backend container at: http://mineru:8000
   mineru:
+    image: xpenses-mineru:latest
     build:
       context: ./mineru
       dockerfile: Dockerfile
@@ -79,10 +100,15 @@ services:
     ports:
       - "8002:8000"   # optional: reach from host at http://localhost:8002
     volumes:
-      - mineru-models:/root/.cache   # cache downloaded models between restarts
+      - mineru-models:/home/mineru/.cache   # cache downloaded models between restarts
     networks:
       - xpenses-net
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4096M
     healthcheck:
       test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/docs')\" || exit 1"]
       interval: 30s
@@ -91,17 +117,21 @@ services:
       start_period: 60s  # give time for models to load on first start
 
   ocr-sidecar:
+    image: xpenses-ocr-sidecar:latest
     build:
       context: ./ocr-sidecar
       dockerfile: Dockerfile
     container_name: xpenses-ocr-sidecar
-    ports:
-      - "8004:5000"
     volumes:
-      - ocr-models:/root/.EasyOCR
+      - ocr-models:/home/ocr/.EasyOCR
     networks:
       - xpenses-net
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2048M
     healthcheck:
       test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:5000/health')\" || exit 1"]
       interval: 10s

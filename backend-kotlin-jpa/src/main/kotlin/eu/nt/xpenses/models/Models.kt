@@ -3,6 +3,7 @@ package eu.nt.xpenses.models
 import com.fasterxml.jackson.annotation.JsonBackReference
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonManagedReference
+import com.fasterxml.jackson.annotation.JsonProperty
 import jakarta.persistence.*
 import java.math.BigDecimal
 import java.time.Instant
@@ -138,6 +139,19 @@ class ExpenseReport(
 
     @Column(name = "updated_at", nullable = false)
     var updatedAt: Instant = Instant.now(),
+
+    // Delegation email import fields
+    var kundenauftrag: String? = null,
+    var auftragsart: String? = null,
+    var positionstyp: String? = null,
+    @JsonProperty("technplatz_raw") var technplatzRaw: String? = null,
+    @JsonProperty("technplatz_line") var technplatzLine: Boolean = false,
+    @JsonProperty("kunde_code") var kundeCode: String? = null,
+    @JsonProperty("kunde_name") var kundeName: String? = null,
+    var adresse: String? = null,
+    var vorgang: String? = null,
+    var arbeitsplatz: String? = null,
+    var techniker: String? = null,
 
     @JsonManagedReference("report-expenses")
     @OneToMany(mappedBy = "report", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.LAZY)

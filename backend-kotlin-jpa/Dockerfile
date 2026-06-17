@@ -1,5 +1,5 @@
 # ── Stage 1: Build & Compile using JDK 21 ──
-FROM eclipse-temurin:21-jdk-alpine AS builder
+FROM eclipse-temurin:21-jdk-alpine@sha256:4fb80de7aeb277ad949cfbe89b4f504e50bb34c57fd908c5825236473d71e986 AS builder
 
 WORKDIR /workspace/app
 
@@ -17,7 +17,7 @@ COPY src src
 RUN ./gradlew bootJar --no-daemon
 
 # ── Stage 2: Minimal JRE 21 Runtime ──
-FROM eclipse-temurin:21-jre-alpine AS release
+FROM eclipse-temurin:21-jre-alpine@sha256:704db3c40204a44f471191446ddd9cda5d60dab40f0e15c6507b815ed897238b AS release
 WORKDIR /app
 
 # Hardened security: Run as non-root user

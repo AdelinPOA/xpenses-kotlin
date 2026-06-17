@@ -1,10 +1,12 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import api, { Category } from "@/lib/api";
 import { categoryKeys } from "@/lib/queryKeys";
 import AppShell from "@/components/layout/AppShell";
+import { useAuth } from "@/components/AuthProvider";
 import EmptyState from "@/components/ui/EmptyState";
 import { Plus, Pencil, X } from "lucide-react";
 
@@ -19,6 +21,8 @@ interface FormState {
 }
 
 export default function CategoriesPage() {
+  const { user, loading } = useAuth();
+  const router = useRouter();
   const qc = useQueryClient();
   const [editId, setEditId] = useState<number | null>(null);
   const [showNew, setShowNew] = useState(false);
@@ -66,6 +70,24 @@ export default function CategoriesPage() {
     setForm({ name: "", limit_amount: "" });
     setError("");
   };
+
+  useEffect(() => {
+    if (!loading && (!user || user.role !== "mod")) router.replace("/dashboard");
+  }, [user, loading, router]);
+
+  if (loading) {
+    return (
+      <AppShell>
+        <div className="flex items-center justify-center min-h-[50vh]">
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (!user || user.role !== "mod") {
+    return null;
+  }
 
   return (
     <AppShell>

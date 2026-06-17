@@ -3,6 +3,7 @@ package eu.nt.xpenses.config
 import eu.nt.xpenses.models.*
 import eu.nt.xpenses.repositories.*
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.CommandLineRunner
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder
 import org.springframework.stereotype.Component
@@ -17,7 +18,8 @@ class DataInitializer(
     private val expenseReportRepository: ExpenseReportRepository,
     private val expenseRepository: ExpenseRepository,
     private val appSettingRepository: AppSettingRepository,
-    private val passwordEncoder: BCryptPasswordEncoder
+    private val passwordEncoder: BCryptPasswordEncoder,
+    @Value("\${seed.demo.users:false}") private val seedDemoUsers: Boolean
 ) : CommandLineRunner {
 
     private val log = LoggerFactory.getLogger(DataInitializer::class.java)
@@ -50,8 +52,8 @@ class DataInitializer(
             appSettingRepository.save(AppSetting("mileage_rate_after_tax", "0.40"))
         }
 
-        // 3. Seed users
-        if (userRepository.count() == 0L) {
+        // 3. Seed users (only when SEED_DEMO_USERS=true)
+        if (seedDemoUsers && userRepository.count() == 0L) {
             val users = listOf(
                 User(
                     username = "tech1",
@@ -86,8 +88,8 @@ class DataInitializer(
             log.info("Seeded default users")
         }
 
-        // 4. Seed sample reports and expenses for tech1 if no reports exist
-        if (expenseReportRepository.count() == 0L) {
+        // 4. Seed sample reports and expenses for tech1 if no reports exist (demo only)
+        if (seedDemoUsers && expenseReportRepository.count() == 0L) {
             val tech1 = userRepository.findByUsername("tech1")
             val transportCategory = categoryRepository.findByName("Transport")
             val foodCategory = categoryRepository.findByName("Meals & Food")

@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api, { API_BASE_URL } from "@/lib/api";
 import AppShell from "@/components/layout/AppShell";
@@ -11,6 +11,7 @@ export default function SignaturePage() {
   const queryClient = useQueryClient();
   const [message, setMessage] = useState<string | null>(null);
   const [cacheBuster, setCacheBuster] = useState(() => Date.now());
+  const messageTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const signatureQuery = useQuery({
     queryKey: ["signature"],
@@ -20,9 +21,16 @@ export default function SignaturePage() {
 
   const hasSignature = signatureQuery.isSuccess;
 
+  useEffect(() => {
+    return () => {
+      if (messageTimeoutRef.current) clearTimeout(messageTimeoutRef.current);
+    };
+  }, []);
+
   function showMessage(text: string) {
     setMessage(text);
-    setTimeout(() => setMessage(null), 3000);
+    if (messageTimeoutRef.current) clearTimeout(messageTimeoutRef.current);
+    messageTimeoutRef.current = setTimeout(() => setMessage(null), 3000);
   }
 
   const saveMutation = useMutation({

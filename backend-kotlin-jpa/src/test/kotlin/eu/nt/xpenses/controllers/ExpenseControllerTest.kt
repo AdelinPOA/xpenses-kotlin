@@ -48,7 +48,7 @@ class ExpenseControllerTest : IntegrationTestBase() {
         mockMvc.perform(
             post("/api/expenses")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("""{"category_id":${cat.id},"amount":75.0,"currency":"EUR","date":"2026-06-10","description":"Lunch"}""")
+                .content("""{"category_id":${cat.id},"amount":75.0,"currency":"EUR","date":"2026-06-10","description":"Lunch","merchant":"Cafe"}""")
                 .cookie(cookie)
         )
             .andExpect(status().isCreated)

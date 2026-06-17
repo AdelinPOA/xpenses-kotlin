@@ -26,6 +26,12 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
+    if (error.response?.data) {
+      const data = error.response.data;
+      if (data.detail === undefined || data.detail === null) {
+        data.detail = data.message ?? data.error;
+      }
+    }
     if (error.response?.status === 401 && !originalRequest._retry) {
       if (originalRequest.url === "/auth/refresh" || originalRequest.url === "/auth/login") {
         return Promise.reject(error);
@@ -223,7 +229,7 @@ export interface User {
   role: "technician" | "manager" | "chef_finance" | "mod";
   is_active: boolean;
   auth_source: "local" | "ldap";
-  signature_path: string | null;
+  has_signature?: boolean;
   notifications_enabled?: boolean;
   created_at: string;
   updated_at: string;

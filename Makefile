@@ -1,4 +1,4 @@
-.PHONY: up down rebuild logs build test-health
+.PHONY: up down rebuild logs build test-health check-java-version
 
 up:
 	docker compose up -d --build
@@ -12,8 +12,18 @@ rebuild:
 logs:
 	docker compose logs -f backend
 
+# Check JDK version (Kotlin 2.1.0 requires JDK 21 or 22)
+check-java-version:
+	@java_version=$$(java -version 2>&1 | head -1 | sed 's/.*version "\([0-9]*\)\..*/\1/'); \
+	if [ "$$java_version" -ne 21 ] && [ "$$java_version" -ne 22 ]; then \
+		echo "ERROR: Kotlin 2.1.0 requires JDK 21 or 22 (detected JDK $$java_version)"; \
+		echo "Install JDK 21 via SDKMAN!: sdk install java 21.0.8-tem"; \
+		echo "Or use Docker: make docker-build"; \
+		exit 1; \
+	fi
+
 # Build the Kotlin JAR locally (requires JDK 21)
-build:
+build: check-java-version
 	cd backend-kotlin-jpa && ./gradlew bootJar --no-daemon
 
 # Smoke-test the running backend

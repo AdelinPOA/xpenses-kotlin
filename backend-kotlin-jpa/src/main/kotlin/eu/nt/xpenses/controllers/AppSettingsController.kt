@@ -1,12 +1,19 @@
 package eu.nt.xpenses.controllers
 
 import com.fasterxml.jackson.annotation.JsonProperty
+import com.fasterxml.jackson.databind.ObjectMapper
 import eu.nt.xpenses.models.AppSetting
 import eu.nt.xpenses.repositories.AppSettingRepository
+import eu.nt.xpenses.repositories.ReceiptRepository
 import eu.nt.xpenses.services.*
+import jakarta.validation.Valid
+import jakarta.validation.constraints.Min
+import jakarta.validation.constraints.NotBlank
 import org.springframework.http.ResponseEntity
 import org.springframework.security.access.prepost.PreAuthorize
+import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.bind.annotation.*
+import java.io.File
 import java.time.Instant
 
 @RestController
@@ -16,8 +23,25 @@ class AppSettingsController(
     private val ocrService: OcrService,
     private val emailSettingsService: EmailSettingsService,
     private val storageService: StorageService,
-    private val emailImportService: EmailImportService
+    private val emailImportService: EmailImportService,
+    private val receiptRepository: ReceiptRepository,
+    private val objectMapper: ObjectMapper
 ) {
+
+    private fun listLocalFiles(baseDir: File, currentDir: File): List<String> {
+        val files = mutableListOf<String>()
+        val list = currentDir.listFiles() ?: return emptyList()
+        for (f in list) {
+            if (f.isDirectory) {
+                if (f.name == "cache") continue // Skip cache directory used by remote storage providers
+                files.addAll(listLocalFiles(baseDir, f))
+            } else {
+                val rel = f.relativeTo(baseDir).path.replace('\\', '/')
+                files.add(rel)
+            }
+        }
+        return files
+    }
 
     // --- Daily Allowance Rate ---
     @GetMapping("/daily-allowance-rate")
@@ -28,7 +52,8 @@ class AppSettingsController(
 
     @PatchMapping("/daily-allowance-rate")
     @PreAuthorize("hasRole('chef_finance')")
-    fun updateDailyAllowanceRate(@RequestBody body: DailyAllowanceUpdate): ResponseEntity<DailyAllowanceOut> {
+    @Transactional
+    fun updateDailyAllowanceRate(@Valid @RequestBody body: DailyAllowanceUpdate): ResponseEntity<DailyAllowanceOut> {
         if (body.dailyAllowanceRate < 0) {
             return ResponseEntity.badRequest().build()
         }
@@ -46,7 +71,8 @@ class AppSettingsController(
 
     @PatchMapping("/mileage-rates")
     @PreAuthorize("hasRole('chef_finance')")
-    fun updateMileageRates(@RequestBody body: MileageRatesUpdate): ResponseEntity<MileageRatesOut> {
+    @Transactional
+    fun updateMileageRates(@Valid @RequestBody body: MileageRatesUpdate): ResponseEntity<MileageRatesOut> {
         val now = Instant.now()
         if (body.mileageRateBeforeTax != null) {
             appSettingRepository.save(AppSetting("mileage_rate_before_tax", body.mileageRateBeforeTax.toString(), now))
@@ -74,7 +100,8 @@ class AppSettingsController(
 
     @PatchMapping("/ocr")
     @PreAuthorize("hasRole('mod')")
-    fun updateOcrSettings(@RequestBody body: OCRConfigUpdate): ResponseEntity<OCRConfigOut> {
+    @Transactional
+    fun updateOcrSettings(@Valid @RequestBody body: OCRConfigUpdate): ResponseEntity<OCRConfigOut> {
         val existing = ocrService.getOcrConfig()
         val provider = body.provider ?: existing.provider
         val ocrEnabled = body.ocrEnabled ?: existing.ocrEnabled
@@ -105,7 +132,7 @@ class AppSettingsController(
 
     @PostMapping("/ocr/test")
     @PreAuthorize("hasRole('mod')")
-    fun testOcrSettings(@RequestBody body: OCRTestRequest): ResponseEntity<*> {
+    fun testOcrSettings(@Valid @RequestBody body: OCRTestRequest): ResponseEntity<*> {
         val key = if (body.geminiApiKey == "••••••••" || body.geminiApiKey.isNullOrEmpty()) {
             ocrService.getOcrConfig().geminiApiKey
         } else {
@@ -146,7 +173,8 @@ class AppSettingsController(
 
     @PatchMapping("/email")
     @PreAuthorize("hasRole('mod')")
-    fun updateEmailSettings(@RequestBody body: EmailConfigIn): ResponseEntity<EmailConfigOut> {
+    @Transactional
+    fun updateEmailSettings(@Valid @RequestBody body: EmailConfigIn): ResponseEntity<EmailConfigOut> {
         val password = if (body.smtpPass.isEmpty()) {
             emailSettingsService.getSmtpConfig().smtpPass
         } else {
@@ -176,7 +204,7 @@ class AppSettingsController(
 
     @PostMapping("/email/test")
     @PreAuthorize("hasRole('mod')")
-    fun testEmailSettings(@RequestBody body: TestEmailIn): ResponseEntity<*> {
+    fun testEmailSettings(@Valid @RequestBody body: TestEmailIn): ResponseEntity<*> {
         val config = emailSettingsService.getSmtpConfig()
         val result = emailSettingsService.testSmtpConnection(config, body.to)
         return ResponseEntity.ok(result)
@@ -203,7 +231,8 @@ class AppSettingsController(
 
     @PatchMapping("/imap")
     @PreAuthorize("hasRole('mod')")
-    fun updateImapSettings(@RequestBody body: ImapConfigIn): ResponseEntity<ImapConfigOut> {
+    @Transactional
+    fun updateImapSettings(@Valid @RequestBody body: ImapConfigIn): ResponseEntity<ImapConfigOut> {
         val password = if (body.imapPass.isEmpty()) {
             emailSettingsService.getImapConfig().imapPass
         } else {
@@ -236,7 +265,7 @@ class AppSettingsController(
 
     @PostMapping("/imap/test")
     @PreAuthorize("hasRole('mod')")
-    fun testImapSettings(@RequestBody body: ImapConfigIn): ResponseEntity<*> {
+    fun testImapSettings(@Valid @RequestBody body: ImapConfigIn): ResponseEntity<*> {
         val password = if (body.imapPass.isEmpty()) {
             emailSettingsService.getImapConfig().imapPass
         } else {
@@ -257,7 +286,7 @@ class AppSettingsController(
 
     @PostMapping("/imap/simulate")
     @PreAuthorize("hasRole('mod')")
-    fun simulateEmail(@RequestBody body: EmailSimulationIn): ResponseEntity<*> {
+    fun simulateEmail(@Valid @RequestBody body: EmailSimulationIn): ResponseEntity<*> {
         val result = emailImportService.simulateIncomingEmail(body.fromAddress, body.bodyText)
         return ResponseEntity.ok(result)
     }
@@ -287,11 +316,18 @@ class AppSettingsController(
 
     @PatchMapping("/storage")
     @PreAuthorize("hasRole('mod')")
+    @Transactional
     fun updateStorageSettings(
         @RequestBody body: Map<String, Any>,
         @RequestParam(name = "migrate_existing", defaultValue = "false") migrateExisting: Boolean
     ): ResponseEntity<Map<String, Any>> {
+        val oldConfig = storageService.getStorageConfig()
         storageService.saveStorageConfig(body)
+
+        if (migrateExisting) {
+            val receipts = receiptRepository.findAll()
+            storageService.startMigration(oldConfig, body, receipts)
+        }
         
         val updated = storageService.getStorageConfig()
         val masked = updated.toMutableMap()
@@ -344,20 +380,76 @@ class AppSettingsController(
     @GetMapping("/storage/migration-status")
     @PreAuthorize("hasRole('mod')")
     fun getStorageMigrationStatus(): ResponseEntity<*> {
-        return ResponseEntity.ok(mapOf("status" to "idle", "copied" to 0, "total" to 0, "error" to null))
+        val setting = appSettingRepository.findById("storage_migration_status").orElse(null)
+            ?: return ResponseEntity.ok(mapOf(
+                "status" to "idle",
+                "total_files" to 0,
+                "migrated_files" to 0,
+                "failed_files" to 0,
+                "errors" to emptyList<String>()
+            ))
+        val data = try {
+            objectMapper.readValue(setting.value, Map::class.java)
+        } catch (e: Exception) {
+            mapOf(
+                "status" to "idle",
+                "total_files" to 0,
+                "migrated_files" to 0,
+                "failed_files" to 0,
+                "errors" to emptyList<String>()
+            )
+        }
+        return ResponseEntity.ok(data)
     }
 
     // --- Receipts Scan/Clean ---
     @PostMapping("/receipts/scan")
     @PreAuthorize("hasRole('mod')")
     fun scanOrphans(): ResponseEntity<*> {
-        return ResponseEntity.ok(mapOf("orphans" to emptyList<String>()))
+        val config = storageService.getStorageConfig()
+        val localConfig = config["local"] as? Map<*, *>
+        val localPath = localConfig?.get("path") as? String ?: "/app/data/receipts"
+        val baseDir = File(localPath).absoluteFile
+
+        if (!baseDir.exists() || !baseDir.isDirectory) {
+            return ResponseEntity.ok(mapOf("orphans" to emptyList<String>(), "count" to 0))
+        }
+
+        val allFiles = listLocalFiles(baseDir, baseDir)
+        val referencedFiles = receiptRepository.findAll().mapNotNull { it.filePath }.toSet()
+        val orphans = allFiles.filter { it !in referencedFiles }
+
+        return ResponseEntity.ok(mapOf("orphans" to orphans, "count" to orphans.size))
     }
 
     @PostMapping("/receipts/clean")
     @PreAuthorize("hasRole('mod')")
+    @Transactional
     fun cleanOrphans(): ResponseEntity<*> {
-        return ResponseEntity.ok(mapOf("cleaned_count" to 0))
+        val config = storageService.getStorageConfig()
+        val localConfig = config["local"] as? Map<*, *>
+        val localPath = localConfig?.get("path") as? String ?: "/app/data/receipts"
+        val baseDir = File(localPath).absoluteFile
+
+        if (!baseDir.exists() || !baseDir.isDirectory) {
+            return ResponseEntity.ok(mapOf("cleaned_count" to 0))
+        }
+
+        val allFiles = listLocalFiles(baseDir, baseDir)
+        val referencedFiles = receiptRepository.findAll().mapNotNull { it.filePath }.toSet()
+        val orphans = allFiles.filter { it !in referencedFiles }
+
+        var cleanedCount = 0
+        for (orphan in orphans) {
+            val file = File(baseDir, orphan).absoluteFile
+            if (file.exists() && file.startsWith(baseDir)) {
+                if (file.delete()) {
+                    cleanedCount++
+                }
+            }
+        }
+
+        return ResponseEntity.ok(mapOf("cleaned_count" to cleanedCount))
     }
 }
 
@@ -366,7 +458,7 @@ data class DailyAllowanceOut(
 )
 
 data class DailyAllowanceUpdate(
-    @JsonProperty("daily_allowance_rate") val dailyAllowanceRate: Double
+    @JsonProperty("daily_allowance_rate") @field:Min(0) val dailyAllowanceRate: Double
 )
 
 data class MileageRatesOut(
@@ -375,8 +467,8 @@ data class MileageRatesOut(
 )
 
 data class MileageRatesUpdate(
-    @JsonProperty("mileage_rate_before_tax") val mileageRateBeforeTax: Double? = null,
-    @JsonProperty("mileage_rate_after_tax") val mileageRateAfterTax: Double? = null
+    @JsonProperty("mileage_rate_before_tax") @field:Min(0) val mileageRateBeforeTax: Double? = null,
+    @JsonProperty("mileage_rate_after_tax") @field:Min(0) val mileageRateAfterTax: Double? = null
 )
 
 data class OCRConfigOut(
@@ -409,14 +501,14 @@ data class EmailConfigOut(
 data class EmailConfigIn(
     @JsonProperty("emails_enabled") val emailsEnabled: Boolean,
     @JsonProperty("smtp_host") val smtpHost: String,
-    @JsonProperty("smtp_port") val smtpPort: Int,
+    @JsonProperty("smtp_port") @field:Min(1) val smtpPort: Int,
     @JsonProperty("smtp_user") val smtpUser: String,
     @JsonProperty("smtp_pass") val smtpPass: String,
     @JsonProperty("smtp_from") val smtpFrom: String
 )
 
 data class TestEmailIn(
-    val to: String
+    @field:NotBlank val to: String
 )
 
 data class ImapConfigOut(
@@ -432,13 +524,13 @@ data class ImapConfigOut(
 data class ImapConfigIn(
     val enabled: Boolean,
     @JsonProperty("imap_host") val imapHost: String,
-    @JsonProperty("imap_port") val imapPort: Int,
+    @JsonProperty("imap_port") @field:Min(1) val imapPort: Int,
     @JsonProperty("imap_user") val imapUser: String,
     @JsonProperty("imap_pass") var imapPass: String = "",
     @JsonProperty("imap_folder") var imapFolder: String = "INBOX"
 )
 
 data class EmailSimulationIn(
-    @JsonProperty("from_address") val fromAddress: String,
-    @JsonProperty("body_text") val bodyText: String
+    @JsonProperty("from_address") @field:NotBlank val fromAddress: String,
+    @JsonProperty("body_text") @field:NotBlank val bodyText: String
 )

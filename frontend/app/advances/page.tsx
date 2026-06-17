@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api, { PendingAdvance, CURRENCIES } from "@/lib/api";
 import { advanceKeys, reportKeys } from "@/lib/queryKeys";
 import AppShell from "@/components/layout/AppShell";
+import { useAuth } from "@/components/AuthProvider";
 import { Check, X } from "lucide-react";
 import Link from "next/link";
 
@@ -13,7 +15,15 @@ function formatAmount(amount: number, currency: string) {
 }
 
 export default function GlobalAdvancesPage() {
+  const { user, loading } = useAuth();
+  const router = useRouter();
   const qc = useQueryClient();
+
+  const isAllowed = user?.role === "manager" || user?.role === "chef_finance" || user?.role === "mod";
+
+  useEffect(() => {
+    if (!loading && (!user || !isAllowed)) router.replace("/dashboard");
+  }, [user, loading, router, isAllowed]);
 
   const [payingId, setPayingId] = useState<number | null>(null);
   const [payReportId, setPayReportId] = useState<number | null>(null);
@@ -56,6 +66,20 @@ export default function GlobalAdvancesPage() {
     if (isNaN(amt) || amt <= 0 || !payDate) return;
     payAdvance.mutate({ reportId: payReportId, advanceId: payingId, amount: amt, currency: payCurrency, date: payDate });
   };
+
+  if (loading) {
+    return (
+      <AppShell>
+        <div className="flex items-center justify-center min-h-[50vh]">
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (!user || !isAllowed) {
+    return null;
+  }
 
   return (
     <AppShell>

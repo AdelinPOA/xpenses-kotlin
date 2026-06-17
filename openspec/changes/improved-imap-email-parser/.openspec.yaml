@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-06-16
+goal: Improve the IMAP email delegation report parsing to extract structured
+  fields beyond title/date/description

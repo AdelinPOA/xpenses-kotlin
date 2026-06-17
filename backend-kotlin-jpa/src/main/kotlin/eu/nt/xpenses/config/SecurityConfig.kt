@@ -14,6 +14,7 @@ import org.springframework.web.cors.CorsConfiguration
 import org.springframework.web.cors.CorsConfigurationSource
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.http.HttpMethod
 
 @Configuration
 @EnableWebSecurity
@@ -36,11 +37,11 @@ class SecurityConfig(
             .authorizeHttpRequests { authorize ->
                 authorize
                     .requestMatchers("/api/auth/login", "/api/auth/logout", "/api/auth/refresh").permitAll()
-                    .requestMatchers("/api/health").permitAll()
+                    .requestMatchers("/api/health", "/actuator/**").permitAll()
                     .requestMatchers("/api/settings/ocr/**").hasRole("mod")
                     .requestMatchers("/api/settings/ldap/**").hasRole("mod")
                     .requestMatchers("/api/settings/imap/**").hasRole("mod")
-                    .requestMatchers("/api/users").hasRole("mod")
+                    .requestMatchers(HttpMethod.POST, "/api/users").hasRole("mod")
                     .anyRequest().authenticated()
             }
             .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter::class.java)

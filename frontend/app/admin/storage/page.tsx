@@ -59,32 +59,16 @@ export default function StorageAdminPage() {
     if (!loading && (!user || user.role !== "mod")) router.replace("/dashboard");
   }, [user, loading, router]);
 
-  if (loading) {
-    return (
-      <AppShell>
-        <div className="flex items-center justify-center min-h-[50vh]">
-          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
-        </div>
-      </AppShell>
-    );
-  }
-
-  if (!user || user.role !== "mod") {
-    return null;
-  }
-
-  // Load config
   const { data: config, isLoading } = useQuery({
     queryKey: storageKeys.config(),
     queryFn: getStorageConfig,
-    enabled: user?.role === "mod",
+    enabled: !!user && user.role === "mod",
   });
 
-  // Load / Poll migration status
   const { data: migrationStatus } = useQuery<StorageMigrationStatus>({
     queryKey: storageKeys.migration(),
     queryFn: getStorageMigrationStatus,
-    enabled: user?.role === "mod",
+    enabled: !!user && user.role === "mod",
     refetchInterval: (query) => {
       const state = query.state.data as StorageMigrationStatus | undefined;
       return state?.status === "running" ? 2000 : false;
@@ -118,6 +102,20 @@ export default function StorageAdminPage() {
       toast.error(msg);
     },
   });
+
+  if (loading) {
+    return (
+      <AppShell>
+        <div className="flex items-center justify-center min-h-[50vh]">
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (!user || user.role !== "mod") {
+    return null;
+  }
 
   const handleFormSubmit = (data: FormState) => {
     // If provider changed or config is modified, prompt for migration
@@ -155,8 +153,6 @@ export default function StorageAdminPage() {
       setTesting(false);
     }
   };
-
-  if (!user || user.role !== "mod") return null;
 
   return (
     <AppShell>

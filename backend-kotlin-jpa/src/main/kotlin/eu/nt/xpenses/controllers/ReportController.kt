@@ -19,6 +19,9 @@ import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 import org.springframework.web.server.ResponseStatusException
 import org.springframework.transaction.annotation.Transactional
+import jakarta.validation.Valid
+import jakarta.validation.constraints.NotBlank
+import jakarta.validation.constraints.Size
 import java.io.ByteArrayOutputStream
 import java.math.BigDecimal
 import java.math.RoundingMode
@@ -81,8 +84,9 @@ class ReportController(
     }
 
     @PostMapping
+    @Transactional
     fun createReport(
-        @RequestBody body: ReportCreate,
+        @Valid @RequestBody body: ReportCreate,
         request: HttpServletRequest
     ): ResponseEntity<ReportOut> {
         val currentUser = request.getAttribute("currentUser") as? User
@@ -123,10 +127,11 @@ class ReportController(
         return mapReportToOut(report)
     }
 
+    @Transactional
     @PatchMapping("/{reportId}")
     fun updateReport(
         @PathVariable reportId: Int,
-        @RequestBody body: ReportUpdate,
+        @Valid @RequestBody body: ReportUpdate,
         request: HttpServletRequest
     ): ReportOut {
         val currentUser = request.getAttribute("currentUser") as? User
@@ -445,7 +450,7 @@ class ReportController(
     @PostMapping("/{reportId}/reject")
     fun rejectReport(
         @PathVariable reportId: Int,
-        @RequestBody(required = false) body: RejectBody?,
+        @Valid @RequestBody(required = false) body: RejectBody?,
         request: HttpServletRequest
     ): ReportOut {
         val currentUser = request.getAttribute("currentUser") as? User
@@ -496,6 +501,7 @@ class ReportController(
         return mapReportToOut(saved)
     }
 
+    @Transactional
     @PostMapping("/{reportId}/sign")
     fun signReport(
         @PathVariable reportId: Int,
@@ -882,16 +888,16 @@ data class RejectBody(
 )
 
 data class ReportCreate(
-    val title: String,
-    val description: String? = null,
+    @field:NotBlank val title: String,
+    @field:Size(max = 1000) val description: String? = null,
     @JsonProperty("date_from") val dateFrom: String? = null,
     @JsonProperty("date_to") val dateTo: String? = null,
     val currency: String = "EUR"
 )
 
 data class ReportUpdate(
-    val title: String? = null,
-    val description: String? = null,
+    @field:NotBlank val title: String? = null,
+    @field:Size(max = 1000) val description: String? = null,
     @JsonProperty("date_from") val dateFrom: String? = null,
     @JsonProperty("date_to") val dateTo: String? = null,
     val currency: String? = null,

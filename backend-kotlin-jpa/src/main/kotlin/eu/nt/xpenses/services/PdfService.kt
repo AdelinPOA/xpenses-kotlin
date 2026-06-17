@@ -4,6 +4,7 @@ import com.lowagie.text.*
 import com.lowagie.text.pdf.*
 import com.lowagie.text.pdf.draw.DottedLineSeparator
 import eu.nt.xpenses.models.*
+import eu.nt.xpenses.repositories.AppSettingRepository
 import org.apache.pdfbox.Loader
 import org.apache.pdfbox.pdmodel.PDDocument
 import org.springframework.stereotype.Service
@@ -19,7 +20,8 @@ import java.util.Locale
 
 @Service
 class PdfService(
-    private val storageService: StorageService
+    private val storageService: StorageService,
+    private val appSettingRepository: AppSettingRepository
 ) {
     private val log = LoggerFactory.getLogger(PdfService::class.java)
     private val decimalFormat = DecimalFormat("###,##0.00")
@@ -93,7 +95,9 @@ class PdfService(
                 logoImg.scaleToFit(80f, 80f)
                 leftCell.addElement(logoImg)
                 leftCell.addElement(Paragraph(" ", fontSmall))
-            } catch (e: Exception) {}
+            } catch (e: Exception) {
+                log.warn("Failed to load company logo from {}: {}", logoFile.absolutePath, e.message)
+            }
         }
         leftCell.addElement(Paragraph("Newtech Automation", Font(Font.HELVETICA, 12f, Font.BOLD, java.awt.Color(30, 41, 59))))
         headerTable.addCell(leftCell)
@@ -632,7 +636,8 @@ class PdfService(
             val dFrom = java.time.LocalDate.parse(dateFrom.take(10), formatter)
             val dTo = java.time.LocalDate.parse(dateTo.take(10), formatter)
             val days = Duration.between(dFrom.atStartOfDay(), dTo.atStartOfDay()).toDays() + 1
-            if (days > 0) days * 50.0 else 0.0
+            val rate = appSettingRepository.findById("daily_allowance_rate").orElse(null)?.value?.toDoubleOrNull() ?: 50.0
+            if (days > 0) days * rate else 0.0
         } catch (e: Exception) {
             0.0
         }

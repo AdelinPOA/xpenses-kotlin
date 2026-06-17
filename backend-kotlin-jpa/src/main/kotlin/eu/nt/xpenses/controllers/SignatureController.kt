@@ -4,10 +4,13 @@ import eu.nt.xpenses.models.User
 import eu.nt.xpenses.repositories.UserRepository
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
+import jakarta.validation.Valid
+import jakarta.validation.constraints.NotBlank
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
+import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.bind.annotation.*
 import org.springframework.web.server.ResponseStatusException
 import java.io.File
@@ -46,8 +49,9 @@ class SignatureController(
     }
 
     @PutMapping
+    @Transactional
     fun putSignature(
-        @RequestBody payload: SignaturePayload,
+        @Valid @RequestBody payload: SignaturePayload,
         request: HttpServletRequest
     ): Map<String, String> {
         val currentUser = request.getAttribute("currentUser") as? User
@@ -87,6 +91,7 @@ class SignatureController(
 
     @DeleteMapping
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Transactional
     fun deleteSignature(request: HttpServletRequest) {
         val currentUser = request.getAttribute("currentUser") as? User
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
@@ -105,5 +110,6 @@ class SignatureController(
 }
 
 data class SignaturePayload(
-    val image: String
+    @field:NotBlank val image: String
 )
+

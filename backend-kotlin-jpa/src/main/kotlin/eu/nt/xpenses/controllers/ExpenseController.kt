@@ -9,11 +9,16 @@ import eu.nt.xpenses.services.FxService
 import eu.nt.xpenses.services.StorageService
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
+import jakarta.validation.Valid
+import jakarta.validation.constraints.Min
+import jakarta.validation.constraints.NotBlank
+import jakarta.validation.constraints.Pattern
 import org.springframework.http.ContentDisposition
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
+import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.bind.annotation.*
 import org.springframework.web.multipart.MultipartFile
 import org.springframework.web.server.ResponseStatusException
@@ -83,8 +88,9 @@ class ExpenseController(
     }
 
     @PostMapping
+    @Transactional
     fun createExpense(
-        @RequestBody body: ExpenseCreate,
+        @Valid @RequestBody body: ExpenseCreate,
         request: HttpServletRequest
     ): ResponseEntity<ExpenseOut> {
         val currentUser = request.getAttribute("currentUser") as? User
@@ -171,9 +177,10 @@ class ExpenseController(
     }
 
     @PatchMapping("/{expenseId}")
+    @Transactional
     fun updateExpense(
         @PathVariable expenseId: Int,
-        @RequestBody body: ExpenseUpdate,
+        @Valid @RequestBody body: ExpenseUpdate,
         request: HttpServletRequest
     ): ExpenseOut {
         val currentUser = request.getAttribute("currentUser") as? User
@@ -256,6 +263,7 @@ class ExpenseController(
     }
 
     @PostMapping("/{expenseId}/duplicate")
+    @Transactional
     fun duplicateExpense(
         @PathVariable expenseId: Int,
         request: HttpServletRequest
@@ -305,6 +313,7 @@ class ExpenseController(
 
     @DeleteMapping("/{expenseId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Transactional
     fun deleteExpense(
         @PathVariable expenseId: Int,
         request: HttpServletRequest
@@ -323,19 +332,21 @@ class ExpenseController(
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Only draft expenses can be deleted")
         }
 
-        // Delete all receipts from storage
-        for (receipt in expense.receipts) {
-            try {
-                storageService.deleteFile(receipt.filePath)
-            } catch (e: Exception) {
-                log.warn("Failed to delete receipt file '{}': {}", receipt.filePath, e.message)
-            }
-        }
+        val receiptPaths = expense.receipts.map { it.filePath }
 
         expenseRepository.delete(expense)
+
+        for (path in receiptPaths) {
+            try {
+                storageService.deleteFile(path)
+            } catch (e: Exception) {
+                log.warn("Failed to delete receipt file '{}': {}", path, e.message)
+            }
+        }
     }
 
     @PostMapping("/{expenseId}/receipts")
+    @Transactional
     fun uploadReceipts(
         @PathVariable expenseId: Int,
         @RequestParam("files") files: List<MultipartFile>,
@@ -386,6 +397,7 @@ class ExpenseController(
     }
 
     @PostMapping("/{expenseId}/receipt")
+    @Transactional
     fun uploadReceiptCompat(
         @PathVariable expenseId: Int,
         @RequestParam("file") file: MultipartFile,
@@ -396,6 +408,7 @@ class ExpenseController(
 
     @DeleteMapping("/{expenseId}/receipts/{receiptId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Transactional
     fun deleteSingleReceipt(
         @PathVariable expenseId: Int,
         @PathVariable receiptId: Int,
@@ -420,16 +433,18 @@ class ExpenseController(
             throw ResponseStatusException(HttpStatus.NOT_FOUND, "Receipt not associated with this expense")
         }
 
-        try {
-            storageService.deleteFile(receipt.filePath)
-        } catch (e: Exception) {
-            log.warn("Failed to delete receipt file '{}': {}", receipt.filePath, e.message)
-        }
+        val filePath = receipt.filePath
 
         receiptRepository.delete(receipt)
 
         expense.updatedAt = Instant.now()
         expenseRepository.save(expense)
+
+        try {
+            storageService.deleteFile(filePath)
+        } catch (e: Exception) {
+            log.warn("Failed to delete receipt file '{}': {}", filePath, e.message)
+        }
     }
 
     @GetMapping("/{expenseId}/receipts/{receiptId}")
@@ -446,7 +461,7 @@ class ExpenseController(
             ResponseStatusException(HttpStatus.NOT_FOUND, "Expense not found")
         }
 
-        if (currentUser.role !in listOf("chef_finance", "mod") && expense.user?.id != currentUser.id) {
+        if (currentUser.role !in listOf("chef_finance", "mod", "manager") && expense.user?.id != currentUser.id) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Not your expense")
         }
 
@@ -485,7 +500,7 @@ class ExpenseController(
             ResponseStatusException(HttpStatus.NOT_FOUND, "Expense not found")
         }
 
-        if (currentUser.role !in listOf("chef_finance", "mod") && expense.user?.id != currentUser.id) {
+        if (currentUser.role !in listOf("chef_finance", "mod", "manager") && expense.user?.id != currentUser.id) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Not your expense")
         }
 
@@ -646,13 +661,13 @@ data class ExpenseOut(
 data class ExpenseCreate(
     @JsonProperty("category_id") val categoryId: Int? = null,
     @JsonProperty("report_id") val reportId: Int? = null,
-    val amount: Double,
-    val currency: String = "EUR",
+    @field:Min(0) val amount: Double,
+    @field:NotBlank @field:Pattern(regexp = "^[A-Z]{3}$") val currency: String = "EUR",
     @JsonProperty("tax_amount") val taxAmount: Double = 0.0,
     @JsonProperty("tax_rate") val taxRate: Double? = null,
-    val date: String,
-    val description: String? = null,
-    val merchant: String? = null,
+    @field:NotBlank val date: String,
+    @field:NotBlank val description: String? = null,
+    @field:NotBlank val merchant: String? = null,
     @JsonProperty("raw_ocr_text") val rawOcrText: String? = null,
     @JsonProperty("comparison_id") val comparisonId: Int? = null
 )
@@ -660,13 +675,13 @@ data class ExpenseCreate(
 data class ExpenseUpdate(
     @JsonProperty("category_id") val categoryId: Int? = null,
     @JsonProperty("report_id") val reportId: Int? = null,
-    val amount: Double? = null,
-    val currency: String? = null,
+    @field:Min(0) val amount: Double? = null,
+    @field:Pattern(regexp = "^[A-Z]{3}$") val currency: String? = null,
     @JsonProperty("tax_amount") val taxAmount: Double? = null,
     @JsonProperty("tax_rate") val taxRate: Double? = null,
     val date: String? = null,
-    val description: String? = null,
-    val merchant: String? = null,
+    @field:NotBlank val description: String? = null,
+    @field:NotBlank val merchant: String? = null,
     @JsonProperty("raw_ocr_text") val rawOcrText: String? = null,
     @JsonProperty("comparison_id") val comparisonId: Int? = null
 )

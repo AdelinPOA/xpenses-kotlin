@@ -3,8 +3,11 @@ package eu.nt.xpenses.controllers
 import com.fasterxml.jackson.annotation.JsonProperty
 import eu.nt.xpenses.services.LdapConfig
 import eu.nt.xpenses.services.LdapService
+import jakarta.validation.Valid
+import jakarta.validation.constraints.Min
 import org.springframework.http.ResponseEntity
 import org.springframework.security.access.prepost.PreAuthorize
+import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.bind.annotation.*
 
 @RestController
@@ -21,7 +24,8 @@ class LdapSettingsController(
     }
 
     @PatchMapping
-    fun updateLdap(@RequestBody body: LdapConfigIn): ResponseEntity<*> {
+    @Transactional
+    fun updateLdap(@Valid @RequestBody body: LdapConfigIn): ResponseEntity<*> {
         if (body.enabled && (body.host.isEmpty() || body.baseDn.isEmpty() || body.bindDn.isEmpty())) {
             return ResponseEntity.status(422).body(mapOf("detail" to "host, base_dn, and bind_dn are required when enabling LDAP"))
         }
@@ -53,7 +57,7 @@ class LdapSettingsController(
     }
 
     @PostMapping("/test")
-    fun testLdap(@RequestBody body: LdapConfigIn): ResponseEntity<*> {
+    fun testLdap(@Valid @RequestBody body: LdapConfigIn): ResponseEntity<*> {
         var password = body.bindPassword
         if (body.useStoredPassword) {
             val existing = ldapService.getLdapConfig()
@@ -114,7 +118,7 @@ class LdapSettingsController(
 data class LdapConfigIn(
     val enabled: Boolean = false,
     val host: String = "",
-    val port: Int = 389,
+    @field:Min(1) val port: Int = 389,
     @JsonProperty("use_tls") val useTls: Boolean = false,
     @JsonProperty("bind_dn") val bindDn: String = "",
     @JsonProperty("bind_password") val bindPassword: String = "",
@@ -146,3 +150,4 @@ data class LdapConfigOut(
     @JsonProperty("default_role") val defaultRole: String = "technician",
     @JsonProperty("bind_password_invalid") val bindPasswordInvalid: Boolean = false
 )
+

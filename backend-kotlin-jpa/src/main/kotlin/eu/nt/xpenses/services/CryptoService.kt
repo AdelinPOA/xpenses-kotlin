@@ -13,7 +13,7 @@ import javax.crypto.spec.SecretKeySpec
 
 @Service
 class CryptoService(
-    @Value("\${jwt.secret:dev-secret-change-in-production}")
+    @Value("\${jwt.secret:}")
     private val jwtSecret: String
 ) {
     private val secureRandom = SecureRandom()

@@ -4,8 +4,12 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import eu.nt.xpenses.models.*
 import eu.nt.xpenses.repositories.*
 import jakarta.servlet.http.HttpServletRequest
+import jakarta.validation.Valid
+import jakarta.validation.constraints.Min
+import jakarta.validation.constraints.NotBlank
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
+import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.bind.annotation.*
 import org.springframework.web.server.ResponseStatusException
 import java.math.BigDecimal
@@ -52,9 +56,10 @@ class MileageController(
     }
 
     @PostMapping
+    @Transactional
     fun createMileage(
         @PathVariable reportId: Int,
-        @RequestBody body: MileageRecordCreate,
+        @Valid @RequestBody body: MileageRecordCreate,
         request: HttpServletRequest
     ): ResponseEntity<MileageRecordOut> {
         val currentUser = request.getAttribute("currentUser") as? User
@@ -98,10 +103,11 @@ class MileageController(
     }
 
     @PatchMapping("/{mileageId}")
+    @Transactional
     fun updateMileage(
         @PathVariable reportId: Int,
         @PathVariable mileageId: Int,
-        @RequestBody body: MileageRecordUpdate,
+        @Valid @RequestBody body: MileageRecordUpdate,
         request: HttpServletRequest
     ): MileageRecordOut {
         val currentUser = request.getAttribute("currentUser") as? User
@@ -147,6 +153,7 @@ class MileageController(
 
     @DeleteMapping("/{mileageId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Transactional
     fun deleteMileage(
         @PathVariable reportId: Int,
         @PathVariable mileageId: Int,
@@ -198,9 +205,9 @@ class MileageController(
 }
 
 data class MileageRecordCreate(
-    val origin: String,
-    val destination: String,
-    @JsonProperty("distance_km") val distanceKm: Double,
+    @field:NotBlank val origin: String,
+    @field:NotBlank val destination: String,
+    @JsonProperty("distance_km") @field:Min(0) val distanceKm: Double,
     @JsonProperty("start_time") val startTime: Instant,
     @JsonProperty("end_time") val endTime: Instant,
     val description: String? = null
@@ -209,7 +216,7 @@ data class MileageRecordCreate(
 data class MileageRecordUpdate(
     val origin: String? = null,
     val destination: String? = null,
-    @JsonProperty("distance_km") val distanceKm: Double? = null,
+    @JsonProperty("distance_km") @field:Min(0) val distanceKm: Double? = null,
     @JsonProperty("start_time") val startTime: Instant? = null,
     @JsonProperty("end_time") val endTime: Instant? = null,
     val description: String? = null

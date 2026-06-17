@@ -1,46 +1,62 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import api, { Expense, API_BASE_URL, duplicateExpense, downloadBlob } from "@/lib/api";
-import { expenseKeys, dashboardKeys } from "@/lib/queryKeys";
+import { useRouter, useSearchParams } from "next/navigation";
+import api, { Expense, Category, API_BASE_URL, duplicateExpense, downloadBlob } from "@/lib/api";
+import { expenseKeys, dashboardKeys, categoryKeys } from "@/lib/queryKeys";
 import AppShell from "@/components/layout/AppShell";
 import Badge from "@/components/ui/Badge";
 import EmptyState from "@/components/ui/EmptyState";
+import { useToast } from "@/components/ToastProvider";
 import { Plus, Trash2, Pencil, Copy, Download } from "lucide-react";
 
 function formatAmount(amount: number, currency: string) {
   return new Intl.NumberFormat("en-EU", { style: "currency", currency }).format(amount);
 }
 
-export default function ExpensesPage() {
+function ExpensesPageContent() {
   const qc = useQueryClient();
   const router = useRouter();
+  const toast = useToast();
+  const searchParams = useSearchParams();
   const [statusFilter, setStatusFilter] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
   const [exporting, setExporting] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
+
+  useEffect(() => {
+    const catId = searchParams.get("category_id");
+    if (catId) setCategoryFilter(catId);
+  }, [searchParams]);
 
   async function handleExport(format: "csv" | "xlsx") {
     setExporting(true);
+    setExportOpen(false);
     try {
       const today = new Date().toISOString().slice(0, 10);
       await downloadBlob(
         "/expenses/export",
-        { format, ...(statusFilter ? { status: statusFilter } : {}) },
+        { format, ...(statusFilter ? { status: statusFilter } : {}), ...(categoryFilter ? { category_id: categoryFilter } : {}) },
         `expenses_${today}.${format}`
       );
     } catch {
-      alert("Export failed. Please try again.");
+      toast.error("Export failed. Please try again.");
     } finally {
       setExporting(false);
     }
   }
 
   const { data: expenses, isLoading } = useQuery<Expense[]>({
-    queryKey: expenseKeys.list({ status: statusFilter }),
+    queryKey: expenseKeys.list({ status: statusFilter, category_id: categoryFilter }),
     queryFn: () =>
-      api.get("/expenses", { params: statusFilter ? { status: statusFilter } : {} }).then((r) => r.data),
+      api.get("/expenses", { params: { ...(statusFilter ? { status: statusFilter } : {}), ...(categoryFilter ? { category_id: categoryFilter } : {}) } }).then((r) => r.data),
+  });
+
+  const { data: categories } = useQuery<Category[]>({
+    queryKey: categoryKeys.list(),
+    queryFn: () => api.get("/categories").then((r) => r.data),
   });
 
   const del = useMutation({
@@ -68,28 +84,35 @@ export default function ExpensesPage() {
           <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">{expenses?.length ?? 0} total</p>
         </div>
         <div className="flex items-center gap-2">
-          <div className="relative group">
+          <div className="relative">
             <button
               disabled={exporting}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 disabled:opacity-50"
+              onClick={() => setExportOpen((v) => !v)}
+              aria-expanded={exportOpen}
+              className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 disabled:opacity-50 cursor-pointer"
             >
               <Download className="w-4 h-4" />
               {exporting ? "Exporting…" : "Export"}
             </button>
-            <div className="absolute right-0 top-full mt-1 w-36 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg hidden group-hover:block z-10">
-              <button
-                onClick={() => handleExport("csv")}
-                className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-t-lg"
-              >
-                Download CSV
-              </button>
-              <button
-                onClick={() => handleExport("xlsx")}
-                className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-b-lg"
-              >
-                Download XLSX
-              </button>
-            </div>
+            {exportOpen && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setExportOpen(false)} />
+                <div className="absolute right-0 top-full mt-1 w-36 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg z-20">
+                  <button
+                    onClick={() => handleExport("csv")}
+                    className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-t-lg"
+                  >
+                    Download CSV
+                  </button>
+                  <button
+                    onClick={() => handleExport("xlsx")}
+                    className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-b-lg"
+                  >
+                    Download XLSX
+                  </button>
+                </div>
+              </>
+            )}
           </div>
           <Link
             href="/expenses/new"
@@ -116,6 +139,16 @@ export default function ExpensesPage() {
               {s === "" ? "All" : s.charAt(0).toUpperCase() + s.slice(1)}
             </button>
           ))}
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            className="ml-auto px-3 py-1 border border-slate-200 dark:border-slate-700 rounded-lg text-xs bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300"
+          >
+            <option value="">All categories</option>
+            {categories?.map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
         </div>
 
         {isLoading ? (
@@ -209,5 +242,17 @@ export default function ExpensesPage() {
         )}
       </div>
     </AppShell>
+  );
+}
+
+export default function ExpensesPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    }>
+      <ExpensesPageContent />
+    </Suspense>
   );
 }

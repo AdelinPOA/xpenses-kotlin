@@ -2,6 +2,7 @@ package eu.nt.xpenses.security
 
 import io.jsonwebtoken.Jwts
 import io.jsonwebtoken.security.Keys
+import jakarta.annotation.PostConstruct
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 import java.security.MessageDigest
@@ -14,11 +15,18 @@ import javax.crypto.spec.PBEKeySpec
 
 @Component
 class JwtTokenProvider(
-    @Value("\${jwt.secret:dev-secret-change-in-production}")
+    @Value("\${jwt.secret:}")
     private val jwtSecret: String,
     @Value("\${jwt.access-expires-minutes:15}")
     private val accessExpiresMinutes: Long
 ) {
+
+    @PostConstruct
+    fun validateSecret() {
+        if (jwtSecret.isBlank()) {
+            throw IllegalStateException("JWT_SECRET environment variable must be set — refusing to start with an empty secret")
+        }
+    }
 
     private val key: SecretKey by lazy {
         // Derive a proper 256-bit HMAC key using PBKDF2 instead of zero-padding short secrets

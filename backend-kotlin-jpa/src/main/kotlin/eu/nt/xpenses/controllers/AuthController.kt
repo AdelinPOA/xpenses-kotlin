@@ -1,8 +1,9 @@
 package eu.nt.xpenses.controllers
 
-import com.fasterxml.jackson.annotation.JsonProperty
 import eu.nt.xpenses.models.RefreshToken
 import eu.nt.xpenses.models.User
+import eu.nt.xpenses.models.UserResponse
+import com.fasterxml.jackson.annotation.JsonProperty
 import eu.nt.xpenses.repositories.RefreshTokenRepository
 import eu.nt.xpenses.repositories.UserRepository
 import eu.nt.xpenses.security.JwtTokenProvider
@@ -11,6 +12,9 @@ import eu.nt.xpenses.services.LDAPBindException
 import eu.nt.xpenses.services.LDAPUnavailableException
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
+import jakarta.validation.Valid
+import jakarta.validation.constraints.NotBlank
+import jakarta.validation.constraints.Size
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.HttpHeaders
 import org.springframework.http.ResponseCookie
@@ -35,7 +39,7 @@ class AuthController(
     @PostMapping("/login")
     @Transactional
     fun login(
-        @RequestBody request: LoginRequest,
+        @Valid @RequestBody request: LoginRequest,
         response: HttpServletResponse
     ): ResponseEntity<*> {
         val user = userRepository.findByUsername(request.username)
@@ -84,19 +88,7 @@ class AuthController(
 
         setAuthCookies(response, accessToken, rawRefreshToken)
 
-        return ResponseEntity.ok(
-            UserResponse(
-                id = user.id!!,
-                username = user.username,
-                displayName = user.displayName,
-                email = user.email,
-                role = user.role,
-                isActive = user.isActive,
-                authSource = user.authSource,
-                signaturePath = user.signaturePath,
-                notificationsEnabled = user.notificationsEnabled
-            )
-        )
+        return ResponseEntity.ok(UserResponse.fromUser(user))
     }
 
     @PostMapping("/refresh")
@@ -172,7 +164,7 @@ class AuthController(
     @PostMapping("/change-password")
     @Transactional
     fun changePassword(
-        @RequestBody body: ChangePasswordRequest,
+        @Valid @RequestBody body: ChangePasswordRequest,
         request: HttpServletRequest
     ): ResponseEntity<*> {
         val currentUser = request.getAttribute("currentUser") as? User
@@ -198,19 +190,7 @@ class AuthController(
         val currentUser = request.getAttribute("currentUser") as? User
             ?: return ResponseEntity.status(401).body(mapOf("detail" to "Not authenticated"))
         
-        return ResponseEntity.ok(
-            UserResponse(
-                id = currentUser.id!!,
-                username = currentUser.username,
-                displayName = currentUser.displayName,
-                email = currentUser.email,
-                role = currentUser.role,
-                isActive = currentUser.isActive,
-                authSource = currentUser.authSource,
-                signaturePath = currentUser.signaturePath,
-                notificationsEnabled = currentUser.notificationsEnabled
-            )
-        )
+        return ResponseEntity.ok(UserResponse.fromUser(currentUser))
     }
 
     private fun setAuthCookies(response: HttpServletResponse, accessToken: String, refreshToken: String) {
@@ -256,24 +236,12 @@ class AuthController(
     }
 }
 
-data class UserResponse(
-    val id: Int,
-    val username: String,
-    @JsonProperty("display_name") val displayName: String,
-    val email: String?,
-    val role: String,
-    @JsonProperty("is_active") val isActive: Boolean,
-    @JsonProperty("auth_source") val authSource: String,
-    @JsonProperty("signature_path") val signaturePath: String?,
-    @JsonProperty("notifications_enabled") val notificationsEnabled: Boolean
-)
-
 data class LoginRequest(
-    val username: String,
-    val password: String
+    @field:NotBlank val username: String,
+    @field:NotBlank val password: String
 )
 
 data class ChangePasswordRequest(
-    @JsonProperty("old_password") val oldPassword: String,
-    @JsonProperty("new_password") val newPassword: String
+    @JsonProperty("old_password") @field:NotBlank val oldPassword: String,
+    @JsonProperty("new_password") @field:NotBlank @field:Size(min = 8) val newPassword: String
 )

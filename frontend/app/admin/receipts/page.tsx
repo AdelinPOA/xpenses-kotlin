@@ -1,16 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import api from "@/lib/api";
 import AppShell from "@/components/layout/AppShell";
+import { useAuth } from "@/components/AuthProvider";
 import { AlertCircle, CheckCircle, RefreshCw, Trash2 } from "lucide-react";
 
 export default function ReceiptsCleanupPage() {
+  const { user, loading } = useAuth();
+  const router = useRouter();
   const [orphans, setOrphans] = useState<string[]>([]);
   const [scanned, setScanned] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [showConfirmClean, setShowConfirmClean] = useState(false);
+
+  useEffect(() => {
+    if (!loading && (!user || user.role !== "mod")) router.replace("/dashboard");
+  }, [user, loading, router]);
 
   const scanMutation = useMutation({
     mutationFn: async () => {
@@ -43,6 +52,20 @@ export default function ReceiptsCleanupPage() {
     },
   });
 
+  if (loading) {
+    return (
+      <AppShell>
+        <div className="flex items-center justify-center min-h-[50vh]">
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (!user || user.role !== "mod") {
+    return null;
+  }
+
   return (
     <AppShell>
       <div className="max-w-4xl mx-auto py-6">
@@ -63,13 +86,9 @@ export default function ReceiptsCleanupPage() {
               {scanMutation.isPending ? "Scanning..." : "Scan Storage"}
             </button>
             {scanned && orphans.length > 0 && (
-              <button
-                onClick={() => {
-                  if (confirm(`Are you sure you want to delete all ${orphans.length} orphan files permanently?`)) {
-                    cleanMutation.mutate();
-                  }
-                }}
-                disabled={cleanMutation.isPending || scanMutation.isPending}
+                <button
+                  onClick={() => setShowConfirmClean(true)}
+                  disabled={cleanMutation.isPending || scanMutation.isPending}
                 className="inline-flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors cursor-pointer"
               >
                 <Trash2 className="w-4 h-4" />
@@ -138,6 +157,34 @@ export default function ReceiptsCleanupPage() {
           </div>
         </div>
       </div>
+
+      {showConfirmClean && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xl max-w-sm w-full p-6 space-y-4">
+            <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Clean Orphan Receipts</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              Are you sure you want to permanently delete all {orphans.length} orphan receipt files from disk? This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                onClick={() => setShowConfirmClean(false)}
+                className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-lg transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  cleanMutation.mutate();
+                  setShowConfirmClean(false);
+                }}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-lg transition-colors cursor-pointer"
+              >
+                Clean
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AppShell>
   );
 }

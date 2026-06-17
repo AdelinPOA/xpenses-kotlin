@@ -191,17 +191,51 @@ make test-login  # curl POST /api/auth/login (tech1)
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `CORS_ORIGINS` | `["http://localhost:3001"]` | Allowed CORS origins (JSON array) |
+| `CORS_ALLOWED_ORIGINS` | `http://localhost:3001,http://127.0.0.1:3001` | Allowed CORS origins (comma-separated string) |
 | `DATA_DIR` | `/app/data` | Receipts storage path |
 | `DEFAULT_CURRENCY` | `EUR` | Base currency for conversions |
-| `JWT_SECRET` | (required) | Secret for signing JWT tokens |
+| `JWT_SECRET` | (required) | Secret for signing JWT tokens. A secure, non-blank value must be configured for production startup. |
 | `COOKIE_SECURE` | `false` | Set `true` in production (HTTPS-only cookies) |
-| `SEED_DEMO_USERS` | `true` | Set `false` in production |
+| `SEED_DEMO_USERS` | `false` | Seeding of demo accounts (`tech1`, `manager1`, etc.). Defaults to `false`. |
 | `COMPANY_NAME` | `Newtech Automation` | Company name in PDF exports |
+
+## Testing
+
+The backend includes a comprehensive unit and integration test suite (JUnit 5 + MockMvc + Testcontainers).
+
+To run all tests locally:
+```bash
+# Execute within backend-kotlin-jpa directory
+./gradlew test
+```
+
+## Local Development Requirements
+
+### JDK Version
+
+The Kotlin backend (Kotlin 2.1.0) requires **JDK 21 or 22**. It does not compile on JDK 23+.
+
+```bash
+# Check your JDK version
+make check-java-version
+
+# If using SDKMAN!, install and use JDK 21:
+sdk install java 21.0.8-tem
+sdk use java 21.0.8-tem
+
+# The project includes a .java-version file for SDKMAN!/jEnv/asdf
+```
+
+**If you're on JDK 25+**, use the Docker-based build instead (the container uses `eclipse-temurin:21-jre-alpine`):
+```bash
+make build   # runs check-java-version first, fails with clear message on wrong JDK
+docker compose up -d --build   # works regardless of host JDK
+```
 
 ## Roadmap
 
-- [ ] Unit & integration test suite (JUnit 5 + MockMvc)
+- [x] Unit & integration test suite (JUnit 5 + MockMvc)
+- [x] Rate limiting
 - [ ] Spend trends over time (charts)
 - [ ] Category budget vs. actual tracking
 - [ ] Per-user / per-team spending reports
@@ -210,8 +244,8 @@ make test-login  # curl POST /api/auth/login (tech1)
 - [ ] Bulk expense import from CSV
 - [ ] Backup/restore tooling
 - [ ] Audit log (who changed what, when)
-- [ ] Rate limiting
 
 ## License
 
 Private — internal use only.
+

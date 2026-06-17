@@ -41,6 +41,9 @@ abstract class IntegrationTestBase {
             registry.add("spring.datasource.url", postgres::getJdbcUrl)
             registry.add("spring.datasource.username", postgres::getUsername)
             registry.add("spring.datasource.password", postgres::getPassword)
+            registry.add("jwt.secret") { "test-secret-at-least-32-chars-long" }
+            registry.add("bucket4j.enabled") { "false" }
+            registry.add("seed.demo.users") { "true" }
         }
     }
 

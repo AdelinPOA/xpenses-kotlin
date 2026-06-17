@@ -3,8 +3,11 @@ package eu.nt.xpenses.controllers
 import com.fasterxml.jackson.annotation.JsonProperty
 import eu.nt.xpenses.models.Category
 import eu.nt.xpenses.repositories.CategoryRepository
+import jakarta.validation.Valid
+import jakarta.validation.constraints.NotBlank
 import org.springframework.http.ResponseEntity
 import org.springframework.security.access.prepost.PreAuthorize
+import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.bind.annotation.*
 
 @RestController
@@ -27,7 +30,8 @@ class CategoryController(
 
     @PostMapping
     @PreAuthorize("hasRole('mod')")
-    fun createCategory(@RequestBody body: CategoryCreateRequest): ResponseEntity<*> {
+    @Transactional
+    fun createCategory(@Valid @RequestBody body: CategoryCreateRequest): ResponseEntity<*> {
         val existing = categoryRepository.findByName(body.name)
         if (existing != null) {
             return ResponseEntity.status(409).body(mapOf("detail" to "Category name already exists"))
@@ -42,9 +46,10 @@ class CategoryController(
 
     @PatchMapping("/{categoryId}")
     @PreAuthorize("hasRole('mod')")
+    @Transactional
     fun updateCategory(
         @PathVariable categoryId: Int,
-        @RequestBody body: CategoryUpdateRequest
+        @Valid @RequestBody body: CategoryUpdateRequest
     ): ResponseEntity<*> {
         val category = categoryRepository.findById(categoryId).orElse(null)
             ?: return ResponseEntity.status(404).body(mapOf("detail" to "Category not found"))
@@ -69,6 +74,7 @@ class CategoryController(
 
     @DeleteMapping("/{categoryId}")
     @PreAuthorize("hasRole('mod')")
+    @Transactional
     fun deactivateCategory(@PathVariable categoryId: Int): ResponseEntity<Void> {
         val category = categoryRepository.findById(categoryId).orElse(null)
             ?: return ResponseEntity.status(404).build()
@@ -79,12 +85,13 @@ class CategoryController(
 }
 
 data class CategoryCreateRequest(
-    val name: String,
+    @field:NotBlank val name: String,
     @JsonProperty("limit_amount") val limitAmount: Double? = null
 )
 
 data class CategoryUpdateRequest(
-    val name: String? = null,
+    @field:NotBlank val name: String? = null,
     @JsonProperty("limit_amount") val limitAmount: Double? = null,
     @JsonProperty("is_active") val isActive: Boolean? = null
 )
+

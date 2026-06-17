@@ -65,6 +65,7 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
   };
 
   const objectUrlsRef = useRef<Map<File, string>>(new Map());
+  const redirectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const getObjectUrl = (file: File) => {
     if (!objectUrlsRef.current.has(file)) {
@@ -76,6 +77,7 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
   useEffect(() => {
     return () => {
       objectUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+      if (redirectTimeoutRef.current) clearTimeout(redirectTimeoutRef.current);
     };
   }, []);
 
@@ -163,7 +165,7 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
       const destination = reportId ? `/reports/${reportId}` : "/expenses";
       if (result.currency_original !== "EUR") {
         setSavedExpense(result);
-        setTimeout(() => router.push(destination), 2000);
+        redirectTimeoutRef.current = setTimeout(() => router.push(destination), 2000);
       } else {
         router.push(destination);
       }

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -262,12 +263,12 @@ export default function ImapAdminPage() {
                   to parse report timeframes and details.
                 </p>
               </div>
-              <a
+              <Link
                 href="/admin/ocr"
                 className="text-indigo-600 dark:text-indigo-400 hover:underline font-semibold whitespace-nowrap"
               >
                 Configure at OCR Settings →
-              </a>
+              </Link>
             </div>
           )}
 
@@ -643,14 +644,14 @@ export default function ImapAdminPage() {
 
               {simulationResult.success && simulationResult.report_id && (
                 <div className="flex justify-center pt-2">
-                  <a
+                  <Link
                     href={`/reports/${simulationResult.report_id}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 active:scale-[0.98] transition-all duration-200 cursor-pointer shadow-md shadow-indigo-500/10"
                   >
                     View Created Draft Report ↗
-                  </a>
+                  </Link>
                 </div>
               )}
             </div>

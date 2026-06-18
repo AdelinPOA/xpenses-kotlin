@@ -7,14 +7,16 @@ WORKDIR /workspace/app
 COPY gradle gradle
 COPY gradlew settings.gradle.kts build.gradle.kts ./
 
-# Cache dependencies
-RUN ./gradlew dependencies --no-daemon || true
+# Cache dependencies (BuildKit cache mount persists ~/.gradle across builds)
+RUN --mount=type=cache,target=/root/.gradle \
+    ./gradlew dependencies --no-daemon || true
 
 # Copy source code
 COPY src src
 
-# Compile standard Spring Boot executable JAR
-RUN ./gradlew bootJar --no-daemon
+# Compile standard Spring Boot executable JAR (incremental thanks to cached ~/.gradle)
+RUN --mount=type=cache,target=/root/.gradle \
+    ./gradlew bootJar --no-daemon
 
 # ── Stage 2: Minimal JRE 21 Runtime ──
 FROM eclipse-temurin:21-jre-alpine@sha256:704db3c40204a44f471191446ddd9cda5d60dab40f0e15c6507b815ed897238b AS release

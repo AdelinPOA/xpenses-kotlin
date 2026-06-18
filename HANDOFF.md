@@ -1,11 +1,35 @@
 # HANDOFF.md — xpenses-kotlin
 
-> Last updated: 2026-06-17 (session 57)
-> Author: Claude Opus 4.6
+> Last updated: 2026-06-18 (session 58)
+> Author: Hermes (deepseek-v4-pro)
 
 ---
 
-## Latest Session (2026-06-17, session 57)
+## Latest Session (2026-06-18, session 58)
+
+### What Was Done
+
+- **Backend Docker build speedup — ~6.5x faster rebuilds** — `docker compose build backend` went from 4m29s to ~41s for a typical source change.
+
+  - **BuildKit cache mounts on `~/.gradle`** — added `--mount=type=cache,target=/root/.gradle` to both `RUN ./gradlew dependencies` and `RUN ./gradlew bootJar` in `Dockerfile`. Persists Gradle's dependency cache and build cache across `docker build` runs, eliminating the 2m26s dependency download on every rebuild.
+
+  - **Gradle build cache enabled** — added `org.gradle.caching=true` to `gradle.properties`. Caches task outputs (compileKotlin, processAot, etc.) in `~/.gradle/caches/build-cache-1/`, enabling incremental compilation when source files change.
+
+  - **Measured gains** (single Kotlin file change):
+    - Dependencies resolution: **CACHED** (was 2m26s)
+    - `compileKotlin`: 25.6s (incremental)
+    - Full `bootJar`: 39.4s (was 1m58s)
+    - Total rebuild: ~41s (was 4m29s)
+
+  - First build after this change is still slow (populates caches), but all subsequent rebuilds benefit — even across `docker compose down/up` cycles.
+
+### Modified Files
+- `backend-kotlin-jpa/Dockerfile` — Added BuildKit cache mounts (`--mount=type=cache,target=/root/.gradle`) on Gradle RUN steps
+- `backend-kotlin-jpa/gradle.properties` — Enabled `org.gradle.caching=true`
+
+---
+
+## Previous Session (2026-06-17, session 57)
 
 ### What Was Done
 

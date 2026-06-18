@@ -20,16 +20,17 @@ function formatEur(amount: number) {
 }
 
 export default function DashboardPage() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [showAll, setShowAll] = useState(false);
   const isPrivileged = user?.role === "chef_finance" || user?.role === "mod";
 
   const { data, isLoading } = useQuery<DashboardStats>({
     queryKey: [...dashboardKeys.all, { all: showAll }],
     queryFn: () => api.get("/dashboard", { params: { all: showAll } }).then((r) => r.data),
+    enabled: !!user,
   });
 
-  if (isLoading) {
+  if (authLoading || (!user && !isLoading)) {
     return (
       <AppShell>
         <div role="status" aria-live="polite" className="animate-pulse space-y-6 mt-8">

@@ -208,7 +208,7 @@ class AuthController(
             .secure(cookieSecure)
             .path("/")
             .maxAge(7 * 24 * 60 * 60)
-            .sameSite("Strict")
+            .sameSite("Lax")
             .build()
 
         response.addHeader(HttpHeaders.SET_COOKIE, accessCookie.toString())
@@ -229,7 +229,7 @@ class AuthController(
             .secure(cookieSecure)
             .path("/")
             .maxAge(0)
-            .sameSite("Strict")
+            .sameSite("Lax")
             .build()
 
         response.addHeader(HttpHeaders.SET_COOKIE, clearAccess.toString())

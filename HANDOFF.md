@@ -22,11 +22,22 @@
 
   - **Bonus: Gemini accuracy counting consistency** — Gemini accuracy was only counted when `provider == "gemini"`, unlike EasyOCR/MinerU which counted based on result existence. Changed to result-existence-based counting for consistency.
 
+- **Fixed session timeout showing "Good morning, Guest!"** — after the access token expired (15 min inactivity), the dashboard rendered with `user=null` showing "Good morning, Guest!" instead of redirecting to login or refreshing the token silently.
+
+  - **AuthProvider redirect on auth failure** — when `getMe()` fails (after the axios interceptor already tried token refresh), redirect to `/login` instead of silently setting `user=null`. Previously this caused a broken half-authenticated state.
+
+  - **Dashboard auth loading guard** — added `authLoading` check from `useAuth()` to show skeleton while auth resolves. Added `enabled: !!user` to TanStack Query to prevent fetching dashboard data before user is known. Prevents "Guest" flash during token refresh.
+
+  - **Refresh token cookie `SameSite=Strict` → `Lax`** — `Strict` blocks the cookie from being sent on top-level navigations from external sources (bookmarks, browser restoring tabs after restart). Changed to `Lax` which still protects against CSRF on POST requests.
+
 ### Modified Files
 - `backend-kotlin-jpa/.../controllers/OcrController.kt` — Fixed accuracy formula (×10000/100 instead of ×100/100), fixed Gemini counting logic
 - `backend-kotlin-jpa/.../models/Models.kt` — Added `easyocrError`, `geminiError`, `mineruError` fields to `OcrComparison` entity
 - `backend-kotlin-jpa/.../services/OcrService.kt` — Changed `ocr_comparison_id` → `comparison_id` key name
 - `backend-kotlin-jpa/.../resources/db/migration/V6__add_ocr_error_columns.sql` — New migration for error columns
+- `backend-kotlin-jpa/.../controllers/AuthController.kt` — Refresh token cookie `SameSite=Strict` → `Lax`
+- `frontend/components/AuthProvider.tsx` — Redirect to `/login` on auth failure instead of showing Guest
+- `frontend/app/dashboard/page.tsx` — Auth loading guard, prevent Guest flash
 
 ---
 

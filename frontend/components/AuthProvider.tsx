@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { User } from "@/lib/api";
 import { getMe, logout as apiLogout } from "@/lib/auth";
 
@@ -27,13 +27,22 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     getMe()
       .then(setUser)
-      .catch(() => setUser(null))
+      .catch(() => {
+        setUser(null);
+        // Redirect to login if not already on the login page.
+        // The axios interceptor already tries token refresh on 401;
+        // if we still fail, the session is truly expired.
+        if (pathname !== "/login") {
+          router.replace("/login");
+        }
+      })
       .finally(() => setLoading(false));
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const logout = useCallback(async () => {
     await apiLogout();

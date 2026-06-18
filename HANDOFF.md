@@ -1,11 +1,36 @@
 # HANDOFF.md — xpenses-kotlin
 
-> Last updated: 2026-06-16 (session 56)
-> Author: Claude Sonnet 4.6
+> Last updated: 2026-06-17 (session 57)
+> Author: Claude Opus 4.6
 
 ---
 
-## Latest Session (2026-06-16, session 56)
+## Latest Session (2026-06-17, session 57)
+
+### What Was Done
+
+- **Fixed OCR accuracy tracking — 3 bugs resolved** — the OCR Scanner admin page always showed "Pending save…" in the Final (Ground Truth) column and 0% accuracy across all engines, even after expenses were saved from scanned receipts.
+
+  - **Bug 1 (Root Cause): `OcrComparison` entity missing error fields** — `OcrService.scanReceipt()` constructed `OcrComparison` with `easyocrError`, `geminiError`, `mineruError` named parameters that didn't exist on the entity class. This caused the save to fail silently (caught by try/catch), meaning **no comparison rows were ever persisted to the database**. Without a saved comparison row, `comparison_id` was never returned to the frontend, so expenses could never be linked to OCR comparisons.
+    - **Fix**: Added `easyocrError`, `geminiError`, `mineruError` fields to `OcrComparison` entity in `Models.kt`. Created Flyway migration `V6__add_ocr_error_columns.sql` to add the corresponding DB columns.
+
+  - **Bug 2: Key name mismatch for `comparison_id`** — even if Bug 1 were fixed, the backend returned the comparison ID as `ocr_comparison_id` in the scan response, but the frontend's `OCRScanResult` interface expected `comparison_id`. This meant `scanResult?.comparison_id` was always `undefined`, so the expense save payload never included the comparison link.
+    - **Fix**: Changed `mutableResult["ocr_comparison_id"]` → `mutableResult["comparison_id"]` in `OcrService.kt`.
+
+  - **Bug 3: Accuracy percentage formula wrong** — the formula `Math.round(ratio * 100) / 100.0` produced values like `0.5` for 50%, but the frontend renders `{value}%` expecting `50`. All accuracy values would have displayed as fractions (e.g., "0.5%" instead of "50%").
+    - **Fix**: Changed to `Math.round(ratio * 10000) / 100.0` to produce proper percentage values (e.g., `50.0` for 50%).
+
+  - **Bonus: Gemini accuracy counting consistency** — Gemini accuracy was only counted when `provider == "gemini"`, unlike EasyOCR/MinerU which counted based on result existence. Changed to result-existence-based counting for consistency.
+
+### Modified Files
+- `backend-kotlin-jpa/.../controllers/OcrController.kt` — Fixed accuracy formula (×10000/100 instead of ×100/100), fixed Gemini counting logic
+- `backend-kotlin-jpa/.../models/Models.kt` — Added `easyocrError`, `geminiError`, `mineruError` fields to `OcrComparison` entity
+- `backend-kotlin-jpa/.../services/OcrService.kt` — Changed `ocr_comparison_id` → `comparison_id` key name
+- `backend-kotlin-jpa/.../resources/db/migration/V6__add_ocr_error_columns.sql` — New migration for error columns
+
+---
+
+## Previous Session (2026-06-16, session 56)
 
 ### What Was Done
 
@@ -23,17 +48,6 @@
 
 ### Commit
 - `6fb8866` — feat: expose and edit delegation fields on report pages
-
-### Modified Files
-- `backend-kotlin-jpa/.../controllers/ReportController.kt` — ReportOut + ReportUpdate extended, updateReport wired
-- `frontend/app/admin/imap/page.tsx` — DelegationFields overflow fix
-- `frontend/app/reports/[id]/edit/page.tsx` — Editable delegation inputs
-- `frontend/app/reports/[id]/page.tsx` — Redesigned delegation card
-- `frontend/lib/api.ts` — Already had types (no change needed)
-
----
-
-## Previous Session (2026-06-16, session 55)
 
 ### What Was Done
 

@@ -174,6 +174,7 @@ Features:
 - Structured JSON extraction (category, description, amount, currency, date, merchant, tax)
 - Naive Bayes category classifier trained on historical scan texts
 - Drag-and-drop receipt upload with full form autofill
+- **Engine accuracy tracking** — admin comparison dashboard tracks per-field accuracy (amount, date, merchant, category) across all 3 engines against ground truth from saved expenses; scan history with side-by-side results
 
 ## Makefile
 

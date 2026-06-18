@@ -92,7 +92,8 @@ class OcrController(
             }
 
             // Gemini accuracy
-            if (r.provider == "gemini" && hasFinal) {
+            val hasGemini = r.geminiAmount != null || r.geminiDate != null || r.geminiMerchant != null || r.geminiCategoryId != null
+            if (hasGemini && hasFinal) {
                 geminiCount++
                 if (r.geminiAmount != null && finalAmount != null) {
                     if (Math.abs(r.geminiAmount!!.toDouble() - finalAmount) < 0.01) geminiAmtOk++
@@ -148,18 +149,18 @@ class OcrController(
 
         val stats = mapOf(
             "total_scanned" to history.size,
-            "easyocr_amount_accuracy" to if (easyocrCount > 0) Math.round((easyocrAmtOk.toDouble() / easyocrCount) * 100.0) / 100.0 else 0.0,
-            "easyocr_date_accuracy" to if (easyocrCount > 0) Math.round((easyocrDateOk.toDouble() / easyocrCount) * 100.0) / 100.0 else 0.0,
-            "easyocr_merchant_accuracy" to if (easyocrCount > 0) Math.round((easyocrMerchantOk.toDouble() / easyocrCount) * 100.0) / 100.0 else 0.0,
-            "easyocr_category_accuracy" to if (easyocrCount > 0) Math.round((easyocrCatOk.toDouble() / easyocrCount) * 100.0) / 100.0 else 0.0,
-            "gemini_amount_accuracy" to if (geminiCount > 0) Math.round((geminiAmtOk.toDouble() / geminiCount) * 100.0) / 100.0 else 0.0,
-            "gemini_date_accuracy" to if (geminiCount > 0) Math.round((geminiDateOk.toDouble() / geminiCount) * 100.0) / 100.0 else 0.0,
-            "gemini_merchant_accuracy" to if (geminiCount > 0) Math.round((geminiMerchantOk.toDouble() / geminiCount) * 100.0) / 100.0 else 0.0,
-            "gemini_category_accuracy" to if (geminiCount > 0) Math.round((geminiCatOk.toDouble() / geminiCount) * 100.0) / 100.0 else 0.0,
-            "mineru_amount_accuracy" to if (mineruCount > 0) Math.round((mineruAmtOk.toDouble() / mineruCount) * 100.0) / 100.0 else 0.0,
-            "mineru_date_accuracy" to if (mineruCount > 0) Math.round((mineruDateOk.toDouble() / mineruCount) * 100.0) / 100.0 else 0.0,
-            "mineru_merchant_accuracy" to if (mineruCount > 0) Math.round((mineruMerchantOk.toDouble() / mineruCount) * 100.0) / 100.0 else 0.0,
-            "mineru_category_accuracy" to if (mineruCount > 0) Math.round((mineruCatOk.toDouble() / mineruCount) * 100.0) / 100.0 else 0.0
+            "easyocr_amount_accuracy" to if (easyocrCount > 0) Math.round((easyocrAmtOk.toDouble() / easyocrCount) * 10000.0) / 100.0 else 0.0,
+            "easyocr_date_accuracy" to if (easyocrCount > 0) Math.round((easyocrDateOk.toDouble() / easyocrCount) * 10000.0) / 100.0 else 0.0,
+            "easyocr_merchant_accuracy" to if (easyocrCount > 0) Math.round((easyocrMerchantOk.toDouble() / easyocrCount) * 10000.0) / 100.0 else 0.0,
+            "easyocr_category_accuracy" to if (easyocrCount > 0) Math.round((easyocrCatOk.toDouble() / easyocrCount) * 10000.0) / 100.0 else 0.0,
+            "gemini_amount_accuracy" to if (geminiCount > 0) Math.round((geminiAmtOk.toDouble() / geminiCount) * 10000.0) / 100.0 else 0.0,
+            "gemini_date_accuracy" to if (geminiCount > 0) Math.round((geminiDateOk.toDouble() / geminiCount) * 10000.0) / 100.0 else 0.0,
+            "gemini_merchant_accuracy" to if (geminiCount > 0) Math.round((geminiMerchantOk.toDouble() / geminiCount) * 10000.0) / 100.0 else 0.0,
+            "gemini_category_accuracy" to if (geminiCount > 0) Math.round((geminiCatOk.toDouble() / geminiCount) * 10000.0) / 100.0 else 0.0,
+            "mineru_amount_accuracy" to if (mineruCount > 0) Math.round((mineruAmtOk.toDouble() / mineruCount) * 10000.0) / 100.0 else 0.0,
+            "mineru_date_accuracy" to if (mineruCount > 0) Math.round((mineruDateOk.toDouble() / mineruCount) * 10000.0) / 100.0 else 0.0,
+            "mineru_merchant_accuracy" to if (mineruCount > 0) Math.round((mineruMerchantOk.toDouble() / mineruCount) * 10000.0) / 100.0 else 0.0,
+            "mineru_category_accuracy" to if (mineruCount > 0) Math.round((mineruCatOk.toDouble() / mineruCount) * 10000.0) / 100.0 else 0.0
         )
 
         return ResponseEntity.ok(mapOf(

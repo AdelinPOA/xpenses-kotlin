@@ -478,6 +478,15 @@ class OcrComparison(
     @Column(name = "mineru_category_id")
     var mineruCategoryId: Int? = null,
 
+    @Column(name = "easyocr_error")
+    var easyocrError: String? = null,
+
+    @Column(name = "gemini_error")
+    var geminiError: String? = null,
+
+    @Column(name = "mineru_error")
+    var mineruError: String? = null,
+
     var provider: String = "gemini",
 
     @Column(name = "created_at", nullable = false)

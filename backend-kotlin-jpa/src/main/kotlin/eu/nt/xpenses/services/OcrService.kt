@@ -17,6 +17,8 @@ import org.springframework.stereotype.Service
 import org.springframework.util.LinkedMultiValueMap
 import org.springframework.web.client.RestClient
 import org.springframework.web.client.body
+import org.springframework.http.client.JdkClientHttpRequestFactory
+import java.net.http.HttpClient
 import org.slf4j.LoggerFactory
 import java.io.File
 import java.math.BigDecimal
@@ -101,7 +103,12 @@ class OcrService(
     private val objectMapper: ObjectMapper
 ) {
     private val log = LoggerFactory.getLogger(OcrService::class.java)
-    private val restClient = RestClient.builder().build()
+    // Force HTTP/1.1: the JDK HttpClient defaults to an HTTP/1.1->HTTP/2 (h2c) upgrade on plain
+    // HTTP, which uvicorn (MinerU) rejects, causing 422 "files: Field required". EasyOCR's
+    // Flask server ignores the upgrade, but FastAPI/uvicorn does not. Pin to HTTP/1.1.
+    private val restClient = RestClient.builder()
+        .requestFactory(JdkClientHttpRequestFactory(HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).build()))
+        .build()
 
     fun getOcrConfig(): OCRConfig {
         val setting = appSettingRepository.findById("ocr_config").orElse(null)
@@ -205,7 +212,7 @@ class OcrService(
             try {
                 scanEasyOcr(fileBytes, filename, categories, classifier)
             } catch (e: Exception) {
-                emptyResult(listOf("EasyOCR failed: ${e.message}"))
+                errorResult("EasyOCR failed: ${e.message}")
             }
         }
 
@@ -213,16 +220,18 @@ class OcrService(
             try {
                 scanMineru(fileBytes, filename, config.mineruUrl, categories, classifier)
             } catch (e: Exception) {
-                emptyResult(listOf("MinerU failed: ${e.message}"))
+                errorResult("MinerU failed: ${e.message}")
             }
         }
 
-        val geminiFuture = if (config.provider == "gemini" && config.geminiApiKey.isNotEmpty()) {
+        // Gemini runs for the comparison whenever an API key is present, regardless of the
+        // selected provider, so the cloud column is populated even when easyocr/mineru is active.
+        val geminiFuture = if (config.geminiApiKey.isNotEmpty()) {
             CompletableFuture.supplyAsync {
                 try {
                     scanGemini(fileBytes, filename, config.geminiApiKey, categories)
                 } catch (e: Exception) {
-                    emptyResult(listOf("Gemini failed: ${e.message}"))
+                    errorResult("Gemini failed: ${e.message}")
                 }
             }
         } else {
@@ -260,12 +269,15 @@ class OcrService(
                 mineruDate = mineruResult?.get("date") as? String,
                 mineruMerchant = mineruResult?.get("merchant") as? String,
                 mineruCategoryId = mineruResult?.get("category_id") as? Int,
+                easyocrError = easyocrResult?.get("provider_error") as? String,
+                geminiError = geminiResult?.get("provider_error") as? String,
+                mineruError = mineruResult?.get("provider_error") as? String,
                 provider = config.provider,
                 createdAt = Instant.now()
             )
             val savedComparison = ocrComparisonRepository.save(comparison)
             val mutableResult = finalResult.toMutableMap()
-            mutableResult["ocr_comparison_id"] = savedComparison.id
+            mutableResult["comparison_id"] = savedComparison.id
             finalResult = mutableResult
         } catch (e: Exception) {
             log.warn("Failed to save OCR comparison record: {}", e.message)
@@ -764,5 +776,11 @@ class OcrService(
             "confidence" to 0.0,
             "warnings" to warnings
         )
+    }
+
+    private fun errorResult(error: String): Map<String, Any?> {
+        val r = emptyResult(listOf(error)).toMutableMap()
+        r["provider_error"] = error
+        return r
     }
 }

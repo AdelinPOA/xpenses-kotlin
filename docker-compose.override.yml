@@ -1,0 +1,6 @@
+services:
+  backend:
+    volumes:
+      - ./backend-kotlin-jpa/build/classes/kotlin/main:/app/classes/kotlin/main
+      - ./backend-kotlin-jpa/build/resources/main:/app/resources/main
+    entrypoint: ["sh", "-c", "chown -R appuser:appgroup /app/data 2>/dev/null || true; exec su-exec appuser java -cp /app/classes/kotlin/main:/app/resources/main:/app/app.jar -Dspring.profiles.active=dev eu.nt.xpenses.XpensesApplication"]

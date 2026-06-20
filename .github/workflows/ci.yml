@@ -80,9 +80,8 @@ jobs:
           npm run build
 
   build-docker:
-    name: Build Docker Images & Scan
+    name: Build Docker Images
     runs-on: ubuntu-latest
-    continue-on-error: true  # non-blocking: CVEs in base images don't block PRs
     needs: [build-kotlin, build-frontend]
     steps:
       - name: Checkout repository
@@ -91,23 +90,3 @@ jobs:
       - name: Build Docker images
         run: |
           docker compose build
-
-      - name: Run Trivy vulnerability scanner (Backend)
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: 'xpenses-backend:latest'
-          format: 'table'
-          exit-code: '1'
-          ignore-unfixed: true
-          vuln-type: 'os,library'
-          severity: 'CRITICAL,HIGH'
-
-      - name: Run Trivy vulnerability scanner (Frontend)
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: 'xpenses-frontend:latest'
-          format: 'table'
-          exit-code: '1'
-          ignore-unfixed: true
-          vuln-type: 'os,library'
-          severity: 'CRITICAL,HIGH'

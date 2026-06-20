@@ -1,11 +1,26 @@
 # HANDOFF.md — xpenses-kotlin
 
-> Last updated: 2026-06-20 (session 69)
+> Last updated: 2026-06-20 (session 70)
 > Author: Antigravity
 
 ---
 
-## Latest Session (2026-06-20, session 69)
+## Latest Session (2026-06-20, session 70)
+
+### What Was Done
+- **Fixed 404 Not Found on Async OCR Polling**:
+  - Found that the backend returned `status_url` with the `/api` prefix (e.g. `/api/ocr/status/{jobId}`). When the frontend Axios instance (pre-configured with `baseURL: http://localhost:8001/api`) tried to fetch it, the simple string concatenation in Axios resolved to `/api/api/ocr/status/{jobId}` which returned a `404 Not Found` error.
+  - Removed the `/api` prefix from `status_url` in `OcrController.kt`, returning `/ocr/status/{jobId}` so it combines correctly with the Axios base URL.
+- **Tested and Evaluated all OCR Engines**:
+  - Performed OCR scanning on the Holiday Inn test image (`2_hotel holidayinn.jpg`) and successfully verified execution for all three engines.
+  - Documented extraction comparison results in a new artifact [ocr_test_comparison.md](file:///home/poa/.gemini/antigravity-cli/brain/de349e93-e74d-4130-ba93-75f569cf0645/ocr_test_comparison.md).
+
+### Files Changed
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/OcrController.kt`
+
+---
+
+## Previous Session (2026-06-20, session 69)
 
 ### What Was Done
 - **Fixed 403 Forbidden on File Uploads**:

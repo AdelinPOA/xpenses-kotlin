@@ -1,11 +1,22 @@
 # HANDOFF.md — xpenses-kotlin
 
-> Last updated: 2026-06-20 (session 60)
-> Author: Hermes (DeepSeek v4 Pro)
+> Last updated: 2026-06-20 (session 61)
+> Author: Antigravity (Gemini 3.5 Flash)
 
 ---
 
-## Latest Session (2026-06-20, session 60)
+## Latest Session (2026-06-20, session 61)
+
+### What Was Done
+
+- **CI Memory & CVE Patches** — Addressed errors in GitHub Actions CI runs:
+  - **CodeQL OOM**: Resolved `OutOfMemoryError: GC overhead limit exceeded` during compilation by adding `org.gradle.jvmargs=-Xmx2g -XX:MaxMetaspaceSize=512m` and `kotlin.daemon.jvmargs=-Xmx2g` to [gradle.properties](file:///home/poa/xpenses-kotlin/backend-kotlin-jpa/gradle.properties).
+  - **Trivy CVEs**: Patched vulnerabilities in backend Docker image scans by bumping `spring-security.version` to `6.4.10` and adding `spring-framework.version=6.2.11` to [gradle.properties](file:///home/poa/xpenses-kotlin/backend-kotlin-jpa/gradle.properties) to address `CVE-2025-41232`, `CVE-2025-41248`, `CVE-2026-22732`, and `CVE-2025-41249`.
+  - Switched development to dedicated `fix/ci-memory-and-cves` branch.
+
+---
+
+## Previous Session (2026-06-20, session 60)
 
 ### What Was Done
 

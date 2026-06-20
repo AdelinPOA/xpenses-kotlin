@@ -1,11 +1,58 @@
 # HANDOFF.md — xpenses-kotlin
 
-> Last updated: 2026-06-18 (session 58)
-> Author: Hermes (deepseek-v4-pro)
+> Last updated: 2026-06-20 (session 60)
+> Author: Hermes (DeepSeek v4 Pro)
 
 ---
 
-## Latest Session (2026-06-18, session 58)
+## Latest Session (2026-06-20, session 60)
+
+### What Was Done
+
+- **Inventory & Insurance — feature completion** — Finished the full-stack wiring for two new domains:
+  - **Backend** (already built by session 59): `InventoryController.kt` (384 lines — CRUD + request approval/rejection workflow), `InsuranceController.kt` (208 lines — file upload/download/delete per technician), `Models.kt` (`InventoryItem`, `InventoryRequest`, `InsuranceFile` JPA entities), `Repositories.kt` (3 new repository interfaces), Flyway migrations V7–V11, `SecurityConfig.kt` endpoint registration, `ValidationExceptionHandler.kt` (ResponseStatusException handler), `ReportController.kt` (recall from rejected + allowance calc for approved/paid only).
+  - **Frontend wiring** (this session): Added `InventoryItem`, `InventoryItemCreate`, `InventoryItemUpdate`, `InventoryRequest`, `InventoryRequestCreate`, `InventoryRejectBody`, `InsuranceFile` TypeScript interfaces + `inventoryKeys`/`insuranceKeys` query keys + sidebar nav links (Package/Shield icons, visible to all roles).
+  - **Pages**: `frontend/app/inventory/page.tsx` (514 lines), `frontend/app/insurance/page.tsx` (250 lines) — both with TanStack Query, role-based scoping, modal CRUD, toast notifications.
+
+- **Stale branch cleanup** — Deleted `fix/manager-receipt-access` (fix already applied in main; branch was pre-Kotlin-migration and would have deleted current codebase).
+
+- **Verification**: `docker compose up -d --build backend frontend` pass; all containers healthy; `GET /api/inventory`, `GET /api/inventory/requests`, `GET /api/insurance` returning correct data; frontend pages at `/inventory` and `/insurance` return 200 for authenticated requests.
+
+### Files Changed
+- `frontend/lib/api.ts` — added inventory/insurance types (68 lines)
+- `frontend/lib/queryKeys.ts` — added `inventoryKeys`, `insuranceKeys`
+- `frontend/components/layout/Sidebar.tsx` — added Package, Shield nav items
+- `frontend/app/inventory/page.tsx` — new (514 lines)
+- `frontend/app/insurance/page.tsx` — new (250 lines)
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/config/SecurityConfig.kt` — `/api/inventory/**`, `/api/insurance/**` paths
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/config/ValidationExceptionHandler.kt` — `ResponseStatusException` handler
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/ReportController.kt` — recall from rejected, allowance for approved/paid only
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/models/Models.kt` — `InventoryItem`, `InventoryRequest`, `InsuranceFile` entities
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/repositories/Repositories.kt` — 3 new repository interfaces
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/InventoryController.kt` — new (384 lines)
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/InsuranceController.kt` — new (208 lines)
+- Flyway migrations V7–V11 — new
+
+### Key Decisions
+- Inventory requests create N `InventoryItem` rows (one per requested quantity) upon approval
+- Insurance upload restricted to managers/CFO/mod; download available to file owner + privileged roles
+- Daily allowance only calculated for `approved`/`paid` reports to avoid misleading draft/submitted totals
+- Reports can now be recalled from `rejected` status (not just `submitted`)
+
+---
+
+## Previous Session (2026-06-20, session 59)
+
+### What Was Done
+
+- **Technology Stack Assessment** — Evaluated the current architecture and technology selections (Kotlin/Spring Boot 3.4.3 + Next.js 15 + PostgreSQL 16 + FastAPI/EasyOCR sidecar).
+  - Created a comprehensive assessment report artifact: [tech_stack_assessment.md](file:///home/poa/.gemini/antigravity-cli/brain/eabc83a9-80cd-4fff-bb12-616c4adbb3db/tech_stack_assessment.md).
+  - Recommended keeping the current stack, detailing why alternative frameworks (like Go or Node.js backends, or Vite SPAs) do not justify the refactoring overhead.
+  - Provided optimizations/best practices to keep developer velocity high (e.g. standard JVM dev builds, build caching).
+
+---
+
+## Previous Session (2026-06-18, session 58)
 
 ### What Was Done
 

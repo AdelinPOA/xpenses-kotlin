@@ -63,3 +63,15 @@ export const storageKeys = {
   migration: () => [...storageKeys.all, "migration"] as const,
 };
 
+export const inventoryKeys = {
+  all: ["inventory"] as const,
+  list: (filters?: object) => [...inventoryKeys.all, "list", filters] as const,
+  detail: (id: number) => [...inventoryKeys.all, "detail", id] as const,
+  requests: () => [...inventoryKeys.all, "requests"] as const,
+};
+
+export const insuranceKeys = {
+  all: ["insurance"] as const,
+  list: (filters?: object) => [...insuranceKeys.all, "list", filters] as const,
+};
+

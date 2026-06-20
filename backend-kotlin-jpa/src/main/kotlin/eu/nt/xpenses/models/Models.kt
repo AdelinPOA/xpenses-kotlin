@@ -416,6 +416,124 @@ class MileageRecord(
 )
 
 @Entity
+@Table(name = "inventory_items")
+class InventoryItem(
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    var id: Int? = null,
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    var user: User? = null,
+
+    @Column(nullable = false)
+    var name: String,
+
+    var description: String? = null,
+
+    @JsonProperty("serial_number")
+    var serialNumber: String? = null,
+
+    var category: String? = null,
+
+    @JsonProperty("purchase_date")
+    var purchaseDate: String? = null,
+
+    @JsonProperty("purchase_value")
+    var purchaseValue: BigDecimal? = null,
+
+    @Column(nullable = false)
+    var status: String = "active",
+
+    var notes: String? = null,
+
+    @Column(name = "created_at", nullable = false)
+    var createdAt: Instant = Instant.now(),
+
+    @Column(name = "updated_at", nullable = false)
+    var updatedAt: Instant = Instant.now()
+) {
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "request_id")
+    var request: InventoryRequest? = null
+}
+
+@Entity
+@Table(name = "inventory_requests")
+class InventoryRequest(
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    var id: Int? = null,
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    var user: User? = null,
+
+    @Column(name = "item_name", nullable = false)
+    var itemName: String,
+
+    var description: String? = null,
+
+    @Column(nullable = false)
+    var quantity: Int = 1,
+
+    @Column(nullable = false)
+    var status: String = "pending",
+
+    @Column(name = "rejection_reason")
+    var rejectionReason: String? = null,
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "approved_by")
+    var approvedBy: User? = null,
+
+    @Column(name = "approved_at")
+    var approvedAt: Instant? = null,
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "rejected_by")
+    var rejectedBy: User? = null,
+
+    @Column(name = "rejected_at")
+    var rejectedAt: Instant? = null,
+
+    @Column(name = "created_at", nullable = false)
+    var createdAt: Instant = Instant.now(),
+
+    @Column(name = "updated_at", nullable = false)
+    var updatedAt: Instant = Instant.now()
+)
+
+@Entity
+@Table(name = "insurance_files")
+class InsuranceFile(
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    var id: Int? = null,
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    var user: User? = null,
+    @Column(nullable = false)
+    var title: String,
+    var description: String? = null,
+    @Column(name = "file_path", nullable = false)
+    var filePath: String,
+    @Column(name = "file_name")
+    var fileName: String? = null,
+    @Column(name = "file_size")
+    var fileSize: Long? = null,
+    @Column(name = "file_type")
+    var fileType: String? = null,
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "uploaded_by")
+    var uploadedBy: User? = null,
+    @Column(name = "created_at", nullable = false)
+    var createdAt: Instant = Instant.now(),
+    @Column(name = "updated_at", nullable = false)
+    var updatedAt: Instant = Instant.now()
+)
+
+@Entity
 @Table(name = "app_settings")
 class AppSetting(
     @Id

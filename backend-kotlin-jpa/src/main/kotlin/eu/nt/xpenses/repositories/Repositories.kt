@@ -142,3 +142,25 @@ interface OcrComparisonRepository : JpaRepository<OcrComparison, Int> {
     @Query("SELECT o FROM OcrComparison o LEFT JOIN FETCH o.expense ORDER BY o.createdAt DESC")
     fun findAllOrdered(): List<OcrComparison>
 }
+
+@Repository
+interface InventoryItemRepository : JpaRepository<InventoryItem, Int> {
+    fun findAllByUserId(userId: Int): List<InventoryItem>
+    fun findAllByUserIdOrderByCreatedAtDesc(userId: Int): List<InventoryItem>
+    fun findAllByOrderByCreatedAtDesc(): List<InventoryItem>
+}
+
+@Repository
+interface InventoryRequestRepository : JpaRepository<InventoryRequest, Int> {
+    fun findAllByUserId(userId: Int): List<InventoryRequest>
+    fun findAllByUserIdOrderByCreatedAtDesc(userId: Int): List<InventoryRequest>
+    fun findAllByStatus(status: String): List<InventoryRequest>
+    fun findAllByUserIdAndStatus(userId: Int, status: String): List<InventoryRequest>
+    fun findAllByOrderByCreatedAtDesc(): List<InventoryRequest>
+}
+
+@Repository
+interface InsuranceFileRepository : JpaRepository<InsuranceFile, Int> {
+    fun findAllByUserIdOrderByCreatedAtDesc(userId: Int): List<InsuranceFile>
+    fun findAllByOrderByCreatedAtDesc(): List<InsuranceFile>
+}

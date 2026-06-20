@@ -70,6 +70,11 @@ class OcrController(
         try {
             asyncOcrService.processOcr(savedJob.id!!, file.bytes, filename)
         } catch (e: Exception) {
+            // Async dispatch was rejected (e.g. the executor queue is full). Mark the job
+            // failed so it doesn't sit in 'pending' forever with clients polling indefinitely.
+            savedJob.status = "failed"
+            savedJob.errorMessage = "OCR queue is full or rejected"
+            ocrJobRepository.save(savedJob)
             return ResponseEntity.status(503).body(mapOf("detail" to "OCR queue is full or rejected"))
         }
 

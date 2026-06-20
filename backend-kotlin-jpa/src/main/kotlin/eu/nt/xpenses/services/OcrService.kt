@@ -207,83 +207,164 @@ class OcrService(
         var mineruResult: Map<String, Any?>? = null
         var finalResult: Map<String, Any?>
 
-        // Process in parallel using Java CompletableFutures
-        val easyocrFuture = CompletableFuture.supplyAsync {
-            try {
-                scanEasyOcr(fileBytes, filename, categories, classifier)
-            } catch (e: Exception) {
-                errorResult("EasyOCR failed: ${e.message}")
-            }
+        // Pre-save the comparison record to obtain an ID for async background updates
+        val comparison = OcrComparison(
+            receiptFilename = filename,
+            provider = config.provider,
+            createdAt = Instant.now()
+        )
+        val savedComparison = try {
+            ocrComparisonRepository.save(comparison)
+        } catch (e: Exception) {
+            log.warn("Failed to pre-save OCR comparison record: {}", e.message)
+            null
         }
+        val comparisonId = savedComparison?.id
 
-        val mineruFuture = CompletableFuture.supplyAsync {
-            try {
-                scanMineru(fileBytes, filename, config.mineruUrl, categories, classifier)
-            } catch (e: Exception) {
-                errorResult("MinerU failed: ${e.message}")
-            }
-        }
-
-        // Gemini runs for the comparison whenever an API key is present, regardless of the
-        // selected provider, so the cloud column is populated even when easyocr/mineru is active.
-        val geminiFuture = if (config.geminiApiKey.isNotEmpty()) {
-            CompletableFuture.supplyAsync {
+        // 1. Run selected provider synchronously (and fallbacks if needed)
+        if (config.provider == "gemini") {
+            if (config.geminiApiKey.isNotEmpty()) {
                 try {
-                    scanGemini(fileBytes, filename, config.geminiApiKey, categories)
+                    geminiResult = scanGemini(fileBytes, filename, config.geminiApiKey, categories)
                 } catch (e: Exception) {
-                    errorResult("Gemini failed: ${e.message}")
+                    geminiResult = errorResult("Gemini failed: ${e.message}")
                 }
             }
-        } else {
-            CompletableFuture.completedFuture(null)
-        }
 
-        // Wait for all to complete
-        CompletableFuture.allOf(easyocrFuture, mineruFuture, geminiFuture).join()
+            if (geminiResult != null && geminiResult["amount"] != null) {
+                finalResult = geminiResult
+            } else {
+                try {
+                    easyocrResult = scanEasyOcr(fileBytes, filename, categories, classifier)
+                } catch (e: Exception) {
+                    easyocrResult = errorResult("EasyOCR failed: ${e.message}")
+                }
+                finalResult = easyocrResult
+            }
+        } else if (config.provider == "mineru") {
+            try {
+                mineruResult = scanMineru(fileBytes, filename, config.mineruUrl, categories, classifier)
+            } catch (e: Exception) {
+                mineruResult = errorResult("MinerU failed: ${e.message}")
+            }
 
-        easyocrResult = easyocrFuture.get()
-        mineruResult = mineruFuture.get()
-        geminiResult = geminiFuture.get()
-
-        if (config.provider == "gemini" && geminiResult != null && geminiResult["amount"] != null) {
-            finalResult = geminiResult
-        } else if (config.provider == "mineru" && mineruResult != null && mineruResult["amount"] != null) {
-            finalResult = mineruResult
-        } else {
+            if (mineruResult != null && mineruResult["amount"] != null) {
+                finalResult = mineruResult
+            } else {
+                try {
+                    easyocrResult = scanEasyOcr(fileBytes, filename, categories, classifier)
+                } catch (e: Exception) {
+                    easyocrResult = errorResult("EasyOCR failed: ${e.message}")
+                }
+                finalResult = easyocrResult
+            }
+        } else { // easyocr
+            try {
+                easyocrResult = scanEasyOcr(fileBytes, filename, categories, classifier)
+            } catch (e: Exception) {
+                easyocrResult = errorResult("EasyOCR failed: ${e.message}")
+            }
             finalResult = easyocrResult
         }
 
-        // Save comparison row
-        try {
-            val comparison = OcrComparison(
-                receiptFilename = filename,
-                geminiAmount = (geminiResult?.get("amount") as? Number)?.let { BigDecimal.valueOf(it.toDouble()) },
-                geminiDate = geminiResult?.get("date") as? String,
-                geminiMerchant = geminiResult?.get("merchant") as? String,
-                geminiCategoryId = geminiResult?.get("category_id") as? Int,
-                easyocrAmount = (easyocrResult?.get("amount") as? Number)?.let { BigDecimal.valueOf(it.toDouble()) },
-                easyocrDate = easyocrResult?.get("date") as? String,
-                easyocrMerchant = easyocrResult?.get("merchant") as? String,
-                easyocrCategoryId = easyocrResult?.get("category_id") as? Int,
-                mineruAmount = (mineruResult?.get("amount") as? Number)?.let { BigDecimal.valueOf(it.toDouble()) },
-                mineruDate = mineruResult?.get("date") as? String,
-                mineruMerchant = mineruResult?.get("merchant") as? String,
-                mineruCategoryId = mineruResult?.get("category_id") as? Int,
-                easyocrError = easyocrResult?.get("provider_error") as? String,
-                geminiError = geminiResult?.get("provider_error") as? String,
-                mineruError = mineruResult?.get("provider_error") as? String,
-                provider = config.provider,
-                createdAt = Instant.now()
-            )
-            val savedComparison = ocrComparisonRepository.save(comparison)
-            val mutableResult = finalResult.toMutableMap()
-            mutableResult["comparison_id"] = savedComparison.id
-            finalResult = mutableResult
-        } catch (e: Exception) {
-            log.warn("Failed to save OCR comparison record: {}", e.message)
+        // 2. Update the DB record for the synchronous scans and run the others in the background
+        if (comparisonId != null) {
+            try {
+                if (geminiResult != null) {
+                    updateGeminiComparison(comparisonId, geminiResult)
+                }
+                if (easyocrResult != null) {
+                    updateEasyOcrComparison(comparisonId, easyocrResult)
+                }
+                if (mineruResult != null) {
+                    updateMineruComparison(comparisonId, mineruResult)
+                }
+            } catch (e: Exception) {
+                log.warn("Failed to update synchronous OCR comparison results: {}", e.message)
+            }
+
+            // Launch background tasks for the non-executed engines
+            if (easyocrResult == null) {
+                CompletableFuture.runAsync {
+                    try {
+                        val res = scanEasyOcr(fileBytes, filename, categories, classifier)
+                        updateEasyOcrComparison(comparisonId, res)
+                    } catch (e: Exception) {
+                        log.error("Async EasyOCR failed: ${e.message}")
+                        updateEasyOcrComparison(comparisonId, errorResult("EasyOCR failed: ${e.message}"))
+                    }
+                }
+            }
+
+            if (mineruResult == null) {
+                CompletableFuture.runAsync {
+                    try {
+                        val res = scanMineru(fileBytes, filename, config.mineruUrl, categories, classifier)
+                        updateMineruComparison(comparisonId, res)
+                    } catch (e: Exception) {
+                        log.error("Async MinerU failed: ${e.message}")
+                        updateMineruComparison(comparisonId, errorResult("MinerU failed: ${e.message}"))
+                    }
+                }
+            }
+
+            if (geminiResult == null && config.geminiApiKey.isNotEmpty()) {
+                CompletableFuture.runAsync {
+                    try {
+                        val res = scanGemini(fileBytes, filename, config.geminiApiKey, categories)
+                        updateGeminiComparison(comparisonId, res)
+                    } catch (e: Exception) {
+                        log.error("Async Gemini failed: ${e.message}")
+                        updateGeminiComparison(comparisonId, errorResult("Gemini failed: ${e.message}"))
+                    }
+                }
+            }
         }
 
-        return finalResult
+        val mutableResult = finalResult.toMutableMap()
+        if (comparisonId != null) {
+            mutableResult["comparison_id"] = comparisonId
+        }
+        return mutableResult
+    }
+
+    private fun updateGeminiComparison(id: Int, result: Map<String, Any?>) {
+        try {
+            val amount = (result["amount"] as? Number)?.let { BigDecimal.valueOf(it.toDouble()) }
+            val date = result["date"] as? String
+            val merchant = result["merchant"] as? String
+            val categoryId = result["category_id"] as? Int
+            val error = result["provider_error"] as? String
+            ocrComparisonRepository.updateGeminiResult(id, amount, date, merchant, categoryId, error)
+        } catch (e: Exception) {
+            log.warn("Failed to update Gemini comparison record: {}", e.message)
+        }
+    }
+
+    private fun updateEasyOcrComparison(id: Int, result: Map<String, Any?>) {
+        try {
+            val amount = (result["amount"] as? Number)?.let { BigDecimal.valueOf(it.toDouble()) }
+            val date = result["date"] as? String
+            val merchant = result["merchant"] as? String
+            val categoryId = result["category_id"] as? Int
+            val error = result["provider_error"] as? String
+            ocrComparisonRepository.updateEasyOcrResult(id, amount, date, merchant, categoryId, error)
+        } catch (e: Exception) {
+            log.warn("Failed to update EasyOCR comparison record: {}", e.message)
+        }
+    }
+
+    private fun updateMineruComparison(id: Int, result: Map<String, Any?>) {
+        try {
+            val amount = (result["amount"] as? Number)?.let { BigDecimal.valueOf(it.toDouble()) }
+            val date = result["date"] as? String
+            val merchant = result["merchant"] as? String
+            val categoryId = result["category_id"] as? Int
+            val error = result["provider_error"] as? String
+            ocrComparisonRepository.updateMineruResult(id, amount, date, merchant, categoryId, error)
+        } catch (e: Exception) {
+            log.warn("Failed to update MinerU comparison record: {}", e.message)
+        }
     }
 
     private fun scanEasyOcr(

@@ -149,10 +149,12 @@ class ExpenseService(
                 throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Can only attach expenses to draft reports")
             }
             expense.report = rep
-        } else if (body.categoryId == null) {
-            // reportId is null and no category is being set — detach from report
-            expense.report = null
         }
+        // A null reportId means "leave the report association unchanged". Detaching an
+        // expense from a report is done deliberately via the report endpoints
+        // (attach / recall / reject), never as a side effect of editing an expense —
+        // otherwise editing an uncategorized, attached expense would silently remove it
+        // from its report.
 
         expense.updatedAt = Instant.now()
         val saved = expenseRepository.save(expense)

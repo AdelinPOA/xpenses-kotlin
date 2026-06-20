@@ -81,7 +81,7 @@ class OcrController(
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(mapOf(
             "job_id" to savedJob.id,
             "status" to "pending",
-            "status_url" to "/api/ocr/status/${savedJob.id}"
+            "status_url" to "/ocr/status/${savedJob.id}"
         ))
     }
 

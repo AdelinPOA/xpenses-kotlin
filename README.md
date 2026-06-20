@@ -78,7 +78,8 @@ docker compose up -d --build
 ```
 xpenses-kotlin/
 ├── backend-kotlin-jpa/          # Kotlin Spring Boot backend
-│   ├── src/main/kotlin/         #   13 controllers, 11 services, models, repositories
+│   ├── src/main/kotlin/         #   15 controllers, 13 services, models, repositories
+│   ├── src/test/kotlin/         #   JUnit 5 + MockMvc + Testcontainers suite
 │   ├── src/main/resources/      #   application.yml & Flyway migrations
 │   ├── build.gradle.kts         #   Spring Boot 3.4.3, Kotlin 2.1.0
 │   └── Dockerfile
@@ -103,11 +104,12 @@ xpenses-kotlin/
 
 The backend is built with **Spring Boot 3.4.3** + **Spring MVC** + **JPA/Hibernate** running on **Kotlin 2.1**.
 
-- **13 controllers**: Auth, Expenses, Reports, Dashboard, Categories, Users, Advances, Mileage, Signatures, OCR, LDAP Settings, App Settings, Health
-- **11 services**: FX conversion, PDF generation, OCR (hybrid), email, LDAP, storage, crypto, export, and more
-- **Flyway migrations** for schema management
+- **15 controllers**: Auth, Expenses, Reports, Dashboard, Categories, Users, Advances, Mileage, Inventory, Insurance, Signatures, OCR, LDAP Settings, App Settings, Health
+- **13 services**: FX conversion, PDF generation, OCR (hybrid + async), email/IMAP, LDAP, storage (local + S3 providers), crypto, CSV/Excel export, and a thin service layer (`ExpenseService`, `ReportService`, `ExpenseMapper`) that keeps controllers slim
+- **Flyway migrations** (`V1`–`V14`) for schema management
 - **Spring Security** with JWT filter chain
-- **@Async** email notifications on report status changes
+- **Soft delete** on financial records via Hibernate `@SQLDelete` / `@SQLRestriction`
+- **@Async** email notifications and OCR processing
 
 ## Docker Compose Services
 
@@ -146,6 +148,8 @@ All routes prefixed with `/api/`.
 | Reports | `GET/POST /reports`, `GET/PUT/DELETE /reports/:id`, `POST /reports/:id/submit\|approve\|reject\|pay\|recall`, `GET /reports/:id/pdf\|receipts-zip` |
 | Advances | `GET/POST /reports/:id/advances`, `GET /advances/pending`, `POST /advances/:id/pay` |
 | Mileage | `GET/POST/DELETE /reports/:id/mileage` |
+| Inventory | `GET/POST /inventory`, `GET/PATCH/DELETE /inventory/:id`, `GET/POST /inventory/requests`, `POST /inventory/requests/:id/approve\|reject` |
+| Insurance | `GET/POST /insurance`, `GET/DELETE /insurance/:id`, `GET /insurance/:id/download` |
 | Signatures | `POST /users/me/signature`, `POST /reports/:id/sign` |
 | Categories | `GET/POST /categories`, `PUT/DELETE /categories/:id` |
 | Dashboard | `GET /dashboard` |
@@ -185,6 +189,7 @@ make down        # docker compose down
 make rebuild     # rebuild backend only
 make logs        # tail backend logs
 make build       # build JAR locally (./gradlew bootJar)
+make test        # run the JUnit/Testcontainers suite (requires Docker)
 make test-health # curl /api/health
 make test-login  # curl POST /api/auth/login (tech1)
 ```

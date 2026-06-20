@@ -4,19 +4,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## AI Workflow & Agent Capabilities
 
-Antigravity and other agents operate in a pair-programming mode. To maximize efficiency and reduce token/cost consumption, always follow these guidelines:
+This repo is worked on in a pair-programming mode. To maximize efficiency and reduce token/cost consumption, follow these guidelines. (Note: `GEMINI.md` holds the equivalent instructions for the Antigravity/Gemini agent; keep the two consistent when changing shared workflow rules.)
 
-- **Token & Cost Monitoring**: Recommend the `/usage` slash command in the chat UI so the user can monitor token consumption and cost.
-- **Workflow Orchestration**: Recommend or use slash commands like `/goal` (for comprehensive, long-running tasks), `/schedule` (for recurring timers), `/grill-me` (to align on plans through an interactive interview), or `/teamwork-preview` (to coordinate multiple agents).
-- **Subagents Strategy**:
-  - Spawn a **`research`** subagent (read-only) for large search queries or exploration steps (e.g., scanning large code directories) to avoid bloating the main conversation history.
-  - Spawn a **`self`** subagent (read/write) to isolate specific implementational tasks or file generation.
-  - Keep subagent prompts precise and focused on a narrow scope to limit context usage.
-- **Background Tasks**: Long-running commands (like `docker compose up` or running test suites) should be run as background tasks. Use the `manage_task` tool to check status or terminate them. Do not loop or poll; wait for the system to notify you of completion.
+- **Token & Cost Monitoring**: The `/usage` slash command shows token consumption and cost.
+- **Spec-driven work**: For significant features, use the OpenSpec skills (`/openspec-propose`, `/openspec-apply-change`, `/openspec-sync-specs`, `/openspec-archive-change`) — see the OpenSpec Workflow section below. Use the `brainstorming` skill to align on requirements before implementation, and `/schedule` or `/loop` for recurring/timed tasks.
+- **Subagents strategy** (only spawn when the user asks or the task clearly benefits — cold-start cost is real):
+  - Use the read-only **`Explore`** agent for broad fan-out searches across many files when you only need the conclusion, not the file contents.
+  - Use the **`Plan`** agent to design an implementation strategy for a non-trivial task.
+  - Use **`general-purpose`** for multi-step research/implementation that should be isolated from the main conversation.
+  - Keep subagent prompts precise and narrowly scoped to limit context usage.
+- **Background tasks**: Run long-running commands (`docker compose up`, the test suite, native builds) with Bash `run_in_background: true`, or via the Task tools. Do not loop or poll — you are re-invoked when the work finishes.
 - **Build & Development Optimization**:
-  - **Do NOT** run `docker compose up -d --build` or `docker compose build` frequently. Rebuilding Docker containers consumes CPU and adds overhead.
+  - **Do NOT** run `docker compose up -d --build` or `docker compose build` frequently. Rebuilding Docker containers consumes CPU and adds overhead. Prefer the hot-swap workflow (see README "Backend Hot-Swapping").
   - Run the Spring Boot backend on a **standard JVM** (standard JAR execution) during active development rather than compiling GraalVM Native images (which takes several minutes).
-  - Prefer targeted Gradle commands (e.g., `./gradlew compileKotlin` or `./gradlew test` for specific tests) instead of complete system builds.
+  - Prefer targeted Gradle commands (e.g., `./gradlew compileKotlin`, or `./gradlew test --tests '...'` for a single class) instead of complete system builds.
 
 ## Project Tracking (MANDATORY)
 
@@ -40,6 +41,11 @@ docker exec -it xpenses-db psql -U xpenses
 # Build Kotlin backend locally (inside backend-kotlin-jpa/)
 make build
 # or: cd backend-kotlin-jpa && ./gradlew bootJar --no-daemon
+
+# Run the JUnit/Testcontainers suite (spins up a throwaway PostgreSQL via Docker)
+make test
+# Run a single test class
+cd backend-kotlin-jpa && ./gradlew test --no-daemon --tests 'eu.nt.xpenses.report.ReportStateMachineTest'
 
 # Smoke-test the running backend
 make test-health
@@ -77,7 +83,8 @@ curl http://localhost:8001/api/health
 | Framework | Spring Boot 3.4.3 (Spring MVC, not WebFlux) |
 | ORM | Spring Data JPA + Hibernate |
 | Database driver | PostgreSQL JDBC |
-| Migrations | Flyway (`V1__init.sql` in `src/main/resources/db/migration/`) |
+| Migrations | Flyway (`V1`–`V14` in `src/main/resources/db/migration/`; never edit an applied migration, add a new one) |
+| Tests | JUnit 5 + Spring MockMvc + Testcontainers (PostgreSQL); base class `IntegrationTestBase` |
 | Auth | Spring Security + custom `JwtAuthenticationFilter` |
 | JWT | JJWT 0.12.5 |
 | PDF | OpenPDF (iText fork) + PDFBox |
@@ -95,15 +102,17 @@ backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/
 │   └── SecurityConfig.kt       # CORS, JWT filter, role-based URL guards, stateless sessions
 ├── controllers/                # One controller per domain, all under /api/*
 │   ├── AuthController.kt       # /api/auth — login, refresh, logout, me
-│   ├── ExpenseController.kt    # /api/expenses — CRUD, receipts, duplicate
-│   ├── ReportController.kt     # /api/reports — full state machine, PDF, ZIP
+│   ├── ExpenseController.kt    # /api/expenses — CRUD, receipts, duplicate (delegates to ExpenseService)
+│   ├── ReportController.kt     # /api/reports — state machine, PDF, ZIP (delegates to ReportService)
 │   ├── AdvanceController.kt    # /api/reports/{id}/advances + /api/advances/pending
 │   ├── MileageController.kt    # /api/reports/{id}/mileage
+│   ├── InventoryController.kt  # /api/inventory — items + requests
+│   ├── InsuranceController.kt  # /api/insurance — insurance file uploads
 │   ├── UserController.kt       # /api/users
 │   ├── CategoryController.kt   # /api/categories
 │   ├── DashboardController.kt  # /api/dashboard
 │   ├── AppSettingsController.kt# /api/settings/*
-│   ├── OcrController.kt        # /api/ocr/*
+│   ├── OcrController.kt        # /api/ocr/* — async; enqueues jobs, polls status
 │   ├── SignatureController.kt  # /api/users/me/signature, /api/reports/{id}/sign
 │   ├── LdapSettingsController.kt
 │   └── HealthController.kt     # /api/health
@@ -114,17 +123,26 @@ backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/
 ├── security/
 │   ├── JwtAuthenticationFilter.kt  # Reads access_token cookie, sets request attribute "currentUser"
 │   └── JwtTokenProvider.kt
-└── services/
+└── services/                   # Business logic extracted out of controllers
+    ├── ExpenseService.kt       # Expense CRUD/validation/scoping logic
+    ├── ReportService.kt        # Report state-machine transitions, totals, scoping
+    ├── ExpenseMapper.kt        # Entity ↔ DTO mapping (keeps controllers thin)
+    ├── ExportService.kt        # CSV/Excel export via Apache POI
     ├── FxService.kt            # Frankfurter + fallback; caches in fx_rates table
     ├── PdfService.kt           # OpenPDF report generation + PDFBox receipt merging
     ├── OcrService.kt           # EasyOCR subprocess + Gemini + MinerU + NaiveBayes classifier
-    ├── StorageService.kt       # Local storage fully implemented; remote providers (S3/SFTP/SMB/WebDAV) stubbed
+    ├── AsyncOcrService.kt      # Runs OCR off-thread; persists results to ocr_jobs table
+    ├── StorageService.kt       # Dispatches to storage/ providers
+    ├── storage/
+    │   ├── StorageProvider.kt      # Provider interface
+    │   └── S3StorageProvider.kt    # S3 impl; local provider lives in StorageService
     ├── LdapService.kt
     ├── CryptoService.kt        # HKDF-SHA256 Fernet key derivation (mirrors Python crypto.py)
     ├── EmailSettingsService.kt
-    ├── EmailImportService.kt   # IMAP delegation email parsing
-    └── ReportService.kt
+    └── EmailImportService.kt   # IMAP delegation email parsing
 ```
+
+Controllers are intentionally thin: they read `currentUser`, deserialize the request, and delegate to a service. Put business logic, validation, and data-scoping in the service layer (`ExpenseService`, `ReportService`), not in the controller.
 
 ### Auth Pattern in Kotlin
 
@@ -170,9 +188,10 @@ submitted → draft (via recall, by owner)
 
 ### Key Implementation Notes
 
-- **In-memory filtering**: `ExpenseController.listExpenses` fetches by user (or all) then filters `reportId`, `categoryId`, `status`, `fromDate`, `toDate` in Kotlin. For large datasets consider adding SQL-level WHERE clauses via custom repository queries.
-- **Remote storage stubbed**: `StorageService.downloadFile` and `uploadFile` for non-local providers return stub responses or throw — only `local` provider is functional.
-- **OcrService runs EasyOCR as a subprocess**: `runEasyOcrSubprocess()` spawns a Python child process. This requires Python + EasyOCR to be installed in the Kotlin container image (currently handled via the shared Docker volume).
+- **Soft delete**: `ExpenseReport`, `Expense`, `Receipt` (and other financial records, migration `V13`) use Hibernate `@SQLDelete` + `@SQLRestriction("deleted = false")`. `repository.delete(...)` issues an `UPDATE ... SET deleted = true` instead of a `DELETE`, and all reads are transparently filtered to non-deleted rows. Do not assume a `delete` physically removes the row.
+- **In-memory filtering**: expense listing fetches by user (or all) then filters `reportId`, `categoryId`, `status`, `fromDate`, `toDate` in Kotlin (in `ExpenseService`). For large datasets consider adding SQL-level WHERE clauses via custom repository queries.
+- **Storage providers**: `StorageService` dispatches to `storage/` providers. `local` is fully functional; `S3StorageProvider` exists. Other remote providers (SFTP/SMB/WebDAV) are still stubbed.
+- **Async OCR**: `OcrController` enqueues work and `AsyncOcrService` runs it off the request thread, persisting status/results to the `ocr_jobs` table (migration `V14`); clients poll for completion. `OcrService` still spawns EasyOCR as a Python subprocess (`runEasyOcrSubprocess()`), requiring Python + EasyOCR in the container image (shared Docker volume).
 - **Daily allowance**: read from `app_settings` table via `getDailyAllowanceRate()` in `ReportController`. Configurable via `PATCH /api/settings/daily-allowance-rate` by `chef_finance`.
 - **CORS**: hardcoded to `http://localhost:3001` in `SecurityConfig`. Change this for production.
 
@@ -207,7 +226,7 @@ Frontend uses two URLs to reach the backend:
 - **FX conversion:** Frankfurter API (primary) → fawazahmed0/currency-api (fallback). Cached per `(currency, date)` in `fx_rates` table. Raises `IllegalArgumentException` if API returns `0.0`.
 - **Crypto:** HKDF-SHA256 key derivation from `JWT_SECRET` with a per-subsystem `info` label. Each subsystem (LDAP, OCR, IMAP, storage) gets a distinct encryption key. Rotating `JWT_SECRET` invalidates all encrypted settings.
 - **App settings table:** Key/value JSON rows in `app_settings`. Keys: `mileage_rate_before_tax`, `mileage_rate_after_tax`, `daily_allowance_rate`, `ldap_config`, `ocr_config`, `imap_config`, `storage_config`, `storage_migration_status`. All use upsert on the key column.
-- **Receipt storage:** Pluggable via `StorageService`. Local provider fully working. Remote providers (S3, SFTP, SMB, WebDAV) are stubbed in the Kotlin backend. Filenames sanitized before storage.
+- **Receipt storage:** Pluggable via `StorageService` → `storage/` providers. Local and S3 providers work; SFTP/SMB/WebDAV are stubbed. Filenames sanitized before storage.
 - **OCR:** EasyOCR (local subprocess) + Gemini 2.5 Flash (cloud) + MinerU (self-hosted HTTP API). Both active provider and EasyOCR run in parallel for comparison tracking.
 - **Dashboard scoping:** `chef_finance` and `mod` always see org-wide data. `manager` sees org-wide with `?all=true`. Others see only their own data.
 
@@ -249,4 +268,8 @@ Test accounts (seeded by `DataInitializer.kt`): `tech1/tech1`, `manager1/manager
 1. JDK 21 set up; `./gradlew bootJar --no-daemon` run in `backend-kotlin-jpa/`.
 2. Docker images built (backend + frontend).
 
-Note: Kotlin has no automated unit test suite yet. Adding JUnit/MockMvc tests is a future priority.
+There is now a JUnit 5 + MockMvc + Testcontainers suite under `backend-kotlin-jpa/src/test/` (state machine, controller, and service tests). `make test` runs it locally and requires Docker (Testcontainers starts a throwaway PostgreSQL).
+
+## OpenSpec Workflow
+
+Significant features are specced under `openspec/` before implementation. `openspec/specs/` holds the current capability specs; `openspec/changes/` holds in-progress change proposals (each with `proposal.md`, `tasks.md`, delta specs), and completed ones are moved to `openspec/changes/archive/`. Use the `/openspec-*` (or `/opsx:*`) skills to propose, apply, sync, and archive changes. Spec-driven work is the expected path for new features per the branching policy above.

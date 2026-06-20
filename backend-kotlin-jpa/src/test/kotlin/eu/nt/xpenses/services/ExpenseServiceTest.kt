@@ -65,7 +65,7 @@ class ExpenseServiceTest {
 
     @Test
     fun `updateExpense should reject if not draft`() {
-        val expense = Expense(id = 1, user = techUser, status = "submitted", amountOriginal = 10.0, currencyOriginal = "EUR", date = "2024-01-01")
+        val expense = Expense(id = 1, user = techUser, status = "submitted", amountOriginal = 10.0, amountEur = 10.0, currencyOriginal = "EUR", date = "2024-01-01")
         `when`(expenseRepository.findById(1)).thenReturn(Optional.of(expense))
 
         val ex = assertThrows<ResponseStatusException> {
@@ -76,7 +76,7 @@ class ExpenseServiceTest {
 
     @Test
     fun `deleteExpense should delete (soft delete handled by JPA) if draft`() {
-        val expense = Expense(id = 1, user = techUser, status = "draft", amountOriginal = 10.0, currencyOriginal = "EUR", date = "2024-01-01")
+        val expense = Expense(id = 1, user = techUser, status = "draft", amountOriginal = 10.0, amountEur = 10.0, currencyOriginal = "EUR", date = "2024-01-01")
         `when`(expenseRepository.findById(1)).thenReturn(Optional.of(expense))
 
         expenseService.deleteExpense(1, techUser)

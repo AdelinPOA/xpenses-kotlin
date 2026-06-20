@@ -38,6 +38,7 @@ class SecurityConfig(
                 authorize
                     .requestMatchers("/api/auth/login", "/api/auth/logout", "/api/auth/refresh").permitAll()
                     .requestMatchers("/api/health").permitAll()
+                    .requestMatchers("/error").permitAll()
                     .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                     .requestMatchers("/actuator/**").hasRole("mod")
                     .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()

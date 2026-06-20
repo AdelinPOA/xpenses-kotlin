@@ -32,10 +32,11 @@ class AsyncOcrTest {
 
     @Test
     fun `processOcr should save result when successful`() {
+        val fakeData = "fake data".toByteArray()
         `when`(ocrJobRepository.findById(1)).thenReturn(Optional.of(job))
-        `when`(ocrService.scanReceipt(any(ByteArray::class.java), eq("receipt.jpg"))).thenReturn(mapOf("amount" to 10.5))
+        `when`(ocrService.scanReceipt(fakeData, "receipt.jpg")).thenReturn(mapOf("amount" to 10.5))
 
-        asyncOcrService.processOcr(1, "fake data".toByteArray(), "receipt.jpg")
+        asyncOcrService.processOcr(1, fakeData, "receipt.jpg")
 
         verify(ocrJobRepository, atLeastOnce()).save(job)
         assertEquals("completed", job.status)
@@ -44,10 +45,11 @@ class AsyncOcrTest {
 
     @Test
     fun `processOcr should save error state on exception`() {
+        val fakeData = "fake data".toByteArray()
         `when`(ocrJobRepository.findById(1)).thenReturn(Optional.of(job))
-        `when`(ocrService.scanReceipt(any(ByteArray::class.java), eq("receipt.jpg"))).thenThrow(RuntimeException("OCR Failed"))
+        `when`(ocrService.scanReceipt(fakeData, "receipt.jpg")).thenThrow(RuntimeException("OCR Failed"))
 
-        asyncOcrService.processOcr(1, "fake data".toByteArray(), "receipt.jpg")
+        asyncOcrService.processOcr(1, fakeData, "receipt.jpg")
 
         verify(ocrJobRepository, atLeastOnce()).save(job)
         assertEquals("failed", job.status)

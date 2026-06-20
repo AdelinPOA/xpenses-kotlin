@@ -116,6 +116,8 @@ jobs:
           npm ci
 
       - name: Build Java for CodeQL extraction
+        env:
+          GRADLE_OPTS: -Xmx3g
         run: |
           cd backend-kotlin-jpa
           chmod +x gradlew

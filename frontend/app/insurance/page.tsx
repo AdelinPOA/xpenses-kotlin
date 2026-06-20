@@ -46,7 +46,7 @@ export default function InsurancePage() {
       fd.append("title", formTitle);
       fd.append("user_id", formUserId);
       if (formDescription) fd.append("description", formDescription);
-      return api.post("/insurance", fd, { headers: { "Content-Type": "multipart/form-data" } });
+      return api.post("/insurance", fd);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: insuranceKeys.all });

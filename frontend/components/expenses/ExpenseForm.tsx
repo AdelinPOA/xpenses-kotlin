@@ -148,9 +148,7 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
           for (const file of receiptFiles) {
             fd.append("files", file);
           }
-          await api.post(`/expenses/${result.id}/receipts`, fd, {
-            headers: { "Content-Type": "multipart/form-data" },
-          });
+          await api.post(`/expenses/${result.id}/receipts`, fd);
         }
       } catch (e: any) {
         qc.invalidateQueries({ queryKey: expenseKeys.all });
@@ -200,9 +198,7 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
     try {
       const fd = new FormData();
       fd.append("file", file);
-      const res = await api.post("/ocr/scan", fd, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      const res = await api.post("/ocr/scan", fd);
       
       let result: OCRScanResult;
 

@@ -6,6 +6,8 @@ import org.springframework.cache.annotation.EnableCaching
 import org.springframework.scheduling.annotation.EnableAsync
 import org.springframework.scheduling.annotation.EnableScheduling
 
+// @EnableAsync here is the single async-enablement point for the app; AsyncConfig only
+// supplies the executor beans (see AsyncConfig.applicationTaskExecutor / ocrTaskExecutor).
 @EnableAsync
 @EnableScheduling
 @EnableCaching

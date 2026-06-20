@@ -1,19 +1,31 @@
 # HANDOFF.md — xpenses-kotlin
 
-> Last updated: 2026-06-20 (session 67)
+> Last updated: 2026-06-20 (session 68)
 > Author: Antigravity
 
 ---
 
-## Latest Session (2026-06-20, session 67)
+## Latest Session (2026-06-20, session 68)
 
 ### What Was Done
-- **Fix Architecture Debt (OpenSpec Change: fix-architecture-debt)**: 
-  - **Soft Delete**: Implemented soft delete (`deleted`, `deleted_at`) for `expenses`, `expense_reports`, and `receipts` via Flyway migration `V13`. Updated JPA models with `@SQLDelete` and `@SQLRestriction("deleted = false")`. Added native queries for explicit audit reads bypassing restrictions.
-  - **Service Layer Refactor**: Extracted business logic, state machine validation, and transactional boundaries from `ReportController` and `ExpenseController` into `ReportService` and `ExpenseService`.
-  - **Async Receipt OCR**: Added `V14` migration for `ocr_jobs`. Configured dedicated `ThreadPoolTaskExecutor` to offload OCR from Tomcat HTTP threads. Updated `/scan` to return `202 Accepted` and added polling endpoints.
-  - **Frontend RSC & Hydration**: Migrated Next.js `dashboard` and `expenses` views to React Server Components fetching data server-side via `serverFetch`, injecting initial state via `HydrationBoundary` to eliminate client-side waterfall requests. Adapted frontend OCR client to the new async polling backend.
-- **Verification**: Verified using JDK 21 containerized `./gradlew test` and smoke-tests.
+- **Merged `fix/expense-detach-and-orphaned-ocr-job`**:
+  - **Expense Report Detachment Bug**: Fixed `ExpenseService.kt` so editing an uncategorized expense with a null `reportId` leaves the report association unchanged rather than silently detaching it.
+  - **Orphaned OCR Jobs Bug**: Fixed `OcrController.kt` to gracefully handle Async OCR thread pool queue rejections (503s) by marking the `OcrJob` as `failed` instead of leaving it `pending` forever.
+- **Explicit Task Executor**: Ensured `AsyncConfig.kt` explicitly defines `applicationTaskExecutor` to prevent Spring auto-configuration failures when multiple executors exist.
+- **Cleanup**: Removed outdated AI-generated markdown reports (`readout.md`, etc.).
+
+### Files Changed
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/OcrController.kt`
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/ExpenseService.kt`
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/XpensesApplication.kt`
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/config/AsyncConfig.kt`
+
+### Key Decisions
+- Deliberate detachments from a report are exclusively handled by report endpoints (`attach`, `recall`, `reject`); expense edits should never implicitly detach.
+
+---
+
+## Previous Session (2026-06-20, session 67)
 
 ### Files Changed
 - `backend-kotlin-jpa/src/main/resources/db/migration/V13__add_soft_delete_to_financial_records.sql`

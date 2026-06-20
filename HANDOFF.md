@@ -1,11 +1,42 @@
 # HANDOFF.md — xpenses-kotlin
 
-> Last updated: 2026-06-20 (session 64)
-> Author: Antigravity (Gemini 3.5 Flash)
+> Last updated: 2026-06-20 (session 65)
+> Author: Hermes (DeepSeek v4 Pro)
 
 ---
 
-## Latest Session (2026-06-20, session 64)
+## Latest Session (2026-06-20, session 65)
+
+### What Was Done
+
+- **Codebase Audit** — Full codebase audit across 6 layers (surface scan, antipatterns, types, builds, structural). Found 6 bugs:
+  1. **Export OOM** — `ExpenseController.kt:575` used `findAll()` + in-memory `.filter{}` → replaced with `findAllWithFilters()` (DB-level filtering)
+  2. **BigDecimal precision** — 4 sites used `BigDecimal(double)` for tax amounts → replaced with `BigDecimal.valueOf()`
+  3. **Unmanaged Thread** — `StorageService.kt:301` raw `Thread { }.start()` → replaced with Spring `@Qualifier("applicationTaskExecutor")`
+  4. **WebP validation** — Only checked RIFF header (WAV/AVI pass as WebP) → added `WEBP` sub-signature check at bytes 8-11
+  5. **Silent storage failure** — `InsuranceController.kt:174` empty catch block → added `logger.warn(...)`
+  6. **`any` types** — `insurance/page.tsx:35` used `any[]` for users → replaced with `User[]`, removed casts
+
+- **OpenSpec change**: Created `fix-codebase-bugs-and-debt` (validated, implemented all tasks)
+- **Verification**: Backend + frontend Docker rebuild pass; `GET /api/expenses/export?format=csv` works; all containers healthy
+- **CI job removed**: CodeQL job deleted (requires GitHub Advanced Security, paid feature for private repos)
+
+### Files Changed
+- `backend-kotlin-jpa/.../ExpenseController.kt` — export DB filtering, BigDecimal precision, WebP validation
+- `backend-kotlin-jpa/.../StorageService.kt` — managed Executor instead of raw Thread
+- `backend-kotlin-jpa/.../InsuranceController.kt` — logger + warn on storage deletion failure
+- `frontend/app/insurance/page.tsx` — User[] type, removed any casts
+- `openspec/changes/fix-codebase-bugs-and-debt/` — proposal, spec, design, tasks (all ✅)
+- `todo.md` — audit findings documented
+
+### Key Decisions
+- Export endpoint now reuses `findAllWithFilters()` (same JPQL query as list endpoint) — behavior identical
+- Storage migration uses Spring-managed thread pool for graceful shutdown
+- WebP files now validated at 2 levels: RIFF container + WEBP sub-identifier
+
+---
+
+## Previous Session (2026-06-20, session 64)
 
 ### What Was Done
 

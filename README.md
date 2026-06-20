@@ -233,6 +233,20 @@ make build   # runs check-java-version first, fails with clear message on wrong 
 docker compose up -d --build   # works regardless of host JDK
 ```
 
+### Backend Hot-Swapping (Local Development)
+
+The local environment is configured for fast JVM hot-swapping using `spring-boot-devtools` and `PropertiesLauncher` (via `docker-compose.override.yml`).
+
+To hot-swap Kotlin class files and resources into the running backend container in under 1s without rebuilding or restarting Docker:
+1. Ensure the services are running: `docker compose up -d`
+2. Run a compilation on the host:
+    * **With host JDK 21/22**: Run `./gradlew classes processResources`
+    * **With host JDK 23+ (e.g. JDK 25)**: Run compile in a container to sync files:
+      ```bash
+      docker run --rm -v $(pwd)/backend-kotlin-jpa:/workspace/app -w /workspace/app eclipse-temurin:21-jdk-alpine ./gradlew classes processResources --no-daemon
+      ```
+3. The backend container detects the updated classes in the host-mounted directory and reloads the application context in under 1 second.
+
 ## Roadmap
 
 - [x] Unit & integration test suite (JUnit 5 + MockMvc)

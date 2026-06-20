@@ -1,11 +1,27 @@
 # HANDOFF.md — xpenses-kotlin
 
-> Last updated: 2026-06-20 (session 63)
+> Last updated: 2026-06-20 (session 64)
 > Author: Antigravity (Gemini 3.5 Flash)
 
 ---
 
-## Latest Session (2026-06-20, session 63)
+## Latest Session (2026-06-20, session 64)
+
+### What Was Done
+
+- **Fixed Local Dev Hot-Swapping & Caching**:
+  - Resolved `No Bucket4j cache configuration found - cache-to-use: null` startup crash by compiling the latest Kotlin classes and processing resources (which syncs `application.yml` with the required `cache-to-use: jcache` property) on the host's build directory. The compile was executed inside a JDK 21 container to bypass host JDK 25 compiler limitations.
+  - Re-applied `docker-compose.override.yml` configuration. Tested and verified that the backend container boots up and hot-swaps successfully using `PropertiesLauncher` and `LOADER_PATH`.
+  - Switched the frontend container health check in `docker-compose.yml` from `localhost` to `127.0.0.1` to prevent connection refused errors caused by IPv6 loopback resolution inside Next.js.
+  - Verified all 5 containers are up, healthy, and communicating. Tested local `/api/auth/login` and `/api/expenses` successfully.
+  - Tested the LDAP settings test connection endpoint to confirm the connection JNDI library executes correctly.
+  - Merged all hot-swapping and container configuration fixes into `main` branch and pushed to GitHub.
+- **Production Readiness Guide**:
+  - Created a comprehensive [production_readiness_guide.md](file:///home/poa/.gemini/antigravity-cli/brain/eabc83a9-80cd-4fff-bb12-616c4adbb3db/production_readiness_guide.md) mapping out step-by-step tasks for production deployment (CI scans, security variables, managed DB, S3 remote storage, enterprise LDAP, and logging/monitoring).
+
+---
+
+## Previous Session (2026-06-20, session 63)
 
 ### What Was Done
 

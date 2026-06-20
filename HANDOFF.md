@@ -1,11 +1,36 @@
 # HANDOFF.md — xpenses-kotlin
 
-> Last updated: 2026-06-20 (session 65)
-> Author: Hermes (DeepSeek v4 Pro)
+> Last updated: 2026-06-20 (session 66)
+> Author: Antigravity
 
 ---
 
-## Latest Session (2026-06-20, session 65)
+## Latest Session (2026-06-20, session 66)
+
+### What Was Done
+
+- **Codebase Optimizations & Transaction Decoupling**:
+  - **Removed Redundant Sort**: Eliminated the redundant in-memory collection sorting (`.sortedByDescending { it.date }`) in the expense export endpoint in [ExpenseController.kt](file:///home/poa/xpenses-kotlin/backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/ExpenseController.kt), since the repository query `findAllWithFilters` already returns database results pre-sorted by date descending.
+  - **Decoupled S3/Storage I/O from Transactions**: Refactored file upload and file deletion endpoints in [ExpenseController.kt](file:///home/poa/xpenses-kotlin/backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/ExpenseController.kt) and [InsuranceController.kt](file:///home/poa/xpenses-kotlin/backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/InsuranceController.kt) to move all slow storage network/disk operations (`storageService.uploadFile` and `storageService.deleteFile`) outside the database transaction blocks. Programmatic transaction management (`TransactionTemplate`) was introduced to wrap only the database persistence calls, preventing database connection pool starvation under load.
+- **Verification**:
+  - Compiled Kotlin classes and resources using a JDK 21 Docker container to synchronize host-mounted build directories.
+  - Ran and verified the Kotlin backend test suite on the host, passing all 50 tests.
+  - Smoke-tested the backend container using `curl` checks (health check, login authentication, and authenticated list endpoints).
+- **Git & Merge**:
+  - Staged, committed, and pushed changes on the feature branch `feat/codebase-optimizations`.
+  - Checked out `main`, merged `feat/codebase-optimizations`, and pushed the updated `main` branch to remote origin.
+
+### Files Changed
+- `backend-kotlin-jpa/.../ExpenseController.kt` — removed redundant sorting, decoupled uploadReceipts, deleteExpense, and deleteSingleReceipt.
+- `backend-kotlin-jpa/.../InsuranceController.kt` — decoupled uploadFile and deleteFile.
+
+### Key Decisions
+- Run file storage operations (both upload and delete) strictly outside transaction blocks, preventing network/disk latency from locking database connections.
+- Programmatic transaction wrapping via `TransactionTemplate` is preferred over class/method-level `@Transactional` when non-transactional work must be executed in the same controller method.
+
+---
+
+## Previous Session (2026-06-20, session 65)
 
 ### What Was Done
 

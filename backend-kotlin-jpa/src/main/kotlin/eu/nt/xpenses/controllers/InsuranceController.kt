@@ -171,7 +171,9 @@ class InsuranceController(
         insuranceFileRepository.delete(file)
         try {
             storageService.deleteFile(path)
-        } catch (_: Exception) {}
+        } catch (e: Exception) {
+            logger.warn("Failed to delete insurance file from storage: $path", e)
+        }
     }
 
     private fun mapToOut(f: InsuranceFile): InsuranceFileOut = InsuranceFileOut(

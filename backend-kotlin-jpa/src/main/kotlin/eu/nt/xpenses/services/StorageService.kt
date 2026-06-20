@@ -8,15 +8,18 @@ import eu.nt.xpenses.services.storage.S3StorageProvider
 import eu.nt.xpenses.services.storage.StorageProvider
 import jakarta.annotation.PostConstruct
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.stereotype.Service
 import java.io.File
 import java.time.Instant
+import java.util.concurrent.Executor
 
 @Service
 class StorageService(
     private val appSettingRepository: AppSettingRepository,
     private val cryptoService: CryptoService,
-    private val objectMapper: ObjectMapper
+    private val objectMapper: ObjectMapper,
+    @Qualifier("applicationTaskExecutor") private val executor: Executor
 ) {
     private val logger = LoggerFactory.getLogger(StorageService::class.java)
     private val defaultReceiptsDir = "/app/data/receipts"
@@ -297,8 +300,8 @@ class StorageService(
         )
         appSettingRepository.save(statusSetting)
 
-        // Run in background thread
-        Thread {
+        // Run on Spring-managed thread pool
+        executor.execute {
             val errors = mutableListOf<String>()
             var migrated = 0
             var failed = 0
@@ -363,7 +366,7 @@ class StorageService(
                 )),
                 updatedAt = Instant.now()
             ))
-        }.start()
+        }
     }
 }
 

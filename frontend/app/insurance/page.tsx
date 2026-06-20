@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import api, { InsuranceFile, downloadBlob } from "@/lib/api";
+import api, { InsuranceFile, User, downloadBlob } from "@/lib/api";
 import { insuranceKeys } from "@/lib/queryKeys";
 import AppShell from "@/components/layout/AppShell";
 import EmptyState from "@/components/ui/EmptyState";
@@ -32,7 +32,7 @@ export default function InsurancePage() {
       api.get("/insurance", { params: { all: showAll } }).then((r) => r.data),
   });
 
-  const { data: users } = useQuery<any[]>({
+  const { data: users } = useQuery<User[]>({
     queryKey: ["insurance-users"],
     queryFn: () => api.get("/users").then((r) => r.data),
     enabled: isManager && showUpload,
@@ -150,7 +150,7 @@ export default function InsurancePage() {
                     className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm"
                   >
                     <option value="">Select technician...</option>
-                    {(users ?? []).filter((u: any) => u.role === "technician").map((u: any) => (
+                    {(users ?? []).filter((u) => u.role === "technician").map((u) => (
                       <option key={u.id} value={u.id}>{u.display_name} ({u.username})</option>
                     ))}
                   </select>

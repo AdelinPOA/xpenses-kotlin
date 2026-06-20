@@ -123,8 +123,8 @@ class ExpenseController(
             currencyOriginal = body.currency.uppercase(),
             amountEur = amountEur,
             fxRate = fxRate,
-            taxAmount = BigDecimal(body.taxAmount),
-            taxRate = body.taxRate?.let { BigDecimal(it) },
+            taxAmount = BigDecimal.valueOf(body.taxAmount),
+            taxRate = body.taxRate?.let { BigDecimal.valueOf(it) },
             taxAmountEur = taxAmountEur,
             date = body.date,
             description = body.description,
@@ -207,8 +207,8 @@ class ExpenseController(
             expense.currencyOriginal = effCurrency
             expense.fxRate = fxRate
             expense.amountEur = BigDecimal.valueOf(effAmount).multiply(BigDecimal.valueOf(fxRate)).setScale(2, RoundingMode.HALF_UP).toDouble()
-            expense.taxAmount = BigDecimal(effTaxAmount)
-            expense.taxRate = effTaxRate?.let { BigDecimal(it) }
+            expense.taxAmount = BigDecimal.valueOf(effTaxAmount)
+            expense.taxRate = effTaxRate?.let { BigDecimal.valueOf(it) }
             expense.taxAmountEur = BigDecimal.valueOf(effTaxAmount).multiply(BigDecimal.valueOf(fxRate)).setScale(2, RoundingMode.HALF_UP)
         }
 
@@ -551,6 +551,13 @@ class ExpenseController(
         if (content.size < expected.size || !content.copyOfRange(0, expected.size).contentEquals(expected)) {
             throw IllegalArgumentException("File content does not match .$ext format")
         }
+        // Additional sub-signature check for WebP (RIFF header alone matches WAV/AVI too)
+        if (ext == "webp") {
+            val webpSignature = byteArrayOf(0x57, 0x45, 0x42, 0x50) // "WEBP"
+            if (content.size < 12 || !content.copyOfRange(8, 12).contentEquals(webpSignature)) {
+                throw IllegalArgumentException("File content does not match .webp format")
+            }
+        }
     }
 
     @GetMapping("/export")
@@ -571,18 +578,9 @@ class ExpenseController(
         val currentUser = request.getAttribute("currentUser") as? User
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
 
-        var expenses = if (all && currentUser.role in listOf("chef_finance", "mod", "manager")) {
-            expenseRepository.findAll()
-        } else {
-            expenseRepository.findAllByUserId(currentUser.id!!)
-        }
-
-        if (reportId != null) expenses = expenses.filter { it.report?.id == reportId }
-        if (categoryId != null) expenses = expenses.filter { it.category?.id == categoryId }
-        if (status != null) expenses = expenses.filter { it.status == status }
-        if (fromDate != null) expenses = expenses.filter { it.date >= fromDate }
-        if (toDate != null) expenses = expenses.filter { it.date <= toDate }
-        expenses = expenses.sortedByDescending { it.date }
+        val uid = if (all && currentUser.role in listOf("chef_finance", "mod", "manager")) null else currentUser.id!!
+        val expenses = expenseRepository.findAllWithFilters(uid, status, reportId, categoryId, fromDate, toDate)
+            .sortedByDescending { it.date }
 
         val includeUser = all && currentUser.role in listOf("chef_finance", "mod", "manager")
         val columns = listOfNotNull(

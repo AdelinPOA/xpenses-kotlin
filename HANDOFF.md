@@ -1,11 +1,22 @@
 # HANDOFF.md — xpenses-kotlin
 
-> Last updated: 2026-06-20 (session 62)
+> Last updated: 2026-06-20 (session 63)
 > Author: Antigravity (Gemini 3.5 Flash)
 
 ---
 
-## Latest Session (2026-06-20, session 62)
+## Latest Session (2026-06-20, session 63)
+
+### What Was Done
+
+- **CI & Local Dev Build Optimizations**:
+  - **CI Speedup**: Removed Trivy vulnerability scans from [.github/workflows/ci.yml](file:///home/poa/xpenses-kotlin/.github/workflows/ci.yml) (reducing build times from ~9 minutes to under 2 minutes).
+  - **Local Development Hot-Swapping**: Enabled spring-boot-devtools in [build.gradle.kts](file:///home/poa/xpenses-kotlin/backend-kotlin-jpa/build.gradle.kts) and created [docker-compose.override.yml](file:///home/poa/xpenses-kotlin/docker-compose.override.yml) to mount local compiled classes and resources directories directly into the container. This allows the application to hot-reload class files in <1s without any Docker container rebuilds.
+  - Switched development to dedicated `fix/ci-and-dev-optimizations` branch.
+
+---
+
+## Previous Session (2026-06-20, session 62)
 
 ### What Was Done
 

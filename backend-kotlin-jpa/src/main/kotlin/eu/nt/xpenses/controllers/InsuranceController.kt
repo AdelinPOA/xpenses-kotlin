@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.bind.annotation.*
 import org.springframework.web.multipart.MultipartFile
 import org.springframework.web.server.ResponseStatusException
+import org.slf4j.LoggerFactory
 import java.time.Instant
 
 @RestController
@@ -24,6 +25,7 @@ class InsuranceController(
     private val userRepository: UserRepository,
     private val storageService: StorageService
 ) {
+    private val logger = LoggerFactory.getLogger(InsuranceController::class.java)
     @GetMapping
     fun listFiles(
         @RequestParam(value = "all", required = false, defaultValue = "false") all: Boolean,

@@ -43,6 +43,6 @@
 
 ## 6. Integration & rollout
 
-- [ ] 6.1 `make build` + targeted `./gradlew test` (run on JDK 21 toolchain) green
-- [ ] 6.2 `make test-health` + manual smoke of expenses list, report approve/pay, OCR scan+poll, delete-then-list
-- [ ] 6.3 Update `HANDOFF.md` and `README.md`; commit on a `fix/architecture-debt` branch and open PR
+- [x] 6.1 `make build` + targeted `./gradlew test` (run on JDK 21 toolchain) green
+- [x] 6.2 `make test-health` + manual smoke of expenses list, report approve/pay, OCR scan+poll, delete-then-list
+- [x] 6.3 Update `HANDOFF.md` and `README.md`; commit on a `fix/architecture-debt` branch and open PR

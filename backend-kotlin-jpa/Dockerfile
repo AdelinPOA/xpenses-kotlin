@@ -5,7 +5,7 @@ WORKDIR /workspace/app
 
 # Copy gradle wrapper and configurations
 COPY gradle gradle
-COPY gradlew settings.gradle.kts build.gradle.kts ./
+COPY gradlew settings.gradle.kts build.gradle.kts gradle.properties ./
 
 # Cache dependencies (BuildKit cache mount persists ~/.gradle across builds)
 RUN --mount=type=cache,target=/root/.gradle \

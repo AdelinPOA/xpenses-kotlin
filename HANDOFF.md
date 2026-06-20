@@ -1,11 +1,21 @@
 # HANDOFF.md — xpenses-kotlin
 
-> Last updated: 2026-06-20 (session 61)
+> Last updated: 2026-06-20 (session 62)
 > Author: Antigravity (Gemini 3.5 Flash)
 
 ---
 
-## Latest Session (2026-06-20, session 61)
+## Latest Session (2026-06-20, session 62)
+
+### What Was Done
+
+- **Fix Missing `gradle.properties` in Docker Builds** — Found that `gradle.properties` was not copied into the Docker builder container in `backend-kotlin-jpa/Dockerfile`. This caused the container build to ignore Gradle caching/memory options and dependency version overrides (e.g. tomcat, spring-security, spring-framework, netty), leading to Trivy CVE errors in CI Docker image scans.
+- Added `gradle.properties` to the `COPY` instruction in the builder stage of `backend-kotlin-jpa/Dockerfile`.
+- Switched development to dedicated `fix/docker-copy-gradle-properties` branch.
+
+---
+
+## Previous Session (2026-06-20, session 61)
 
 ### What Was Done
 

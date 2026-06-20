@@ -1,11 +1,31 @@
 # HANDOFF.md — xpenses-kotlin
 
-> Last updated: 2026-06-20 (session 70)
+> Last updated: 2026-06-20 (session 71)
 > Author: Antigravity
 
 ---
 
-## Latest Session (2026-06-20, session 70)
+## Latest Session (2026-06-20, session 71)
+
+### What Was Done
+- **Fixed Slow OCR Scanning Performance (MinerU Bottleneck)**:
+  - Identified that the OCR service was executing all three OCR engines (EasyOCR, MinerU, Gemini) in parallel but blocking the client HTTP request thread on `CompletableFuture.allOf(...).join()`.
+  - Since MinerU runs layout parsing on CPU and takes up to 2 minutes, it bottlenecked all scan requests even if the user selected a fast provider (like EasyOCR or Gemini).
+  - Refactored `scanReceipt` in `OcrService.kt` to pre-save an empty `OcrComparison` record to obtain an ID for asynchronous telemetry logging.
+  - Runs only the selected provider synchronously (and fallbacks to EasyOCR if the selected engine fails/returns no amount) and returns its response immediately (completing fast scans in 1-2 seconds).
+  - Executes the non-selected engines asynchronously in the background using `CompletableFuture.runAsync`.
+  - Added custom JPQL `@Modifying` and `@Transactional` update queries (`updateEasyOcrResult`, `updateMineruResult`, `updateGeminiResult`) in `OcrComparisonRepository` inside `Repositories.kt` to surgically update specific provider columns. This avoids JPA/Hibernate entity overwrite hazards when multiple concurrent background threads update the same comparison record.
+- **Validation**:
+  - Rebuilt and verified backend compilation inside the JDK 21 Docker container.
+  - Ran and verified that the `AsyncOcrTest` unit test suite passes successfully.
+
+### Files Changed
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/repositories/Repositories.kt`
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/OcrService.kt`
+
+---
+
+## Previous Session (2026-06-20, session 70)
 
 ### What Was Done
 - **Fixed 404 Not Found on Async OCR Polling**:

@@ -3,6 +3,7 @@ package eu.nt.xpenses.repositories
 import eu.nt.xpenses.models.*
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
+import org.springframework.data.jpa.repository.EntityGraph
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
@@ -38,6 +39,9 @@ interface ExpenseReportRepository : JpaRepository<ExpenseReport, Int> {
 
     @Query("SELECT DISTINCT r FROM ExpenseReport r LEFT JOIN FETCH r.expenses LEFT JOIN FETCH r.user WHERE r.user.id = :userId AND r.status = :status")
     fun findAllByUserIdAndStatusWithExpenses(@Param("userId") userId: Int, @Param("status") status: String): List<ExpenseReport>
+
+    @Query(value = "SELECT * FROM expense_reports WHERE deleted = true", nativeQuery = true)
+    fun findDeletedAudit(): List<ExpenseReport>
 }
 
 @Repository
@@ -55,6 +59,11 @@ interface ExpenseRepository : JpaRepository<Expense, Int> {
           AND (:toDate IS NULL OR e.date <= :toDate)
         ORDER BY e.date DESC
     """)
+    // Eager-join the to-one relations (user, category) to avoid N+1 during DTO mapping.
+    // The receipts collection is intentionally excluded — it is resolved via Hibernate's
+    // default_batch_fetch_size, which keeps pagination correct (a collection fetch join
+    // would force Hibernate to paginate in memory: HHH000104).
+    @EntityGraph(attributePaths = ["user", "category"])
     fun findAllWithFilters(
         @Param("userId") userId: Int?,
         @Param("status") status: String?,
@@ -73,6 +82,9 @@ interface ExpenseRepository : JpaRepository<Expense, Int> {
           AND (:fromDate IS NULL OR e.date >= :fromDate)
           AND (:toDate IS NULL OR e.date <= :toDate)
     """)
+    // See findAllWithFilters: to-one relations are join-fetched here; the receipts
+    // collection is left to default_batch_fetch_size so pagination stays at the DB level.
+    @EntityGraph(attributePaths = ["user", "category"])
     fun findAllWithFiltersPaged(
         @Param("userId") userId: Int?,
         @Param("status") status: String?,
@@ -97,6 +109,9 @@ interface ExpenseRepository : JpaRepository<Expense, Int> {
 
     @Query("SELECT e FROM Expense e WHERE e.user.id = :userId AND e.date <= :toDate")
     fun findAllByUserIdAndDateTo(@Param("userId") userId: Int, @Param("toDate") toDate: String): List<Expense>
+
+    @Query(value = "SELECT * FROM expenses WHERE deleted = true", nativeQuery = true)
+    fun findDeletedAudit(): List<Expense>
 }
 
 @Repository
@@ -164,3 +179,4 @@ interface InsuranceFileRepository : JpaRepository<InsuranceFile, Int> {
     fun findAllByUserIdOrderByCreatedAtDesc(userId: Int): List<InsuranceFile>
     fun findAllByOrderByCreatedAtDesc(): List<InsuranceFile>
 }
+interface OcrJobRepository : JpaRepository<OcrJob, Int>

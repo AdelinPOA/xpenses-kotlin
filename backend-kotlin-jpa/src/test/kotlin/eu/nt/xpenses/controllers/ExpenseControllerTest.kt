@@ -85,4 +85,29 @@ class ExpenseControllerTest : IntegrationTestBase() {
         mockMvc.perform(get("/api/expenses"))
             .andExpect(status().isForbidden)
     }
+
+    @Test
+    fun `DELETE expense soft deletes and is hidden from list but visible in audit`() {
+        val expense = saveTechExpense()
+        entityManager.flush()
+        entityManager.clear()
+        val cookie = authHelper.loginAs("tech1", "tech1")
+
+        // 1. Delete it
+        mockMvc.perform(delete("/api/expenses/${expense.id}").cookie(cookie))
+            .andExpect(status().isNoContent)
+            
+        // 2. Fetch list, ensure it's absent
+        mockMvc.perform(get("/api/expenses").cookie(cookie))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$[?(@.id == ${expense.id})]").isEmpty)
+
+        // 3. Fetch by ID, ensure 404
+        mockMvc.perform(get("/api/expenses/${expense.id}").cookie(cookie))
+            .andExpect(status().isNotFound)
+
+        // 4. Audit path still finds it
+        val deletedAudit = expenseRepository.findDeletedAudit()
+        assert(deletedAudit.any { it.id == expense.id })
+    }
 }

@@ -1,13 +1,20 @@
 package eu.nt.xpenses.controllers
 
-import com.fasterxml.jackson.annotation.JsonProperty
+import com.fasterxml.jackson.databind.ObjectMapper
 import eu.nt.xpenses.models.OcrComparison
+import eu.nt.xpenses.models.OcrJob
+import eu.nt.xpenses.models.User
 import eu.nt.xpenses.repositories.OcrComparisonRepository
+import eu.nt.xpenses.repositories.OcrJobRepository
+import eu.nt.xpenses.services.AsyncOcrService
 import eu.nt.xpenses.services.OcrService
+import jakarta.servlet.http.HttpServletRequest
+import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.web.bind.annotation.*
 import org.springframework.web.multipart.MultipartFile
+import org.springframework.web.server.ResponseStatusException
 import java.math.BigDecimal
 import java.time.Instant
 
@@ -15,14 +22,21 @@ import java.time.Instant
 @RequestMapping("/api/ocr")
 class OcrController(
     private val ocrService: OcrService,
-    private val ocrComparisonRepository: OcrComparisonRepository
+    private val asyncOcrService: AsyncOcrService,
+    private val ocrComparisonRepository: OcrComparisonRepository,
+    private val ocrJobRepository: OcrJobRepository,
+    private val objectMapper: ObjectMapper
 ) {
 
     @PostMapping("/scan")
-    @PreAuthorize("isAuthenticated()")
     fun scanReceipt(
-        @RequestParam("file") file: MultipartFile
+        @RequestParam("file") file: MultipartFile,
+        @RequestParam(value = "sync", required = false, defaultValue = "false") sync: Boolean,
+        request: HttpServletRequest
     ): ResponseEntity<*> {
+        val currentUser = request.getAttribute("currentUser") as? User
+            ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
+
         val config = ocrService.getOcrConfig()
         if (!config.ocrEnabled) {
             return ResponseEntity.status(503).body(mapOf("detail" to "OCR is disabled"))
@@ -39,8 +53,60 @@ class OcrController(
             return ResponseEntity.status(400).body(mapOf("detail" to "File exceeds 10MB limit"))
         }
 
-        val result = ocrService.scanReceipt(file.bytes, filename)
-        return ResponseEntity.ok(result)
+        if (sync) {
+            val result = ocrService.scanReceipt(file.bytes, filename)
+            return ResponseEntity.ok(result)
+        }
+
+        // Create OCR Job
+        val job = OcrJob(
+            user = currentUser,
+            filename = filename,
+            status = "pending"
+        )
+        val savedJob = ocrJobRepository.save(job)
+
+        try {
+            asyncOcrService.processOcr(savedJob.id!!, file.bytes, filename)
+        } catch (e: Exception) {
+            return ResponseEntity.status(503).body(mapOf("detail" to "OCR queue is full or rejected"))
+        }
+
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(mapOf(
+            "job_id" to savedJob.id,
+            "status" to "pending",
+            "status_url" to "/api/ocr/status/${savedJob.id}"
+        ))
+    }
+
+    @GetMapping("/status/{jobId}")
+    fun getJobStatus(
+        @PathVariable jobId: Int,
+        request: HttpServletRequest
+    ): ResponseEntity<*> {
+        val currentUser = request.getAttribute("currentUser") as? User
+            ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
+
+        val job = ocrJobRepository.findById(jobId).orElseThrow {
+            ResponseStatusException(HttpStatus.NOT_FOUND, "Job not found")
+        }
+
+        if (job.user?.id != currentUser.id) {
+            throw ResponseStatusException(HttpStatus.FORBIDDEN, "Not your job")
+        }
+
+        val response = mutableMapOf<String, Any?>(
+            "job_id" to job.id,
+            "status" to job.status
+        )
+
+        if (job.status == "completed" && job.resultJson != null) {
+            response["result"] = objectMapper.readValue(job.resultJson, Map::class.java)
+        } else if (job.status == "failed") {
+            response["error"] = job.errorMessage
+        }
+
+        return ResponseEntity.ok(response)
     }
 
     @GetMapping("/comparison")

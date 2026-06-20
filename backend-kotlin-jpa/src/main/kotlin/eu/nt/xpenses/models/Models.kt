@@ -5,6 +5,8 @@ import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonManagedReference
 import com.fasterxml.jackson.annotation.JsonProperty
 import jakarta.persistence.*
+import org.hibernate.annotations.SQLDelete
+import org.hibernate.annotations.SQLRestriction
 import java.math.BigDecimal
 import java.time.Instant
 
@@ -71,6 +73,8 @@ class Category(
 
 @Entity
 @Table(name = "expense_reports")
+@SQLDelete(sql = "UPDATE expense_reports SET deleted = true, deleted_at = NOW() WHERE id=? AND version=?")
+@SQLRestriction("deleted = false")
 class ExpenseReport(
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -140,6 +144,12 @@ class ExpenseReport(
     @Column(name = "updated_at", nullable = false)
     var updatedAt: Instant = Instant.now(),
 
+    @Column(nullable = false)
+    var deleted: Boolean = false,
+
+    @Column(name = "deleted_at")
+    var deletedAt: Instant? = null,
+
     // Delegation email import fields
     var kundenauftrag: String? = null,
     var auftragsart: String? = null,
@@ -168,6 +178,8 @@ class ExpenseReport(
 
 @Entity
 @Table(name = "expenses")
+@SQLDelete(sql = "UPDATE expenses SET deleted = true, deleted_at = NOW() WHERE id=?")
+@SQLRestriction("deleted = false")
 class Expense(
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -229,6 +241,12 @@ class Expense(
     @Column(name = "updated_at", nullable = false)
     var updatedAt: Instant = Instant.now(),
 
+    @Column(nullable = false)
+    var deleted: Boolean = false,
+
+    @Column(name = "deleted_at")
+    var deletedAt: Instant? = null,
+
     @JsonManagedReference("expense-receipts")
     @OneToMany(mappedBy = "expense", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.LAZY)
     var receipts: MutableList<Receipt> = mutableListOf()
@@ -236,6 +254,8 @@ class Expense(
 
 @Entity
 @Table(name = "receipts")
+@SQLDelete(sql = "UPDATE receipts SET deleted = true, deleted_at = NOW() WHERE id=?")
+@SQLRestriction("deleted = false")
 class Receipt(
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -253,7 +273,13 @@ class Receipt(
     var originalName: String? = null,
 
     @Column(name = "created_at", nullable = false)
-    var createdAt: Instant = Instant.now()
+    var createdAt: Instant = Instant.now(),
+
+    @Column(nullable = false)
+    var deleted: Boolean = false,
+
+    @Column(name = "deleted_at")
+    var deletedAt: Instant? = null
 )
 
 @Entity
@@ -609,4 +635,34 @@ class OcrComparison(
 
     @Column(name = "created_at", nullable = false)
     var createdAt: Instant = Instant.now()
+)
+
+@Entity
+@Table(name = "ocr_jobs")
+class OcrJob(
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    var id: Int? = null,
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    var user: User? = null,
+
+    @Column(nullable = false)
+    var status: String = "pending",
+
+    @Column(nullable = false)
+    var filename: String = "",
+
+    @Column(name = "result_json", columnDefinition = "TEXT")
+    var resultJson: String? = null,
+
+    @Column(name = "error_message", columnDefinition = "TEXT")
+    var errorMessage: String? = null,
+
+    @Column(name = "created_at", nullable = false)
+    var createdAt: Instant = Instant.now(),
+
+    @Column(name = "updated_at", nullable = false)
+    var updatedAt: Instant = Instant.now()
 )

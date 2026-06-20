@@ -1,11 +1,38 @@
 # HANDOFF.md — xpenses-kotlin
 
-> Last updated: 2026-06-20 (session 66)
+> Last updated: 2026-06-20 (session 67)
 > Author: Antigravity
 
 ---
 
-## Latest Session (2026-06-20, session 66)
+## Latest Session (2026-06-20, session 67)
+
+### What Was Done
+- **Fix Architecture Debt (OpenSpec Change: fix-architecture-debt)**: 
+  - **Soft Delete**: Implemented soft delete (`deleted`, `deleted_at`) for `expenses`, `expense_reports`, and `receipts` via Flyway migration `V13`. Updated JPA models with `@SQLDelete` and `@SQLRestriction("deleted = false")`. Added native queries for explicit audit reads bypassing restrictions.
+  - **Service Layer Refactor**: Extracted business logic, state machine validation, and transactional boundaries from `ReportController` and `ExpenseController` into `ReportService` and `ExpenseService`.
+  - **Async Receipt OCR**: Added `V14` migration for `ocr_jobs`. Configured dedicated `ThreadPoolTaskExecutor` to offload OCR from Tomcat HTTP threads. Updated `/scan` to return `202 Accepted` and added polling endpoints.
+  - **Frontend RSC & Hydration**: Migrated Next.js `dashboard` and `expenses` views to React Server Components fetching data server-side via `serverFetch`, injecting initial state via `HydrationBoundary` to eliminate client-side waterfall requests. Adapted frontend OCR client to the new async polling backend.
+- **Verification**: Verified using JDK 21 containerized `./gradlew test` and smoke-tests.
+
+### Files Changed
+- `backend-kotlin-jpa/src/main/resources/db/migration/V13__add_soft_delete_to_financial_records.sql`
+- `backend-kotlin-jpa/src/main/resources/db/migration/V14__create_ocr_jobs.sql`
+- `backend-kotlin-jpa/.../Models.kt`, `Repositories.kt`
+- `backend-kotlin-jpa/.../ExpenseService.kt`, `ReportService.kt`, `AsyncOcrService.kt`
+- `backend-kotlin-jpa/.../ExpenseController.kt`, `ReportController.kt`, `OcrController.kt`
+- `frontend/app/dashboard/page.tsx`, `frontend/app/expenses/page.tsx`, `frontend/lib/serverApi.ts`
+- `frontend/components/expenses/ExpenseForm.tsx`
+
+### Key Decisions
+- Moved heavy OCR scanning to an isolated bounded thread pool to avoid HTTP thread starvation.
+- Centralized database persistence logic into cohesive, fully transaction-wrapped service boundaries instead of "Fat Controllers".
+- Transparent database soft-delete applied via Hibernate annotations to maintain data integrity and audit trails.
+- Server-side pre-fetching via RSC + Hydration Boundary utilized to improve frontend First Contentful Paint (FCP) and eliminate `useQuery` waterfalls.
+
+---
+
+## Previous Session (2026-06-20, session 66)
 
 ### What Was Done
 

@@ -200,11 +200,29 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
     try {
       const fd = new FormData();
       fd.append("file", file);
-      const res = await api.post<OCRScanResult>("/ocr/scan", fd, {
+      const res = await api.post("/ocr/scan", fd, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-      const result = res.data;
-      setScanResult(result);
+      
+      let result: OCRScanResult;
+
+      if (res.status === 202 && res.data.status_url) {
+        let isCompleted = false;
+        while (!isCompleted) {
+          await new Promise(resolve => setTimeout(resolve, 1500));
+          const statusRes = await api.get(res.data.status_url);
+          if (statusRes.data.status === "completed") {
+            result = statusRes.data.result;
+            isCompleted = true;
+          } else if (statusRes.data.status === "failed") {
+            throw new Error(statusRes.data.error || "OCR job failed");
+          }
+        }
+      } else {
+        result = res.data;
+      }
+
+      setScanResult(result!);
 
       // Pre-fill empty fields only
       setForm((f) => ({
@@ -223,7 +241,7 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
       // Add scanned file to receipt list
       setReceiptFiles((prev) => [...prev, file]);
     } catch (e: any) {
-      setError(e.response?.data?.detail ?? "OCR scan failed");
+      setError(e.response?.data?.detail ?? e.message ?? "OCR scan failed");
     } finally {
       setIsScanning(false);
     }

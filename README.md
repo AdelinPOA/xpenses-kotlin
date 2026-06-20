@@ -16,8 +16,9 @@ Self-hosted expense management application for internal company use. Built with 
 - **Advance payments** — full workflow for requesting, approving, and attaching cash advances to reports; manager direct-pay support
 - **Mileage recording** — km tracking with driving time (start/end), dual tax rates (before/after), CFO-editable rates via settings
 - **Digital signatures** — canvas-based signature pad; sign reports with one click; stored per-user
+- **Soft Delete & Audit** — Financial records are soft-deleted to maintain data integrity, with explicit audit read paths
 - **Categories** — with optional EUR spending limits
-- **OCR receipt scanning** — hybrid local & cloud system: EasyOCR (local), Gemini 2.5 Flash (cloud), MinerU (opt-in local); auto-fill category, description, amount, currency, date, merchant, tax; includes Naive Bayes category classifier
+- **Async OCR receipt scanning** — hybrid local & cloud system: EasyOCR (local), Gemini 2.5 Flash (cloud), MinerU (opt-in local). Async background processing with UI polling. Auto-fills category, description, amount, currency, date, merchant, tax; includes Naive Bayes category classifier
 - **Email receipt import** — IMAP-based ingestion with side-by-side local & Gemini parsing
 - **Dashboard** — monthly totals, spend by category (clickable), recent expenses (clickable), time-of-day greetings, role-specific action cards
 - **Role-differentiated UX** — 4 roles (Technician, Manager, Chef of Finances, Moderator); each sees only relevant actions
@@ -42,7 +43,7 @@ submitted → draft (via recall, by owner)
 | Database | PostgreSQL 16 (Flyway migrations) |
 | Frontend | Next.js 15 + React 19 + TypeScript 5 |
 | Styling | Tailwind CSS v4 (CSS-first config) |
-| Data fetching | TanStack Query v5 + axios |
+| Data fetching | TanStack Query v5 + axios + Next.js 15 RSC Hydration Boundaries |
 | Forms & validation | react-hook-form 7 + zod 4 |
 | PDF generation | OpenPDF 2.0 + PDFBox 3.0 |
 | Excel export | Apache POI 5.3 |

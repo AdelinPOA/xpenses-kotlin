@@ -16,7 +16,10 @@ COPY src src
 
 # Compile standard Spring Boot executable JAR (incremental thanks to cached ~/.gradle)
 RUN --mount=type=cache,target=/root/.gradle \
-    ./gradlew bootJar --no-daemon
+    ./gradlew bootJar --no-daemon && \
+    mkdir -p /workspace/app/unpacked && \
+    cd /workspace/app/unpacked && \
+    jar -xf ../build/libs/*.jar
 
 # ── Stage 2: Minimal JRE 21 Runtime ──
 FROM eclipse-temurin:21-jre-alpine@sha256:704db3c40204a44f471191446ddd9cda5d60dab40f0e15c6507b815ed897238b AS release
@@ -31,8 +34,8 @@ RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 # Create data directory with correct ownership (for named volume init)
 RUN mkdir -p /app/data/receipts /app/data/signatures && chown -R appuser:appgroup /app/data
 
-COPY --from=builder --chown=appuser:appgroup /workspace/app/build/libs/*.jar /app/app.jar
+COPY --from=builder --chown=appuser:appgroup /workspace/app/unpacked /app/unpacked
 EXPOSE 8080
 
 # Fix volume permissions on startup, then drop to appuser
-ENTRYPOINT ["sh", "-c", "chown -R appuser:appgroup /app/data 2>/dev/null || true; exec su-exec appuser java -jar /app/app.jar"]
+ENTRYPOINT ["sh", "-c", "chown -R appuser:appgroup /app/data 2>/dev/null || true; exec su-exec appuser java -cp /app/unpacked org.springframework.boot.loader.launch.PropertiesLauncher"]

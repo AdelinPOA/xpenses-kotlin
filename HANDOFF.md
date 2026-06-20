@@ -15,13 +15,19 @@
   - Runs only the selected provider synchronously (and fallbacks to EasyOCR if the selected engine fails/returns no amount) and returns its response immediately (completing fast scans in 1-2 seconds).
   - Executes the non-selected engines asynchronously in the background using `CompletableFuture.runAsync`.
   - Added custom JPQL `@Modifying` and `@Transactional` update queries (`updateEasyOcrResult`, `updateMineruResult`, `updateGeminiResult`) in `OcrComparisonRepository` inside `Repositories.kt` to surgically update specific provider columns. This avoids JPA/Hibernate entity overwrite hazards when multiple concurrent background threads update the same comparison record.
+- **Fixed `MultipartException: Current request is not a multipart request`**:
+  - Found that setting a default header `"Content-Type": "application/json"` on the Axios instance in `api.ts` overrode the browser's/Axios's built-in smart request content type detection.
+  - When the frontend passed a `FormData` object to `/ocr/scan`, `/receipts`, or `/insurance`, Axios still sent `Content-Type: application/json`, which caused the Spring MVC backend to throw a `MultipartException: Current request is not a multipart request` (mapped as `500 Internal Server Error` on the client side).
+  - Fixed it by removing the hardcoded default `"Content-Type": "application/json"` header from `api.ts`. This allows Axios to automatically detect and set `multipart/form-data` with correct boundary parameters on `FormData` requests, while still using `application/json` automatically for standard JSON objects.
 - **Validation**:
   - Rebuilt and verified backend compilation inside the JDK 21 Docker container.
   - Ran and verified that the `AsyncOcrTest` unit test suite passes successfully.
+  - Verified frontend builds cleanly and packages successfully in Docker Compose.
 
 ### Files Changed
 - `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/repositories/Repositories.kt`
 - `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/OcrService.kt`
+- `frontend/lib/api.ts`
 
 ---
 

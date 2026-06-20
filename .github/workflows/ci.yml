@@ -94,7 +94,6 @@ jobs:
         uses: github/codeql-action/init@v3
         with:
           languages: java-kotlin, javascript-typescript
-          build-mode: manual
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -103,10 +102,11 @@ jobs:
           java-version: '21'
           cache: gradle
 
-      - name: Autobuild / Build
+      - name: Build Java for CodeQL extraction
         run: |
           cd backend-kotlin-jpa
-          ./gradlew bootJar --no-daemon
+          chmod +x gradlew
+          ./gradlew compileKotlin --no-daemon
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3

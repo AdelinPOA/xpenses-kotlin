@@ -1,6 +1,7 @@
 package eu.nt.xpenses.controllers
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.annotation.JsonProperty
 import eu.nt.xpenses.models.OcrComparison
 import eu.nt.xpenses.models.OcrJob
 import eu.nt.xpenses.models.User

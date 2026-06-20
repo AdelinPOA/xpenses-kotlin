@@ -12,6 +12,7 @@ import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionTemplate
 import org.springframework.web.bind.annotation.*
 import org.springframework.web.multipart.MultipartFile
 import org.springframework.web.server.ResponseStatusException
@@ -23,7 +24,8 @@ import java.time.Instant
 class InsuranceController(
     private val insuranceFileRepository: InsuranceFileRepository,
     private val userRepository: UserRepository,
-    private val storageService: StorageService
+    private val storageService: StorageService,
+    private val transactionTemplate: TransactionTemplate
 ) {
     private val logger = LoggerFactory.getLogger(InsuranceController::class.java)
     @GetMapping
@@ -63,7 +65,6 @@ class InsuranceController(
     }
 
     @PostMapping
-    @Transactional
     fun uploadFile(
         @RequestParam("file") upload: MultipartFile,
         @RequestParam("title") title: String,
@@ -104,20 +105,28 @@ class InsuranceController(
         storageService.uploadFile(relativePath, upload.bytes)
 
         val now = Instant.now()
-        val insuranceFile = InsuranceFile(
-            user = targetUser,
-            title = title.trim(),
-            description = description?.trim()?.ifBlank { null },
-            filePath = relativePath,
-            fileName = originalName,
-            fileSize = upload.size,
-            fileType = upload.contentType,
-            uploadedBy = currentUser,
-            createdAt = now,
-            updatedAt = now
-        )
+        val saved = transactionTemplate.execute {
+            val txTargetUser = userRepository.findById(userId).orElseThrow {
+                ResponseStatusException(HttpStatus.NOT_FOUND, "Target user not found")
+            }
+            val txCurrentUser = userRepository.findById(currentUser.id!!).orElseThrow {
+                ResponseStatusException(HttpStatus.NOT_FOUND, "Current user not found")
+            }
+            val insuranceFile = InsuranceFile(
+                user = txTargetUser,
+                title = title.trim(),
+                description = description?.trim()?.ifBlank { null },
+                filePath = relativePath,
+                fileName = originalName,
+                fileSize = upload.size,
+                fileType = upload.contentType,
+                uploadedBy = txCurrentUser,
+                createdAt = now,
+                updatedAt = now
+            )
+            insuranceFileRepository.save(insuranceFile)
+        }!!
 
-        val saved = insuranceFileRepository.save(insuranceFile)
         return ResponseEntity.status(HttpStatus.CREATED).body(mapToOut(saved))
     }
 
@@ -153,7 +162,6 @@ class InsuranceController(
 
     @DeleteMapping("/{fileId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    @Transactional
     fun deleteFile(
         @PathVariable fileId: Int,
         request: HttpServletRequest
@@ -165,12 +173,15 @@ class InsuranceController(
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Only managers and admins can delete insurance files")
         }
 
-        val file = insuranceFileRepository.findById(fileId).orElseThrow {
-            ResponseStatusException(HttpStatus.NOT_FOUND, "File not found")
-        }
+        val path = transactionTemplate.execute {
+            val file = insuranceFileRepository.findById(fileId).orElseThrow {
+                ResponseStatusException(HttpStatus.NOT_FOUND, "File not found")
+            }
+            val filePath = file.filePath
+            insuranceFileRepository.delete(file)
+            filePath
+        }!!
 
-        val path = file.filePath
-        insuranceFileRepository.delete(file)
         try {
             storageService.deleteFile(path)
         } catch (e: Exception) {

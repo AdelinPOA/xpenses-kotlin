@@ -19,6 +19,7 @@ import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionTemplate
 import org.springframework.web.bind.annotation.*
 import org.springframework.web.multipart.MultipartFile
 import org.springframework.web.server.ResponseStatusException
@@ -41,7 +42,8 @@ class ExpenseController(
     private val fxService: FxService,
     private val storageService: StorageService,
     private val exportService: ExportService,
-    private val expenseMapper: ExpenseMapper
+    private val expenseMapper: ExpenseMapper,
+    private val transactionTemplate: TransactionTemplate
 ) {
     private val log = LoggerFactory.getLogger(ExpenseController::class.java)
 
@@ -304,7 +306,6 @@ class ExpenseController(
 
     @DeleteMapping("/{expenseId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    @Transactional
     fun deleteExpense(
         @PathVariable expenseId: Int,
         request: HttpServletRequest
@@ -312,20 +313,22 @@ class ExpenseController(
         val currentUser = request.getAttribute("currentUser") as? User
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
 
-        val expense = expenseRepository.findById(expenseId).orElseThrow {
-            ResponseStatusException(HttpStatus.NOT_FOUND, "Expense not found")
-        }
+        val receiptPaths = transactionTemplate.execute {
+            val expense = expenseRepository.findById(expenseId).orElseThrow {
+                ResponseStatusException(HttpStatus.NOT_FOUND, "Expense not found")
+            }
 
-        if (expense.user?.id != currentUser.id) {
-            throw ResponseStatusException(HttpStatus.FORBIDDEN, "Only the owner can perform this action")
-        }
-        if (expense.status != "draft") {
-            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Only draft expenses can be deleted")
-        }
+            if (expense.user?.id != currentUser.id) {
+                throw ResponseStatusException(HttpStatus.FORBIDDEN, "Only the owner can perform this action")
+            }
+            if (expense.status != "draft") {
+                throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Only draft expenses can be deleted")
+            }
 
-        val receiptPaths = expense.receipts.map { it.filePath }
-
-        expenseRepository.delete(expense)
+            val paths = expense.receipts.map { it.filePath }
+            expenseRepository.delete(expense)
+            paths
+        } ?: emptyList()
 
         for (path in receiptPaths) {
             try {
@@ -337,7 +340,6 @@ class ExpenseController(
     }
 
     @PostMapping("/{expenseId}/receipts")
-    @Transactional
     fun uploadReceipts(
         @PathVariable expenseId: Int,
         @RequestParam("files") files: List<MultipartFile>,
@@ -354,7 +356,7 @@ class ExpenseController(
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Only the owner can perform this action")
         }
 
-        val saved = mutableListOf<Map<String, Any>>()
+        val uploadedFiles = mutableListOf<Pair<String, MultipartFile>>()
         val now = Instant.now()
 
         for (file in files) {
@@ -366,23 +368,33 @@ class ExpenseController(
             } catch (e: IllegalArgumentException) {
                 throw ResponseStatusException(HttpStatus.BAD_REQUEST, e.message)
             }
-
-            val receipt = Receipt(
-                expense = expense,
-                filePath = relativePath,
-                originalName = originalName,
-                createdAt = now
-            )
-            val savedReceipt = receiptRepository.save(receipt)
-            saved.add(mapOf(
-                "id" to savedReceipt.id!!,
-                "file_path" to relativePath,
-                "original_name" to originalName
-            ))
+            uploadedFiles.add(Pair(relativePath, file))
         }
 
-        expense.updatedAt = now
-        expenseRepository.save(expense)
+        val saved = transactionTemplate.execute {
+            val txExpense = expenseRepository.findById(expenseId).orElseThrow {
+                ResponseStatusException(HttpStatus.NOT_FOUND, "Expense not found")
+            }
+            val savedReceiptsList = mutableListOf<Map<String, Any>>()
+            for ((relativePath, file) in uploadedFiles) {
+                val originalName = file.originalFilename ?: "receipt"
+                val receipt = Receipt(
+                    expense = txExpense,
+                    filePath = relativePath,
+                    originalName = originalName,
+                    createdAt = now
+                )
+                val savedReceipt = receiptRepository.save(receipt)
+                savedReceiptsList.add(mapOf(
+                    "id" to savedReceipt.id!!,
+                    "file_path" to relativePath,
+                    "original_name" to originalName
+                ))
+            }
+            txExpense.updatedAt = now
+            expenseRepository.save(txExpense)
+            savedReceiptsList
+        }!!
 
         return saved
     }
@@ -399,7 +411,6 @@ class ExpenseController(
 
     @DeleteMapping("/{expenseId}/receipts/{receiptId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    @Transactional
     fun deleteSingleReceipt(
         @PathVariable expenseId: Int,
         @PathVariable receiptId: Int,
@@ -408,28 +419,30 @@ class ExpenseController(
         val currentUser = request.getAttribute("currentUser") as? User
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
 
-        val expense = expenseRepository.findById(expenseId).orElseThrow {
-            ResponseStatusException(HttpStatus.NOT_FOUND, "Expense not found")
-        }
+        val filePath = transactionTemplate.execute {
+            val expense = expenseRepository.findById(expenseId).orElseThrow {
+                ResponseStatusException(HttpStatus.NOT_FOUND, "Expense not found")
+            }
 
-        if (expense.user?.id != currentUser.id) {
-            throw ResponseStatusException(HttpStatus.FORBIDDEN, "Only the owner can delete receipts")
-        }
+            if (expense.user?.id != currentUser.id) {
+                throw ResponseStatusException(HttpStatus.FORBIDDEN, "Only the owner can delete receipts")
+            }
 
-        val receipt = receiptRepository.findById(receiptId).orElseThrow {
-            ResponseStatusException(HttpStatus.NOT_FOUND, "Receipt not found")
-        }
+            val receipt = receiptRepository.findById(receiptId).orElseThrow {
+                ResponseStatusException(HttpStatus.NOT_FOUND, "Receipt not found")
+            }
 
-        if (receipt.expense.id != expenseId) {
-            throw ResponseStatusException(HttpStatus.NOT_FOUND, "Receipt not associated with this expense")
-        }
+            if (receipt.expense.id != expenseId) {
+                throw ResponseStatusException(HttpStatus.NOT_FOUND, "Receipt not associated with this expense")
+            }
 
-        val filePath = receipt.filePath
+            val path = receipt.filePath
+            receiptRepository.delete(receipt)
 
-        receiptRepository.delete(receipt)
-
-        expense.updatedAt = Instant.now()
-        expenseRepository.save(expense)
+            expense.updatedAt = Instant.now()
+            expenseRepository.save(expense)
+            path
+        }!!
 
         try {
             storageService.deleteFile(filePath)
@@ -580,7 +593,6 @@ class ExpenseController(
 
         val uid = if (all && currentUser.role in listOf("chef_finance", "mod", "manager")) null else currentUser.id!!
         val expenses = expenseRepository.findAllWithFilters(uid, status, reportId, categoryId, fromDate, toDate)
-            .sortedByDescending { it.date }
 
         val includeUser = all && currentUser.role in listOf("chef_finance", "mod", "manager")
         val columns = listOfNotNull(

@@ -348,8 +348,8 @@ class ReportController(
         if (report.user?.id != currentUser.id) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Only the owner can recall a report")
         }
-        if (report.status != "submitted") {
-            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Only submitted reports can be recalled")
+        if (report.status != "submitted" && report.status != "rejected") {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Only submitted or rejected reports can be recalled")
         }
 
         val now = Instant.now()
@@ -851,7 +851,11 @@ class ReportController(
         val totalExpenses = expensesOut.sumOf { it.amountEur }
         val totalAdvances = advancesOut.filter { it.status == "paid" }.sumOf { it.amountEur }
         val totalMileage = mileageOut.sumOf { it.amountEur }
-        val allowance = calculateDailyAllowance(report.dateFrom, report.dateTo)
+        val allowance = if (report.status == "approved" || report.status == "paid") {
+            calculateDailyAllowance(report.dateFrom, report.dateTo)
+        } else {
+            0.0
+        }
         val totalReimbursable = totalExpenses + allowance + totalMileage - totalAdvances
 
         return ReportOut(

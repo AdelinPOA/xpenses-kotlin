@@ -45,6 +45,8 @@ class SecurityConfig(
                     .requestMatchers("/api/settings/ldap/**").hasRole("mod")
                     .requestMatchers("/api/settings/imap/**").hasRole("mod")
                     .requestMatchers(HttpMethod.POST, "/api/users").hasRole("mod")
+                    .requestMatchers("/api/inventory/**").authenticated()
+                    .requestMatchers("/api/insurance/**").authenticated()
                     .anyRequest().authenticated()
             }
             .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter::class.java)

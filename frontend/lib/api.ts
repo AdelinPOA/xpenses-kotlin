@@ -502,6 +502,9 @@ export interface OCRComparisonRow {
   mineru_date: string | null;
   mineru_merchant: string | null;
   mineru_category_id: number | null;
+  easyocr_error: string | null;
+  gemini_error: string | null;
+  mineru_error: string | null;
   provider: string;
   final_amount: number | null;
   final_date: string | null;

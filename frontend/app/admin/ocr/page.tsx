@@ -504,6 +504,22 @@ export default function OcrAdminPage() {
                             // null final_* means this scan hasn't been linked to a saved expense yet
                             const isLinked = row.final_amount !== null || row.final_date !== null || row.final_merchant !== null;
 
+                            const isGeminiRequested = row.provider === "gemini" || row.provider?.startsWith("gemini-");
+                            const isMineruRequested = row.provider === "mineru";
+                            const geminiFailed = isGeminiRequested && (row.gemini_error || (row.gemini_amount === null && row.gemini_merchant === null));
+                            const mineruFailed = isMineruRequested && (row.mineru_error || (row.mineru_amount === null && row.mineru_merchant === null));
+                            
+                            let isFallback = false;
+                            let actualProviderStr = row.provider || "gemini";
+
+                            if (geminiFailed) {
+                              isFallback = true;
+                              actualProviderStr = "easyocr";
+                            } else if (mineruFailed) {
+                              isFallback = true;
+                              actualProviderStr = "easyocr";
+                            }
+
                             const fields = [
                               {
                                 name: "Amount",
@@ -545,10 +561,21 @@ export default function OcrAdminPage() {
                                     <div className="text-[10px] text-slate-400 mt-1 flex flex-col gap-1">
                                       <div className="flex items-center gap-1.5">
                                         <span>{new Date(row.created_at).toLocaleDateString()}</span>
-                                        <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[9px] font-semibold font-mono uppercase tracking-wider">
+                                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-semibold font-mono uppercase tracking-wider ${isFallback ? "bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400 line-through opacity-70" : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400"}`}>
                                           {row.provider || "gemini"}
                                         </span>
                                       </div>
+                                      {isFallback && (
+                                        <div className="flex flex-col gap-0.5 mt-0.5">
+                                          <span className="text-[9px] text-rose-500 font-semibold uppercase tracking-wider">Failed</span>
+                                          <div className="flex items-center gap-1 mt-0.5">
+                                            <span className="text-[9px] text-slate-500">Used:</span>
+                                            <span className="px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800/50 text-[9px] font-semibold font-mono uppercase tracking-wider">
+                                              {actualProviderStr}
+                                            </span>
+                                          </div>
+                                        </div>
+                                      )}
                                     </div>
                                     {!isLinked && (
                                       <span className="mt-1.5 inline-block text-[9px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800 font-semibold">

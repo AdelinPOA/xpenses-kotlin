@@ -1,11 +1,28 @@
 # HANDOFF.md — xpenses-kotlin
 
-> Last updated: 2026-06-21 (session 77)
+> Last updated: 2026-06-21 (session 78)
 > Author: Antigravity
 
 ---
 
-## Latest Session (2026-06-21, session 77)
+## Latest Session (2026-06-21, session 78)
+
+### What Was Done
+- **Fixed OCR Fallback UI Display**:
+  - Identified that when a preferred OCR provider (like Gemini or MinerU) failed, the backend fell back to EasyOCR but the frontend still only displayed the original configured provider name in the "Scan History & Comparisons" table, masking the failure from the user.
+  - Added `easyocrError`, `geminiError`, and `mineruError` fields to the `OcrComparisonRow` data class in `OcrController.kt` and `OCRComparisonRow` interface in `frontend/lib/api.ts`.
+  - Updated the frontend UI in `page.tsx` to detect fallback scenarios (e.g., when Gemini was requested but failed or returned null). In these cases, the UI now strikes through the failed provider name (e.g., `<del>GEMINI</del>`), adds a red "FAILED" badge, and explicitly displays an amber badge reading "Used: EASYOCR" underneath.
+  - Reverted the removal of `gemini-3-flash` (Preview) at user's request, leaving it as an available model option in `page.tsx` and `OcrService.kt`.
+
+### Files Changed
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/OcrController.kt`
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/OcrService.kt`
+- `frontend/app/admin/ocr/page.tsx`
+- `frontend/lib/api.ts`
+
+---
+
+## Previous Session (2026-06-21, session 77)
 
 ### What Was Done
 - **Added Gemini 3 Flash OCR Model Support**:

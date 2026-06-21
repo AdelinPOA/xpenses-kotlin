@@ -396,7 +396,7 @@ export async function updateOcrConfig(config: Partial<OcrConfig>): Promise<OcrCo
   return data;
 }
 
-export async function testOcrConfig(payload: { gemini_api_key?: string | null }): Promise<{ success: boolean; message: string }> {
+export async function testOcrConfig(payload: { gemini_api_key?: string | null; provider?: string }): Promise<{ success: boolean; message: string }> {
   const { data } = await api.post("/settings/ocr/test", payload);
   return data;
 }

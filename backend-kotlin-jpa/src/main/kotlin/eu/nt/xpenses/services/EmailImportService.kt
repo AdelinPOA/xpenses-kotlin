@@ -269,8 +269,9 @@ class EmailImportService(
         )
     }
 
-    fun parseDelegationEmailGemini(text: String, apiKey: String): Map<String, String>? {
-        val url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$apiKey"
+    fun parseDelegationEmailGemini(text: String, apiKey: String, provider: String = "gemini"): Map<String, String>? {
+        val modelName = ocrService.geminiModelName(provider)
+        val url = "https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=$apiKey"
         val payload = mapOf(
             "contents" to listOf(
                 mapOf(
@@ -384,8 +385,8 @@ class EmailImportService(
 
     fun parseDelegationEmailAsync(text: String): Map<String, String>? {
         val ocrCfg = ocrService.getOcrConfig()
-        if (ocrCfg.ocrEnabled && ocrCfg.provider == "gemini" && ocrCfg.geminiApiKey.isNotEmpty()) {
-            val parsed = parseDelegationEmailGemini(text, ocrCfg.geminiApiKey)
+        if (ocrCfg.ocrEnabled && (ocrCfg.provider == "gemini" || ocrCfg.provider.startsWith("gemini-")) && ocrCfg.geminiApiKey.isNotEmpty()) {
+            val parsed = parseDelegationEmailGemini(text, ocrCfg.geminiApiKey, ocrCfg.provider)
             if (parsed != null) return parsed
         }
         return parseDelegationEmailLocal(text)
@@ -465,7 +466,7 @@ class EmailImportService(
         try {
             val ocrCfg = ocrService.getOcrConfig()
             if (ocrCfg.ocrEnabled && ocrCfg.geminiApiKey.isNotEmpty()) {
-                geminiParsed = parseDelegationEmailGemini(bodyText, ocrCfg.geminiApiKey)
+                geminiParsed = parseDelegationEmailGemini(bodyText, ocrCfg.geminiApiKey, ocrCfg.provider)
             } else {
                 geminiError = "Gemini key not configured or OCR disabled in settings"
             }
@@ -474,7 +475,8 @@ class EmailImportService(
         }
 
         val ocrCfg = ocrService.getOcrConfig()
-        val useGemini = ocrCfg.ocrEnabled && ocrCfg.provider == "gemini" && geminiParsed != null
+        val isGeminiProvider = ocrCfg.provider == "gemini" || ocrCfg.provider.startsWith("gemini-")
+        val useGemini = ocrCfg.ocrEnabled && isGeminiProvider && geminiParsed != null
         val finalParsed = if (useGemini) geminiParsed else localParsed
 
         if (finalParsed == null) {

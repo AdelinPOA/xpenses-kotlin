@@ -143,7 +143,7 @@ class AppSettingsController(
             return ResponseEntity.ok(mapOf("success" to false, "message" to "No API key provided or configured."))
         }
 
-        val result = ocrService.testGeminiConnection(key)
+        val result = ocrService.testGeminiConnection(key, body.provider ?: "gemini")
         return ResponseEntity.ok(result)
     }
 
@@ -216,7 +216,7 @@ class AppSettingsController(
     fun readImapSettings(): ResponseEntity<ImapConfigOut> {
         val config = emailSettingsService.getImapConfig()
         val ocrCfg = ocrService.getOcrConfig()
-        val activeParser = if (ocrCfg.ocrEnabled && ocrCfg.provider == "gemini" && ocrCfg.geminiApiKey.isNotEmpty()) "gemini" else "local"
+        val activeParser = if (ocrCfg.ocrEnabled && (ocrCfg.provider == "gemini" || ocrCfg.provider.startsWith("gemini-")) && ocrCfg.geminiApiKey.isNotEmpty()) "gemini" else "local"
 
         return ResponseEntity.ok(ImapConfigOut(
             enabled = config.enabled,
@@ -251,7 +251,7 @@ class AppSettingsController(
 
         val updated = emailSettingsService.getImapConfig()
         val ocrCfg = ocrService.getOcrConfig()
-        val activeParser = if (ocrCfg.ocrEnabled && ocrCfg.provider == "gemini" && ocrCfg.geminiApiKey.isNotEmpty()) "gemini" else "local"
+        val activeParser = if (ocrCfg.ocrEnabled && (ocrCfg.provider == "gemini" || ocrCfg.provider.startsWith("gemini-")) && ocrCfg.geminiApiKey.isNotEmpty()) "gemini" else "local"
         return ResponseEntity.ok(ImapConfigOut(
             enabled = updated.enabled,
             imapHost = updated.imapHost,
@@ -486,7 +486,8 @@ data class OCRConfigUpdate(
 )
 
 data class OCRTestRequest(
-    @JsonProperty("gemini_api_key") val geminiApiKey: String? = null
+    @JsonProperty("gemini_api_key") val geminiApiKey: String? = null,
+    @JsonProperty("provider") val provider: String? = null
 )
 
 data class EmailConfigOut(

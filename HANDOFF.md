@@ -1,29 +1,57 @@
 # HANDOFF.md — xpenses-kotlin
 
-> Last updated: 2026-06-21 (session 74)
+> Last updated: 2026-06-21 (session 76)
 > Author: Antigravity
 
 ---
 
-## Latest Session (2026-06-21, session 74)
+## Latest Session (2026-06-21, session 76)
 
 ### What Was Done
-- **Fixed MinerU Intel GPU (XPU) Container Crash**:
-  - Identified that the `xpenses-mineru` container was crashing on startup with a Segmentation Fault (`exit code 139`).
-  - **Root Cause**: The docker-compose mounted the host's entire `/usr/lib64` directory and added it to `LD_LIBRARY_PATH`. This caused a glibc symbol mismatch with the container's Debian-compiled python interpreter.
-  - **Fix**: Created a dedicated `mineru/gpu-libs` host folder containing only the Level Zero loader library (`libze_loader.so.1`) and mounted that instead of the whole `/usr/lib64`. This completely resolved the segmentation fault.
-  - Refactored `mineru/Dockerfile` to install `"mineru[all]"` first, which resolves all missing python dependencies (like `loguru` and `pypdf`/`reportlab`), before force-overwriting PyTorch with the XPU build.
+- **Fixed Gemini Model OCR Connection Test and Scanning**:
+  - Found that the frontend OCR Admin configuration page had compilation errors: operator precedence error mixing `||` and `??`, and an undefined variable `formData` inside the `handleTest()` connection handler.
+  - Resolved compiler errors: added parentheses to the nullish coalescing expression and changed the connection test payload to use `watch("provider")` to dynamically retrieve the currently selected model provider.
+  - Refactored `OcrService.kt` to:
+    - Support all Gemini model options (like `gemini-3.1-flash-lite` and `gemini-3.5-flash`) for caching hit logic, cached data retrieval, and synchronous scanning (using `config.provider.startsWith("gemini-")`). Previously, selecting models other than `gemini` would fall back to EasyOCR caching and synchronous execution.
+    - Centralize and expose `geminiModelName(provider)` publicly so that other components can resolve the correct model name.
+  - Refactored `EmailImportService.kt` to resolve the model name dynamically for email parsing using `ocrService.geminiModelName(provider)`, rather than hardcoding `gemini-2.5-flash`.
+  - Refactored `AppSettingsController.kt` to support all Gemini model variants for active email parser checks.
 - **Verification**:
-  - Rebuilt and started the `mineru` container profile successfully. It is now up, running, and healthy (`HTTP/1.1 200 OK` on `/docs`).
-  - Staged, committed, and pushed these fixes to remote branch `feat/mineru-gpu-acceleration`.
+  - Rebuilt backend container and compiled frontend successfully.
+  - Ran the full Kotlin test suite (62 tests) successfully.
+  - Smoke-tested testing endpoint `/api/settings/ocr/test` for `gemini`, `gemini-3.1-flash-lite`, and `gemini-3.5-flash`, confirming all return `200 OK` with `success: true`.
 
 ### Files Changed
-- `docker-compose.yml`
-- `mineru/Dockerfile`
-- `mineru/patch_xpu.py`
-- `mineru/gpu-libs/libze_loader.so.1`
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/AppSettingsController.kt`
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/EmailImportService.kt`
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/OcrService.kt`
+- `frontend/app/admin/ocr/page.tsx`
 
 ---
+
+## Previous Session (2026-06-21, session 75)
+
+### What Was Done
+
+- **Fixed OCR Admin Layout Regression**: The comparison table ("Scan History & Comparisons") had reverted to a narrow `max-w-2xl` layout with a horizontal scrollbar. Root cause: commit `3b04f1a` (Bugfix round 1) was based on a commit prior to session 60's layout fix (`534bcf8`) and overwrote it.
+  - Restored the layout fix: outer page container now uses fluid width (`px-4` instead of `max-w-2xl mx-auto`), settings form stays at `max-w-2xl mx-auto`, and the comparison section uses `max-w-6xl mx-auto` for a full-width table without horizontal scroll.
+  - Frontend Docker image rebuilt and container restarted.
+  - Docker frontend container stopped — dev server now runs directly via `npm run dev` on port 3001 (no Docker rebuild needed during development).
+- **Fixed MinerU Model Cache Permissions**: MinerU was returning `409 Conflict` on every scan because `/home/mineru/.cache` was owned by `root` (created during Docker build), but the container runs as the `mineru` user. This caused `PermissionError: [Errno 13] Permission denied: '/home/mineru/.cache/modelscope'` when MinerU tried to create the modelscope cache directory at runtime.
+  - Fixed running container: `chown -R mineru:mineru /home/mineru/.cache`
+  - Updated `mineru/Dockerfile`: added `RUN mkdir -p /home/mineru/.cache/modelscope && chown -R mineru:mineru /home/mineru/.cache` before the `USER mineru` switch, so rebuilds won't regress.
+  - Container restarted and health check passes.
+- **Switched MinerU from GPU (XPU) to CPU mode**: Commit `62ccaa6` configured MinerU for Intel GPU acceleration (`MINERU_DEVICE_MODE=xpu`), but the local dev machine lacks an Intel GPU. Every scan attempt failed with `RuntimeError: No XPU devices are available`.
+  - Changed `docker-compose.yml`: `MINERU_DEVICE_MODE=cpu`, commented out GPU-specific configs (devices, group_add, gpu-libs volume, LD_LIBRARY_PATH) with notes for re-enabling on GPU hardware.
+  - Container recreated and healthy. No image rebuild needed — XPU PyTorch falls back to CPU when no GPU is detected.
+- **Added Gemini 2.0 Flash and 3.1 Flash-Lite as OCR provider options**: Added both models to the frontend provider dropdown alongside the existing `gemini` (2.5 Flash).
+  - Frontend: added `<option value="gemini-2.0-flash">` and `<option value="gemini-3.1-flash-lite">` in the select menu, updated validation and payload logic.
+  - Backend: added `geminiModelName(provider)` helper that maps the provider string to the correct model name.
+  - Fixed test connection to test the actually selected Gemini model (previously always tested 2.5 Flash regardless of selection).
+  - Note: Google's docs list `gemini-2.0-flash` as retired on June 1, 2026 — API returns `limit: 0` (confirmed via direct API test). Removed `gemini-2.0-flash` option. The two working Gemini options are now `gemini` (2.5 Flash) and `gemini-3.1-flash-lite`.
+  - Fixed test connection to test the actually selected Gemini model (previously always tested 2.5 Flash regardless of selection).
+  - Added Gemini 3.5 Flash option. All Gemini providers now use `startsWith("gemini-")` matching so any future model variant works automatically.
+  - Test connection button now shows for all Gemini provider variants.
 
 ## Previous Session (2026-06-21, session 73)
 

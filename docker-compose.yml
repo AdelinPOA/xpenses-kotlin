@@ -105,18 +105,18 @@ services:
       - "8002:8000"   # optional: reach from host at http://localhost:8002
     volumes:
       - mineru-models:/home/mineru/.cache   # cache downloaded models between restarts
-      - ./mineru/gpu-libs:/opt/intel/gpu-libs:ro   # host Intel GPU compute libs (Level Zero driver)
+      #- ./mineru/gpu-libs:/opt/intel/gpu-libs:ro   # host Intel GPU compute libs — uncomment for XPU
     networks:
       - xpenses-net
     restart: unless-stopped
-    devices:
-      - /dev/dri:/dev/dri        # Intel GPU (Arc / integrated)
-    group_add:
-      - "44"                     # video group (access /dev/dri/card*)
-      - "107"                    # render group (access /dev/dri/renderD*)
+    #devices:
+    #  - /dev/dri:/dev/dri        # Intel GPU — uncomment for XPU mode
+    #group_add:
+    #  - "44"                     # video group — uncomment for XPU mode
+    #  - "107"                    # render group — uncomment for XPU mode
     environment:
-      - MINERU_DEVICE_MODE=xpu   # use Intel XPU (via IPEX)
-      - LD_LIBRARY_PATH=/opt/intel/gpu-libs  # find host's GPU libs
+      - MINERU_DEVICE_MODE=cpu   # use CPU (change to xpu for Intel GPU acceleration)
+      #- LD_LIBRARY_PATH=/opt/intel/gpu-libs  # uncomment for XPU mode
       - SYCL_CACHE_PERSISTENT=1  # keep compiled SYCL kernels between runs
       - NEO_CACHE_DIR=/tmp/neo-cache  # cache GPU binary kernels
     deploy:

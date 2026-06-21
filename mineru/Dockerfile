@@ -50,6 +50,9 @@ RUN uv pip install --system --no-cache \
 COPY patch_xpu.py /tmp/patch_xpu.py
 RUN python3 /tmp/patch_xpu.py
 
+# Ensure model cache directories are writable by the mineru user
+RUN mkdir -p /home/mineru/.cache/modelscope && chown -R mineru:mineru /home/mineru/.cache
+
 # Download models as user mineru
 USER mineru
 WORKDIR /home/mineru

@@ -30,13 +30,13 @@ const ocrConfigSchema = z.object({
   password_set: z.boolean().optional(),
 }).refine(
   (data) => {
-    if (data.ocr_enabled && data.provider === "gemini") {
+    if (data.ocr_enabled && (data.provider === "gemini" || data.provider?.startsWith("gemini-"))) {
       return data.password_set || data.gemini_api_key.trim().length > 0;
     }
     return true;
   },
   {
-    message: "Gemini API key is required when Gemini is the selected provider",
+    message: "Gemini API key is required when a Gemini provider is selected",
     path: ["gemini_api_key"],
   }
 );
@@ -132,15 +132,16 @@ export default function OcrAdminPage() {
 
   const onSubmit = (formData: FormState) => {
     setSaveError(null);
-    const payload: Partial<OcrConfig> = {
-      ocr_enabled: formData.ocr_enabled,
-      provider: formData.provider,
-      // Always send the masked placeholder — backend keeps the stored key intact.
-      // This way switching providers never wipes the Gemini key.
-      gemini_api_key: formData.provider === "gemini" && pwChanged
-        ? formData.gemini_api_key
-        : "••••••••",
-    };
+      const isGeminiProvider = formData.provider === "gemini" || (formData.provider?.startsWith("gemini-") ?? false);
+      const payload: Partial<OcrConfig> = {
+        ocr_enabled: formData.ocr_enabled,
+        provider: formData.provider,
+        // Always send the masked placeholder — backend keeps the stored key intact.
+        // This way switching providers never wipes the Gemini key.
+        gemini_api_key: isGeminiProvider && pwChanged
+          ? formData.gemini_api_key
+          : "••••••••",
+      };
     if (formData.provider === "mineru") {
       payload.mineru_url = formData.mineru_url || "http://mineru:8000";
     }
@@ -153,7 +154,7 @@ export default function OcrAdminPage() {
     const enteredKey = watch("gemini_api_key");
     const payloadKey = (enteredKey === "••••••••" || enteredKey === "") ? null : enteredKey;
     try {
-      const res = await testOcrConfig({ gemini_api_key: payloadKey });
+      const res = await testOcrConfig({ gemini_api_key: payloadKey, provider: watch("provider") });
       setTestResult(res);
       if (res.success) toast.success("Gemini API connection verified!");
       else toast.error(`Gemini connection test failed: ${res.message}`);
@@ -208,8 +209,8 @@ export default function OcrAdminPage() {
           <div className="h-48 bg-slate-200 dark:bg-slate-800 rounded-xl"></div>
         </div>
       ) : (
-        <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        <div className="px-4 py-8 space-y-6">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 max-w-2xl mx-auto">
             <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">OCR Scanner Settings</h1>
 
             {saveError && (
@@ -247,6 +248,8 @@ export default function OcrAdminPage() {
                       <option value="easyocr">EasyOCR (Local CPU - Default)</option>
                       <option value="mineru">MinerU 2.5 (Local - High Accuracy)</option>
                       <option value="gemini">Google Gemini 2.5 Flash (Cloud API)</option>
+                      <option value="gemini-3.1-flash-lite">Google Gemini 3.1 Flash-Lite (Cloud API - Cost Efficient)</option>
+                      <option value="gemini-3.5-flash">Google Gemini 3.5 Flash (Cloud API - Latest)</option>
                       <option value="ollama" disabled>Ollama Local Vision LLM (Coming Soon)</option>
                       <option value="hybrid" disabled>Hybrid OCR + Text LLM (Coming Soon)</option>
                     </select>
@@ -307,7 +310,7 @@ export default function OcrAdminPage() {
               </section>
             )}
 
-            {ocrEnabled && provider === "gemini" && (
+            {ocrEnabled && (provider === "gemini" || provider?.startsWith("gemini-")) && (
               <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-sm space-y-4 animate-fadeIn">
                 <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 mb-1">
                   <Sparkles className="w-5 h-5" />
@@ -372,7 +375,7 @@ export default function OcrAdminPage() {
 
           {/* OCR Engine Accuracy Comparison Section */}
           {compData && (
-            <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-sm space-y-6">
+            <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-sm space-y-6 max-w-6xl mx-auto">
               <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
                 <Sparkles className="w-5 h-5 text-indigo-500" />
                 <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-800 dark:text-slate-200">

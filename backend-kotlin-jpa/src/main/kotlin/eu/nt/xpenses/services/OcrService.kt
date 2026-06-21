@@ -158,8 +158,9 @@ class OcrService(
         return classifier
     }
 
-    fun testGeminiConnection(apiKey: String): Map<String, Any> {
-        val url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash"
+    fun testGeminiConnection(apiKey: String, provider: String = "gemini"): Map<String, Any> {
+        val modelName = geminiModelName(provider)
+        val url = "https://generativelanguage.googleapis.com/v1beta/models/${modelName}"
         return try {
             val response = restClient.get()
                 .uri(url)
@@ -211,9 +212,9 @@ class OcrService(
         val cachedComparison = ocrComparisonRepository.findBestCachedComparison(sha256).firstOrNull()
 
         if (cachedComparison != null) {
-            val isProviderPopulated = when (config.provider) {
-                "gemini" -> cachedComparison.geminiAmount != null || cachedComparison.geminiError != null
-                "mineru" -> cachedComparison.mineruAmount != null || cachedComparison.mineruError != null
+            val isProviderPopulated = when {
+                config.provider == "gemini" || config.provider.startsWith("gemini-") -> cachedComparison.geminiAmount != null || cachedComparison.geminiError != null
+                config.provider == "mineru" -> cachedComparison.mineruAmount != null || cachedComparison.mineruError != null
                 else -> cachedComparison.easyocrAmount != null || cachedComparison.easyocrError != null
             }
 
@@ -248,29 +249,29 @@ class OcrService(
                 }
 
                 val cachedExp = cachedComparison.expense
-                val amount = when (config.provider) {
-                    "gemini" -> cachedComparison.geminiAmount?.toDouble()
-                    "mineru" -> cachedComparison.mineruAmount?.toDouble()
+                val amount = when {
+                    config.provider == "gemini" || config.provider.startsWith("gemini-") -> cachedComparison.geminiAmount?.toDouble()
+                    config.provider == "mineru" -> cachedComparison.mineruAmount?.toDouble()
                     else -> cachedComparison.easyocrAmount?.toDouble()
                 }
-                val date = when (config.provider) {
-                    "gemini" -> cachedComparison.geminiDate
-                    "mineru" -> cachedComparison.mineruDate
+                val date = when {
+                    config.provider == "gemini" || config.provider.startsWith("gemini-") -> cachedComparison.geminiDate
+                    config.provider == "mineru" -> cachedComparison.mineruDate
                     else -> cachedComparison.easyocrDate
                 }
-                val merchant = when (config.provider) {
-                    "gemini" -> cachedComparison.geminiMerchant
-                    "mineru" -> cachedComparison.mineruMerchant
+                val merchant = when {
+                    config.provider == "gemini" || config.provider.startsWith("gemini-") -> cachedComparison.geminiMerchant
+                    config.provider == "mineru" -> cachedComparison.mineruMerchant
                     else -> cachedComparison.easyocrMerchant
                 }
-                val categoryId = when (config.provider) {
-                    "gemini" -> cachedComparison.geminiCategoryId
-                    "mineru" -> cachedComparison.mineruCategoryId
+                val categoryId = when {
+                    config.provider == "gemini" || config.provider.startsWith("gemini-") -> cachedComparison.geminiCategoryId
+                    config.provider == "mineru" -> cachedComparison.mineruCategoryId
                     else -> cachedComparison.easyocrCategoryId
                 }
-                val providerError = when (config.provider) {
-                    "gemini" -> cachedComparison.geminiError
-                    "mineru" -> cachedComparison.mineruError
+                val providerError = when {
+                    config.provider == "gemini" || config.provider.startsWith("gemini-") -> cachedComparison.geminiError
+                    config.provider == "mineru" -> cachedComparison.mineruError
                     else -> cachedComparison.easyocrError
                 }
 
@@ -323,10 +324,12 @@ class OcrService(
         val comparisonId = savedComparison?.id
 
         // 1. Run selected provider synchronously (and fallbacks if needed)
-        if (config.provider == "gemini") {
+        val isGeminiProvider = config.provider == "gemini" || config.provider.startsWith("gemini-")
+
+        if (isGeminiProvider) {
             if (config.geminiApiKey.isNotEmpty()) {
                 try {
-                    geminiResult = scanGemini(fileBytes, filename, config.geminiApiKey, categories)
+                    geminiResult = scanGemini(fileBytes, filename, config.geminiApiKey, categories, config.provider)
                 } catch (e: Exception) {
                     geminiResult = errorResult("Gemini failed: ${e.message}")
                 }
@@ -412,7 +415,7 @@ class OcrService(
             if (geminiResult == null && config.geminiApiKey.isNotEmpty()) {
                 CompletableFuture.runAsync {
                     try {
-                        val res = scanGemini(fileBytes, filename, config.geminiApiKey, categories)
+                        val res = scanGemini(fileBytes, filename, config.geminiApiKey, categories, config.provider)
                         updateGeminiComparison(comparisonId, res)
                     } catch (e: Exception) {
                         log.error("Async Gemini failed: ${e.message}")
@@ -657,14 +660,24 @@ class OcrService(
         )
     }
 
+    fun geminiModelName(provider: String): String {
+        return when (provider) {
+            "gemini-3.1-flash-lite" -> "gemini-3.1-flash-lite"
+            "gemini-3.5-flash" -> "gemini-3.5-flash"
+            else -> "gemini-2.5-flash"
+        }
+    }
+
     private fun scanGemini(
         fileBytes: ByteArray,
         filename: String,
         apiKey: String,
-        categories: List<eu.nt.xpenses.models.Category>
+        categories: List<eu.nt.xpenses.models.Category>,
+        provider: String = "gemini"
     ): Map<String, Any?> {
         val b64Data = Base64.getEncoder().encodeToString(fileBytes)
-        val url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+        val modelName = geminiModelName(provider)
+        val url = "https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent"
         val categoriesStr = categories.joinToString(", ") { "${it.id}: ${it.name}" }
 
         val ext = filename.substringAfterLast('.', "").lowercase()

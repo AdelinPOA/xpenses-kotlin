@@ -1,11 +1,31 @@
 # HANDOFF.md — xpenses-kotlin
 
-> Last updated: 2026-06-21 (session 73)
+> Last updated: 2026-06-21 (session 74)
 > Author: Antigravity
 
 ---
 
-## Latest Session (2026-06-21, session 73)
+## Latest Session (2026-06-21, session 74)
+
+### What Was Done
+- **Fixed MinerU Intel GPU (XPU) Container Crash**:
+  - Identified that the `xpenses-mineru` container was crashing on startup with a Segmentation Fault (`exit code 139`).
+  - **Root Cause**: The docker-compose mounted the host's entire `/usr/lib64` directory and added it to `LD_LIBRARY_PATH`. This caused a glibc symbol mismatch with the container's Debian-compiled python interpreter.
+  - **Fix**: Created a dedicated `mineru/gpu-libs` host folder containing only the Level Zero loader library (`libze_loader.so.1`) and mounted that instead of the whole `/usr/lib64`. This completely resolved the segmentation fault.
+  - Refactored `mineru/Dockerfile` to install `"mineru[all]"` first, which resolves all missing python dependencies (like `loguru` and `pypdf`/`reportlab`), before force-overwriting PyTorch with the XPU build.
+- **Verification**:
+  - Rebuilt and started the `mineru` container profile successfully. It is now up, running, and healthy (`HTTP/1.1 200 OK` on `/docs`).
+  - Staged, committed, and pushed these fixes to remote branch `feat/mineru-gpu-acceleration`.
+
+### Files Changed
+- `docker-compose.yml`
+- `mineru/Dockerfile`
+- `mineru/patch_xpu.py`
+- `mineru/gpu-libs/libze_loader.so.1`
+
+---
+
+## Previous Session (2026-06-21, session 73)
 
 ### What Was Done
 - **Verification**: Ran the entire Gradle unit test suite inside a JDK 21 container; all tests passed successfully with 5 actionable tasks up-to-date.

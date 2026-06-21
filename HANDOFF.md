@@ -1,11 +1,23 @@
 # HANDOFF.md — xpenses-kotlin
 
-> Last updated: 2026-06-21 (session 72)
+> Last updated: 2026-06-21 (session 73)
 > Author: Antigravity
 
 ---
 
-## Latest Session (2026-06-21, session 72)
+## Latest Session (2026-06-21, session 73)
+
+### What Was Done
+- **Verification**: Ran the entire Gradle unit test suite inside a JDK 21 container; all tests passed successfully with 5 actionable tasks up-to-date.
+- **Branch Delivery**: Cleanly stashed uncommitted workspace files, checked out `main`, pulled latest updates, merged `feat/mineru-gpu-acceleration` via fast-forward, and pushed the updated `main` to remote origin.
+- **Work Preservation**: Switched back to `feat/mineru-gpu-acceleration` and restored the uncommitted MinerU Intel XPU/GPU configuration files to the working directory so they are preserved for future work.
+
+### Files Changed
+- None (delivered previous changes to `main`)
+
+---
+
+## Previous Session (2026-06-21, session 72)
 
 ### What Was Done
 - **Optimized OCR Scanning Performance**:

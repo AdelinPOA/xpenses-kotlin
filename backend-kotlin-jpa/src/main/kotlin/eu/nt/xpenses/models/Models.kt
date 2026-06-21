@@ -631,6 +631,9 @@ class OcrComparison(
     @Column(name = "mineru_error")
     var mineruError: String? = null,
 
+    @Column(name = "sha256")
+    var sha256: String? = null,
+
     var provider: String = "gemini",
 
     @Column(name = "created_at", nullable = false)

@@ -202,6 +202,106 @@ class OcrService(
         val categories = categoryRepository.findAllByIsActiveTrue()
         val classifier = trainLocalClassifier()
 
+        // Calculate SHA-256 of the receipt bytes
+        val digest = java.security.MessageDigest.getInstance("SHA-256")
+        val hashBytes = digest.digest(fileBytes)
+        val sha256 = hashBytes.joinToString("") { "%02x".format(it) }
+
+        // Try to find the best existing comparison with this hash (preferring linked expenses or populated records)
+        val cachedComparison = ocrComparisonRepository.findBestCachedComparison(sha256).firstOrNull()
+
+        if (cachedComparison != null) {
+            val isProviderPopulated = when (config.provider) {
+                "gemini" -> cachedComparison.geminiAmount != null || cachedComparison.geminiError != null
+                "mineru" -> cachedComparison.mineruAmount != null || cachedComparison.mineruError != null
+                else -> cachedComparison.easyocrAmount != null || cachedComparison.easyocrError != null
+            }
+
+            if (isProviderPopulated) {
+                log.info("OCR cache hit for hash: {} using provider: {}", sha256, config.provider)
+                val newComparison = OcrComparison(
+                    receiptFilename = filename,
+                    provider = config.provider,
+                    sha256 = sha256,
+                    geminiAmount = cachedComparison.geminiAmount,
+                    geminiDate = cachedComparison.geminiDate,
+                    geminiMerchant = cachedComparison.geminiMerchant,
+                    geminiCategoryId = cachedComparison.geminiCategoryId,
+                    geminiError = cachedComparison.geminiError,
+                    easyocrAmount = cachedComparison.easyocrAmount,
+                    easyocrDate = cachedComparison.easyocrDate,
+                    easyocrMerchant = cachedComparison.easyocrMerchant,
+                    easyocrCategoryId = cachedComparison.easyocrCategoryId,
+                    easyocrError = cachedComparison.easyocrError,
+                    mineruAmount = cachedComparison.mineruAmount,
+                    mineruDate = cachedComparison.mineruDate,
+                    mineruMerchant = cachedComparison.mineruMerchant,
+                    mineruCategoryId = cachedComparison.mineruCategoryId,
+                    mineruError = cachedComparison.mineruError,
+                    createdAt = Instant.now()
+                )
+                val savedComparison = try {
+                    ocrComparisonRepository.save(newComparison)
+                } catch (e: Exception) {
+                    log.warn("Failed to save cached OCR comparison record: {}", e.message)
+                    null
+                }
+
+                val cachedExp = cachedComparison.expense
+                val amount = when (config.provider) {
+                    "gemini" -> cachedComparison.geminiAmount?.toDouble()
+                    "mineru" -> cachedComparison.mineruAmount?.toDouble()
+                    else -> cachedComparison.easyocrAmount?.toDouble()
+                }
+                val date = when (config.provider) {
+                    "gemini" -> cachedComparison.geminiDate
+                    "mineru" -> cachedComparison.mineruDate
+                    else -> cachedComparison.easyocrDate
+                }
+                val merchant = when (config.provider) {
+                    "gemini" -> cachedComparison.geminiMerchant
+                    "mineru" -> cachedComparison.mineruMerchant
+                    else -> cachedComparison.easyocrMerchant
+                }
+                val categoryId = when (config.provider) {
+                    "gemini" -> cachedComparison.geminiCategoryId
+                    "mineru" -> cachedComparison.mineruCategoryId
+                    else -> cachedComparison.easyocrCategoryId
+                }
+                val providerError = when (config.provider) {
+                    "gemini" -> cachedComparison.geminiError
+                    "mineru" -> cachedComparison.mineruError
+                    else -> cachedComparison.easyocrError
+                }
+
+                if (providerError != null) {
+                    val errorRes = errorResult(providerError).toMutableMap()
+                    if (savedComparison?.id != null) {
+                        errorRes["comparison_id"] = savedComparison.id
+                    }
+                    return errorRes
+                }
+
+                val finalResult = mutableMapOf<String, Any?>(
+                    "amount" to amount,
+                    "currency" to (cachedExp?.currencyOriginal ?: "EUR"),
+                    "tax_amount" to (cachedExp?.taxAmount?.toDouble() ?: 0.0),
+                    "tax_rate" to (cachedExp?.taxRate?.toDouble()),
+                    "date" to date,
+                    "merchant" to merchant,
+                    "category_id" to categoryId,
+                    "description" to (cachedExp?.description ?: if (merchant != null) "Scanned receipt from $merchant (cached)" else "Scanned receipt (cached)"),
+                    "raw_text" to (cachedExp?.rawOcrText ?: ""),
+                    "confidence" to 1.0,
+                    "warnings" to emptyList<String>()
+                )
+                if (savedComparison?.id != null) {
+                    finalResult["comparison_id"] = savedComparison.id
+                }
+                return finalResult
+            }
+        }
+
         var geminiResult: Map<String, Any?>? = null
         var easyocrResult: Map<String, Any?>? = null
         var mineruResult: Map<String, Any?>? = null
@@ -211,6 +311,7 @@ class OcrService(
         val comparison = OcrComparison(
             receiptFilename = filename,
             provider = config.provider,
+            sha256 = sha256,
             createdAt = Instant.now()
         )
         val savedComparison = try {
@@ -566,13 +667,22 @@ class OcrService(
         val url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
         val categoriesStr = categories.joinToString(", ") { "${it.id}: ${it.name}" }
 
+        val ext = filename.substringAfterLast('.', "").lowercase()
+        val mimeType = when (ext) {
+            "pdf" -> "application/pdf"
+            "png" -> "image/png"
+            "webp" -> "image/webp"
+            "gif" -> "image/gif"
+            else -> "image/jpeg"
+        }
+
         val payload = mapOf(
             "contents" to listOf(
                 mapOf(
                     "parts" to listOf(
                         mapOf(
                             "text" to (
-                                "Analyze this receipt, bill, invoice, or ticket image. " +
+                                "Analyze this receipt, bill, invoice, or ticket document. " +
                                 "Extract the following fields and return them in the requested JSON structure: " +
                                 "merchant (store/provider name), amount (total amount paid), currency (3-letter ISO code e.g. EUR, USD, RON), " +
                                 "tax_amount (total tax/VAT paid), tax_rate (percentage e.g. 19.0), date (in YYYY-MM-DD format), " +
@@ -583,7 +693,7 @@ class OcrService(
                         ),
                         mapOf(
                             "inlineData" to mapOf(
-                                "mimeType" to "image/jpeg",
+                                "mimeType" to mimeType,
                                 "data" to b64Data
                             )
                         )

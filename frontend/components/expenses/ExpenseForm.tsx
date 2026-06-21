@@ -190,14 +190,59 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
 
   const [isDragging, setIsDragging] = useState(false);
 
+  const compressImage = (file: File): Promise<Blob | File> => {
+    const isImage = file.type.startsWith("image/") || /\.(jpg|jpeg|png|webp)$/i.test(file.name);
+    if (!isImage) {
+      return Promise.resolve(file);
+    }
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          const maxDim = 1600;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          ctx?.drawImage(img, 0, 0, width, height);
+
+          canvas.toBlob(
+            (blob) => resolve(blob || file),
+            "image/jpeg",
+            0.8
+          );
+        };
+        img.onerror = () => resolve(file);
+      };
+      reader.onerror = () => resolve(file);
+    });
+  };
+
   const processFileScan = async (file: File) => {
     setIsScanning(true);
     setScanResult(null);
     setError("");
 
     try {
+      const compressedBlob = await compressImage(file);
       const fd = new FormData();
-      fd.append("file", file);
+      fd.append("file", compressedBlob, file.name);
       const res = await api.post("/ocr/scan", fd);
       
       let result: OCRScanResult;

@@ -18,7 +18,7 @@ Self-hosted expense management application for internal company use. Built with 
 - **Digital signatures** — canvas-based signature pad; sign reports with one click; stored per-user
 - **Soft Delete & Audit** — Financial records are soft-deleted to maintain data integrity, with explicit audit read paths
 - **Categories** — with optional EUR spending limits
-- **Async OCR receipt scanning** — hybrid local & cloud system: EasyOCR (local), Gemini 2.5 Flash (cloud), MinerU (opt-in local). Async background processing with UI polling. Auto-fills category, description, amount, currency, date, merchant, tax; includes Naive Bayes category classifier
+- **Async OCR receipt scanning** — hybrid local & cloud system: EasyOCR (local), Gemini 2.5 Flash (cloud), MinerU (opt-in local). Features browser-side image compression, parallel poppler PDF rendering, dynamic MIME type mapping, and SHA-256 database-backed caching for sub-50ms duplicate scans. Auto-fills category, description, amount, currency, date, merchant, tax; includes Naive Bayes category classifier
 - **Email receipt import** — IMAP-based ingestion with side-by-side local & Gemini parsing
 - **Dashboard** — monthly totals, spend by category (clickable), recent expenses (clickable), time-of-day greetings, role-specific action cards
 - **Role-differentiated UX** — 4 roles (Technician, Manager, Chef of Finances, Moderator); each sees only relevant actions

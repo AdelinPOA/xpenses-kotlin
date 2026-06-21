@@ -6,6 +6,10 @@ from fastapi.responses import JSONResponse
 import easyocr
 from pdf2image import convert_from_path
 from PIL import Image
+import torch
+
+# Limit PyTorch CPU threads to align with container limits and prevent contention
+torch.set_num_threads(2)
 
 app = FastAPI(title="xpenses OCR Sidecar")
 
@@ -33,8 +37,8 @@ async def scan_receipt(file: UploadFile = File(...)):
             confidences = []
 
             if suffix == ".pdf":
-                # Convert PDF to images
-                images = convert_from_path(tmp_path)
+                # Convert PDF to images in parallel using native poppler threads
+                images = convert_from_path(tmp_path, thread_count=2)
                 for image in images:
                     # Convert PIL image to numpy array for EasyOCR
                     img_np = np.array(image)

@@ -662,6 +662,7 @@ class OcrService(
 
     fun geminiModelName(provider: String): String {
         return when (provider) {
+            "gemini-3-flash" -> "gemini-3-flash-preview"
             "gemini-3.1-flash-lite" -> "gemini-3.1-flash-lite"
             "gemini-3.5-flash" -> "gemini-3.5-flash"
             else -> "gemini-2.5-flash"

@@ -249,6 +249,7 @@ export default function OcrAdminPage() {
                       <option value="mineru">MinerU 2.5 (Local - High Accuracy)</option>
                       <option value="gemini">Google Gemini 2.5 Flash (Cloud API)</option>
                       <option value="gemini-3.1-flash-lite">Google Gemini 3.1 Flash-Lite (Cloud API - Cost Efficient)</option>
+                      <option value="gemini-3-flash">Google Gemini 3 Flash (Cloud API - Preview)</option>
                       <option value="gemini-3.5-flash">Google Gemini 3.5 Flash (Cloud API - Latest)</option>
                       <option value="ollama" disabled>Ollama Local Vision LLM (Coming Soon)</option>
                       <option value="hybrid" disabled>Hybrid OCR + Text LLM (Coming Soon)</option>

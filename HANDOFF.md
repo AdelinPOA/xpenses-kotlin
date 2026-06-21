@@ -1,11 +1,27 @@
 # HANDOFF.md — xpenses-kotlin
 
-> Last updated: 2026-06-21 (session 76)
+> Last updated: 2026-06-21 (session 77)
 > Author: Antigravity
 
 ---
 
-## Latest Session (2026-06-21, session 76)
+## Latest Session (2026-06-21, session 77)
+
+### What Was Done
+- **Added Gemini 3 Flash OCR Model Support**:
+  - Registered `gemini-3-flash` as a selectable dropdown option in the frontend OCR Admin page (`frontend/app/admin/ocr/page.tsx`).
+  - Added mapping in `OcrService.kt` to map the `gemini-3-flash` provider key to the official Gemini API model name `gemini-3-flash-preview`.
+- **Verification**:
+  - Rebuilt backend container and compiled frontend successfully.
+  - Smoke-tested the connection test endpoint `/api/settings/ocr/test` for `gemini-3-flash`, confirming it returns `200 OK` with `success: true`.
+
+### Files Changed
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/OcrService.kt`
+- `frontend/app/admin/ocr/page.tsx`
+
+---
+
+## Previous Session (2026-06-21, session 76)
 
 ### What Was Done
 - **Fixed Gemini Model OCR Connection Test and Scanning**:

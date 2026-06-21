@@ -6,9 +6,20 @@
 - **Unconditional Daily Allowance**:
   - Reverted a previous behavior where the daily allowance was only calculated and applied to the report's total reimbursable amount if the report was "approved" or "paid".
   - It now unconditionally calculates the daily allowance for all reports (including "draft" and "submitted"), properly multiplying the CFO-configured allowance rate by the number of days in the delegation period.
+  - Resolved the build/sync issue where Docker `build` bindings were shadowing the new code, preventing the update from applying.
+- **OCR Scan History Failure Reasons**:
+  - Added the exact error message to the Scan History page so users can see exactly why Gemini or MinerU failed (e.g. rate limit, unprocessable image, etc.) below the fallback provider UI.
+- **IMAP Email Ingestion Simulator**:
+  - Added a dropdown on the IMAP admin page so users can explicitly select which OCR parser ("gemini" vs "local") to test when simulating an ingestion, forcing the pipeline to use the specified parser.
+  - "Gemini 3 Flash Preview" verified to be retained in the settings list.
 
 ### Files Changed
 - `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/ReportController.kt`
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/AppSettingsController.kt`
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/EmailImportService.kt`
+- `frontend/app/admin/ocr/page.tsx`
+- `frontend/app/admin/imap/page.tsx`
+- `frontend/lib/api.ts`
 
 ---
 

@@ -481,12 +481,15 @@ class ReportController(
     private fun calculateDailyAllowance(dateFrom: String?, dateTo: String?): Double {
         if (dateFrom.isNullOrEmpty() || dateTo.isNullOrEmpty()) return 0.0
         return try {
-            val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
+            val formatter = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd")
             val dFrom = java.time.LocalDate.parse(dateFrom.take(10), formatter)
             val dTo = java.time.LocalDate.parse(dateTo.take(10), formatter)
-            val days = Duration.between(dFrom.atStartOfDay(), dTo.atStartOfDay()).toDays() + 1
-            if (days > 0) days * getDailyAllowanceRate() else 0.0
+            val days = java.time.Duration.between(dFrom.atStartOfDay(), dTo.atStartOfDay()).toDays() + 1
+            
+            val rate = appSettingRepository.findById("daily_allowance_rate").orElse(null)?.value?.toDoubleOrNull() ?: 50.0
+            if (days > 0) days * rate else 0.0
         } catch (e: Exception) {
+            System.err.println("!!!!! EXCEPTION in calculateDailyAllowance: ${e.message}")
             0.0
         }
     }

@@ -511,13 +511,16 @@ export default function OcrAdminPage() {
                             
                             let isFallback = false;
                             let actualProviderStr = row.provider || "gemini";
+                            let errorMsg: string | null = null;
 
                             if (geminiFailed) {
                               isFallback = true;
                               actualProviderStr = "easyocr";
+                              errorMsg = row.gemini_error;
                             } else if (mineruFailed) {
                               isFallback = true;
                               actualProviderStr = "easyocr";
+                              errorMsg = row.mineru_error;
                             }
 
                             const fields = [
@@ -574,6 +577,11 @@ export default function OcrAdminPage() {
                                               {actualProviderStr}
                                             </span>
                                           </div>
+                                          {errorMsg && (
+                                            <div className="text-[8px] text-rose-400 dark:text-rose-300 mt-1 leading-tight border-l-2 border-rose-400 dark:border-rose-800 pl-1">
+                                              {errorMsg}
+                                            </div>
+                                          )}
                                         </div>
                                       )}
                                     </div>

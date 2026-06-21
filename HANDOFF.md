@@ -1,5 +1,17 @@
 # HANDOFF.md — xpenses-kotlin
 
+## Current Session (2026-06-21, session 79)
+
+### What Was Done
+- **Unconditional Daily Allowance**:
+  - Reverted a previous behavior where the daily allowance was only calculated and applied to the report's total reimbursable amount if the report was "approved" or "paid".
+  - It now unconditionally calculates the daily allowance for all reports (including "draft" and "submitted"), properly multiplying the CFO-configured allowance rate by the number of days in the delegation period.
+
+### Files Changed
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/ReportController.kt`
+
+---
+
 > Last updated: 2026-06-21 (session 78)
 > Author: Antigravity
 

@@ -437,7 +437,7 @@ class EmailImportService(
     }
 
     @Transactional
-    fun simulateIncomingEmail(fromAddress: String, bodyText: String): Map<String, Any?> {
+    fun simulateIncomingEmail(fromAddress: String, bodyText: String, requestedParser: String? = null): Map<String, Any?> {
         var emailClean = fromAddress.trim()
         if (emailClean.contains("<") && emailClean.contains(">")) {
             emailClean = emailClean.substringAfter("<").substringBefore(">").trim()
@@ -476,7 +476,13 @@ class EmailImportService(
 
         val ocrCfg = ocrService.getOcrConfig()
         val isGeminiProvider = ocrCfg.provider == "gemini" || ocrCfg.provider.startsWith("gemini-")
-        val useGemini = ocrCfg.ocrEnabled && isGeminiProvider && geminiParsed != null
+        
+        val useGemini = if (requestedParser != null) {
+            requestedParser == "gemini" && geminiParsed != null
+        } else {
+            ocrCfg.ocrEnabled && isGeminiProvider && geminiParsed != null
+        }
+        
         val finalParsed = if (useGemini) geminiParsed else localParsed
 
         if (finalParsed == null) {

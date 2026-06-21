@@ -111,6 +111,7 @@ export default function ImapAdminPage() {
   const [selectedSenderEmail, setSelectedSenderEmail] = useState<string>("");
   const [customSenderEmail, setCustomSenderEmail] = useState<string>("");
   const [simulationBody, setSimulationBody] = useState<string>(MOCK_DELEGATION_EMAIL);
+  const [selectedParser, setSelectedParser] = useState<"local" | "gemini">("local");
 
   // Fetch users for dropdown list
   const { data: usersData } = useQuery<User[]>({
@@ -225,6 +226,7 @@ export default function ImapAdminPage() {
       const res = await simulateEmailIngestion({
         from_address: sender,
         body_text: simulationBody,
+        parser: selectedParser,
       });
       setSimulationResult(res);
       if (res.success) {
@@ -471,6 +473,21 @@ export default function ImapAdminPage() {
                   />
                 </div>
               )}
+            </div>
+
+            {/* Parser selection */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">
+                Target Parser (Used to generate report)
+              </label>
+              <select
+                value={selectedParser}
+                onChange={(e) => setSelectedParser(e.target.value as "local" | "gemini")}
+                className="w-full border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all duration-200 cursor-pointer"
+              >
+                <option value="local">Local Parser (Keyword Extraction)</option>
+                <option value="gemini">Gemini Parser (Cloud LLM Extraction)</option>
+              </select>
             </div>
 
             {/* Email Body text */}

@@ -630,11 +630,7 @@ class ReportController(
         val totalExpenses = expensesOut.sumOf { it.amountEur }
         val totalAdvances = advancesOut.filter { it.status == "paid" }.sumOf { it.amountEur }
         val totalMileage = mileageOut.sumOf { it.amountEur }
-        val allowance = if (report.status == "approved" || report.status == "paid") {
-            calculateDailyAllowance(report.dateFrom, report.dateTo)
-        } else {
-            0.0
-        }
+        val allowance = calculateDailyAllowance(report.dateFrom, report.dateTo)
         val totalReimbursable = totalExpenses + allowance + totalMileage - totalAdvances
 
         return ReportOut(

@@ -336,6 +336,7 @@ export interface ImapTestResult {
 export interface EmailSimulationIn {
   from_address: string;
   body_text: string;
+  parser?: "local" | "gemini" | null;
 }
 
 export interface EmailSimulationParsed {

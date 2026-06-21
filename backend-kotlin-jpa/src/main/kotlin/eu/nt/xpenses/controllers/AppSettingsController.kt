@@ -287,7 +287,7 @@ class AppSettingsController(
     @PostMapping("/imap/simulate")
     @PreAuthorize("hasRole('mod')")
     fun simulateEmail(@Valid @RequestBody body: EmailSimulationIn): ResponseEntity<*> {
-        val result = emailImportService.simulateIncomingEmail(body.fromAddress, body.bodyText)
+        val result = emailImportService.simulateIncomingEmail(body.fromAddress, body.bodyText, body.parser)
         return ResponseEntity.ok(result)
     }
 
@@ -533,5 +533,6 @@ data class ImapConfigIn(
 
 data class EmailSimulationIn(
     @JsonProperty("from_address") @field:NotBlank val fromAddress: String,
-    @JsonProperty("body_text") @field:NotBlank val bodyText: String
+    @JsonProperty("body_text") @field:NotBlank val bodyText: String,
+    @JsonProperty("parser") val parser: String? = null
 )

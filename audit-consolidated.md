@@ -1198,6 +1198,13 @@ A second pass re-checked all CRITICAL findings plus a broad sample (~30) of HIGH
 - **H30** — The frontend service **does** have `restart: unless-stopped` (`docker-compose.yml:87`). Only `depends_on` is genuinely missing; the "no restart" part of the finding is incorrect.
 - **M3** — The in-memory-sort list under-counts. Additional top-level list sorts exist at `AdvanceController.kt:352`, `ReportController.kt:527`, and `DashboardController.kt:83`.
 
+_Further corrections from a second independent re-verification pass (same date):_
+
+- **C7** — Worse than stated: `JwtTokenProvider.validateSecret()` (`@PostConstruct`) **throws on a blank `JWT_SECRET`**, so without it in `deployment.yaml` the pod **crash-loops on startup** — it does not merely "lose auth."
+- **H6** — The missing `OcrComparison` ownership check exists in **two** sites: `ExpenseService.createExpense` (`:82-88`) *and* `ExpenseService.updateExpense` (`:162-168`). The finding cites only the former.
+- **H19** — Understated: plain `"Loading..."` text appears in **12** page files (adds `insurance`, `advances`, `payments`, `approvals`, `admin/settings`, `admin/users` to the listed six), not 6–7.
+- **M7** — The soft-delete gap extends beyond `MileageRecord` to **`AdvancePayment`** (a financial record, highest priority) and `InventoryItem`/`InventoryRequest`/`InsuranceFile`/`OcrComparison`. Only `Expense`/`ExpenseReport`/`Receipt` (V13) are soft-deleted.
+
 ### New open points (not in the original 105)
 
 - **N1. Additional full-table `findAll()` scans (same OOM class as C1).** Not enumerated by C1:

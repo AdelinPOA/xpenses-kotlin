@@ -3,15 +3,17 @@
 ## Current Session (2026-06-22, session 84)
 
 ### What Was Done
-- **`/init-deep` — hierarchical AGENTS.md knowledge base.** Ran the full discovery pipeline (6 parallel explore agents + bash structural analysis + codegraph + LSP), scored directories by complexity, and generated three AGENTS.md files:
+- **`/init-deep` — hierarchical AGENTS.md knowledge base.** Ran the full discovery pipeline (6 parallel explore agents + bash structural analysis + codegraph), scored directories by complexity, and generated three AGENTS.md files:
   - **Root `AGENTS.md`** (updated, 84 lines) — added source-file counts, pre-hot-swap compile note for JDK 23+.
-  - **`backend-kotlin-jpa/AGENTS.md`** (new, 56 lines) — covers 15 controllers, 16 services, Flyway migrations V1–V16, testing conventions, commands.
-  - **`frontend/AGENTS.md`** (new, 59 lines) — covers 12 route groups, auth flow, Tailwind v4 conventions, data fetching patterns.
-- 19 top-level directories analyzed; sub-project AGENTS.md created for the two highest-scoring modules (>20 each based on file count, subdirectory count, code ratio, module boundary, distinct domain).
+  - **`backend-kotlin-jpa/AGENTS.md`** (new, 56 lines) — covers 15 controllers, 16 services, Flyway V1–V16, testing conventions.
+  - **`frontend/AGENTS.md`** (new, 59 lines) — covers 12 route groups, auth flow, Tailwind v4 conventions.
+- 19 top-level directories analyzed; sub-project AGENTS.md created for the two highest-scoring modules (>20 each).
+- **Resolved 24/26 Dependabot npm alerts.** Upgraded `next` from `15.1.0` → `15.5.18`, `postcss` from `8.x` → `8.5.10`, and transitive deps (`form-data`, `js-yaml`). Verified with `tsc --noEmit` (clean) and `npm run build` (21.9s, successful).
+  - Branch: `fix/frontend-deps-security` → PR #8 → squashed merge to `main`.
 
 ### Notes
-- `HANDOFF.md` auto-push hook not triggered (on `main` branch). Committed and pushed manually.
-- `AGENTS.md.local` is an untracked override with remote-SSH + tmux pairing instructions — left in place.
+- 1 remaining moderate alert: `postcss@8.4.31` bundled inside next — not exploitable (no user-input CSS pipeline).
+- Workflow established: feature branch → PR → merge to main → update HANDOFF.md.
 
 ---
 

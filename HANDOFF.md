@@ -1,6 +1,32 @@
 # HANDOFF.md — xpenses-kotlin
 
-## Current Session (2026-06-21, session 79)
+## Current Session (2026-06-22, session 80)
+
+### What Was Done
+- **Audit remediation planned via OpenSpec (`audit-remediation` mega-change)**:
+  - Reviewed `audit-consolidated.md` (verified 2026-06-22): **95 unresolved findings** — 10 CRITICAL, 40 HIGH, 22 MEDIUM, 26 LOW (excludes 3 resolved, 3 by-design, and deferred H7/M13).
+  - Created a single OpenSpec change at `openspec/changes/audit-remediation/` covering all net-new findings, sequenced into the audit's 4-sprint roadmap. Validates clean (`npx openspec validate audit-remediation`).
+  - **Reconciliation:** the four prior changes (`production-readiness-hardening`, `performance-query-optimization`, `fix-codebase-bugs-and-debt`, `code-quality-gaps-round-2`) are fully implemented, but the audit re-confirms residual gaps (same bug class in a *different* file, or *partial* fixes). The plan targets only that residue + net-new items and **references, not duplicates** those changes (C1/M3/M4 tagged "extends performance-query-optimization").
+  - **Artifacts:** `proposal.md`, `design.md` (9 decisions, risks, migration plan, 3 open questions), `tasks.md` (~110 tasks, each tagged with finding ID + `file:line`), and 9 spec deltas.
+  - **New capability specs:** `global-exception-handling` (C2), `csrf-protection` (C4), `secure-file-path-handling` (C11/H2), `monetary-precision` (H5/L12), `jwt-request-principal` (M2), `transactional-report-notifications` (M1), `backend-test-coverage`.
+  - **Modified capability specs:** `financial-record-soft-delete` (M7 MileageRecord + H9 optimistic locking), `service-layer-architecture` (H15 new services).
+  - Pure config/devops/refactor items (`.dockerignore`, CI caching, file splits, lint, frontend cleanups) are spec-less tasks.
+
+### Open Questions (block implementation — see `design.md`)
+- CSRF: is `SameSite=Strict` + Origin verification acceptable for all login/download flows, or is a CSRF-token repository needed now?
+- `Double`→`BigDecimal` (H5): is a maintenance window + DB snapshot available for the column retype on production data?
+- M1 atomicity: `@TransactionalEventListener(AFTER_COMMIT)` vs. a durable outbox table?
+
+### Next Steps
+- Resolve the 3 open questions, then run `/openspec-apply-change` (or `/opsx:apply`) starting with Sprint 1 (security & ops quick wins — no schema changes).
+
+### Files Changed
+- `openspec/changes/audit-remediation/` (new — proposal, design, tasks, 9 spec deltas)
+- `HANDOFF.md`
+
+---
+
+## Previous Session (2026-06-21, session 79)
 
 ### What Was Done
 - **Unconditional Daily Allowance**:

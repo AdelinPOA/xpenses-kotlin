@@ -1,6 +1,17 @@
 # HANDOFF.md — xpenses-kotlin
 
-## Current Session (2026-06-22, session 81)
+## Current Session (2026-06-22, session 82)
+
+### What Was Done
+- **Independent second re-audit** (parallel to session 81 / PR #7). Confirmed the addendum's findings; folded four additional verified corrections into the `audit-consolidated.md` Verification Addendum (commit `b9bb5d5`): **C7** (blank `JWT_SECRET` crash-loops the pod, not just loses auth), **H6** (ownership check missing in `updateExpense` too, not only `createExpense`), **H19** (`Loading...` in 12 files, not 6), **M7** (soft-delete gap also covers `AdvancePayment` + 4 other entities).
+- **Installed an auto-push hook for HANDOFF.md** (per user request "everytime push and merge handoff.md"): a `Stop` hook in `.claude/settings.local.json` runs `.claude/hooks/push-handoff.sh`, which — only when HANDOFF.md changed — commits *just* HANDOFF.md, pushes the current branch, and (from a feature branch) merges to `main` and pushes. No-ops otherwise; never blocks the session. This very entry is being committed/pushed by that hook as its live verification.
+
+### Notes
+- `audit-bugs.md` / `AUDIT_FIXES.md` are stale (removed Python backend); untracked locally.
+
+---
+
+## Previous Session (2026-06-22, session 81)
 
 ### What Was Done
 - **Re-verified `audit-consolidated.md` against the code.** Re-checked all CRITICAL findings + a broad sample (~30) of HIGH/MEDIUM/LOW directly against source. Findings are accurate as stated; the two spot-checked "RESOLVED" claims (C10, C13) are genuinely resolved.

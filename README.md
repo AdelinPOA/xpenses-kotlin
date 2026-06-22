@@ -39,19 +39,23 @@ submitted → draft (via recall, by owner)
 
 | Layer | Technology |
 |-------|------------|
-| Backend | Kotlin 2.1 / Spring Boot 3.4.3 / MVC + JPA/Hibernate |
+| Backend | Kotlin 2.1 / Spring Boot 3.4.5 / MVC + JPA/Hibernate |
 | Database | PostgreSQL 16 (Flyway migrations) |
 | Frontend | Next.js 15 + React 19 + TypeScript 5 |
 | Styling | Tailwind CSS v4 (CSS-first config) |
 | Data fetching | TanStack Query v5 + axios + Next.js 15 RSC Hydration Boundaries |
 | Forms & validation | react-hook-form 7 + zod 4 |
-| PDF generation | OpenPDF 2.0 + PDFBox 3.0 |
+| PDF generation | OpenPDF 2.0.3 + PDFBox 3.0.2 |
 | Excel export | Apache POI 5.3 |
 | OCR | EasyOCR (sidecar) + Gemini 2.5 Flash (cloud) + MinerU 2.5 (opt-in) |
 | Auth | JWT (access 15min + refresh 7d) in httpOnly cookies |
 | Containerization | Docker Compose (5 services) |
 
 ## Quick Start
+
+### OpenSpec Workflow
+
+**Always use OpenSpec when implementing a new feature.** Before writing code, use `/openspec-propose` to create a proposal with design, specs, and tasks. Use `/openspec-apply-change` to implement and `/openspec-archive-change` to finalize. See `CLAUDE.md` for details.
 
 ### Development (local, hot-reload)
 
@@ -103,7 +107,7 @@ xpenses-kotlin/
 │   ├── src/main/kotlin/         #   15 controllers, 13 services, models, repositories
 │   ├── src/test/kotlin/         #   JUnit 5 + MockMvc + Testcontainers suite
 │   ├── src/main/resources/      #   application.yml & Flyway migrations
-│   ├── build.gradle.kts         #   Spring Boot 3.4.3, Kotlin 2.1.0
+│   ├── build.gradle.kts         #   Spring Boot 3.4.5, Kotlin 2.1.0
 │   └── Dockerfile
 ├── frontend/                    # Next.js 15 frontend
 │   ├── app/                     #   App Router pages (10 route groups + admin panel)
@@ -124,11 +128,11 @@ xpenses-kotlin/
 
 ## Backend Architecture
 
-The backend is built with **Spring Boot 3.4.3** + **Spring MVC** + **JPA/Hibernate** running on **Kotlin 2.1**.
+The backend is built with **Spring Boot 3.4.5** + **Spring MVC** + **JPA/Hibernate** running on **Kotlin 2.1**.
 
 - **15 controllers**: Auth, Expenses, Reports, Dashboard, Categories, Users, Advances, Mileage, Inventory, Insurance, Signatures, OCR, LDAP Settings, App Settings, Health
 - **13 services**: FX conversion, PDF generation, OCR (hybrid + async), email/IMAP, LDAP, storage (local + S3 providers), crypto, CSV/Excel export, and a thin service layer (`ExpenseService`, `ReportService`, `ExpenseMapper`) that keeps controllers slim
-- **Flyway migrations** (`V1`–`V14`) for schema management
+- **Flyway migrations** (`V1`–`V16`) for schema management
 - **Spring Security** with JWT filter chain
 - **Soft delete** on financial records via Hibernate `@SQLDelete` / `@SQLRestriction`
 - **@Async** email notifications and OCR processing
@@ -140,7 +144,7 @@ The backend is built with **Spring Boot 3.4.3** + **Spring MVC** + **JPA/Hiberna
 | `db` | `postgres:16-alpine` | 5432 (internal) | Health check via `pg_isready` |
 | `backend` | `./backend-kotlin-jpa` | 8001 → 8080 | Kotlin Spring Boot backend |
 | `frontend` | `./frontend` | 3001 → 3000 | Next.js production build (use `npm run dev` for hot reload) |
-| `ocr-sidecar` | `./ocr-sidecar` | 8004 → 5000 | EasyOCR (en + ro), CPU-only |
+| `ocr-sidecar` | `./ocr-sidecar` | 5000 (internal) | EasyOCR (en + ro), CPU-only |
 | `mineru` | `./mineru` | 8002 → 8000 | Opt-in: `docker compose --profile mineru up` |
 
 **MinerU permissions note**: The `mineru` container runs as the `mineru` user (uid 1000). The model cache directory (`/home/mineru/.cache`) is pre-created during Docker build with correct ownership. If you encounter `PermissionError` at runtime, run:

@@ -64,7 +64,7 @@ curl http://localhost:8001/api/health
 
 ## Architecture
 
-### Backend (Spring Boot 3.4.3 + Hibernate + JPA)
+### Backend (Spring Boot 3.4.5 + Hibernate + JPA)
 
 - **JPA & Hibernate.** All database access is managed via Spring Data JPA repositories. Eager relations are fetched using optimized JPQL `JOIN FETCH` queries to avoid N+1 select query issues.
 - **Transactions:** Write operations (including token invalidation in `AuthController` and state machine updates in `ReportController`) are wrapped inside `@Transactional` blocks to ensure atomic execution.
@@ -131,12 +131,22 @@ SEED_DEMO_USERS=true
 
 Test accounts (when `SEED_DEMO_USERS=true`): `tech1/tech1`, `manager1/manager1`, `cfo1/cfo1`, `mod1/mod1`.
 
+## OpenSpec Workflow (MANDATORY)
+
+**Always use OpenSpec when implementing a new feature.** Before writing any code:
+1. Use the `/openspec-propose` skill to generate a proposal with design, specs, and tasks.
+2. Get the proposal reviewed before implementation.
+3. Use `/openspec-apply-change` to implement the tasks.
+4. Use `/openspec-archive-change` to finalize when done.
+
+Specs live under `openspec/specs/`, in-progress changes under `openspec/changes/`, completed ones under `openspec/changes/archive/`.
+
 ## GitHub & Branching Strategy
 
 - **Repo:** `AdelinPOA/xpenses`
 - **Branch Policy:** Always implement new features or fixes on dedicated branches (e.g., `feat/feature-name` or `fix/bug-fix-name`). Do not develop directly on `main`.
 - **Workflow:**
   1. Create a feature branch from the latest `main`.
-  2. Implement changes.
+  2. Implement changes (using OpenSpec workflow for significant features).
   3. Verify everything compiles and works correctly on the branch.
   4. Commit and push the branch to remote, and merge it back to `main` (or let the user merge) once verified.

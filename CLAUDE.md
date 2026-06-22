@@ -80,10 +80,10 @@ curl http://localhost:8001/api/health
 | Layer | Technology |
 |---|---|
 | Language | Kotlin 2.1.0 / Java 21 |
-| Framework | Spring Boot 3.4.3 (Spring MVC, not WebFlux) |
+| Framework | Spring Boot 3.4.5 (Spring MVC, not WebFlux) |
 | ORM | Spring Data JPA + Hibernate |
 | Database driver | PostgreSQL JDBC |
-| Migrations | Flyway (`V1`–`V14` in `src/main/resources/db/migration/`; never edit an applied migration, add a new one) |
+| Migrations | Flyway (`V1`–`V16` in `src/main/resources/db/migration/`; never edit an applied migration, add a new one) |
 | Tests | JUnit 5 + Spring MockMvc + Testcontainers (PostgreSQL); base class `IntegrationTestBase` |
 | Auth | Spring Security + custom `JwtAuthenticationFilter` |
 | JWT | JJWT 0.12.5 |
@@ -265,11 +265,19 @@ Test accounts (seeded by `DataInitializer.kt`): `tech1/tech1`, `manager1/manager
 ## CI/CD
 
 `.github/workflows/ci.yml` runs on every push/PR to `main`:
-1. JDK 21 set up; `./gradlew bootJar --no-daemon` run in `backend-kotlin-jpa/`.
-2. Docker images built (backend + frontend).
+1. **gitleaks** — secrets scan via `gitleaks-action`
+2. **build-kotlin** — JDK 21 (temurin); runs `./gradlew test bootJar --no-daemon` in `backend-kotlin-jpa/`
+3. **build-frontend** — Node.js 22; `npm ci` + `npx tsc --noEmit` + `npm run lint` + `npm run build`
+4. **build-docker** — `docker compose build` (needs both Kotlin and frontend builds)
 
 There is now a JUnit 5 + MockMvc + Testcontainers suite under `backend-kotlin-jpa/src/test/` (state machine, controller, and service tests). `make test` runs it locally and requires Docker (Testcontainers starts a throwaway PostgreSQL).
 
-## OpenSpec Workflow
+## OpenSpec Workflow (MANDATORY)
 
-Significant features are specced under `openspec/` before implementation. `openspec/specs/` holds the current capability specs; `openspec/changes/` holds in-progress change proposals (each with `proposal.md`, `tasks.md`, delta specs), and completed ones are moved to `openspec/changes/archive/`. Use the `/openspec-*` (or `/opsx:*`) skills to propose, apply, sync, and archive changes. Spec-driven work is the expected path for new features per the branching policy above.
+**Always use OpenSpec when implementing a new feature.** This is required, not optional. Before writing any code:
+1. Use the `/openspec-propose` skill to generate a proposal with design, specs, and tasks.
+2. Get the proposal reviewed before implementation.
+3. Use `/openspec-apply-change` to implement the tasks.
+4. Use `/openspec-archive-change` to finalize when done.
+
+Specs live under `openspec/specs/`, in-progress changes under `openspec/changes/`, completed ones under `openspec/changes/archive/`. Use the `/openspec-*` (or `/opsx:*`) skills to propose, apply, sync, and archive changes. Spec-driven work is the expected path for new features per the branching policy above.

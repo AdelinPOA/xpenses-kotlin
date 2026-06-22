@@ -1,4 +1,8 @@
 services:
+  db:
+    ports:
+      - "5432:5432"
+
   backend:
     environment:
       - LOADER_PATH=/app/classes/kotlin/main,/app/resources/main

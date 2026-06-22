@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.*
+import java.math.BigDecimal
 
 class ExpenseControllerTest : IntegrationTestBase() {
 
@@ -18,7 +19,7 @@ class ExpenseControllerTest : IntegrationTestBase() {
         val tech = userRepository.findByUsername("tech1")!!
         val cat = categoryRepository.findAll().firstOrNull() ?: error("No seeded category")
         return expenseRepository.save(
-            Expense(user = tech, category = cat, amountOriginal = 30.0, amountEur = 30.0, date = "2026-06-01")
+            Expense(user = tech, category = cat, amountOriginal = BigDecimal("30.00"), amountEur = BigDecimal("30.00"), date = "2026-06-01")
         )
     }
 
@@ -27,8 +28,8 @@ class ExpenseControllerTest : IntegrationTestBase() {
         val techUser = userRepository.findByUsername("tech1")!!
         val managerUser = userRepository.findByUsername("manager1")!!
         val cat = categoryRepository.findAll().firstOrNull() ?: error("No seeded category")
-        expenseRepository.save(Expense(user = techUser, category = cat, amountOriginal = 30.0, amountEur = 30.0, date = "2026-06-01"))
-        expenseRepository.save(Expense(user = managerUser, category = cat, amountOriginal = 100.0, amountEur = 100.0, date = "2026-06-01"))
+        expenseRepository.save(Expense(user = techUser, category = cat, amountOriginal = BigDecimal("30.00"), amountEur = BigDecimal("30.00"), date = "2026-06-01"))
+        expenseRepository.save(Expense(user = managerUser, category = cat, amountOriginal = BigDecimal("100.00"), amountEur = BigDecimal("100.00"), date = "2026-06-01"))
         entityManager.flush()
         entityManager.clear()
 

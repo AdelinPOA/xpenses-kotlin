@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity
 import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.bind.annotation.*
+import java.math.BigDecimal
 
 @RestController
 @RequestMapping("/api/categories")
@@ -86,12 +87,12 @@ class CategoryController(
 
 data class CategoryCreateRequest(
     @field:NotBlank val name: String,
-    @JsonProperty("limit_amount") val limitAmount: Double? = null
+    @JsonProperty("limit_amount") val limitAmount: BigDecimal? = null
 )
 
 data class CategoryUpdateRequest(
     val name: String? = null,
-    @JsonProperty("limit_amount") val limitAmount: Double? = null,
+    @JsonProperty("limit_amount") val limitAmount: BigDecimal? = null,
     @JsonProperty("is_active") val isActive: Boolean? = null
 )
 

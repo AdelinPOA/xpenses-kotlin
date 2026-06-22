@@ -194,7 +194,7 @@ submitted → draft (via recall, by owner)
 - **Storage providers**: `StorageService` dispatches to `storage/` providers. `local` is fully functional; `S3StorageProvider` exists. Other remote providers (SFTP/SMB/WebDAV) are still stubbed.
 - **Async OCR**: `OcrController` enqueues work and `AsyncOcrService` runs it off the request thread, persisting status/results to the `ocr_jobs` table (migration `V14`); clients poll for completion. `OcrService` still spawns EasyOCR as a Python subprocess (`runEasyOcrSubprocess()`), requiring Python + EasyOCR in the container image (shared Docker volume).
 - **Daily allowance**: read from `app_settings` table via `getDailyAllowanceRate()` in `ReportController`. Configurable via `PATCH /api/settings/daily-allowance-rate` by `chef_finance`.
-- **CORS**: hardcoded to `http://localhost:3001` in `SecurityConfig`. Change this for production.
+- **CORS**: configured via `cors.allowed-origins` (env `CORS_ALLOWED_ORIGINS`) in `SecurityConfig`. Set to your production domain.
 
 ---
 

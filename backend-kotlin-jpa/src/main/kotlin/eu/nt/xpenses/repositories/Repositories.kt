@@ -17,6 +17,16 @@ import java.math.BigDecimal
 @Repository
 interface UserRepository : JpaRepository<User, Int> {
     fun findByUsername(username: String): User?
+
+    @Query("SELECT u FROM User u WHERE LOWER(u.email) = LOWER(:email)")
+    fun findByEmail(@Param("email") email: String): User?
+
+    fun findAllByAuthSourceAndIsActive(authSource: String, isActive: Boolean): List<User>
+
+    @Query("SELECT u FROM User u WHERE u.role IN :roles AND u.isActive = :isActive")
+    fun findAllByRoleInAndIsActive(@Param("roles") roles: List<String>, @Param("isActive") isActive: Boolean): List<User>
+
+    fun findAllByOrderByCreatedAt(): List<User>
 }
 
 @Repository
@@ -52,6 +62,9 @@ interface ExpenseReportRepository : JpaRepository<ExpenseReport, Int> {
 interface ExpenseRepository : JpaRepository<Expense, Int> {
     fun findAllByUserId(userId: Int): List<Expense>
     fun findAllByReportId(reportId: Int): List<Expense>
+
+    @Query("SELECT e FROM Expense e WHERE e.rawOcrText IS NOT NULL AND e.category IS NOT NULL")
+    fun findAllWithOcrTrainingData(): List<Expense>
 
     @Query("""
         SELECT e FROM Expense e
@@ -105,14 +118,26 @@ interface ExpenseRepository : JpaRepository<Expense, Int> {
     @Query("SELECT e FROM Expense e WHERE e.user.id = :userId AND e.status = :status")
     fun findAllByUserIdAndStatus(@Param("userId") userId: Int, @Param("status") status: String): List<Expense>
 
+    @Query("SELECT e FROM Expense e WHERE e.date >= :fromDate AND e.date <= :toDate")
+    fun findAllByDateBetween(@Param("fromDate") fromDate: String, @Param("toDate") toDate: String): List<Expense>
+
     @Query("SELECT e FROM Expense e WHERE e.user.id = :userId AND e.date >= :fromDate AND e.date <= :toDate")
     fun findAllByUserIdAndDateBetween(@Param("userId") userId: Int, @Param("fromDate") fromDate: String, @Param("toDate") toDate: String): List<Expense>
+
+    @Query("SELECT e FROM Expense e WHERE e.date >= :fromDate")
+    fun findAllByDateFrom(@Param("fromDate") fromDate: String): List<Expense>
 
     @Query("SELECT e FROM Expense e WHERE e.user.id = :userId AND e.date >= :fromDate")
     fun findAllByUserIdAndDateFrom(@Param("userId") userId: Int, @Param("fromDate") fromDate: String): List<Expense>
 
     @Query("SELECT e FROM Expense e WHERE e.user.id = :userId AND e.date <= :toDate")
     fun findAllByUserIdAndDateTo(@Param("userId") userId: Int, @Param("toDate") toDate: String): List<Expense>
+
+    @Query("SELECT e FROM Expense e ORDER BY e.createdAt DESC")
+    fun findRecentExpenses(pageable: Pageable): List<Expense>
+
+    @Query("SELECT e FROM Expense e WHERE e.user.id = :userId ORDER BY e.createdAt DESC")
+    fun findRecentExpensesByUserId(@Param("userId") userId: Int, pageable: Pageable): List<Expense>
 
     @Query(value = "SELECT * FROM expenses WHERE deleted = true", nativeQuery = true)
     fun findDeletedAudit(): List<Expense>
@@ -121,6 +146,9 @@ interface ExpenseRepository : JpaRepository<Expense, Int> {
 @Repository
 interface ReceiptRepository : JpaRepository<Receipt, Int> {
     fun findAllByExpenseId(expenseId: Int): List<Receipt>
+
+    @Query("SELECT r.filePath FROM Receipt r WHERE r.filePath IS NOT NULL")
+    fun findAllFilePaths(): List<String>
 }
 
 @Repository

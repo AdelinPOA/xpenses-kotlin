@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.*
+import java.math.BigDecimal
 
 class DashboardControllerTest : IntegrationTestBase() {
 
@@ -24,8 +25,8 @@ class DashboardControllerTest : IntegrationTestBase() {
         val tech = userRepository.findByUsername("tech1")!!
         val manager = userRepository.findByUsername("manager1")!!
         val cat = categoryRepository.findAll().firstOrNull() ?: error("No seeded category")
-        expenseRepository.save(Expense(user = tech, category = cat, amountOriginal = 10.0, amountEur = 10.0, date = "2026-06-01"))
-        expenseRepository.save(Expense(user = manager, category = cat, amountOriginal = 500.0, amountEur = 500.0, date = "2026-06-01"))
+        expenseRepository.save(Expense(user = tech, category = cat, amountOriginal = BigDecimal("10.00"), amountEur = BigDecimal("10.00"), date = "2026-06-01"))
+        expenseRepository.save(Expense(user = manager, category = cat, amountOriginal = BigDecimal("500.00"), amountEur = BigDecimal("500.00"), date = "2026-06-01"))
         entityManager.flush()
         entityManager.clear()
 
@@ -41,8 +42,8 @@ class DashboardControllerTest : IntegrationTestBase() {
         val tech = userRepository.findByUsername("tech1")!!
         val manager = userRepository.findByUsername("manager1")!!
         val cat = categoryRepository.findAll().firstOrNull() ?: error("No seeded category")
-        expenseRepository.save(Expense(user = tech, category = cat, amountOriginal = 10.0, amountEur = 10.0, date = "2026-06-01"))
-        expenseRepository.save(Expense(user = manager, category = cat, amountOriginal = 500.0, amountEur = 500.0, date = "2026-06-01"))
+        expenseRepository.save(Expense(user = tech, category = cat, amountOriginal = BigDecimal("10.00"), amountEur = BigDecimal("10.00"), date = "2026-06-01"))
+        expenseRepository.save(Expense(user = manager, category = cat, amountOriginal = BigDecimal("500.00"), amountEur = BigDecimal("500.00"), date = "2026-06-01"))
         entityManager.flush()
         entityManager.clear()
 

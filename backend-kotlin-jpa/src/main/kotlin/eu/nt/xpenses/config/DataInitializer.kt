@@ -29,14 +29,14 @@ class DataInitializer(
         // 1. Seed categories
         if (categoryRepository.count() == 0L) {
             val categories = listOf(
-                Category(name = "Meals & Food", limitAmount = 200.0),
-                Category(name = "Transport", limitAmount = 500.0),
-                Category(name = "Accommodation", limitAmount = 1000.0),
+                Category(name = "Meals & Food", limitAmount = BigDecimal("200.00")),
+                Category(name = "Transport", limitAmount = BigDecimal("500.00")),
+                Category(name = "Accommodation", limitAmount = BigDecimal("1000.00")),
                 Category(name = "Equipment"),
                 Category(name = "Software & Subscriptions"),
-                Category(name = "Office Supplies", limitAmount = 300.0),
+                Category(name = "Office Supplies", limitAmount = BigDecimal("300.00")),
                 Category(name = "Training & Education"),
-                Category(name = "Entertainment", limitAmount = 500.0),
+                Category(name = "Entertainment", limitAmount = BigDecimal("500.00")),
                 Category(name = "Laundry"),
                 Category(name = "Other")
             )
@@ -107,10 +107,10 @@ class DataInitializer(
                     user = tech1,
                     category = transportCategory,
                     report = report1,
-                    amountOriginal = 450.0,
+                    amountOriginal = BigDecimal("450.00"),
                     currencyOriginal = "EUR",
-                    amountEur = 450.0,
-                    fxRate = 1.0,
+                    amountEur = BigDecimal("450.00"),
+                    fxRate = BigDecimal.ONE,
                     date = "2026-06-10",
                     description = "Flight ticket (Lufthansa)",
                     status = "draft"
@@ -119,10 +119,10 @@ class DataInitializer(
                     user = tech1,
                     category = foodCategory,
                     report = report1,
-                    amountOriginal = 320.0,
+                    amountOriginal = BigDecimal("320.00"),
                     currencyOriginal = "EUR",
-                    amountEur = 320.0,
-                    fxRate = 1.0,
+                    amountEur = BigDecimal("320.00"),
+                    fxRate = BigDecimal.ONE,
                     date = "2026-06-11",
                     description = "Hotel stay (Motel One)",
                     status = "draft"
@@ -131,7 +131,7 @@ class DataInitializer(
                 expenseRepository.saveAll(listOf(expense1, expense2))
 
                 // Update total amount on the report
-                report1.totalAmount = 770.0
+                report1.totalAmount = BigDecimal("770.00")
                 expenseReportRepository.save(report1)
 
                 val report2 = ExpenseReport(
@@ -146,17 +146,17 @@ class DataInitializer(
                     user = tech1,
                     category = foodCategory,
                     report = report2,
-                    amountOriginal = 150.0,
+                    amountOriginal = BigDecimal("150.00"),
                     currencyOriginal = "EUR",
-                    amountEur = 150.0,
-                    fxRate = 1.0,
+                    amountEur = BigDecimal("150.00"),
+                    fxRate = BigDecimal.ONE,
                     date = "2026-06-12",
                     description = "Restaurant dinner bill",
                     status = "draft"
                 )
                 expenseRepository.save(expense3)
 
-                report2.totalAmount = 150.0
+                report2.totalAmount = BigDecimal("150.00")
                 expenseReportRepository.save(report2)
 
                 log.info("Seeded sample reports and expenses")

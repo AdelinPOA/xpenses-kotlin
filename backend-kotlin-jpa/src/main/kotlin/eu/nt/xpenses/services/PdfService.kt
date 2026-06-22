@@ -12,6 +12,8 @@ import org.springframework.stereotype.Service
 import org.slf4j.LoggerFactory
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.math.BigDecimal
+import java.math.RoundingMode
 import java.text.DecimalFormat
 import java.time.Duration
 import java.time.Instant
@@ -124,12 +126,12 @@ class PdfService(
 
         rightCell.addElement(Paragraph(" ", fontSmall))
 
-        val totalEur = expenses.sumOf { it.amountEur }
+        val totalEur = expenses.map { it.amountEur }.fold(BigDecimal.ZERO) { acc, v -> acc.add(v) }
         val pTotalLabel = Paragraph("Total", fontCaption)
         pTotalLabel.alignment = Element.ALIGN_RIGHT
         rightCell.addElement(pTotalLabel)
 
-        val pTotalVal = Paragraph("€${formatAmount(totalEur)}", Font(Font.HELVETICA, 22f, Font.BOLD, java.awt.Color(30, 41, 59)))
+        val pTotalVal = Paragraph("€${formatBigDecimal(totalEur)}", Font(Font.HELVETICA, 22f, Font.BOLD, java.awt.Color(30, 41, 59)))
         pTotalVal.alignment = Element.ALIGN_RIGHT
         rightCell.addElement(pTotalVal)
 
@@ -208,8 +210,8 @@ class PdfService(
             cellCat.setPadding(5f)
             expTable.addCell(cellCat)
 
-            val amtText = "${formatCurrencySymbol(e.currencyOriginal)}${formatAmount(e.amountOriginal)}"
-            val fxRateText = if (e.currencyOriginal != "EUR" && e.fxRate != 1.0) {
+            val amtText = "${formatCurrencySymbol(e.currencyOriginal)}${formatBigDecimal(e.amountOriginal)}"
+            val fxRateText = if (e.currencyOriginal != "EUR" && e.fxRate != BigDecimal.ONE) {
                 "\n1 ${e.currencyOriginal} = ${e.fxRate} EUR"
             } else ""
             val cellAmt = PdfPCell(Phrase("$amtText$fxRateText", fontSmall))
@@ -217,7 +219,7 @@ class PdfService(
             cellAmt.horizontalAlignment = Element.ALIGN_RIGHT
             expTable.addCell(cellAmt)
 
-            val cellAmtEur = PdfPCell(Phrase("€${formatAmount(e.amountEur)}", fontBody))
+            val cellAmtEur = PdfPCell(Phrase("€${formatBigDecimal(e.amountEur)}", fontBody))
             cellAmtEur.setPadding(5f)
             cellAmtEur.horizontalAlignment = Element.ALIGN_RIGHT
             expTable.addCell(cellAmtEur)
@@ -257,13 +259,13 @@ class PdfService(
                 cellDesc.setPadding(5f)
                 advTable.addCell(cellDesc)
 
-                val amtText = "${formatCurrencySymbol(a.currencyOriginal)}${formatAmount(a.amountOriginal)}"
+                val amtText = "${formatCurrencySymbol(a.currencyOriginal)}${formatBigDecimal(a.amountOriginal)}"
                 val cellAmt = PdfPCell(Phrase(amtText, fontBody))
                 cellAmt.setPadding(5f)
                 cellAmt.horizontalAlignment = Element.ALIGN_RIGHT
                 advTable.addCell(cellAmt)
 
-                val cellAmtEur = PdfPCell(Phrase("€${formatAmount(a.amountEur)}", fontBody))
+                val cellAmtEur = PdfPCell(Phrase("€${formatBigDecimal(a.amountEur)}", fontBody))
                 cellAmtEur.setPadding(5f)
                 cellAmtEur.horizontalAlignment = Element.ALIGN_RIGHT
                 advTable.addCell(cellAmtEur)
@@ -291,14 +293,14 @@ class PdfService(
             }
 
             var totalKm = 0.0
-            var totalGross = 0.0
-            var totalNet = 0.0
+            var totalGross = BigDecimal.ZERO
+            var totalNet = BigDecimal.ZERO
             var totalDurationMin = 0L
 
             for ((idx, m) in mileage.withIndex()) {
                 totalKm += m.distanceKm
-                totalGross += m.amountBeforeTax
-                totalNet += m.amountEur
+                totalGross = totalGross.add(m.amountBeforeTax)
+                totalNet = totalNet.add(m.amountEur)
                 val duration = Duration.between(m.startTime, m.endTime)
                 totalDurationMin += duration.toMinutes()
 
@@ -326,22 +328,22 @@ class PdfService(
                 cellKm.horizontalAlignment = Element.ALIGN_RIGHT
                 milTable.addCell(cellKm)
 
-                val cellRateBt = PdfPCell(Phrase(String.format("%.2f", m.rateBeforeTax), fontSmall))
+                val cellRateBt = PdfPCell(Phrase(m.rateBeforeTax.setScale(2, RoundingMode.HALF_UP).toString(), fontSmall))
                 cellRateBt.setPadding(4f)
                 cellRateBt.horizontalAlignment = Element.ALIGN_RIGHT
                 milTable.addCell(cellRateBt)
 
-                val cellGross = PdfPCell(Phrase("€${formatAmount(m.amountBeforeTax)}", fontSmall))
+                val cellGross = PdfPCell(Phrase("€${formatBigDecimal(m.amountBeforeTax)}", fontSmall))
                 cellGross.setPadding(4f)
                 cellGross.horizontalAlignment = Element.ALIGN_RIGHT
                 milTable.addCell(cellGross)
 
-                val cellRateAt = PdfPCell(Phrase(String.format("%.2f", m.rateAfterTax), fontSmall))
+                val cellRateAt = PdfPCell(Phrase(m.rateAfterTax.setScale(2, RoundingMode.HALF_UP).toString(), fontSmall))
                 cellRateAt.setPadding(4f)
                 cellRateAt.horizontalAlignment = Element.ALIGN_RIGHT
                 milTable.addCell(cellRateAt)
 
-                val cellNet = PdfPCell(Phrase("€${formatAmount(m.amountEur)}", fontBody))
+                val cellNet = PdfPCell(Phrase("€${formatBigDecimal(m.amountEur)}", fontBody))
                 cellNet.setPadding(4f)
                 cellNet.horizontalAlignment = Element.ALIGN_RIGHT
                 milTable.addCell(cellNet)
@@ -374,7 +376,7 @@ class PdfService(
             cellBlank3.border = Rectangle.BOX
             milTable.addCell(cellBlank3)
 
-            val cellTotalGross = PdfPCell(Phrase("€${formatAmount(totalGross)}", fontBold))
+            val cellTotalGross = PdfPCell(Phrase("€${formatBigDecimal(totalGross)}", fontBold))
             cellTotalGross.setPadding(4f)
             cellTotalGross.horizontalAlignment = Element.ALIGN_RIGHT
             milTable.addCell(cellTotalGross)
@@ -383,7 +385,7 @@ class PdfService(
             cellBlank4.border = Rectangle.BOX
             milTable.addCell(cellBlank4)
 
-            val cellTotalNet = PdfPCell(Phrase("€${formatAmount(totalNet)}", fontBold))
+            val cellTotalNet = PdfPCell(Phrase("€${formatBigDecimal(totalNet)}", fontBold))
             cellTotalNet.setPadding(4f)
             cellTotalNet.horizontalAlignment = Element.ALIGN_RIGHT
             milTable.addCell(cellTotalNet)
@@ -424,8 +426,8 @@ class PdfService(
             cellOrigLabel.setPadding(5f)
             curTable.addCell(cellOrigLabel)
             for (c in sortedCurrencies) {
-                val sumOrig = byCurrency[c]!!.sumOf { it.amountOriginal }
-                val cell = PdfPCell(Phrase(formatAmount(sumOrig), fontBody))
+                val sumOrig = byCurrency[c]!!.map { it.amountOriginal }.fold(BigDecimal.ZERO) { acc, v -> acc.add(v) }
+                val cell = PdfPCell(Phrase(formatBigDecimal(sumOrig), fontBody))
                 cell.setPadding(5f)
                 cell.horizontalAlignment = Element.ALIGN_RIGHT
                 curTable.addCell(cell)
@@ -436,8 +438,8 @@ class PdfService(
             cellReimbLabel.setPadding(5f)
             curTable.addCell(cellReimbLabel)
             for (c in sortedCurrencies) {
-                val sumEur = byCurrency[c]!!.sumOf { it.amountEur }
-                val cell = PdfPCell(Phrase("€${formatAmount(sumEur)}", fontBold))
+                val sumEur = byCurrency[c]!!.map { it.amountEur }.fold(BigDecimal.ZERO) { acc, v -> acc.add(v) }
+                val cell = PdfPCell(Phrase("€${formatBigDecimal(sumEur)}", fontBold))
                 cell.setPadding(5f)
                 cell.horizontalAlignment = Element.ALIGN_RIGHT
                 curTable.addCell(cell)
@@ -451,22 +453,22 @@ class PdfService(
         document.add(Paragraph("REPORT SUMMARY", fontBold))
         document.add(Paragraph(" ", fontSmall))
 
-        val totalAdv = advances.filter { it.status == "paid" }.sumOf { it.amountEur }
+        val totalAdv = advances.filter { it.status == "paid" }.map { it.amountEur }.fold(BigDecimal.ZERO) { acc, v -> acc.add(v) }
         val allowance = calculateDailyAllowance(report.dateFrom, report.dateTo)
-        val totalMil = mileage.sumOf { it.amountEur }
-        val totalReimbursable = totalEur + allowance + totalMil - totalAdv
+        val totalMil = mileage.map { it.amountEur }.fold(BigDecimal.ZERO) { acc, v -> acc.add(v) }
+        val totalReimbursable = totalEur.add(allowance).add(totalMil).subtract(totalAdv)
 
         val summaryTable = PdfPTable(6)
         summaryTable.widthPercentage = 100f
         summaryTable.setWidths(floatArrayOf(20f, 5f, 20f, 20f, 15f, 20f))
 
         val sumCells = listOf(
-            Pair("Total Expense", "€${formatAmount(totalEur)}"),
-            Pair("Daily Allowance", "€${formatAmount(allowance)}"),
-            Pair("Mileage", "€${formatAmount(totalMil)}"),
+            Pair("Total Expense", "€${formatBigDecimal(totalEur)}"),
+            Pair("Daily Allowance", "€${formatBigDecimal(allowance)}"),
+            Pair("Mileage", "€${formatBigDecimal(totalMil)}"),
             Pair("Non Reimbursable", "€0.00"),
-            Pair("Advance Received", "€${formatAmount(totalAdv)}"),
-            Pair("Total Reimbursable", "€${formatAmount(totalReimbursable)}")
+            Pair("Advance Received", "€${formatBigDecimal(totalAdv)}"),
+            Pair("Total Reimbursable", "€${formatBigDecimal(totalReimbursable)}")
         )
 
         for ((idx, p) in sumCells.withIndex()) {
@@ -612,6 +614,10 @@ class PdfService(
         }
     }
 
+    private fun formatBigDecimal(amount: BigDecimal): String {
+        return decimalFormat.format(amount.setScale(2, RoundingMode.HALF_UP))
+    }
+
     private fun formatAmount(amount: Double): String {
         return decimalFormat.format(amount)
     }
@@ -632,17 +638,17 @@ class PdfService(
         return "${h}h ${String.format("%02d", m)}m"
     }
 
-    private fun calculateDailyAllowance(dateFrom: String?, dateTo: String?): Double {
-        if (dateFrom.isNullOrEmpty() || dateTo.isNullOrEmpty()) return 0.0
+    private fun calculateDailyAllowance(dateFrom: String?, dateTo: String?): BigDecimal {
+        if (dateFrom.isNullOrEmpty() || dateTo.isNullOrEmpty()) return BigDecimal.ZERO
         return try {
             val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
             val dFrom = java.time.LocalDate.parse(dateFrom.take(10), formatter)
             val dTo = java.time.LocalDate.parse(dateTo.take(10), formatter)
             val days = Duration.between(dFrom.atStartOfDay(), dTo.atStartOfDay()).toDays() + 1
-            val rate = appSettingRepository.findById("daily_allowance_rate").orElse(null)?.value?.toDoubleOrNull() ?: 50.0
-            if (days > 0) days * rate else 0.0
+            val rate = appSettingRepository.findById("daily_allowance_rate").orElse(null)?.value?.let { BigDecimal(it) } ?: BigDecimal("50.00")
+            if (days > 0) rate.multiply(BigDecimal.valueOf(days)) else BigDecimal.ZERO
         } catch (e: Exception) {
-            0.0
+            BigDecimal.ZERO
         }
     }
 }

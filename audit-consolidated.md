@@ -1185,3 +1185,28 @@ Priority-ordered by effort × impact, assuming 1 sprint = 1 week:
 ---
 
 *Merged from `audit.md`, `auditv2.md`, and `improvemen-audit.md`. Verified against codebase 2026-06-22.*
+
+---
+
+## Verification Addendum (2026-06-22, re-verified against code)
+
+A second pass re-checked all CRITICAL findings plus a broad sample (~30) of HIGH/MEDIUM/LOW directly against the source. **Findings are accurate as stated**; the two spot-checked "RESOLVED" claims (C10, C13) are genuinely resolved. Three citation/wording corrections and three net-new open points follow.
+
+### Corrections to existing findings
+
+- **C1** — `ExpenseController.kt:405` is **already fixed** (uses `findAllWithFilters`, not `findAll()`), and the report-list path (`ReportController.kt:70-100`) uses **scoped** `findAllWithExpenses()` queries, *not* `findAll()`. The genuine residual is the **in-memory `sortedByDescending` + `subList` pagination** (lines 84–100) on the privileged path. `DashboardController.kt:39,54` `findAll()` is correctly flagged.
+- **H30** — The frontend service **does** have `restart: unless-stopped` (`docker-compose.yml:87`). Only `depends_on` is genuinely missing; the "no restart" part of the finding is incorrect.
+- **M3** — The in-memory-sort list under-counts. Additional top-level list sorts exist at `AdvanceController.kt:352`, `ReportController.kt:527`, and `DashboardController.kt:83`.
+
+### New open points (not in the original 105)
+
+- **N1. Additional full-table `findAll()` scans (same OOM class as C1).** Not enumerated by C1:
+  - `AppSettingsController.kt:328,419,439` — `receiptRepository.findAll()` (orphan scans load every receipt, 3×)
+  - `OcrService.kt:153` — `expenseRepository.findAll().filter { … }` (NaiveBayes training loads all expenses)
+  - `LdapService.kt:211` — `userRepository.findAll().filter { authSource == "ldap" }`
+  - `EmailImportService.kt:402,446` — `userRepository.findAll().firstOrNull { it.email == … }`
+  - **Fix:** push the predicate into the query (`@Query`/derived method) or stream; **Effort:** Small.
+- **N2. Missing `findByEmail` repository method.** `UserRepository` has only `findByUsername` (`Repositories.kt:19`); the N1 email lookups full-scan + match in memory. **Fix:** add a derived `findByEmail`. **Effort:** Tiny.
+- **N3. M3 sort list non-exhaustive** — see Corrections above (`AdvanceController:352`, `ReportController:527`, `DashboardController:83`). **Fix:** DB `ORDER BY`. **Effort:** Tiny.
+
+N1–N3 fall within the existing C1 / `performance-query-optimization` theme (no new category). They are folded into the `audit-remediation` OpenSpec change: task **3.1** (N1), task **2.13** (N3), and new task **2.14** (N2).

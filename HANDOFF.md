@@ -1,6 +1,26 @@
 # HANDOFF.md — xpenses-kotlin
 
-## Current Session (2026-06-22, session 80)
+## Current Session (2026-06-22, session 81)
+
+### What Was Done
+- **Re-verified `audit-consolidated.md` against the code.** Re-checked all CRITICAL findings + a broad sample (~30) of HIGH/MEDIUM/LOW directly against source. Findings are accurate as stated; the two spot-checked "RESOLVED" claims (C10, C13) are genuinely resolved.
+- **3 corrections** documented in a new "Verification Addendum" in `audit-consolidated.md`:
+  - **C1** — `ExpenseController:405` already fixed (`findAllWithFilters`); report-list uses scoped queries, not `findAll()`. Real residual = in-memory sort + `subList` pagination. `DashboardController:39,54` `findAll()` correctly flagged.
+  - **H30** — frontend *does* have `restart: unless-stopped`; only `depends_on` is missing.
+  - **M3** — in-memory-sort list under-counts (also `AdvanceController:352`, `ReportController:527`, `DashboardController:83`).
+- **3 new open points (N1–N3)** found and folded into the `audit-remediation` OpenSpec change:
+  - **N1** — additional full-table `findAll()` scans (same OOM class as C1): `AppSettingsController:328,419,439`, `OcrService:153`, `LdapService:211`, `EmailImportService:402,446` → task **3.1**.
+  - **N2** — missing `findByEmail` repository method (forces N1's email full-scan) → new task **2.14**.
+  - **N3** — M3 sort list non-exhaustive → task **2.13**.
+
+### Files Changed
+- `audit-consolidated.md` (Verification Addendum appended)
+- `openspec/changes/audit-remediation/tasks.md` (tasks 2.13, 2.14, 2.15, 3.1 updated for N1–N3)
+- `HANDOFF.md`
+
+---
+
+## Previous Session (2026-06-22, session 80)
 
 ### What Was Done
 - **Audit remediation planned via OpenSpec (`audit-remediation` mega-change)**:

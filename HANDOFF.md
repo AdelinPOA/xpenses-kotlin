@@ -1,6 +1,21 @@
 # HANDOFF.md — xpenses-kotlin
 
-## Current Session (2026-06-22, session 83)
+## Current Session (2026-06-22, session 84)
+
+### What Was Done
+- **`/init-deep` — hierarchical AGENTS.md knowledge base.** Ran the full discovery pipeline (6 parallel explore agents + bash structural analysis + codegraph + LSP), scored directories by complexity, and generated three AGENTS.md files:
+  - **Root `AGENTS.md`** (updated, 84 lines) — added source-file counts, pre-hot-swap compile note for JDK 23+.
+  - **`backend-kotlin-jpa/AGENTS.md`** (new, 56 lines) — covers 15 controllers, 16 services, Flyway migrations V1–V16, testing conventions, commands.
+  - **`frontend/AGENTS.md`** (new, 59 lines) — covers 12 route groups, auth flow, Tailwind v4 conventions, data fetching patterns.
+- 19 top-level directories analyzed; sub-project AGENTS.md created for the two highest-scoring modules (>20 each based on file count, subdirectory count, code ratio, module boundary, distinct domain).
+
+### Notes
+- `HANDOFF.md` auto-push hook not triggered (on `main` branch). Committed and pushed manually.
+- `AGENTS.md.local` is an untracked override with remote-SSH + tmux pairing instructions — left in place.
+
+---
+
+## Previous Session (2026-06-22, session 83)
 
 ### What Was Done
 - **`/init` review of `CLAUDE.md` + targeted edits.** Verified the file against the codebase (migrations `V1`–`V16`, 12 test classes / 62 `@Test`, source layout — all accurate). Made two improvements: (1) the agent-file note now references `AGENTS.md` alongside `GEMINI.md` (three sibling instruction files to keep consistent); (2) added the **JDK 21/22 hard constraint** + `check-java-version` build guard (Kotlin 2.1.0 won't compile on JDK 23+; build via Docker in that case).

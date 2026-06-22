@@ -475,22 +475,22 @@ class ReportController(
         )
     }
 
-    private fun getDailyAllowanceRate(): Double =
-        appSettingRepository.findById("daily_allowance_rate").orElse(null)?.value?.toDoubleOrNull() ?: 50.0
+    private fun getDailyAllowanceRate(): BigDecimal =
+        appSettingRepository.findById("daily_allowance_rate").orElse(null)?.value?.let { BigDecimal(it) } ?: BigDecimal("50.00")
 
-    private fun calculateDailyAllowance(dateFrom: String?, dateTo: String?): Double {
-        if (dateFrom.isNullOrEmpty() || dateTo.isNullOrEmpty()) return 0.0
+    private fun calculateDailyAllowance(dateFrom: String?, dateTo: String?): BigDecimal {
+        if (dateFrom.isNullOrEmpty() || dateTo.isNullOrEmpty()) return BigDecimal.ZERO
         return try {
             val formatter = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd")
             val dFrom = java.time.LocalDate.parse(dateFrom.take(10), formatter)
             val dTo = java.time.LocalDate.parse(dateTo.take(10), formatter)
             val days = java.time.Duration.between(dFrom.atStartOfDay(), dTo.atStartOfDay()).toDays() + 1
             
-            val rate = appSettingRepository.findById("daily_allowance_rate").orElse(null)?.value?.toDoubleOrNull() ?: 50.0
-            if (days > 0) days * rate else 0.0
+            val rate = appSettingRepository.findById("daily_allowance_rate").orElse(null)?.value?.let { BigDecimal(it) } ?: BigDecimal("50.00")
+            if (days > 0) rate.multiply(BigDecimal.valueOf(days)) else BigDecimal.ZERO
         } catch (e: Exception) {
             System.err.println("!!!!! EXCEPTION in calculateDailyAllowance: ${e.message}")
-            0.0
+            BigDecimal.ZERO
         }
     }
 
@@ -630,11 +630,11 @@ class ReportController(
         val advancesOut = report.advances.sortedBy { it.date }.map { mapAdvanceToOut(it) }
         val mileageOut = report.mileageRecords.sortedBy { it.startTime }.map { mapRecordToOut(it) }
 
-        val totalExpenses = expensesOut.sumOf { it.amountEur }
-        val totalAdvances = advancesOut.filter { it.status == "paid" }.sumOf { it.amountEur }
-        val totalMileage = mileageOut.sumOf { it.amountEur }
+        val totalExpenses = expensesOut.map { it.amountEur }.fold(BigDecimal.ZERO) { acc, v -> acc.add(v) }
+        val totalAdvances = advancesOut.filter { it.status == "paid" }.map { it.amountEur }.fold(BigDecimal.ZERO) { acc, v -> acc.add(v) }
+        val totalMileage = mileageOut.map { it.amountEur }.fold(BigDecimal.ZERO) { acc, v -> acc.add(v) }
         val allowance = calculateDailyAllowance(report.dateFrom, report.dateTo)
-        val totalReimbursable = totalExpenses + allowance + totalMileage - totalAdvances
+        val totalReimbursable = totalExpenses.add(allowance).add(totalMileage).subtract(totalAdvances)
 
         return ReportOut(
             id = report.id!!,
@@ -732,17 +732,17 @@ data class ReportOut(
     @JsonProperty("rejected_reason") val rejectedReason: String?,
     @JsonProperty("signer_id") val signerId: Int?,
     @JsonProperty("signed_at") val signedAt: Instant?,
-    @JsonProperty("total_amount") val totalAmount: Double,
+    @JsonProperty("total_amount") val totalAmount: BigDecimal,
     val currency: String,
     @JsonProperty("created_at") val createdAt: Instant,
     @JsonProperty("updated_at") val updatedAt: Instant,
     val expenses: List<ExpenseOut> = emptyList(),
     val advances: List<AdvancePaymentOut> = emptyList(),
-    @JsonProperty("total_advances") val totalAdvances: Double = 0.0,
+    @JsonProperty("total_advances") val totalAdvances: BigDecimal = BigDecimal.ZERO,
     @JsonProperty("mileage_records") val mileageRecords: List<MileageRecordOut> = emptyList(),
-    @JsonProperty("total_mileage_eur") val totalMileageEur: Double = 0.0,
-    @JsonProperty("daily_allowance") val dailyAllowance: Double = 0.0,
-    @JsonProperty("total_reimbursable") val totalReimbursable: Double = 0.0,
+    @JsonProperty("total_mileage_eur") val totalMileageEur: BigDecimal = BigDecimal.ZERO,
+    @JsonProperty("daily_allowance") val dailyAllowance: BigDecimal = BigDecimal.ZERO,
+    @JsonProperty("total_reimbursable") val totalReimbursable: BigDecimal = BigDecimal.ZERO,
     // Delegation email import fields
     val kundenauftrag: String? = null,
     val auftragsart: String? = null,

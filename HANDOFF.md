@@ -1,19 +1,31 @@
 # HANDOFF.md — xpenses-kotlin
 
-## Current Session (2026-06-22, session 84)
+## Current Session (2026-06-22, session 85)
 
 ### What Was Done
-- **`/init-deep` — hierarchical AGENTS.md knowledge base.** Ran the full discovery pipeline (6 parallel explore agents + bash structural analysis + codegraph), scored directories by complexity, and generated three AGENTS.md files:
-  - **Root `AGENTS.md`** (updated, 84 lines) — added source-file counts, pre-hot-swap compile note for JDK 23+.
-  - **`backend-kotlin-jpa/AGENTS.md`** (new, 56 lines) — covers 15 controllers, 16 services, Flyway V1–V16, testing conventions.
-  - **`frontend/AGENTS.md`** (new, 59 lines) — covers 12 route groups, auth flow, Tailwind v4 conventions.
-- 19 top-level directories analyzed; sub-project AGENTS.md created for the two highest-scoring modules (>20 each).
-- **Resolved 24/26 Dependabot npm alerts.** Upgraded `next` from `15.1.0` → `15.5.18`, `postcss` from `8.x` → `8.5.10`, and transitive deps (`form-data`, `js-yaml`). Verified with `tsc --noEmit` (clean) and `npm run build` (21.9s, successful).
-  - Branch: `fix/frontend-deps-security` → PR #8 → squashed merge to `main`.
+- **Finished `codebase-hardening-round` OpenSpec change** — 4 specs implemented across 31 files (+348/-220 lines):
+  1. **Global exception handler** (`ValidationExceptionHandler.kt`): Added `@ExceptionHandler(Exception::class)` fallback that logs full stack trace at ERROR and returns sanitized 500.
+  2. **CSRF/cookie hardening** (`SecurityConfig.kt`): Added Origin/Referer verification filter for state-changing requests (POST/PUT/PATCH/DELETE). Blocks requests with missing or non-allowed Origin/Referer headers with 403.
+  3. **Efficient data access**: Replaced 10 `findAll()` call sites across 7 files with scoped queries:
+     - Added `UserRepository.findByEmail()` (case-insensitive JPQL) + V17 email index migration
+     - `EmailImportService`: replaced `findAll().firstOrNull` → `findByEmail()`
+     - `DashboardController`: replaced `findAll()` with `count()`, date-scoped queries, pageable
+     - `OcrService.trainLocalClassifier()`: new `findAllWithOcrTrainingData()` query
+     - `LdapService.syncUsers()`: `findAllByAuthSourceAndIsActive()` query
+     - `ReportService`: `findAllByRoleInAndIsActive()` query
+     - `UserController`: `findAllByOrderByCreatedAt()` query
+     - `AppSettingsController`: `findAllFilePaths()` projection query on receipts
+  4. **Monetary precision**: Converted 14+ entity fields from `Double` → `BigDecimal` across `Expense`, `FxRate`, `AdvancePayment`, `MileageRecord`, `Category`, `ExpenseReport`. Updated all services (`FxService`, `ReportService`, `ExpenseService`, `PdfService`), controllers (8 files), DTOs, mappers, and 7 test files. Added `V20__convert_monetary_to_numeric.sql` migration (16 columns across 6 tables → `NUMERIC`).
+- Corrected stale CORS note in `CLAUDE.md`.
+- Branch: `feat/codebase-hardening-round` → PR to be opened.
 
 ### Notes
-- 1 remaining moderate alert: `postcss@8.4.31` bundled inside next — not exploitable (no user-input CSS pipeline).
-- Workflow established: feature branch → PR → merge to main → update HANDOFF.md.
+- Build verified: `compileKotlin` + `compileTestKotlin` + `bootJar` all pass.
+- V17 and V20 migration files are new (V18/V19 skipped; V17 = email index, V20 = NUMERIC columns).
+- FK-check constraints on monetary columns (`chk_expenses_amount_original`, etc.) were dropped and recreated during migration to allow column type change.
+- BigDecimal scale: money = 2 decimal places, FX rates = 6 decimal places, RoundingMode.HALF_UP.
+- `.claude/`, `.omo/`, `.mcp.json`, `AGENTS.md.local` are untracked tool artifacts — may need .gitignore entries.
+- Workflow: feature branch → PR → merge to main → update HANDOFF.md.
 
 ---
 

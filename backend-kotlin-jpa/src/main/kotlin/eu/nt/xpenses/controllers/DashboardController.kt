@@ -5,9 +5,11 @@ import eu.nt.xpenses.models.*
 import eu.nt.xpenses.repositories.*
 import eu.nt.xpenses.services.ExpenseMapper
 import jakarta.servlet.http.HttpServletRequest
+import org.springframework.data.domain.Pageable
 import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.*
 import org.springframework.web.server.ResponseStatusException
+import java.math.BigDecimal
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
@@ -34,17 +36,15 @@ class DashboardController(
 
         val isOrgWide = currentUser.role in listOf("chef_finance", "mod") || (all && currentUser.role == "manager")
 
-        // 1. Get Expenses
-        val expenses = if (isOrgWide) {
-            expenseRepository.findAll()
+        val expenseCountTotal = if (isOrgWide) expenseRepository.count() else expenseRepository.findAllByUserId(currentUser.id!!).size.toLong()
+        val monthExpenses = if (isOrgWide) {
+            expenseRepository.findAllByDateFrom(monthStart)
         } else {
-            expenseRepository.findAllByUserId(currentUser.id!!)
+            expenseRepository.findAllByUserIdAndDateFrom(currentUser.id!!, monthStart)
         }
 
-        val expenseCountTotal = expenses.size
-        val monthExpenses = expenses.filter { it.date >= monthStart }
         val expenseCountMonth = monthExpenses.size
-        val totalMonthEur = monthExpenses.sumOf { it.amountEur }
+        val totalMonthEur = monthExpenses.map { it.amountEur }.fold(BigDecimal.ZERO) { acc, v -> acc.add(v) }
 
         // 2. Get Reports
         val canApprove = currentUser.role in listOf("manager", "chef_finance", "mod")
@@ -76,21 +76,21 @@ class DashboardController(
                 CategorySpend(
                     categoryId = cat?.id,
                     categoryName = cat?.name ?: "Uncategorized",
-                    total = catExpenses.sumOf { it.amountEur },
+                    total = catExpenses.map { it.amountEur }.fold(BigDecimal.ZERO) { acc, v -> acc.add(v) },
                     count = catExpenses.size
                 )
             }
             .sortedByDescending { it.total }
             .take(10)
 
-        // 4. Recent Expenses
-        val recentExpenses = expenses
-            .sortedByDescending { it.createdAt }
-            .take(10)
-            .map { expenseMapper.toExpenseOut(it) }
+        val recentExpenses = if (isOrgWide) {
+            expenseRepository.findRecentExpenses(Pageable.ofSize(10))
+        } else {
+            expenseRepository.findRecentExpensesByUserId(currentUser.id!!, Pageable.ofSize(10))
+        }.map { expenseMapper.toExpenseOut(it) }
 
         return DashboardStats(
-            expenseCountTotal = expenseCountTotal,
+            expenseCountTotal = expenseCountTotal.toInt(),
             expenseCountMonth = expenseCountMonth,
             totalMonthEur = totalMonthEur,
             draftCount = draftCount,
@@ -108,14 +108,14 @@ class DashboardController(
 data class CategorySpend(
     @JsonProperty("category_id") val categoryId: Int?,
     @JsonProperty("category_name") val categoryName: String,
-    val total: Double,
+    val total: BigDecimal,
     val count: Int
 )
 
 data class DashboardStats(
     @JsonProperty("expense_count_total") val expenseCountTotal: Int,
     @JsonProperty("expense_count_month") val expenseCountMonth: Int,
-    @JsonProperty("total_month_eur") val totalMonthEur: Double,
+    @JsonProperty("total_month_eur") val totalMonthEur: BigDecimal,
     @JsonProperty("draft_count") val draftCount: Int,
     @JsonProperty("submitted_count") val submittedCount: Int,
     @JsonProperty("paid_count") val paidCount: Int,

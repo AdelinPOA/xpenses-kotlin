@@ -150,7 +150,7 @@ class OcrService(
     }
 
     fun trainLocalClassifier(): NaiveBayesClassifier? {
-        val expenses = expenseRepository.findAll().filter { it.rawOcrText != null && it.category != null }
+        val expenses = expenseRepository.findAllWithOcrTrainingData()
         if (expenses.size < 5) return null
         val data = expenses.map { Pair(it.rawOcrText!!, it.category!!.id!!) }
         val classifier = NaiveBayesClassifier()

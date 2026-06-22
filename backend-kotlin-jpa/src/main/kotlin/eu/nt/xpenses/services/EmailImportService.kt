@@ -399,7 +399,7 @@ class EmailImportService(
             emailClean = emailClean.substringAfter("<").substringBefore(">").trim()
         }
 
-        val user = userRepository.findAll().firstOrNull { it.email?.lowercase() == emailClean.lowercase() }
+        val user = userRepository.findByEmail(emailClean)
         if (user == null) {
             log.info("Email import skipped: no user found with email {}", emailClean)
             return false
@@ -443,7 +443,7 @@ class EmailImportService(
             emailClean = emailClean.substringAfter("<").substringBefore(">").trim()
         }
 
-        val user = userRepository.findAll().firstOrNull { it.email?.lowercase() == emailClean.lowercase() }
+        val user = userRepository.findByEmail(emailClean)
         if (user == null) {
             return mapOf(
                 "success" to false,

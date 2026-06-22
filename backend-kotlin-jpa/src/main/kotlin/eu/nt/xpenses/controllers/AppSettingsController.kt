@@ -14,6 +14,8 @@ import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.bind.annotation.*
 import java.io.File
+import java.math.BigDecimal
+import java.math.RoundingMode
 import java.time.Instant
 
 @RestController
@@ -46,7 +48,7 @@ class AppSettingsController(
     // --- Daily Allowance Rate ---
     @GetMapping("/daily-allowance-rate")
     fun readDailyAllowanceRate(): ResponseEntity<DailyAllowanceOut> {
-        val value = appSettingRepository.findById("daily_allowance_rate").orElse(null)?.value?.toDoubleOrNull() ?: 50.0
+        val value = appSettingRepository.findById("daily_allowance_rate").orElse(null)?.value?.let { BigDecimal(it) } ?: BigDecimal("50.00")
         return ResponseEntity.ok(DailyAllowanceOut(value))
     }
 
@@ -54,7 +56,7 @@ class AppSettingsController(
     @PreAuthorize("hasRole('chef_finance')")
     @Transactional
     fun updateDailyAllowanceRate(@Valid @RequestBody body: DailyAllowanceUpdate): ResponseEntity<DailyAllowanceOut> {
-        if (body.dailyAllowanceRate < 0) {
+        if (body.dailyAllowanceRate < BigDecimal.ZERO) {
             return ResponseEntity.badRequest().build()
         }
         appSettingRepository.save(AppSetting("daily_allowance_rate", body.dailyAllowanceRate.toString(), Instant.now()))
@@ -66,7 +68,7 @@ class AppSettingsController(
     fun readMileageRates(): ResponseEntity<MileageRatesOut> {
         val btStr = appSettingRepository.findById("mileage_rate_before_tax").orElse(null)?.value ?: "0.60"
         val atStr = appSettingRepository.findById("mileage_rate_after_tax").orElse(null)?.value ?: "0.40"
-        return ResponseEntity.ok(MileageRatesOut(btStr.toDouble(), atStr.toDouble()))
+        return ResponseEntity.ok(MileageRatesOut(BigDecimal(btStr), BigDecimal(atStr)))
     }
 
     @PatchMapping("/mileage-rates")
@@ -82,7 +84,7 @@ class AppSettingsController(
         }
         val btStr = appSettingRepository.findById("mileage_rate_before_tax").orElse(null)?.value ?: "0.60"
         val atStr = appSettingRepository.findById("mileage_rate_after_tax").orElse(null)?.value ?: "0.40"
-        return ResponseEntity.ok(MileageRatesOut(btStr.toDouble(), atStr.toDouble()))
+        return ResponseEntity.ok(MileageRatesOut(BigDecimal(btStr), BigDecimal(atStr)))
     }
 
     // --- OCR Settings ---
@@ -416,7 +418,7 @@ class AppSettingsController(
         }
 
         val allFiles = listLocalFiles(baseDir, baseDir)
-        val referencedFiles = receiptRepository.findAll().mapNotNull { it.filePath }.toSet()
+        val referencedFiles = receiptRepository.findAllFilePaths().toSet()
         val orphans = allFiles.filter { it !in referencedFiles }
 
         return ResponseEntity.ok(mapOf("orphans" to orphans, "count" to orphans.size))
@@ -436,7 +438,7 @@ class AppSettingsController(
         }
 
         val allFiles = listLocalFiles(baseDir, baseDir)
-        val referencedFiles = receiptRepository.findAll().mapNotNull { it.filePath }.toSet()
+        val referencedFiles = receiptRepository.findAllFilePaths().toSet()
         val orphans = allFiles.filter { it !in referencedFiles }
 
         var cleanedCount = 0
@@ -454,21 +456,21 @@ class AppSettingsController(
 }
 
 data class DailyAllowanceOut(
-    @JsonProperty("daily_allowance_rate") val dailyAllowanceRate: Double
+    @JsonProperty("daily_allowance_rate") val dailyAllowanceRate: BigDecimal
 )
 
 data class DailyAllowanceUpdate(
-    @JsonProperty("daily_allowance_rate") @field:Min(0) val dailyAllowanceRate: Double
+    @JsonProperty("daily_allowance_rate") val dailyAllowanceRate: BigDecimal
 )
 
 data class MileageRatesOut(
-    @JsonProperty("mileage_rate_before_tax") val mileageRateBeforeTax: Double,
-    @JsonProperty("mileage_rate_after_tax") val mileageRateAfterTax: Double
+    @JsonProperty("mileage_rate_before_tax") val mileageRateBeforeTax: BigDecimal,
+    @JsonProperty("mileage_rate_after_tax") val mileageRateAfterTax: BigDecimal
 )
 
 data class MileageRatesUpdate(
-    @JsonProperty("mileage_rate_before_tax") @field:Min(0) val mileageRateBeforeTax: Double? = null,
-    @JsonProperty("mileage_rate_after_tax") @field:Min(0) val mileageRateAfterTax: Double? = null
+    @JsonProperty("mileage_rate_before_tax") val mileageRateBeforeTax: BigDecimal? = null,
+    @JsonProperty("mileage_rate_after_tax") val mileageRateAfterTax: BigDecimal? = null
 )
 
 data class OCRConfigOut(

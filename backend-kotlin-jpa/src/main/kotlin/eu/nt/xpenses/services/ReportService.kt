@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.server.ResponseStatusException
 import org.springframework.http.HttpStatus
+import java.math.BigDecimal
 import java.time.Instant
 
 @Service
@@ -116,7 +117,7 @@ class ReportService(
             expenseRepository.save(exp)
         }
 
-        val totalAmount = updatedReport.expenses.sumOf { it.amountEur }
+        val totalAmount = updatedReport.expenses.map { it.amountEur }.fold(BigDecimal.ZERO) { acc, v -> acc.add(v) }
         updatedReport.status = "submitted"
         updatedReport.submittedAt = now
         updatedReport.totalAmount = totalAmount
@@ -125,11 +126,9 @@ class ReportService(
         val saved = reportRepository.save(updatedReport)
 
         // Notify managers and CFOs
-        val approvers = userRepository.findAll().filter {
-            it.role in listOf("manager", "chef_finance") && it.isActive
-        }
+        val approvers = userRepository.findAllByRoleInAndIsActive(listOf("manager", "chef_finance"), true)
         val subject = "New expense report submitted: ${saved.title}"
-        val content = "${currentUser.displayName} has submitted a new expense report: ${saved.title}.\nTotal: ${String.format("%.2f", totalAmount)} ${saved.currency}."
+        val content = "${currentUser.displayName} has submitted a new expense report: ${saved.title}.\nTotal: ${totalAmount.setScale(2, java.math.RoundingMode.HALF_UP)} ${saved.currency}."
         
         for (appr in approvers) {
             if (!appr.email.isNullOrEmpty() && appr.notificationsEnabled) {
@@ -229,7 +228,7 @@ class ReportService(
         val now = Instant.now()
         
         report.status = "rejected"
-        report.totalAmount = 0.0
+        report.totalAmount = BigDecimal.ZERO
         report.rejectedBy = currentUser
         report.rejectedAt = now
         report.rejectedReason = reason

@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.Mockito.*
+import java.math.BigDecimal
 
 class FxServiceTest {
 
@@ -39,7 +40,7 @@ class FxServiceTest {
             fromCurrency = "USD",
             toCurrency = "EUR",
             rateDate = "2026-06-01",
-            rate = 0.92
+            rate = BigDecimal("0.92")
         )
         `when`(fxRateRepository.findByFromCurrencyAndToCurrencyAndRateDate("USD", "EUR", "2026-06-01"))
             .thenReturn(cached)

@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.*
+import java.math.BigDecimal
 
 class ReportStateMachineTest : IntegrationTestBase() {
 
@@ -31,8 +32,8 @@ class ReportStateMachineTest : IntegrationTestBase() {
             Expense(
                 user = user,
                 category = category,
-                amountOriginal = 50.0,
-                amountEur = 50.0,
+                amountOriginal = BigDecimal("50.00"),
+                amountEur = BigDecimal("50.00"),
                 date = "2026-06-01",
                 report = report
             )

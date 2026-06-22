@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## AI Workflow & Agent Capabilities
 
-This repo is worked on in a pair-programming mode. To maximize efficiency and reduce token/cost consumption, follow these guidelines. (Note: `GEMINI.md` holds the equivalent instructions for the Antigravity/Gemini agent; keep the two consistent when changing shared workflow rules.)
+This repo is worked on in a pair-programming mode. To maximize efficiency and reduce token/cost consumption, follow these guidelines. (Note: `GEMINI.md` and `AGENTS.md` hold the equivalent instructions for the Antigravity/Gemini and Codex/other agents respectively; keep all three consistent when changing shared workflow rules.)
 
 - **Token & Cost Monitoring**: The `/usage` slash command shows token consumption and cost.
 - **Spec-driven work**: For significant features, use the OpenSpec skills (`/openspec-propose`, `/openspec-apply-change`, `/openspec-sync-specs`, `/openspec-archive-change`) — see the OpenSpec Workflow section below. Use the `brainstorming` skill to align on requirements before implementation, and `/schedule` or `/loop` for recurring/timed tasks.
@@ -18,6 +18,7 @@ This repo is worked on in a pair-programming mode. To maximize efficiency and re
   - **Do NOT** run `docker compose up -d --build` or `docker compose build` frequently. Rebuilding Docker containers consumes CPU and adds overhead. Prefer the hot-swap workflow (see README "Backend Hot-Swapping").
   - Run the Spring Boot backend on a **standard JVM** (standard JAR execution) during active development rather than compiling GraalVM Native images (which takes several minutes).
   - Prefer targeted Gradle commands (e.g., `./gradlew compileKotlin`, or `./gradlew test --tests '...'` for a single class) instead of complete system builds.
+  - **JDK constraint**: Kotlin 2.1.0 compiles only on **JDK 21 or 22**. `make build` / `make test` run `check-java-version` first and fail with a clear message on JDK 23+; build via Docker in that case. A `.java-version` file pins the version for SDKMAN!/jEnv/asdf.
 
 ## Project Tracking (MANDATORY)
 

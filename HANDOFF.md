@@ -1,6 +1,19 @@
 # HANDOFF.md — xpenses-kotlin
 
-## Current Session (2026-06-22, session 82)
+## Current Session (2026-06-22, session 83)
+
+### What Was Done
+- **`/init` review of `CLAUDE.md` + targeted edits.** Verified the file against the codebase (migrations `V1`–`V16`, 12 test classes / 62 `@Test`, source layout — all accurate). Made two improvements: (1) the agent-file note now references `AGENTS.md` alongside `GEMINI.md` (three sibling instruction files to keep consistent); (2) added the **JDK 21/22 hard constraint** + `check-java-version` build guard (Kotlin 2.1.0 won't compile on JDK 23+; build via Docker in that case).
+- **Deleted stale/overlapping audit docs** (per user request): `audit-consolidated.md` (was tracked), `improvemen-audit.md` (was tracked), and the untracked `audit-full-codebase-2026-06-22.md`, `audit-bugs.md`, `AUDIT_FIXES.md`. Root no longer carries five competing audit files for future sessions to reconcile.
+- **Deleted the `audit-remediation` OpenSpec change** (`openspec/changes/audit-remediation/` — proposal, design, tasks, 9 delta specs). It was built on the now-deleted `audit-consolidated.md`; its references were dangling.
+
+### Notes
+- `.omo/drafts/audit-remediation.md` and `.omo/plans/audit-remediation.md` still reference the deleted audit (agent scratch, untracked) — left in place per user.
+- A pre-existing uncommitted edit to `AGENTS.md` (source-file counts + hot-swap note) was left unstaged — not part of this session's work.
+
+---
+
+## Previous Session (2026-06-22, session 82)
 
 ### What Was Done
 - **Independent second re-audit** (parallel to session 81 / PR #7). Confirmed the addendum's findings; folded four additional verified corrections into the `audit-consolidated.md` Verification Addendum (commit `b9bb5d5`): **C7** (blank `JWT_SECRET` crash-loops the pod, not just loses auth), **H6** (ownership check missing in `updateExpense` too, not only `createExpense`), **H19** (`Loading...` in 12 files, not 6), **M7** (soft-delete gap also covers `AdvancePayment` + 4 other entities).

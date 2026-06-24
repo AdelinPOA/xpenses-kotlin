@@ -12,8 +12,9 @@
   - Tested the backend API health check endpoint, which successfully returned `200 OK` (`{"status":"ok"}`).
 - **Fixed Demo Login Issue**:
   - Modified `frontend/lib/api.ts` to configure client-side `API_BASE_URL` as a relative path (`/api`). This routes all browser-side requests through Next.js server rewrites rather than direct cross-origin calls, resolving connectivity issues to `localhost:8001`.
+  - Removed tracked local environment override file `frontend/.env.local` which forced Next.js rewrites to target `localhost:8001` at build time. Added ignore patterns to `.gitignore` to prevent future commits. This enables the Next.js standalone server to route correctly to `http://backend:8080/api`.
   - Adjusted Next.js build concurrency in `frontend/next.config.ts` (`cpus: 6`) and builder heap memory size in `frontend/Dockerfile` (`--max-old-space-size=4096`) to optimize compilation speeds using the server's 24 cores/8GB RAM without risking OOM crashes.
-  - Verified successful auth session retrieval using the seeded demo users (`tech1`).
+  - Verified successful auth session retrieval using the seeded demo users (`tech1`, `mod1`) through the frontend proxy port 3001.
 
 ### Notes
 - App is accessible on `http://192.168.100.48:3001` (frontend) and `http://192.168.100.48:8001/api` (backend).

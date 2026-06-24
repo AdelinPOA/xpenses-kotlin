@@ -17,7 +17,8 @@ class FxService(
     private val restClient = RestClient.builder()
         .requestFactory(JdkClientHttpRequestFactory(HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(10))
-            .build(), Duration.ofSeconds(30)))
+            .build()
+        ).also { it.setReadTimeout(Duration.ofSeconds(30)) })
         .build()
 
     fun getRate(fromCurrency: String, date: String): Double {

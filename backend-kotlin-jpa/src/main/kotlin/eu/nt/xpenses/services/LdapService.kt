@@ -227,7 +227,8 @@ class LdapService(
             throw LDAPBindException("Empty password not allowed")
         }
         try {
-            bindServiceAccount(config).use { ctx ->
+            val ctx = bindServiceAccount(config)
+            try {
                 val searchControls = SearchControls().apply {
                     searchScope = SearchControls.SUBTREE_SCOPE
                     returningAttributes = arrayOf("dn")
@@ -264,6 +265,8 @@ class LdapService(
                     try { results.close() } catch (_: Exception) {}
                 }
                 return true
+            } finally {
+                try { ctx.close() } catch (_: Exception) {}
             }
         } catch (e: LDAPBindException) {
             throw e

@@ -27,7 +27,7 @@ import java.time.Instant
 import java.util.*
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Executor
-import java.util.regex.Pattern
+import java.time.Duration
 import java.util.regex.Pattern
 
 data class OCRConfig(
@@ -114,7 +114,8 @@ class OcrService(
         .requestFactory(JdkClientHttpRequestFactory(HttpClient.newBuilder()
             .version(HttpClient.Version.HTTP_1_1)
             .connectTimeout(Duration.ofSeconds(10))
-            .build(), Duration.ofSeconds(60)))
+            .build()
+        ).also { it.setReadTimeout(Duration.ofSeconds(60)) })
         .build()
 
     fun getOcrConfig(): OCRConfig {
@@ -188,7 +189,7 @@ class OcrService(
         try {
             validateUrlForSsr(baseUrl)
         } catch (e: IllegalArgumentException) {
-            return mapOf("success" to false, "message" to e.message)
+            return mapOf<String, Any>("success" to false, "message" to (e.message ?: "Validation failed"))
         }
         val url = baseUrl.trimEnd('/') + "/docs"
         return try {

@@ -36,7 +36,8 @@ class EmailImportService(
     private val restClient = RestClient.builder()
         .requestFactory(JdkClientHttpRequestFactory(HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(10))
-            .build(), Duration.ofSeconds(60)))
+            .build()
+        ).also { it.setReadTimeout(Duration.ofSeconds(60)) })
         .build()
 
     fun parseDateFlexible(dtStr: String): String? {

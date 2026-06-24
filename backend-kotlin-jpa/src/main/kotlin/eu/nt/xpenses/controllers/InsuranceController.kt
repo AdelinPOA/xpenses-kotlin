@@ -102,10 +102,10 @@ class InsuranceController(
         }
 
         val relativePath = "$userId/insurance/${Instant.now().epochSecond}_$originalName"
-        storageService.uploadFile(relativePath, upload.bytes)
 
         val now = Instant.now()
         val saved = transactionTemplate.execute {
+            storageService.uploadFile(relativePath, upload.bytes)
             val txTargetUser = userRepository.findById(userId).orElseThrow {
                 ResponseStatusException(HttpStatus.NOT_FOUND, "Target user not found")
             }
@@ -125,7 +125,7 @@ class InsuranceController(
                 updatedAt = now
             )
             insuranceFileRepository.save(insuranceFile)
-        }!!
+        } ?: throw ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Transaction failed")
 
         return ResponseEntity.status(HttpStatus.CREATED).body(mapToOut(saved))
     }
@@ -180,7 +180,7 @@ class InsuranceController(
             val filePath = file.filePath
             insuranceFileRepository.delete(file)
             filePath
-        }!!
+        } ?: throw ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Transaction failed")
 
         try {
             storageService.deleteFile(path)

@@ -489,7 +489,7 @@ class ReportController(
             val rate = appSettingRepository.findById("daily_allowance_rate").orElse(null)?.value?.toDoubleOrNull() ?: 50.0
             if (days > 0) days * rate else 0.0
         } catch (e: Exception) {
-            System.err.println("!!!!! EXCEPTION in calculateDailyAllowance: ${e.message}")
+            log.warn("Exception in calculateDailyAllowance: {}", e.message)
             0.0
         }
     }

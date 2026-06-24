@@ -1,30 +1,71 @@
 # HANDOFF.md — xpenses-kotlin
 
-## Current Session (2026-06-21, session 79)
+## Current Session (2026-06-25, session 80)
 
 ### What Was Done
-- **Unconditional Daily Allowance**:
-  - Reverted a previous behavior where the daily allowance was only calculated and applied to the report's total reimbursable amount if the report was "approved" or "paid".
-  - It now unconditionally calculates the daily allowance for all reports (including "draft" and "submitted"), properly multiplying the CFO-configured allowance rate by the number of days in the delegation period.
-  - Resolved the build/sync issue where Docker `build` bindings were shadowing the new code, preventing the update from applying.
-- **OCR Scan History Failure Reasons**:
-  - Added the exact error message to the Scan History page so users can see exactly why Gemini or MinerU failed (e.g. rate limit, unprocessable image, etc.) below the fallback provider UI.
-- **IMAP Email Ingestion Simulator**:
-  - Added a dropdown on the IMAP admin page so users can explicitly select which OCR parser ("gemini" vs "local") to test when simulating an ingestion, forcing the pipeline to use the specified parser.
-  - "Gemini 3 Flash Preview" verified to be retained in the settings list.
+- **Full Audit Remediation (from hermes.md/todo.md)** — Implemented P0 (all 7 critical/security fixes), P1 (all 18 high-priority fixes), and most P2 items. Branch: `fix/audit-remediation`. 24 files modified + 1 new Flyway migration.
 
-### Files Changed
-- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/ReportController.kt`
-- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/AppSettingsController.kt`
-- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/EmailImportService.kt`
-- `frontend/app/admin/ocr/page.tsx`
-- `frontend/app/admin/imap/page.tsx`
-- `frontend/lib/api.ts`
+#### P0 — Critical / Security (7/7)
+- **C0** `V17__fix_expenses_status_check.sql` — new migration adding `'paid'` to `chk_expenses_status` CHECK constraint
+- **C1** `EmailImportService.pollAndProcessEmails` — added `@Async` + `@Transactional` to scheduled IMAP polling
+- **C2** `ReportService.submitReport` — replaced `.get()` with `.orElseThrow { ResponseStatusException(NOT_FOUND) }`
+- **C3** `EmailImportService.parseDelegationEmailGemini` — moved Gemini API key from `?key=` query param to `x-goog-api-key` header
+- **C5** `OcrService.scanMineru/testMineruConnection` — added `validateUrlForSsr()` allowlist check on mineruUrl/baseUrl
+- **C6** `StorageService.getLocalPath` — replaced `absoluteFile` with `canonicalFile` + canonical path traversal guard (all 4 sites + migration code)
+- **C7** `UserController` — replaced `as User` with `as? User ?: throw ResponseStatusException(...)` at both sites
+
+#### P1 — High (18/18)
+- **C8** `Repositories.kt` — added `findByEmailIgnoreCase()` to UserRepository; used in EmailImportService instead of `findAll().firstOrNull`
+- **C9** `OcrService.scanReceipt` — replaced 3× `CompletableFuture.runAsync` (ForkJoinPool) with Spring-managed `@Qualifier("applicationTaskExecutor")`
+- **C10** `ReportController.calculateDailyAllowance` — replaced `System.err.println` with `log.warn`
+- **H0a** `ReportService.payReport` — removed `mod` from allowed roles
+- **H0b** `ExpenseController.getSingleReceipt/getReceiptCompat` — removed `manager` from IDOR guard
+- **H0c** `ReportService.payReport` — added self-ownership check (mirrors approve/reject)
+- **H0d** `Repositories.kt` — added `ORDER BY e.date DESC, e.id DESC` to paged/non-paged queries
+- **H0e** `ExpenseForm.tsx` — fixed `onError` to read `e.message ?? e.response?.data?.detail`
+- **H0f** `LdapService` — wrapped `InitialDirContext` in `.use {}`, close `NamingEnumeration` in finally
+- **H0g** `S3StorageProvider.download` — wrapped `ResponseInputStream` in `.use {}`
+- **H10** `AsyncOcrService` — extracted failure persist into `@Transactional(REQUIRES_NEW)` method
+- **H11** — added HTTP connect/read timeouts to `OcrService` (10s/60s), `FxService` (10s/30s), `EmailImportService` (10s/60s)
+- **H3** Frontend — replaced `<a href={API_BASE_URL/...}>` with Axios `downloadBlob()` in `ExpenseForm.tsx`, `ExpensesClient.tsx`, `reports/[id]/page.tsx`
+- **H4** `ExpenseForm.tsx` — OCR polling: max 60 retries (~90s), `AbortController`, timeout error message
+- **H5** `AuthController/JwtTokenProvider` — added `tokenVersion` mechanism (column + claim + validation); invalidates JWTs on password change
+- **H6** `ReportService.submitReport` — extracted SMTP email into `@Async fun sendReportSubmittedNotification()`
+- **H7** `InsuranceController` (2 sites) + `ExpenseController` (2 sites) — replaced `!!` with `?: throw ResponseStatusException`
+- **H8** `ReportService.rejectReport` — removed `totalAmount = 0.0` (keeps original total, consistent with recallReport)
+- **H9** `PdfService` — wrapped logo `InputStream` in `.use {}` for auto-close
+
+#### P2 — Medium (5/8 selected)
+- **M-G3** `PdfService` — `DecimalFormat` → `ThreadLocal.withInitial { DecimalFormat(...) }`
+- **M-G5** `Models.kt` — added `@Version` to `Expense`, `AdvancePayment`, `MileageRecord` + updated `@SQLDelete` on Expense
+- **M23** `CryptoService` — AES/CBC+HMAC → AES/GCM (with backward compat), `@PostConstruct` secret fail-fast, dedicated `encryption.secret` property
+- **M-G1** `EmailImportService` — mark IMAP SEEN on success only (not on parse failure)
+- **M-G2** `ExpenseController`/`InsuranceController` — moved file writes inside `transactionTemplate.execute{}` to prevent orphan files on rollback
+- **M-G7** `EmailImportService` — added `mail.imap.starttls.enable=true` to IMAP session props
+
+#### Infrastructure
+- **H1/H2** `DashboardController` — replaced `findAll()` with JOIN FETCH queries; added `@Transactional(readOnly = true)`
+- **Repositories.kt** — added ORDER BY to ExpenseReportRepository queries (id DESC) for deterministic pagination
+
+### Files Changed (24 + 1 new)
+- `backend-kotlin-jpa/src/main/resources/db/migration/V17__fix_expenses_status_check.sql` — **NEW**
+- `AuthController.kt`, `DashboardController.kt`, `ExpenseController.kt`, `InsuranceController.kt`, `ReportController.kt`, `UserController.kt`
+- `JwtAuthenticationFilter.kt`, `JwtTokenProvider.kt`
+- `AsyncOcrService.kt`, `CryptoService.kt`, `EmailImportService.kt`, `FxService.kt`, `LdapService.kt`, `OcrService.kt`, `PdfService.kt`, `ReportService.kt`, `StorageService.kt`, `S3StorageProvider.kt`
+- `Models.kt`, `Repositories.kt`
+- `ExpenseForm.tsx`, `ExpensesClient.tsx`, `reports/[id]/page.tsx`
+- `todo.md`
+
+### Not Yet Done
+- **M3** — `Double`/`DOUBLE PRECISION` → `BigDecimal`/`NUMERIC(12,2)` (schema-breaking, needs migration)
+- Remaining M1–M22, M-G6, M-G8, L1–L13 items (lower priority)
+- `make test` + `make build` full verification (requires JDK 21 + Docker)
+- Verification of ~22 unverified `[GLM]` findings
 
 ---
 
-> Last updated: 2026-06-21 (session 78)
-> Author: Antigravity
+> Last updated: 2026-06-25
+> Author: Hermes
 
 ---
 

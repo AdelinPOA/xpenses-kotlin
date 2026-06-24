@@ -6,6 +6,7 @@ import eu.nt.xpenses.repositories.ExpenseReportRepository
 import eu.nt.xpenses.repositories.ExpenseRepository
 import eu.nt.xpenses.repositories.UserRepository
 import org.slf4j.LoggerFactory
+import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.server.ResponseStatusException
@@ -104,7 +105,7 @@ class ReportService(
         }
 
         // Refresh report reference
-        val updatedReport = reportRepository.findById(reportId).get()
+        val updatedReport = reportRepository.findById(reportId).orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND, "Report not found after refresh") }
         if (updatedReport.expenses.isEmpty()) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "No expenses attached to this report")
         }
@@ -124,20 +125,23 @@ class ReportService(
 
         val saved = reportRepository.save(updatedReport)
 
-        // Notify managers and CFOs
+        sendReportSubmittedNotification(saved.title, currentUser.displayName, totalAmount, saved.currency)
+
+        return saved
+    }
+
+    @Async
+    fun sendReportSubmittedNotification(reportTitle: String, userDisplayName: String, totalAmount: Double, currency: String) {
         val approvers = userRepository.findAll().filter {
             it.role in listOf("manager", "chef_finance") && it.isActive
         }
-        val subject = "New expense report submitted: ${saved.title}"
-        val content = "${currentUser.displayName} has submitted a new expense report: ${saved.title}.\nTotal: ${String.format("%.2f", totalAmount)} ${saved.currency}."
-        
+        val subject = "New expense report submitted: $reportTitle"
+        val content = "${userDisplayName} has submitted a new expense report: $reportTitle.\nTotal: ${String.format("%.2f", totalAmount)} $currency."
         for (appr in approvers) {
             if (!appr.email.isNullOrEmpty() && appr.notificationsEnabled) {
                 emailSettingsService.sendEmail(appr.email!!, subject, content)
             }
         }
-
-        return saved
     }
 
     @Transactional
@@ -229,7 +233,6 @@ class ReportService(
         val now = Instant.now()
         
         report.status = "rejected"
-        report.totalAmount = 0.0
         report.rejectedBy = currentUser
         report.rejectedAt = now
         report.rejectedReason = reason
@@ -257,12 +260,16 @@ class ReportService(
 
     @Transactional
     fun payReport(reportId: Int, currentUser: User): ExpenseReport {
-        if (currentUser.role != "chef_finance" && currentUser.role != "mod") {
-            throw ResponseStatusException(HttpStatus.FORBIDDEN, "Only chef_finance or mod can perform payment")
+        if (currentUser.role != "chef_finance") {
+            throw ResponseStatusException(HttpStatus.FORBIDDEN, "Only chef_finance can perform payment")
         }
 
         val report = reportRepository.findById(reportId).orElseThrow {
             ResponseStatusException(HttpStatus.NOT_FOUND, "Report not found")
+        }
+
+        if (report.user?.id == currentUser.id) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot pay your own report")
         }
 
         if (report.status != "approved") {

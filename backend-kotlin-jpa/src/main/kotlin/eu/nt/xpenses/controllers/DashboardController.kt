@@ -6,6 +6,7 @@ import eu.nt.xpenses.repositories.*
 import eu.nt.xpenses.services.ExpenseMapper
 import jakarta.servlet.http.HttpServletRequest
 import org.springframework.http.HttpStatus
+import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.bind.annotation.*
 import org.springframework.web.server.ResponseStatusException
 import java.time.Instant
@@ -22,6 +23,7 @@ class DashboardController(
 ) {
 
     @GetMapping
+    @Transactional(readOnly = true)
     fun getDashboard(
         @RequestParam(value = "all", required = false, defaultValue = "false") all: Boolean,
         request: HttpServletRequest
@@ -34,11 +36,11 @@ class DashboardController(
 
         val isOrgWide = currentUser.role in listOf("chef_finance", "mod") || (all && currentUser.role == "manager")
 
-        // 1. Get Expenses
+        // 1. Get Expenses with JOIN FETCH to kill N+1
         val expenses = if (isOrgWide) {
-            expenseRepository.findAll()
+            expenseRepository.findAllWithJoins()
         } else {
-            expenseRepository.findAllByUserId(currentUser.id!!)
+            expenseRepository.findAllByUserIdWithJoins(currentUser.id!!)
         }
 
         val expenseCountTotal = expenses.size

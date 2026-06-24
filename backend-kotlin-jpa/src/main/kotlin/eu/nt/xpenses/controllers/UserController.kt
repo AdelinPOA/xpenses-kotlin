@@ -11,11 +11,13 @@ import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Pattern
 import jakarta.validation.constraints.Size
 import jakarta.validation.constraints.NotNull
+import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.bind.annotation.*
+import org.springframework.web.server.ResponseStatusException
 import java.time.Instant
 
 @RestController
@@ -93,7 +95,7 @@ class UserController(
         @Valid @RequestBody body: RoleUpdateRequest,
         request: HttpServletRequest
     ): ResponseEntity<*> {
-        val currentUser = request.getAttribute("currentUser") as User
+        val currentUser = request.getAttribute("currentUser") as? User ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
         if (body.role !in validRoles) {
             return ResponseEntity.status(400).body(mapOf("detail" to "Invalid role. Must be one of: $validRoles"))
         }
@@ -118,7 +120,7 @@ class UserController(
         @Valid @RequestBody body: ActiveUpdateRequest,
         request: HttpServletRequest
     ): ResponseEntity<*> {
-        val currentUser = request.getAttribute("currentUser") as User
+        val currentUser = request.getAttribute("currentUser") as? User ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
         if (userId == currentUser.id) {
             return ResponseEntity.status(400).body(mapOf("detail" to "Cannot deactivate yourself"))
         }

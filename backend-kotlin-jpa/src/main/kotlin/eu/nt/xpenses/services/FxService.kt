@@ -5,13 +5,20 @@ import eu.nt.xpenses.repositories.FxRateRepository
 import org.springframework.stereotype.Service
 import org.springframework.web.client.RestClient
 import org.springframework.web.client.body
+import org.springframework.http.client.JdkClientHttpRequestFactory
+import java.net.http.HttpClient
+import java.time.Duration
 import java.time.Instant
 
 @Service
 class FxService(
     private val fxRateRepository: FxRateRepository
 ) {
-    private val restClient = RestClient.builder().build()
+    private val restClient = RestClient.builder()
+        .requestFactory(JdkClientHttpRequestFactory(HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(10))
+            .build(), Duration.ofSeconds(30)))
+        .build()
 
     fun getRate(fromCurrency: String, date: String): Double {
         val currency = fromCurrency.uppercase().trim()

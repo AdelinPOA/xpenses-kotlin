@@ -9,6 +9,7 @@ import eu.nt.xpenses.repositories.AppSettingRepository
 import eu.nt.xpenses.repositories.CategoryRepository
 import eu.nt.xpenses.repositories.ExpenseRepository
 import eu.nt.xpenses.repositories.OcrComparisonRepository
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.core.io.ByteArrayResource
 import org.springframework.http.HttpEntity
 import org.springframework.http.HttpHeaders
@@ -25,6 +26,8 @@ import java.math.BigDecimal
 import java.time.Instant
 import java.util.*
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.Executor
+import java.util.regex.Pattern
 import java.util.regex.Pattern
 
 data class OCRConfig(
@@ -100,14 +103,18 @@ class OcrService(
     private val expenseRepository: ExpenseRepository,
     private val ocrComparisonRepository: OcrComparisonRepository,
     private val cryptoService: CryptoService,
-    private val objectMapper: ObjectMapper
+    private val objectMapper: ObjectMapper,
+    @Qualifier("applicationTaskExecutor") private val taskExecutor: Executor
 ) {
     private val log = LoggerFactory.getLogger(OcrService::class.java)
     // Force HTTP/1.1: the JDK HttpClient defaults to an HTTP/1.1->HTTP/2 (h2c) upgrade on plain
     // HTTP, which uvicorn (MinerU) rejects, causing 422 "files: Field required". EasyOCR's
     // Flask server ignores the upgrade, but FastAPI/uvicorn does not. Pin to HTTP/1.1.
     private val restClient = RestClient.builder()
-        .requestFactory(JdkClientHttpRequestFactory(HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).build()))
+        .requestFactory(JdkClientHttpRequestFactory(HttpClient.newBuilder()
+            .version(HttpClient.Version.HTTP_1_1)
+            .connectTimeout(Duration.ofSeconds(10))
+            .build(), Duration.ofSeconds(60)))
         .build()
 
     fun getOcrConfig(): OCRConfig {
@@ -178,6 +185,11 @@ class OcrService(
     }
 
     fun testMineruConnection(baseUrl: String): Map<String, Any> {
+        try {
+            validateUrlForSsr(baseUrl)
+        } catch (e: IllegalArgumentException) {
+            return mapOf("success" to false, "message" to e.message)
+        }
         val url = baseUrl.trimEnd('/') + "/docs"
         return try {
             val response = restClient.get()
@@ -389,7 +401,7 @@ class OcrService(
 
             // Launch background tasks for the non-executed engines
             if (easyocrResult == null) {
-                CompletableFuture.runAsync {
+                CompletableFuture.runAsync({
                     try {
                         val res = scanEasyOcr(fileBytes, filename, categories, classifier)
                         updateEasyOcrComparison(comparisonId, res)
@@ -397,11 +409,11 @@ class OcrService(
                         log.error("Async EasyOCR failed: ${e.message}")
                         updateEasyOcrComparison(comparisonId, errorResult("EasyOCR failed: ${e.message}"))
                     }
-                }
+                }, taskExecutor)
             }
 
             if (mineruResult == null) {
-                CompletableFuture.runAsync {
+                CompletableFuture.runAsync({
                     try {
                         val res = scanMineru(fileBytes, filename, config.mineruUrl, categories, classifier)
                         updateMineruComparison(comparisonId, res)
@@ -409,11 +421,11 @@ class OcrService(
                         log.error("Async MinerU failed: ${e.message}")
                         updateMineruComparison(comparisonId, errorResult("MinerU failed: ${e.message}"))
                     }
-                }
+                }, taskExecutor)
             }
 
             if (geminiResult == null && config.geminiApiKey.isNotEmpty()) {
-                CompletableFuture.runAsync {
+                CompletableFuture.runAsync({
                     try {
                         val res = scanGemini(fileBytes, filename, config.geminiApiKey, categories, config.provider)
                         updateGeminiComparison(comparisonId, res)
@@ -421,7 +433,7 @@ class OcrService(
                         log.error("Async Gemini failed: ${e.message}")
                         updateGeminiComparison(comparisonId, errorResult("Gemini failed: ${e.message}"))
                     }
-                }
+                }, taskExecutor)
             }
         }
 
@@ -567,6 +579,7 @@ class OcrService(
         categories: List<eu.nt.xpenses.models.Category>,
         classifier: NaiveBayesClassifier?
     ): Map<String, Any?> {
+        validateUrlForSsr(mineruUrl)
         val url = mineruUrl.trimEnd('/') + "/file_parse"
         val resource = object : ByteArrayResource(fileBytes) {
             override fun getFilename(): String = filename
@@ -987,5 +1000,17 @@ class OcrService(
         val r = emptyResult(listOf(error)).toMutableMap()
         r["provider_error"] = error
         return r
+    }
+
+    private fun validateUrlForSsr(url: String, allowedHosts: List<String> = listOf("localhost", "127.0.0.1", "mineru")) {
+        try {
+            val parsed = java.net.URL(url)
+            val host = parsed.host
+            if (host == null || allowedHosts.none { host == it || host.endsWith(".$it") }) {
+                throw IllegalArgumentException("URL host '$host' is not in the allowed list: $allowedHosts")
+            }
+        } catch (e: java.net.MalformedURLException) {
+            throw IllegalArgumentException("Invalid URL: $url", e)
+        }
     }
 }

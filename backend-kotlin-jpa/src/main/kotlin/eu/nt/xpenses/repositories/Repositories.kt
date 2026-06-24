@@ -17,6 +17,7 @@ import java.math.BigDecimal
 @Repository
 interface UserRepository : JpaRepository<User, Int> {
     fun findByUsername(username: String): User?
+    fun findByEmailIgnoreCase(email: String): User?
 }
 
 @Repository
@@ -32,16 +33,16 @@ interface ExpenseReportRepository : JpaRepository<ExpenseReport, Int> {
     @Query("SELECT DISTINCT r FROM ExpenseReport r LEFT JOIN FETCH r.expenses LEFT JOIN FETCH r.user WHERE r.id = :id")
     fun findByIdWithExpenses(@Param("id") id: Int): Optional<ExpenseReport>
 
-    @Query("SELECT DISTINCT r FROM ExpenseReport r LEFT JOIN FETCH r.expenses LEFT JOIN FETCH r.user")
+    @Query("SELECT DISTINCT r FROM ExpenseReport r LEFT JOIN FETCH r.expenses LEFT JOIN FETCH r.user ORDER BY r.id DESC")
     fun findAllWithExpenses(): List<ExpenseReport>
 
-    @Query("SELECT DISTINCT r FROM ExpenseReport r LEFT JOIN FETCH r.expenses LEFT JOIN FETCH r.user WHERE r.user.id = :userId")
+    @Query("SELECT DISTINCT r FROM ExpenseReport r LEFT JOIN FETCH r.expenses LEFT JOIN FETCH r.user WHERE r.user.id = :userId ORDER BY r.id DESC")
     fun findAllByUserIdWithExpenses(@Param("userId") userId: Int): List<ExpenseReport>
 
-    @Query("SELECT DISTINCT r FROM ExpenseReport r LEFT JOIN FETCH r.expenses LEFT JOIN FETCH r.user WHERE r.status = :status")
+    @Query("SELECT DISTINCT r FROM ExpenseReport r LEFT JOIN FETCH r.expenses LEFT JOIN FETCH r.user WHERE r.status = :status ORDER BY r.id DESC")
     fun findAllByStatusWithExpenses(@Param("status") status: String): List<ExpenseReport>
 
-    @Query("SELECT DISTINCT r FROM ExpenseReport r LEFT JOIN FETCH r.expenses LEFT JOIN FETCH r.user WHERE r.user.id = :userId AND r.status = :status")
+    @Query("SELECT DISTINCT r FROM ExpenseReport r LEFT JOIN FETCH r.expenses LEFT JOIN FETCH r.user WHERE r.user.id = :userId AND r.status = :status ORDER BY r.id DESC")
     fun findAllByUserIdAndStatusWithExpenses(@Param("userId") userId: Int, @Param("status") status: String): List<ExpenseReport>
 
     @Query(value = "SELECT * FROM expense_reports WHERE deleted = true", nativeQuery = true)
@@ -53,6 +54,12 @@ interface ExpenseRepository : JpaRepository<Expense, Int> {
     fun findAllByUserId(userId: Int): List<Expense>
     fun findAllByReportId(reportId: Int): List<Expense>
 
+    @Query("SELECT DISTINCT e FROM Expense e LEFT JOIN FETCH e.user LEFT JOIN FETCH e.category WHERE e.user.id = :userId")
+    fun findAllByUserIdWithJoins(@Param("userId") userId: Int): List<Expense>
+
+    @Query("SELECT DISTINCT e FROM Expense e LEFT JOIN FETCH e.user LEFT JOIN FETCH e.category")
+    fun findAllWithJoins(): List<Expense>
+
     @Query("""
         SELECT e FROM Expense e
         WHERE (:userId IS NULL OR e.user.id = :userId)
@@ -61,7 +68,7 @@ interface ExpenseRepository : JpaRepository<Expense, Int> {
           AND (:categoryId IS NULL OR e.category.id = :categoryId)
           AND (:fromDate IS NULL OR e.date >= :fromDate)
           AND (:toDate IS NULL OR e.date <= :toDate)
-        ORDER BY e.date DESC
+        ORDER BY e.date DESC, e.id DESC
     """)
     // Eager-join the to-one relations (user, category) to avoid N+1 during DTO mapping.
     // The receipts collection is intentionally excluded — it is resolved via Hibernate's
@@ -85,6 +92,7 @@ interface ExpenseRepository : JpaRepository<Expense, Int> {
           AND (:categoryId IS NULL OR e.category.id = :categoryId)
           AND (:fromDate IS NULL OR e.date >= :fromDate)
           AND (:toDate IS NULL OR e.date <= :toDate)
+        ORDER BY e.date DESC, e.id DESC
     """)
     // See findAllWithFilters: to-one relations are join-fetched here; the receipts
     // collection is left to default_batch_fetch_size so pagination stays at the DB level.

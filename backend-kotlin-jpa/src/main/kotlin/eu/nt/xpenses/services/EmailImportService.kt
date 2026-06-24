@@ -10,11 +10,15 @@ import jakarta.mail.*
 import jakarta.mail.search.FlagTerm
 import org.slf4j.LoggerFactory
 import org.springframework.http.MediaType
+import org.springframework.scheduling.annotation.Async
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.client.RestClient
 import org.springframework.web.client.body
+import org.springframework.http.client.JdkClientHttpRequestFactory
+import java.net.http.HttpClient
+import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -29,7 +33,11 @@ class EmailImportService(
     private val emailSettingsService: EmailSettingsService
 ) {
     private val log = LoggerFactory.getLogger(EmailImportService::class.java)
-    private val restClient = RestClient.builder().build()
+    private val restClient = RestClient.builder()
+        .requestFactory(JdkClientHttpRequestFactory(HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(10))
+            .build(), Duration.ofSeconds(60)))
+        .build()
 
     fun parseDateFlexible(dtStr: String): String? {
         val formats = listOf("dd.MM.yyyy", "dd/MM/yyyy", "yyyy-MM-dd", "dd-MM-yyyy", "yyyy.MM.dd")
@@ -271,7 +279,7 @@ class EmailImportService(
 
     fun parseDelegationEmailGemini(text: String, apiKey: String, provider: String = "gemini"): Map<String, String>? {
         val modelName = ocrService.geminiModelName(provider)
-        val url = "https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=$apiKey"
+        val url = "https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent"
         val payload = mapOf(
             "contents" to listOf(
                 mapOf(
@@ -333,6 +341,7 @@ class EmailImportService(
             val response = restClient.post()
                 .uri(url)
                 .contentType(MediaType.APPLICATION_JSON)
+                .header("x-goog-api-key", apiKey)
                 .body(payload)
                 .retrieve()
                 .body<Map<String, Any>>() ?: throw Exception("Empty response from Gemini")
@@ -399,7 +408,7 @@ class EmailImportService(
             emailClean = emailClean.substringAfter("<").substringBefore(">").trim()
         }
 
-        val user = userRepository.findAll().firstOrNull { it.email?.lowercase() == emailClean.lowercase() }
+        val user = userRepository.findByEmailIgnoreCase(emailClean.lowercase())
         if (user == null) {
             log.info("Email import skipped: no user found with email {}", emailClean)
             return false
@@ -443,7 +452,7 @@ class EmailImportService(
             emailClean = emailClean.substringAfter("<").substringBefore(">").trim()
         }
 
-        val user = userRepository.findAll().firstOrNull { it.email?.lowercase() == emailClean.lowercase() }
+        val user = userRepository.findByEmailIgnoreCase(emailClean.lowercase())
         if (user == null) {
             return mapOf(
                 "success" to false,
@@ -532,6 +541,8 @@ class EmailImportService(
         )
     }
 
+    @Async
+    @Transactional
     @Scheduled(fixedDelayString = "\${imap.poll-interval:300000}")
     fun pollAndProcessEmails() {
         val config = emailSettingsService.getImapConfig()
@@ -546,6 +557,7 @@ class EmailImportService(
             val props = java.util.Properties().apply {
                 put("mail.imap.connectiontimeout", "10000")
                 put("mail.imap.timeout", "10000")
+                put("mail.imap.starttls.enable", "true")
                 put("mail.imap.ssl.enable", (config.imapPort == 993).toString())
             }
             val session = Session.getInstance(props)
@@ -577,7 +589,6 @@ class EmailImportService(
                         message.setFlag(Flags.Flag.SEEN, true)
                     } else {
                         log.info("Email from {} was not processed (e.g. user not found or no delegation patterns)", fromAddress)
-                        message.setFlag(Flags.Flag.SEEN, true)
                     }
                 } catch (e: Exception) {
                     log.error("Failed to process message: {}", e.message, e)

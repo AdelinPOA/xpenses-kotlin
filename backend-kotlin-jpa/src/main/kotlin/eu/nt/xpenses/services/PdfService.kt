@@ -26,7 +26,7 @@ class PdfService(
     @Value("\${company.name:Newtech Automation}") private val companyName: String
 ) {
     private val log = LoggerFactory.getLogger(PdfService::class.java)
-    private val decimalFormat = DecimalFormat("###,##0.00")
+    private val decimalFormat = ThreadLocal.withInitial { DecimalFormat("###,##0.00") }
     private val dateFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy").withZone(ZoneId.of("UTC"))
     private val dateTimeFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm").withZone(ZoneId.of("UTC"))
 
@@ -92,14 +92,16 @@ class PdfService(
         // Try to draw logo from classpath resource
         val logoStream = this::class.java.getResourceAsStream("/company_logo.png")
         if (logoStream != null) {
-            try {
-                val logoBytes = logoStream.readAllBytes()
-                val logoImg = Image.getInstance(logoBytes)
-                logoImg.scaleToFit(80f, 80f)
-                leftCell.addElement(logoImg)
-                leftCell.addElement(Paragraph(" ", fontSmall))
-            } catch (e: Exception) {
-                log.warn("Failed to load company logo: {}", e.message)
+            logoStream.use { stream ->
+                try {
+                    val logoBytes = stream.readAllBytes()
+                    val logoImg = Image.getInstance(logoBytes)
+                    logoImg.scaleToFit(80f, 80f)
+                    leftCell.addElement(logoImg)
+                    leftCell.addElement(Paragraph(" ", fontSmall))
+                } catch (e: Exception) {
+                    log.warn("Failed to load company logo: {}", e.message)
+                }
             }
         }
         leftCell.addElement(Paragraph(companyName, Font(Font.HELVETICA, 12f, Font.BOLD, java.awt.Color(30, 41, 59))))
@@ -613,7 +615,7 @@ class PdfService(
     }
 
     private fun formatAmount(amount: Double): String {
-        return decimalFormat.format(amount)
+        return decimalFormat.get().format(amount)
     }
 
     private fun formatCurrencySymbol(currency: String): String {

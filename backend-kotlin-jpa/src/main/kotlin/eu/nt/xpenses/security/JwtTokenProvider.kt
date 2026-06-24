@@ -38,14 +38,15 @@ class JwtTokenProvider(
 
     private val secureRandom = SecureRandom()
 
-    fun createAccessToken(userId: Int, username: String, role: String): String {
+    fun createAccessToken(userId: Int, username: String, role: String, tokenVersion: Int = 0): String {
         val now = Instant.now()
         val expiry = now.plusSeconds(accessExpiresMinutes * 60)
-        
+
         return Jwts.builder()
             .subject(userId.toString())
             .claim("username", username)
             .claim("role", role)
+            .claim("tokenVersion", tokenVersion)
             .issuedAt(Date.from(now))
             .expiration(Date.from(expiry))
             .signWith(key)
@@ -59,11 +60,12 @@ class JwtTokenProvider(
                 .build()
                 .parseSignedClaims(token)
                 .payload
-                
+
             ClaimsData(
                 userId = claims.subject.toInt(),
                 username = claims["username"] as String,
-                role = claims["role"] as String
+                role = claims["role"] as String,
+                tokenVersion = (claims["tokenVersion"] as? Int) ?: 0
             )
         } catch (e: Exception) {
             null
@@ -85,5 +87,6 @@ class JwtTokenProvider(
 data class ClaimsData(
     val userId: Int,
     val username: String,
-    val role: String
+    val role: String,
+    val tokenVersion: Int = 0
 )

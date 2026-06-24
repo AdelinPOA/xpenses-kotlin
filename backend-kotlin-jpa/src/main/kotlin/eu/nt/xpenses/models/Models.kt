@@ -44,6 +44,9 @@ class User(
     @Column(name = "notifications_enabled", nullable = false)
     var notificationsEnabled: Boolean = true,
 
+    @Column(name = "token_version", nullable = false)
+    var tokenVersion: Int = 0,
+
     @Column(name = "created_at", nullable = false)
     var createdAt: Instant = Instant.now(),
 
@@ -178,7 +181,7 @@ class ExpenseReport(
 
 @Entity
 @Table(name = "expenses")
-@SQLDelete(sql = "UPDATE expenses SET deleted = true, deleted_at = NOW() WHERE id=?")
+@SQLDelete(sql = "UPDATE expenses SET deleted = true, deleted_at = NOW() WHERE id=? AND version=?")
 @SQLRestriction("deleted = false")
 class Expense(
     @Id
@@ -240,6 +243,10 @@ class Expense(
 
     @Column(name = "updated_at", nullable = false)
     var updatedAt: Instant = Instant.now(),
+
+    @Version
+    @Column(nullable = false)
+    var version: Int = 0,
 
     @Column(nullable = false)
     var deleted: Boolean = false,
@@ -386,7 +393,11 @@ class AdvancePayment(
     var createdAt: Instant = Instant.now(),
 
     @Column(name = "updated_at", nullable = false)
-    var updatedAt: Instant = Instant.now()
+    var updatedAt: Instant = Instant.now(),
+
+    @Version
+    @Column(nullable = false)
+    var version: Int = 0
 )
 
 @Entity
@@ -438,7 +449,11 @@ class MileageRecord(
     var createdAt: Instant = Instant.now(),
 
     @Column(name = "updated_at", nullable = false)
-    var updatedAt: Instant = Instant.now()
+    var updatedAt: Instant = Instant.now(),
+
+    @Version
+    @Column(nullable = false)
+    var version: Int = 0
 )
 
 @Entity

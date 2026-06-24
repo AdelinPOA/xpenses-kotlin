@@ -62,7 +62,7 @@ class S3StorageProvider(
                 .bucket(bucket)
                 .key(relativePath)
                 .build()
-            return s3Client.getObject(request).readAllBytes()
+            return s3Client.getObject(request).use { it.readAllBytes() }
         } catch (e: NoSuchKeyException) {
             throw java.nio.file.NoSuchFileException("$relativePath not found in S3")
         } catch (e: Exception) {

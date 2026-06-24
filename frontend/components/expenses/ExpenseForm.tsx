@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import api, { Category, Expense, CURRENCIES, API_BASE_URL, OCRScanResult } from "@/lib/api";
+import api, { Category, Expense, CURRENCIES, API_BASE_URL, downloadBlob, OCRScanResult } from "@/lib/api";
 import { categoryKeys, expenseKeys, dashboardKeys } from "@/lib/queryKeys";
 import { X, Camera } from "lucide-react";
 import clsx from "clsx";
@@ -168,7 +168,7 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
         router.push(destination);
       }
     },
-    onError: (e: any) => setError(e.response?.data?.detail ?? "Failed to save"),
+    onError: (e: any) => setError(e.message ?? e.response?.data?.detail ?? "Failed to save"),
   });
 
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
@@ -249,15 +249,27 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
 
       if (res.status === 202 && res.data.status_url) {
         let isCompleted = false;
-        while (!isCompleted) {
-          await new Promise(resolve => setTimeout(resolve, 1500));
-          const statusRes = await api.get(res.data.status_url);
-          if (statusRes.data.status === "completed") {
-            result = statusRes.data.result;
-            isCompleted = true;
-          } else if (statusRes.data.status === "failed") {
-            throw new Error(statusRes.data.error || "OCR job failed");
+        let attempts = 0;
+        const maxAttempts = 60;
+        const abortController = new AbortController();
+        
+        try {
+          while (!isCompleted && attempts < maxAttempts) {
+            attempts++;
+            await new Promise(resolve => setTimeout(resolve, 1500));
+            const statusRes = await api.get(res.data.status_url, { signal: abortController.signal });
+            if (statusRes.data.status === "completed") {
+              result = statusRes.data.result;
+              isCompleted = true;
+            } else if (statusRes.data.status === "failed") {
+              throw new Error(statusRes.data.error || "OCR job failed");
+            }
           }
+          if (!isCompleted) {
+            throw new Error("OCR job timed out after 90 seconds");
+          }
+        } finally {
+          abortController.abort();
         }
       } else {
         result = res.data;
@@ -490,14 +502,12 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
               <div className="mt-2 space-y-1">
                 {existingReceipts.map((r) => (
                   <div key={r.id} className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-                    <a
-                      href={`${API_BASE_URL}/expenses/${expense!.id}/receipts/${r.id}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-blue-600 dark:text-blue-400 hover:underline truncate max-w-[200px]"
+                    <button
+                      onClick={() => downloadBlob(`/expenses/${expense!.id}/receipts/${r.id}`, {}, r.original_name || r.file_path.split("/").pop() || "Receipt")}
+                      className="text-blue-600 dark:text-blue-400 hover:underline truncate max-w-[200px] cursor-pointer"
                     >
                       {r.original_name || r.file_path.split("/").pop()}
-                    </a>
+                    </button>
                     <button
                       type="button"
                       onClick={() => markDeleteReceipt(r.id)}

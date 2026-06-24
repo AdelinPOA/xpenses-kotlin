@@ -12,7 +12,7 @@
   - Tested the backend API health check endpoint, which successfully returned `200 OK` (`{"status":"ok"}`).
 - **Fixed Demo Login Issue**:
   - Modified `frontend/lib/api.ts` to configure client-side `API_BASE_URL` as a relative path (`/api`). This routes all browser-side requests through Next.js server rewrites rather than direct cross-origin calls, resolving connectivity issues to `localhost:8001`.
-  - Limited Next.js build concurrency in `frontend/next.config.ts` (`cpus: 2`) and capped heap memory size in `frontend/Dockerfile` (`--max-old-space-size=2048`) to prevent OOM server freezing when compiling on multi-core servers.
+  - Adjusted Next.js build concurrency in `frontend/next.config.ts` (`cpus: 6`) and builder heap memory size in `frontend/Dockerfile` (`--max-old-space-size=4096`) to optimize compilation speeds using the server's 24 cores/8GB RAM without risking OOM crashes.
   - Verified successful auth session retrieval using the seeded demo users (`tech1`).
 
 ### Notes

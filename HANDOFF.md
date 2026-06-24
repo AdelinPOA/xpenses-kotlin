@@ -1,6 +1,23 @@
 # HANDOFF.md — xpenses-kotlin
 
-## Current Session (2026-06-24, session 86)
+## Current Session (2026-06-24, session 87)
+
+### What Was Done
+- **Verified and deleted `todo.md`**: Reviewed all 6 bugs from `todo.md` (generated session 60) against the current codebase. All 6 were confirmed FIXED — fixes landed in sessions 65 (`fix-codebase-bugs-and-debt`) and 85 (`codebase-hardening-round`), but the file was never updated. Deleted the stale file.
+  1. Export endpoint in-memory filtering (HIGH) — now uses `findAllWithFilters()`
+  2. BigDecimal precision loss (MEDIUM) — DTOs use `BigDecimal` directly, no `Double` intermediary
+  3. Unmanaged Thread in StorageService (MEDIUM) — uses Spring-managed `executor.execute{}`
+  4. WebP magic-byte validation (LOW) — two-stage check (RIFF + WEBP sub-identifier)
+  5. Silent storage deletion failure (LOW) — `logger.warn(...)` added
+  6. `any` types in insurance page (LOW) — replaced with `User[]` / `InsuranceFile[]`
+
+### Files Changed
+- `todo.md` — deleted (all items resolved)
+- `HANDOFF.md` — updated
+
+---
+
+## Previous Session (2026-06-24, session 86)
 
 ### What Was Done
 - **Deployed application stack to root@192.168.100.48**:

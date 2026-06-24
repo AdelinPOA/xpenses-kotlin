@@ -1,6 +1,23 @@
 # HANDOFF.md — xpenses-kotlin
 
-## Current Session (2026-06-22, session 85)
+## Current Session (2026-06-24, session 86)
+
+### What Was Done
+- **Deployed application stack to root@192.168.100.48**:
+  - Cloned the private `xpenses-kotlin` repository directly on the remote server using the GitHub credentials for `AdelinPOA` retrieved from Windows Credential Manager.
+  - Generated a secure 32-character random JWT secret.
+  - Created and configured the remote `/root/xpenses-kotlin/.env` file. Updated `NEXT_PUBLIC_API_URL` and `CORS_ALLOWED_ORIGINS` to point to the host IP `192.168.100.48` so browser queries reach the backend.
+  - Built and started the container stack via `docker compose up -d --build` on the remote server.
+  - Verified container health (all 4 containers are healthy and running).
+  - Tested the backend API health check endpoint, which successfully returned `200 OK` (`{"status":"ok"}`).
+
+### Notes
+- App is accessible on `http://192.168.100.48:3001` (frontend) and `http://192.168.100.48:8001/api` (backend).
+- Seeding of demo users was enabled (`SEED_DEMO_USERS=true`).
+
+---
+
+## Previous Session (2026-06-22, session 85)
 
 ### What Was Done
 - **Finished `codebase-hardening-round` OpenSpec change** — 4 specs implemented across 31 files (+348/-220 lines):

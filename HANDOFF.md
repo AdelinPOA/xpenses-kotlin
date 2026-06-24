@@ -10,6 +10,10 @@
   - Built and started the container stack via `docker compose up -d --build` on the remote server.
   - Verified container health (all 4 containers are healthy and running).
   - Tested the backend API health check endpoint, which successfully returned `200 OK` (`{"status":"ok"}`).
+- **Fixed Demo Login Issue**:
+  - Modified `frontend/lib/api.ts` to configure client-side `API_BASE_URL` as a relative path (`/api`). This routes all browser-side requests through Next.js server rewrites rather than direct cross-origin calls, resolving connectivity issues to `localhost:8001`.
+  - Limited Next.js build concurrency in `frontend/next.config.ts` (`cpus: 2`) and capped heap memory size in `frontend/Dockerfile` (`--max-old-space-size=2048`) to prevent OOM server freezing when compiling on multi-core servers.
+  - Verified successful auth session retrieval using the seeded demo users (`tech1`).
 
 ### Notes
 - App is accessible on `http://192.168.100.48:3001` (frontend) and `http://192.168.100.48:8001/api` (backend).

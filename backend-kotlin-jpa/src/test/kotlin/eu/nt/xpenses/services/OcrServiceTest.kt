@@ -32,7 +32,8 @@ class OcrServiceTest {
         expenseRepository,
         ocrComparisonRepository,
         cryptoService,
-        objectMapper
+        objectMapper,
+        java.util.concurrent.Executor { it.run() }
     )
 
     private val fakeBytes = "receipt image content".toByteArray()

@@ -28,6 +28,8 @@ class AsyncOcrTest {
     fun setup() {
         techUser = User(id = 1, username = "tech", displayName = "Tech", role = "technician")
         job = OcrJob(id = 1, user = techUser, status = "pending", filename = "receipt.jpg")
+        `when`(ocrJobRepository.save(any(OcrJob::class.java))).thenAnswer { it.arguments[0] }
+        `when`(ocrJobRepository.saveAndFlush(any(OcrJob::class.java))).thenAnswer { it.arguments[0] }
     }
 
     @Test

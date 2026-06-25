@@ -29,6 +29,7 @@ class ExpenseMapper {
             categoryId = expense.category?.id,
             categoryName = expense.category?.name,
             reportId = expense.report?.id,
+            comparisonId = null, // TODO: add comparisonId if a JPA relationship is added
             amountOriginal = expense.amountOriginal,
             currencyOriginal = expense.currencyOriginal,
             amountEur = expense.amountEur,

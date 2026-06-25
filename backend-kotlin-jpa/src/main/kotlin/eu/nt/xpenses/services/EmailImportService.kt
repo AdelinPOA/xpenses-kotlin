@@ -39,6 +39,7 @@ class EmailImportService(
                 val date = LocalDate.parse(dtStr.trim(), formatter)
                 return date.format(DateTimeFormatter.ISO_LOCAL_DATE)
             } catch (e: Exception) {
+                log.debug("Failed to parse date: {}", dtStr)
                 continue
             }
         }

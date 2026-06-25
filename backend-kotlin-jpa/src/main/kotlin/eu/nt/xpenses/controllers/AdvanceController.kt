@@ -354,9 +354,9 @@ class AdvanceController(
 
     private fun mapAdvanceToOut(adv: AdvancePayment): AdvancePaymentOut {
         return AdvancePaymentOut(
-            id = adv.id!!,
-            reportId = adv.report.id!!,
-            userId = adv.user.id!!,
+            id = adv.id ?: throw ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Entity has no ID"),
+            reportId = adv.report.id ?: throw ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Entity has no ID"),
+            userId = adv.user.id ?: throw ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Entity has no ID"),
             status = adv.status,
             amountOriginal = adv.amountOriginal,
             currencyOriginal = adv.currencyOriginal,
@@ -379,9 +379,9 @@ class AdvanceController(
 
     private fun mapPendingAdvanceToOut(adv: AdvancePayment): PendingAdvanceOut {
         return PendingAdvanceOut(
-            id = adv.id!!,
-            reportId = adv.report.id!!,
-            userId = adv.user.id!!,
+            id = adv.id ?: throw ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Entity has no ID"),
+            reportId = adv.report.id ?: throw ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Entity has no ID"),
+            userId = adv.user.id ?: throw ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Entity has no ID"),
             status = adv.status,
             amountOriginal = adv.amountOriginal,
             currencyOriginal = adv.currencyOriginal,

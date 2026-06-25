@@ -5,6 +5,7 @@ import eu.nt.xpenses.models.*
 import eu.nt.xpenses.repositories.*
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.validation.Valid
+import jakarta.validation.constraints.DecimalMin
 import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.NotBlank
 import org.springframework.http.HttpStatus
@@ -184,9 +185,9 @@ class MileageController(
     private fun mapRecordToOut(m: MileageRecord): MileageRecordOut {
         val durationMins = Duration.between(m.startTime, m.endTime).toMillis() / 60000.0
         return MileageRecordOut(
-            id = m.id!!,
-            reportId = m.report.id!!,
-            userId = m.user.id!!,
+            id = m.id ?: throw ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Entity has no ID"),
+            reportId = m.report.id ?: throw ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Entity has no ID"),
+            userId = m.user.id ?: throw ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Entity has no ID"),
             origin = m.origin,
             destination = m.destination,
             distanceKm = m.distanceKm,
@@ -207,7 +208,7 @@ class MileageController(
 data class MileageRecordCreate(
     @field:NotBlank val origin: String,
     @field:NotBlank val destination: String,
-    @JsonProperty("distance_km") @field:Min(0) val distanceKm: Double,
+    @JsonProperty("distance_km") @field:DecimalMin(value = "0.01", inclusive = true) val distanceKm: Double,
     @JsonProperty("start_time") val startTime: Instant,
     @JsonProperty("end_time") val endTime: Instant,
     val description: String? = null

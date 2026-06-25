@@ -6,18 +6,15 @@ export async function serverFetch<T>(
   init?: RequestInit
 ): Promise<T> {
   const cookieStore = await cookies();
-  const accessToken = cookieStore.get("access_token");
-  const refreshToken = cookieStore.get("refresh_token");
+  const allCookies = cookieStore.getAll();
 
   const INTERNAL_API_URL = process.env.INTERNAL_API_URL || "http://backend:8080/api";
 
-  let cookieString = "";
-  if (accessToken) cookieString += `access_token=${accessToken.value}; `;
-  if (refreshToken) cookieString += `refresh_token=${refreshToken.value}; `;
+  let cookieString = allCookies.map((c) => `${c.name}=${c.value}`).join("; ");
 
   const headers = new Headers(init?.headers);
   if (cookieString) {
-    headers.set("Cookie", cookieString.trim());
+    headers.set("Cookie", cookieString);
   }
 
   if (!headers.has("Content-Type")) {

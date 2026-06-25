@@ -10,6 +10,9 @@ import jakarta.annotation.PostConstruct
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.stereotype.Service
+import org.springframework.http.HttpStatus
+import org.springframework.web.server.ResponseStatusException
+import org.springframework.transaction.support.TransactionTemplate
 import java.io.File
 import java.time.Instant
 import java.util.concurrent.Executor
@@ -19,8 +22,13 @@ class StorageService(
     private val appSettingRepository: AppSettingRepository,
     private val cryptoService: CryptoService,
     private val objectMapper: ObjectMapper,
-    @Qualifier("applicationTaskExecutor") private val executor: Executor
+    @Qualifier("applicationTaskExecutor") private val executor: Executor,
+    private val transactionTemplate: TransactionTemplate
 ) {
+    companion object {
+        private const val MAX_FILE_SIZE = 50 * 1024 * 1024
+    }
+
     private val logger = LoggerFactory.getLogger(StorageService::class.java)
     private val defaultReceiptsDir = "/app/data/receipts"
     private val cryptoInfo = "xpenses-storage-settings"
@@ -156,6 +164,7 @@ class StorageService(
     }
 
     fun uploadFile(relativePath: String, content: ByteArray) {
+        if (content.size > MAX_FILE_SIZE) throw ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, "File too large")
         // Always write to local cache
         val localPath = getLocalPath(relativePath)
         val file = File(localPath)
@@ -302,49 +311,64 @@ class StorageService(
 
         // Run on Spring-managed thread pool
         executor.execute {
-            val errors = mutableListOf<String>()
-            var migrated = 0
-            var failed = 0
+            transactionTemplate.execute {
+                val errors = mutableListOf<String>()
+                var migrated = 0
+                var failed = 0
 
-            val oldProvider = createProvider(oldProviderType, oldConfig)
-            val newProvider = createProvider(newProviderType, newConfig)
+                val oldProvider = createProvider(oldProviderType, oldConfig)
+                val newProvider = createProvider(newProviderType, newConfig)
 
-            for (receipt in receipts) {
-                val path = receipt.filePath ?: continue
-                try {
-                    // Get file bytes from old provider
-                    val bytes = if (oldProvider != null) {
-                        oldProvider.download(path)
-                    } else {
-                        // local
-                        val localConfig = oldConfig["local"] as? Map<*, *>
-                        val localPath = localConfig?.get("path") as? String ?: defaultReceiptsDir
-                        File(localPath, path).readBytes()
+                for (receipt in receipts) {
+                    val path = receipt.filePath ?: continue
+                    try {
+                        // Get file bytes from old provider
+                        val bytes = if (oldProvider != null) {
+                            oldProvider.download(path)
+                        } else {
+                            // local
+                            val localConfig = oldConfig["local"] as? Map<*, *>
+                            val localPath = localConfig?.get("path") as? String ?: defaultReceiptsDir
+                            File(localPath, path).readBytes()
+                        }
+
+                        // Write file bytes to new provider
+                        if (newProvider != null) {
+                            newProvider.upload(path, bytes)
+                        } else {
+                            // local
+                            val localConfig = newConfig["local"] as? Map<*, *>
+                            val localPath = localConfig?.get("path") as? String ?: defaultReceiptsDir
+                            val dest = File(localPath, path)
+                            dest.parentFile?.mkdirs()
+                            dest.writeBytes(bytes)
+                        }
+
+                        migrated++
+                    } catch (e: Exception) {
+                        failed++
+                        errors.add("Failed to migrate $path: ${e.message}")
                     }
 
-                    // Write file bytes to new provider
-                    if (newProvider != null) {
-                        newProvider.upload(path, bytes)
-                    } else {
-                        // local
-                        val localConfig = newConfig["local"] as? Map<*, *>
-                        val localPath = localConfig?.get("path") as? String ?: defaultReceiptsDir
-                        val dest = File(localPath, path)
-                        dest.parentFile?.mkdirs()
-                        dest.writeBytes(bytes)
-                    }
-
-                    migrated++
-                } catch (e: Exception) {
-                    failed++
-                    errors.add("Failed to migrate $path: ${e.message}")
+                    // Update status in DB
+                    appSettingRepository.save(AppSetting(
+                        key = "storage_migration_status",
+                        value = objectMapper.writeValueAsString(mapOf(
+                            "status" to "running",
+                            "total_files" to receipts.size,
+                            "migrated_files" to migrated,
+                            "failed_files" to failed,
+                            "errors" to errors.take(50)
+                        )),
+                        updatedAt = Instant.now()
+                    ))
                 }
 
-                // Update status in DB
+                // Completed status
                 appSettingRepository.save(AppSetting(
                     key = "storage_migration_status",
                     value = objectMapper.writeValueAsString(mapOf(
-                        "status" to "running",
+                        "status" to if (failed == 0) "completed" else "failed",
                         "total_files" to receipts.size,
                         "migrated_files" to migrated,
                         "failed_files" to failed,
@@ -352,20 +376,8 @@ class StorageService(
                     )),
                     updatedAt = Instant.now()
                 ))
+                null
             }
-
-            // Completed status
-            appSettingRepository.save(AppSetting(
-                key = "storage_migration_status",
-                value = objectMapper.writeValueAsString(mapOf(
-                    "status" to if (failed == 0) "completed" else "failed",
-                    "total_files" to receipts.size,
-                    "migrated_files" to migrated,
-                    "failed_files" to failed,
-                    "errors" to errors.take(50)
-                )),
-                updatedAt = Instant.now()
-            ))
         }
     }
 }

@@ -1,6 +1,6 @@
 # TODO.md — xpenses-kotlin
 
-> Generated: 2026-06-20 (session 60)
+> Generated: 2026-06-20 (session 60), updated: 2026-06-25 (session 81)
 > Source: codebase audit
 
 ## Bugs
@@ -17,14 +17,13 @@
 - **Severity:** MEDIUM
 - **Problem:** Uses `BigDecimal(double)` constructor instead of `BigDecimal.valueOf()` for `taxAmount`/`taxRate` entity fields. Precision silently lost at ~15th decimal. The `amountEur` and `taxAmountEur` calculations already use `.valueOf()` — these 4 lines were missed during the prior fix.
 - **Fix:** Replace `BigDecimal(body.taxAmount)` with `BigDecimal.valueOf(body.taxAmount)`, same for `effTaxAmount` and `taxRate`.
-- **Status:** [ ] TODO
+- **Status:** [ ] TODO (deferred to M3 branch)
 
 ### 3. StorageService — unmanaged Thread
 - **File:** `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/StorageService.kt:301-366`
 - **Severity:** MEDIUM
-- **Problem:** Raw `Thread { }.start()` for storage migration. Not managed by Spring — killed silently on shutdown, no cancellation support, no exception reporting to the caller.
-- **Fix:** Inject `@Qualifier("applicationTaskExecutor") Executor` and use `executor.execute { ... }`.
-- **Status:** [ ] TODO
+- **Fix:** Replaced with `executor.execute` in M10 on fix/audit-medium-mop-up.
+- **Status:** [x] FIXED (M10)
 
 ### 4. WebP magic-byte validation too weak
 - **File:** `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/ExpenseController.kt:548`
@@ -46,3 +45,17 @@
 - **Problem:** `useQuery<any[]>()` for user list instead of the existing `User[]` type from `@/lib/api`. Forces `(u: any)` casts downstream.
 - **Fix:** Change `useQuery<any[]>` to `useQuery<User[]>` and remove `(u: any)` casts.
 - **Status:** [ ] TODO
+
+### 7. OcrService — cached error persists permanently
+- **File:** `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/OcrService.kt:214-225`
+- **Severity:** MEDIUM
+- **Problem:** OCR comparison cache stores error responses permanently; a transient error (rate limit, timeout) prevents re-processing on subsequent requests.
+- **Fix:** Check actual data fields (amount/date/merchant) before treating cache as hit, not just existence of a row.
+- **Status:** [x] FIXED (M-G6)
+
+### 8. OcrController — accuracy denominator includes rows where field is null
+- **File:** `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/OcrController.kt:150-190`
+- **Severity:** MEDIUM
+- **Problem:** Accuracy stats count rows with ANY field as denominator for EACH field's numerator, underreporting field-level accuracy.
+- **Fix:** Use per-field denominators (count rows where THAT SPECIFIC field exists).
+- **Status:** [x] FIXED (M-G8)

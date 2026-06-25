@@ -11,7 +11,7 @@ import { Check, X } from "lucide-react";
 import Link from "next/link";
 
 function formatAmount(amount: number, currency: string) {
-  return new Intl.NumberFormat("en-EU", { style: "currency", currency }).format(amount);
+  return new Intl.NumberFormat("en-GB", { style: "currency", currency }).format(amount);
 }
 
 export default function GlobalAdvancesPage() {

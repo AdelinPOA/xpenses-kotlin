@@ -12,7 +12,7 @@ import { Plus, Pencil, X } from "lucide-react";
 
 function formatLimit(limit: number | null) {
   if (limit === null) return "No limit";
-  return new Intl.NumberFormat("en-EU", { style: "currency", currency: "EUR" }).format(limit);
+  return new Intl.NumberFormat("en-GB", { style: "currency", currency: "EUR" }).format(limit);
 }
 
 interface FormState {

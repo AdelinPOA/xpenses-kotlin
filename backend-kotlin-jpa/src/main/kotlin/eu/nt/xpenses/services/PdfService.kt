@@ -424,7 +424,7 @@ class PdfService(
             cellOrigLabel.setPadding(5f)
             curTable.addCell(cellOrigLabel)
             for (c in sortedCurrencies) {
-                val sumOrig = byCurrency[c]!!.sumOf { it.amountOriginal }
+                val sumOrig = byCurrency[c]?.sumOf { it.amountOriginal } ?: continue
                 val cell = PdfPCell(Phrase(formatAmount(sumOrig), fontBody))
                 cell.setPadding(5f)
                 cell.horizontalAlignment = Element.ALIGN_RIGHT
@@ -436,7 +436,7 @@ class PdfService(
             cellReimbLabel.setPadding(5f)
             curTable.addCell(cellReimbLabel)
             for (c in sortedCurrencies) {
-                val sumEur = byCurrency[c]!!.sumOf { it.amountEur }
+                val sumEur = byCurrency[c]?.sumOf { it.amountEur } ?: continue
                 val cell = PdfPCell(Phrase("€${formatAmount(sumEur)}", fontBold))
                 cell.setPadding(5f)
                 cell.horizontalAlignment = Element.ALIGN_RIGHT

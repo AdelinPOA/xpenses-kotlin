@@ -17,6 +17,7 @@ import java.math.BigDecimal
 @Repository
 interface UserRepository : JpaRepository<User, Int> {
     fun findByUsername(username: String): User?
+    fun findByRoleInAndIsActive(roles: Collection<String>, isActive: Boolean): List<User>
 }
 
 @Repository
@@ -116,6 +117,9 @@ interface ExpenseRepository : JpaRepository<Expense, Int> {
 
     @Query(value = "SELECT * FROM expenses WHERE deleted = true", nativeQuery = true)
     fun findDeletedAudit(): List<Expense>
+
+    @Query("SELECT e FROM Expense e WHERE e.rawOcrText IS NOT NULL AND e.category IS NOT NULL")
+    fun findAllByRawOcrTextIsNotNullAndCategoryIsNotNull(): List<Expense>
 }
 
 @Repository

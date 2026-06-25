@@ -12,7 +12,7 @@ import { useToast } from "@/components/ToastProvider";
 import { CheckCircle, XCircle } from "lucide-react";
 
 function formatEur(amount: number) {
-  return new Intl.NumberFormat("en-EU", { style: "currency", currency: "EUR" }).format(amount);
+  return new Intl.NumberFormat("en-GB", { style: "currency", currency: "EUR" }).format(amount);
 }
 
 export default function ApprovalsPage() {

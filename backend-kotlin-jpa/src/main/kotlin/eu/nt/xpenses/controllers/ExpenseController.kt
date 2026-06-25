@@ -465,6 +465,7 @@ data class ExpenseOut(
     @JsonProperty("user_id") val userId: Int?,
     @JsonProperty("user_display_name") val userDisplayName: String?,
     @JsonProperty("category_id") val categoryId: Int?,
+    @JsonProperty("comparison_id") val comparisonId: Int? = null,
     @JsonProperty("category_name") val categoryName: String?,
     @JsonProperty("report_id") val reportId: Int?,
     @JsonProperty("amount_original") val amountOriginal: Double,

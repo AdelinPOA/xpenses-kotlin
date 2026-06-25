@@ -13,7 +13,7 @@ import Link from "next/link";
 import { useAuth } from "@/components/AuthProvider";
 
 function formatAmount(amount: number, currency: string) {
-  return new Intl.NumberFormat("en-EU", { style: "currency", currency }).format(amount);
+  return new Intl.NumberFormat("en-GB", { style: "currency", currency }).format(amount);
 }
 
 export default function ReportDetailPage({ params }: { params: Promise<{ id: string }> }) {

@@ -74,6 +74,7 @@ class Category(
 @Entity
 @Table(name = "expense_reports")
 @SQLDelete(sql = "UPDATE expense_reports SET deleted = true, deleted_at = NOW() WHERE id=? AND version=?")
+// TODO: cascade soft-delete to children via service-layer logic
 @SQLRestriction("deleted = false")
 class ExpenseReport(
     @Id
@@ -179,6 +180,7 @@ class ExpenseReport(
 @Entity
 @Table(name = "expenses")
 @SQLDelete(sql = "UPDATE expenses SET deleted = true, deleted_at = NOW() WHERE id=?")
+// TODO: cascade soft-delete to children via service-layer logic
 @SQLRestriction("deleted = false")
 class Expense(
     @Id
@@ -255,6 +257,7 @@ class Expense(
 @Entity
 @Table(name = "receipts")
 @SQLDelete(sql = "UPDATE receipts SET deleted = true, deleted_at = NOW() WHERE id=?")
+// TODO: cascade soft-delete to children via service-layer logic
 @SQLRestriction("deleted = false")
 class Receipt(
     @Id

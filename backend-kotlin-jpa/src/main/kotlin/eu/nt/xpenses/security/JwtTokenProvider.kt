@@ -18,7 +18,9 @@ class JwtTokenProvider(
     @Value("\${jwt.secret:}")
     private val jwtSecret: String,
     @Value("\${jwt.access-expires-minutes:15}")
-    private val accessExpiresMinutes: Long
+    private val accessExpiresMinutes: Long,
+    @Value("\${jwt.salt:xpenses-jwt-salt}")
+    private val jwtSalt: String
 ) {
 
     @PostConstruct
@@ -30,7 +32,7 @@ class JwtTokenProvider(
 
     private val key: SecretKey by lazy {
         // Derive a proper 256-bit HMAC key using PBKDF2 instead of zero-padding short secrets
-        val spec = PBEKeySpec(jwtSecret.toCharArray(), "xpenses-jwt-salt".toByteArray(), 65536, 256)
+        val spec = PBEKeySpec(jwtSecret.toCharArray(), jwtSalt.toByteArray(), 65536, 256)
         val factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
         val derived = factory.generateSecret(spec).encoded
         Keys.hmacShaKeyFor(derived)

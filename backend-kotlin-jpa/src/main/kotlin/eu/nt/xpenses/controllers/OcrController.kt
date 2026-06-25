@@ -139,6 +139,20 @@ class OcrController(
         var geminiCount = 0
         var mineruCount = 0
 
+        // Per-field denominators for accurate per-field accuracy calculation
+        var easyocrAmtDenom = 0
+        var easyocrDateDenom = 0
+        var easyocrMerchantDenom = 0
+        var easyocrCatDenom = 0
+        var geminiAmtDenom = 0
+        var geminiDateDenom = 0
+        var geminiMerchantDenom = 0
+        var geminiCatDenom = 0
+        var mineruAmtDenom = 0
+        var mineruDateDenom = 0
+        var mineruMerchantDenom = 0
+        var mineruCatDenom = 0
+
         val responseHistory = history.map { r ->
             val expense = r.expense
             val hasFinal = expense != null
@@ -147,52 +161,99 @@ class OcrController(
             val finalMerchant = expense?.merchant
             val finalCategoryId = expense?.category?.id
 
+            // Per-field existence checks
+            val hasEasyAmount = r.easyocrAmount != null
+            val hasEasyDate = r.easyocrDate != null
+            val hasEasyMerchant = r.easyocrMerchant != null
+            val hasEasyCategory = r.easyocrCategoryId != null
+            val hasEasy = hasEasyAmount || hasEasyDate || hasEasyMerchant || hasEasyCategory
+
+            val hasGeminiAmount = r.geminiAmount != null
+            val hasGeminiDate = r.geminiDate != null
+            val hasGeminiMerchant = r.geminiMerchant != null
+            val hasGeminiCategory = r.geminiCategoryId != null
+            val hasGemini = hasGeminiAmount || hasGeminiDate || hasGeminiMerchant || hasGeminiCategory
+
+            val hasMineruAmount = r.mineruAmount != null
+            val hasMineruDate = r.mineruDate != null
+            val hasMineruMerchant = r.mineruMerchant != null
+            val hasMineruCategory = r.mineruCategoryId != null
+            val hasMineru = hasMineruAmount || hasMineruDate || hasMineruMerchant || hasMineruCategory
+
             // EasyOCR accuracy
-            val hasEasy = r.easyocrAmount != null || r.easyocrDate != null || r.easyocrMerchant != null || r.easyocrCategoryId != null
             if (hasEasy && hasFinal) {
                 easyocrCount++
-                if (r.easyocrAmount != null && finalAmount != null) {
+                // Per-field: only count if THIS specific field exists
+                if (hasEasyAmount && finalAmount != null) {
+                    easyocrAmtDenom++
                     if (Math.abs(r.easyocrAmount!!.toDouble() - finalAmount) < 0.01) easyocrAmtOk++
                 }
-                if (r.easyocrDate != null && r.easyocrDate == finalDate) easyocrDateOk++
-                if (!r.easyocrMerchant.isNullOrEmpty() && !finalMerchant.isNullOrEmpty()) {
-                    if (r.easyocrMerchant!!.trim().lowercase() == finalMerchant.trim().lowercase()) easyocrMerchantOk++
-                } else if (r.easyocrMerchant.isNullOrEmpty() && finalMerchant.isNullOrEmpty()) {
-                    easyocrMerchantOk++
+                if (hasEasyDate && finalDate != null) {
+                    easyocrDateDenom++
+                    if (r.easyocrDate == finalDate) easyocrDateOk++
                 }
-                if (r.easyocrCategoryId == finalCategoryId) easyocrCatOk++
+                if (hasEasyMerchant) {
+                    easyocrMerchantDenom++
+                    if (!r.easyocrMerchant.isNullOrEmpty() && !finalMerchant.isNullOrEmpty()) {
+                        if (r.easyocrMerchant!!.trim().lowercase() == finalMerchant.trim().lowercase()) easyocrMerchantOk++
+                    } else if (r.easyocrMerchant.isNullOrEmpty() && finalMerchant.isNullOrEmpty()) {
+                        easyocrMerchantOk++
+                    }
+                }
+                if (hasEasyCategory && finalCategoryId != null) {
+                    easyocrCatDenom++
+                    if (r.easyocrCategoryId == finalCategoryId) easyocrCatOk++
+                }
             }
 
             // Gemini accuracy
-            val hasGemini = r.geminiAmount != null || r.geminiDate != null || r.geminiMerchant != null || r.geminiCategoryId != null
             if (hasGemini && hasFinal) {
                 geminiCount++
-                if (r.geminiAmount != null && finalAmount != null) {
+                if (hasGeminiAmount && finalAmount != null) {
+                    geminiAmtDenom++
                     if (Math.abs(r.geminiAmount!!.toDouble() - finalAmount) < 0.01) geminiAmtOk++
                 }
-                if (r.geminiDate != null && r.geminiDate == finalDate) geminiDateOk++
-                if (!r.geminiMerchant.isNullOrEmpty() && !finalMerchant.isNullOrEmpty()) {
-                    if (r.geminiMerchant!!.trim().lowercase() == finalMerchant.trim().lowercase()) geminiMerchantOk++
-                } else if (r.geminiMerchant.isNullOrEmpty() && finalMerchant.isNullOrEmpty()) {
-                    geminiMerchantOk++
+                if (hasGeminiDate && finalDate != null) {
+                    geminiDateDenom++
+                    if (r.geminiDate == finalDate) geminiDateOk++
                 }
-                if (r.geminiCategoryId == finalCategoryId) geminiCatOk++
+                if (hasGeminiMerchant) {
+                    geminiMerchantDenom++
+                    if (!r.geminiMerchant.isNullOrEmpty() && !finalMerchant.isNullOrEmpty()) {
+                        if (r.geminiMerchant!!.trim().lowercase() == finalMerchant.trim().lowercase()) geminiMerchantOk++
+                    } else if (r.geminiMerchant.isNullOrEmpty() && finalMerchant.isNullOrEmpty()) {
+                        geminiMerchantOk++
+                    }
+                }
+                if (hasGeminiCategory && finalCategoryId != null) {
+                    geminiCatDenom++
+                    if (r.geminiCategoryId == finalCategoryId) geminiCatOk++
+                }
             }
 
             // MinerU accuracy
-            val hasMineru = r.mineruAmount != null || r.mineruDate != null || r.mineruMerchant != null || r.mineruCategoryId != null
             if (hasMineru && hasFinal) {
                 mineruCount++
-                if (r.mineruAmount != null && finalAmount != null) {
+                if (hasMineruAmount && finalAmount != null) {
+                    mineruAmtDenom++
                     if (Math.abs(r.mineruAmount!!.toDouble() - finalAmount) < 0.01) mineruAmtOk++
                 }
-                if (r.mineruDate != null && r.mineruDate == finalDate) mineruDateOk++
-                if (!r.mineruMerchant.isNullOrEmpty() && !finalMerchant.isNullOrEmpty()) {
-                    if (r.mineruMerchant!!.trim().lowercase() == finalMerchant.trim().lowercase()) mineruMerchantOk++
-                } else if (r.mineruMerchant.isNullOrEmpty() && finalMerchant.isNullOrEmpty()) {
-                    mineruMerchantOk++
+                if (hasMineruDate && finalDate != null) {
+                    mineruDateDenom++
+                    if (r.mineruDate == finalDate) mineruDateOk++
                 }
-                if (r.mineruCategoryId == finalCategoryId) mineruCatOk++
+                if (hasMineruMerchant) {
+                    mineruMerchantDenom++
+                    if (!r.mineruMerchant.isNullOrEmpty() && !finalMerchant.isNullOrEmpty()) {
+                        if (r.mineruMerchant!!.trim().lowercase() == finalMerchant.trim().lowercase()) mineruMerchantOk++
+                    } else if (r.mineruMerchant.isNullOrEmpty() && finalMerchant.isNullOrEmpty()) {
+                        mineruMerchantOk++
+                    }
+                }
+                if (hasMineruCategory && finalCategoryId != null) {
+                    mineruCatDenom++
+                    if (r.mineruCategoryId == finalCategoryId) mineruCatOk++
+                }
             }
 
             OcrComparisonRow(
@@ -224,18 +285,18 @@ class OcrController(
 
         val stats = mapOf(
             "total_scanned" to history.size,
-            "easyocr_amount_accuracy" to if (easyocrCount > 0) Math.round((easyocrAmtOk.toDouble() / easyocrCount) * 10000.0) / 100.0 else 0.0,
-            "easyocr_date_accuracy" to if (easyocrCount > 0) Math.round((easyocrDateOk.toDouble() / easyocrCount) * 10000.0) / 100.0 else 0.0,
-            "easyocr_merchant_accuracy" to if (easyocrCount > 0) Math.round((easyocrMerchantOk.toDouble() / easyocrCount) * 10000.0) / 100.0 else 0.0,
-            "easyocr_category_accuracy" to if (easyocrCount > 0) Math.round((easyocrCatOk.toDouble() / easyocrCount) * 10000.0) / 100.0 else 0.0,
-            "gemini_amount_accuracy" to if (geminiCount > 0) Math.round((geminiAmtOk.toDouble() / geminiCount) * 10000.0) / 100.0 else 0.0,
-            "gemini_date_accuracy" to if (geminiCount > 0) Math.round((geminiDateOk.toDouble() / geminiCount) * 10000.0) / 100.0 else 0.0,
-            "gemini_merchant_accuracy" to if (geminiCount > 0) Math.round((geminiMerchantOk.toDouble() / geminiCount) * 10000.0) / 100.0 else 0.0,
-            "gemini_category_accuracy" to if (geminiCount > 0) Math.round((geminiCatOk.toDouble() / geminiCount) * 10000.0) / 100.0 else 0.0,
-            "mineru_amount_accuracy" to if (mineruCount > 0) Math.round((mineruAmtOk.toDouble() / mineruCount) * 10000.0) / 100.0 else 0.0,
-            "mineru_date_accuracy" to if (mineruCount > 0) Math.round((mineruDateOk.toDouble() / mineruCount) * 10000.0) / 100.0 else 0.0,
-            "mineru_merchant_accuracy" to if (mineruCount > 0) Math.round((mineruMerchantOk.toDouble() / mineruCount) * 10000.0) / 100.0 else 0.0,
-            "mineru_category_accuracy" to if (mineruCount > 0) Math.round((mineruCatOk.toDouble() / mineruCount) * 10000.0) / 100.0 else 0.0
+            "easyocr_amount_accuracy" to if (easyocrAmtDenom > 0) Math.round((easyocrAmtOk.toDouble() / easyocrAmtDenom) * 10000.0) / 100.0 else 0.0,
+            "easyocr_date_accuracy" to if (easyocrDateDenom > 0) Math.round((easyocrDateOk.toDouble() / easyocrDateDenom) * 10000.0) / 100.0 else 0.0,
+            "easyocr_merchant_accuracy" to if (easyocrMerchantDenom > 0) Math.round((easyocrMerchantOk.toDouble() / easyocrMerchantDenom) * 10000.0) / 100.0 else 0.0,
+            "easyocr_category_accuracy" to if (easyocrCatDenom > 0) Math.round((easyocrCatOk.toDouble() / easyocrCatDenom) * 10000.0) / 100.0 else 0.0,
+            "gemini_amount_accuracy" to if (geminiAmtDenom > 0) Math.round((geminiAmtOk.toDouble() / geminiAmtDenom) * 10000.0) / 100.0 else 0.0,
+            "gemini_date_accuracy" to if (geminiDateDenom > 0) Math.round((geminiDateOk.toDouble() / geminiDateDenom) * 10000.0) / 100.0 else 0.0,
+            "gemini_merchant_accuracy" to if (geminiMerchantDenom > 0) Math.round((geminiMerchantOk.toDouble() / geminiMerchantDenom) * 10000.0) / 100.0 else 0.0,
+            "gemini_category_accuracy" to if (geminiCatDenom > 0) Math.round((geminiCatOk.toDouble() / geminiCatDenom) * 10000.0) / 100.0 else 0.0,
+            "mineru_amount_accuracy" to if (mineruAmtDenom > 0) Math.round((mineruAmtOk.toDouble() / mineruAmtDenom) * 10000.0) / 100.0 else 0.0,
+            "mineru_date_accuracy" to if (mineruDateDenom > 0) Math.round((mineruDateOk.toDouble() / mineruDateDenom) * 10000.0) / 100.0 else 0.0,
+            "mineru_merchant_accuracy" to if (mineruMerchantDenom > 0) Math.round((mineruMerchantOk.toDouble() / mineruMerchantDenom) * 10000.0) / 100.0 else 0.0,
+            "mineru_category_accuracy" to if (mineruCatDenom > 0) Math.round((mineruCatOk.toDouble() / mineruCatDenom) * 10000.0) / 100.0 else 0.0
         )
 
         return ResponseEntity.ok(mapOf(

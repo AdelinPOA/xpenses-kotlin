@@ -43,7 +43,11 @@ class AuthController(
         response: HttpServletResponse
     ): ResponseEntity<*> {
         val user = userRepository.findByUsername(request.username)
-            ?: return ResponseEntity.status(401).body(mapOf("detail" to "Invalid credentials"))
+        if (user == null) {
+            // Prevent username enumeration timing oracle: always run bcrypt regardless
+            passwordEncoder.matches(request.password, "\$2a\$10\$dummyHashThatIsLongEnoughSoBcryptDoesNotCrash")
+            return ResponseEntity.status(401).body(mapOf("detail" to "Invalid credentials"))
+        }
 
         if (!user.isActive) {
             return ResponseEntity.status(403).body(mapOf("detail" to "Account deactivated"))

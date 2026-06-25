@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { User } from "@/lib/api";
 import { getMe, logout as apiLogout } from "@/lib/auth";
@@ -28,8 +28,13 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
+  const initialMount = useRef(true);
 
   useEffect(() => {
+    // Only fetch auth on initial mount, not on every route change
+    if (!initialMount.current) return;
+    initialMount.current = false;
+
     getMe()
       .then(setUser)
       .catch(() => {
@@ -42,7 +47,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
         }
       })
       .finally(() => setLoading(false));
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [pathname, router]);
 
   const logout = useCallback(async () => {
     await apiLogout();

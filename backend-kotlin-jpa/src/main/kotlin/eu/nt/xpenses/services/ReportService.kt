@@ -60,7 +60,14 @@ class ReportService(
 
         val expenses = expenseRepository.findAllById(expenseIds)
         val valid = expenses.filter { it.status == "draft" && it.user?.id == currentUser.id }
-        
+
+        // Prevent silent reparenting: check that none of the expenses are already attached to another draft report
+        for (exp in valid) {
+            if (exp.report?.id != null && exp.report?.id != reportId) {
+                throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Expense already attached to another report")
+            }
+        }
+
         val invalid = expenseIds.toSet() - valid.map { it.id!! }.toSet()
         if (invalid.isNotEmpty()) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid, non-draft, or not-owned expense IDs: $invalid")
@@ -125,9 +132,7 @@ class ReportService(
         val saved = reportRepository.save(updatedReport)
 
         // Notify managers and CFOs
-        val approvers = userRepository.findAll().filter {
-            it.role in listOf("manager", "chef_finance") && it.isActive
-        }
+        val approvers = userRepository.findByRoleInAndIsActive(listOf("manager", "chef_finance"), true)
         val subject = "New expense report submitted: ${saved.title}"
         val content = "${currentUser.displayName} has submitted a new expense report: ${saved.title}.\nTotal: ${String.format("%.2f", totalAmount)} ${saved.currency}."
         

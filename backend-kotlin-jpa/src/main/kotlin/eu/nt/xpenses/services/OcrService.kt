@@ -150,7 +150,7 @@ class OcrService(
     }
 
     fun trainLocalClassifier(): NaiveBayesClassifier? {
-        val expenses = expenseRepository.findAll().filter { it.rawOcrText != null && it.category != null }
+        val expenses = expenseRepository.findAllByRawOcrTextIsNotNullAndCategoryIsNotNull()
         if (expenses.size < 5) return null
         val data = expenses.map { Pair(it.rawOcrText!!, it.category!!.id!!) }
         val classifier = NaiveBayesClassifier()
@@ -213,9 +213,9 @@ class OcrService(
 
         if (cachedComparison != null) {
             val isProviderPopulated = when {
-                config.provider == "gemini" || config.provider.startsWith("gemini-") -> cachedComparison.geminiAmount != null || cachedComparison.geminiError != null
-                config.provider == "mineru" -> cachedComparison.mineruAmount != null || cachedComparison.mineruError != null
-                else -> cachedComparison.easyocrAmount != null || cachedComparison.easyocrError != null
+                config.provider == "gemini" || config.provider.startsWith("gemini-") -> cachedComparison.geminiAmount != null || cachedComparison.geminiDate != null || cachedComparison.geminiMerchant != null || cachedComparison.geminiCategoryId != null
+                config.provider == "mineru" -> cachedComparison.mineruAmount != null || cachedComparison.mineruDate != null || cachedComparison.mineruMerchant != null || cachedComparison.mineruCategoryId != null
+                else -> cachedComparison.easyocrAmount != null || cachedComparison.easyocrDate != null || cachedComparison.easyocrMerchant != null || cachedComparison.easyocrCategoryId != null
             }
 
             if (isProviderPopulated) {

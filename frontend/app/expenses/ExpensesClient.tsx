@@ -13,7 +13,7 @@ import { useToast } from "@/components/ToastProvider";
 import { Plus, Trash2, Pencil, Copy, Download } from "lucide-react";
 
 function formatAmount(amount: number, currency: string) {
-  return new Intl.NumberFormat("en-EU", { style: "currency", currency }).format(amount);
+  return new Intl.NumberFormat("en-GB", { style: "currency", currency }).format(amount);
 }
 
 function ExpensesPageContent() {

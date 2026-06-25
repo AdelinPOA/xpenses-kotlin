@@ -11,7 +11,7 @@ import { useAuth } from "@/components/AuthProvider";
 import { Banknote, XCircle } from "lucide-react";
 
 function formatEur(amount: number) {
-  return new Intl.NumberFormat("en-EU", { style: "currency", currency: "EUR" }).format(amount);
+  return new Intl.NumberFormat("en-GB", { style: "currency", currency: "EUR" }).format(amount);
 }
 
 export default function PaymentsPage() {

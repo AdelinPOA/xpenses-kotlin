@@ -15,7 +15,7 @@ interface Props {
 }
 
 function formatEur(amount: number) {
-  return new Intl.NumberFormat("en-EU", { style: "currency", currency: "EUR" }).format(amount);
+  return new Intl.NumberFormat("en-GB", { style: "currency", currency: "EUR" }).format(amount);
 }
 
 export default function ExpenseForm({ expense, reportId, defaultCurrency }: Props) {
@@ -513,7 +513,7 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
             {receiptFiles.length > 0 && (
               <div className="mt-2 space-y-1">
                 {receiptFiles.map((f, i) => (
-                  <div key={i} className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                  <div key={f.name + f.size} className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
                     <span className="truncate max-w-[200px]">{f.name}</span>
                     <span className="text-slate-300 dark:text-slate-600">({(f.size / 1024).toFixed(0)} KB)</span>
                     <button

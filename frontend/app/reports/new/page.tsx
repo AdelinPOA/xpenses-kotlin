@@ -9,7 +9,7 @@ import AppShell from "@/components/layout/AppShell";
 import Badge from "@/components/ui/Badge";
 
 function formatEur(amount: number) {
-  return new Intl.NumberFormat("en-EU", { style: "currency", currency: "EUR" }).format(amount);
+  return new Intl.NumberFormat("en-GB", { style: "currency", currency: "EUR" }).format(amount);
 }
 
 export default function NewReportPage() {

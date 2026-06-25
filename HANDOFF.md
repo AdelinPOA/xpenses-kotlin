@@ -1,6 +1,6 @@
 # HANDOFF.md — xpenses-kotlin
 
-## Current Session (2026-06-25, session 80)
+## Current Session (2026-06-25, session 89)
 
 ### What Was Done
 - **Full Audit Remediation (from hermes.md/todo.md)** — Implemented P0 (all 7 critical/security fixes), P1 (all 18 high-priority fixes), and most P2 items. Branch: `fix/audit-remediation`. 24 files modified + 1 new Flyway migration.
@@ -56,11 +56,104 @@
 - `ExpenseForm.tsx`, `ExpensesClient.tsx`, `reports/[id]/page.tsx`
 - `todo.md`
 
-### Not Yet Done
-- **M3** — `Double`/`DOUBLE PRECISION` → `BigDecimal`/`NUMERIC(12,2)` (schema-breaking, needs migration)
-- Remaining M1–M22, M-G6, M-G8, L1–L13 items (lower priority)
-- `make test` + `make build` full verification (requires JDK 21 + Docker)
-- Verification of ~22 unverified `[GLM]` findings
+---
+
+## Previous Session (2026-06-22, session 85)
+
+### What Was Done
+- **Finished `codebase-hardening-round` OpenSpec change** — 4 specs implemented across 31 files (+348/-220 lines):
+  1. **Global exception handler** (`ValidationExceptionHandler.kt`): Added `@ExceptionHandler(Exception::class)` fallback that logs full stack trace at ERROR and returns sanitized 500.
+  2. **CSRF/cookie hardening** (`SecurityConfig.kt`): Added Origin/Referer verification filter for state-changing requests (POST/PUT/PATCH/DELETE). Blocks requests with missing or non-allowed Origin/Referer headers with 403.
+  3. **Efficient data access**: Replaced 10 `findAll()` call sites across 7 files with scoped queries:
+     - Added `UserRepository.findByEmail()` (case-insensitive JPQL) + V17 email index migration
+     - `EmailImportService`: replaced `findAll().firstOrNull` → `findByEmail()`
+     - `DashboardController`: replaced `findAll()` with `count()`, date-scoped queries, pageable
+     - `OcrService.trainLocalClassifier()`: new `findAllWithOcrTrainingData()` query
+     - `LdapService.syncUsers()`: `findAllByAuthSourceAndIsActive()` query
+     - `ReportService`: `findAllByRoleInAndIsActive()` query
+     - `UserController`: `findAllByOrderByCreatedAt()` query
+     - `AppSettingsController`: `findAllFilePaths()` projection query on receipts
+  4. **Monetary precision**: Converted 14+ entity fields from `Double` → `BigDecimal` across `Expense`, `FxRate`, `AdvancePayment`, `MileageRecord`, `Category`, `ExpenseReport`. Updated all services (`FxService`, `ReportService`, `ExpenseService`, `PdfService`), controllers (8 files), DTOs, mappers, and 7 test files. Added `V20__convert_monetary_to_numeric.sql` migration (16 columns across 6 tables → `NUMERIC`).
+- Corrected stale CORS note in `CLAUDE.md`.
+- Branch: `feat/codebase-hardening-round` → PR to be opened.
+
+### Notes
+- Build verified: `compileKotlin` + `compileTestKotlin` + `bootJar` all pass.
+- V17 and V20 migration files are new (V18/V19 skipped; V17 = email index, V20 = NUMERIC columns).
+- FK-check constraints on monetary columns (`chk_expenses_amount_original`, etc.) were dropped and recreated during migration to allow column type change.
+- BigDecimal scale: money = 2 decimal places, FX rates = 6 decimal places, RoundingMode.HALF_UP.
+- `.claude/`, `.omo/`, `.mcp.json`, `AGENTS.md.local` are untracked tool artifacts — may need .gitignore entries.
+- Workflow: feature branch → PR → merge to main → update HANDOFF.md.
+
+---
+
+## Previous Session (2026-06-22, session 83)
+
+### What Was Done
+- **`/init` review of `CLAUDE.md` + targeted edits.** Verified the file against the codebase (migrations `V1`–`V16`, 12 test classes / 62 `@Test`, source layout — all accurate). Made two improvements: (1) the agent-file note now references `AGENTS.md` alongside `GEMINI.md` (three sibling instruction files to keep consistent); (2) added the **JDK 21/22 hard constraint** + `check-java-version` build guard (Kotlin 2.1.0 won't compile on JDK 23+; build via Docker in that case).
+- **Deleted stale/overlapping audit docs** (per user request): `audit-consolidated.md` (was tracked), `improvemen-audit.md` (was tracked), and the untracked `audit-full-codebase-2026-06-22.md`, `audit-bugs.md`, `AUDIT_FIXES.md`. Root no longer carries five competing audit files for future sessions to reconcile.
+- **Deleted the `audit-remediation` OpenSpec change** (`openspec/changes/audit-remediation/` — proposal, design, tasks, 9 delta specs). It was built on the now-deleted `audit-consolidated.md`; its references were dangling.
+
+### Notes
+- `.omo/drafts/audit-remediation.md` and `.omo/plans/audit-remediation.md` still reference the deleted audit (agent scratch, untracked) — left in place per user.
+- A pre-existing uncommitted edit to `AGENTS.md` (source-file counts + hot-swap note) was left unstaged — not part of this session's work.
+
+---
+
+## Previous Session (2026-06-22, session 82)
+
+### What Was Done
+- **Independent second re-audit** (parallel to session 81 / PR #7). Confirmed the addendum's findings; folded four additional verified corrections into the `audit-consolidated.md` Verification Addendum (commit `b9bb5d5`): **C7** (blank `JWT_SECRET` crash-loops the pod, not just loses auth), **H6** (ownership check missing in `updateExpense` too, not only `createExpense`), **H19** (`Loading...` in 12 files, not 6), **M7** (soft-delete gap also covers `AdvancePayment` + 4 other entities).
+- **Installed an auto-push hook for HANDOFF.md** (per user request "everytime push and merge handoff.md"): a `Stop` hook in `.claude/settings.local.json` runs `.claude/hooks/push-handoff.sh`, which — only when HANDOFF.md changed — commits *just* HANDOFF.md, pushes the current branch, and (from a feature branch) merges to `main` and pushes. No-ops otherwise; never blocks the session. This very entry is being committed/pushed by that hook as its live verification.
+
+### Notes
+- `audit-bugs.md` / `AUDIT_FIXES.md` are stale (removed Python backend); untracked locally.
+
+---
+
+## Previous Session (2026-06-22, session 81)
+
+### What Was Done
+- **Re-verified `audit-consolidated.md` against the code.** Re-checked all CRITICAL findings + a broad sample (~30) of HIGH/MEDIUM/LOW directly against source. Findings are accurate as stated; the two spot-checked "RESOLVED" claims (C10, C13) are genuinely resolved.
+- **3 corrections** documented in a new "Verification Addendum" in `audit-consolidated.md`:
+  - **C1** — `ExpenseController:405` already fixed (`findAllWithFilters`); report-list uses scoped queries, not `findAll()`. Real residual = in-memory sort + `subList` pagination. `DashboardController:39,54` `findAll()` correctly flagged.
+  - **H30** — frontend *does* have `restart: unless-stopped`; only `depends_on` is missing.
+  - **M3** — in-memory-sort list under-counts (also `AdvanceController:352`, `ReportController:527`, `DashboardController:83`).
+- **3 new open points (N1–N3)** found and folded into the `audit-remediation` OpenSpec change:
+  - **N1** — additional full-table `findAll()` scans (same OOM class as C1): `AppSettingsController:328,419,439`, `OcrService:153`, `LdapService:211`, `EmailImportService:402,446` → task **3.1**.
+  - **N2** — missing `findByEmail` repository method (forces N1's email full-scan) → new task **2.14**.
+  - **N3** — M3 sort list non-exhaustive → task **2.13**.
+
+### Files Changed
+- `audit-consolidated.md` (Verification Addendum appended)
+- `openspec/changes/audit-remediation/tasks.md` (tasks 2.13, 2.14, 2.15, 3.1 updated for N1–N3)
+- `HANDOFF.md`
+
+---
+
+## Previous Session (2026-06-22, session 80)
+
+### What Was Done
+- **Audit remediation planned via OpenSpec (`audit-remediation` mega-change)**:
+  - Reviewed `audit-consolidated.md` (verified 2026-06-22): **95 unresolved findings** — 10 CRITICAL, 40 HIGH, 22 MEDIUM, 26 LOW (excludes 3 resolved, 3 by-design, and deferred H7/M13).
+  - Created a single OpenSpec change at `openspec/changes/audit-remediation/` covering all net-new findings, sequenced into the audit's 4-sprint roadmap. Validates clean (`npx openspec validate audit-remediation`).
+  - **Reconciliation:** the four prior changes (`production-readiness-hardening`, `performance-query-optimization`, `fix-codebase-bugs-and-debt`, `code-quality-gaps-round-2`) are fully implemented, but the audit re-confirms residual gaps (same bug class in a *different* file, or *partial* fixes). The plan targets only that residue + net-new items and **references, not duplicates** those changes (C1/M3/M4 tagged "extends performance-query-optimization").
+  - **Artifacts:** `proposal.md`, `design.md` (9 decisions, risks, migration plan, 3 open questions), `tasks.md` (~110 tasks, each tagged with finding ID + `file:line`), and 9 spec deltas.
+  - **New capability specs:** `global-exception-handling` (C2), `csrf-protection` (C4), `secure-file-path-handling` (C11/H2), `monetary-precision` (H5/L12), `jwt-request-principal` (M2), `transactional-report-notifications` (M1), `backend-test-coverage`.
+  - **Modified capability specs:** `financial-record-soft-delete` (M7 MileageRecord + H9 optimistic locking), `service-layer-architecture` (H15 new services).
+  - Pure config/devops/refactor items (`.dockerignore`, CI caching, file splits, lint, frontend cleanups) are spec-less tasks.
+
+### Open Questions (block implementation — see `design.md`)
+- CSRF: is `SameSite=Strict` + Origin verification acceptable for all login/download flows, or is a CSRF-token repository needed now?
+- `Double`→`BigDecimal` (H5): is a maintenance window + DB snapshot available for the column retype on production data?
+- M1 atomicity: `@TransactionalEventListener(AFTER_COMMIT)` vs. a durable outbox table?
+
+### Next Steps
+- Resolve the 3 open questions, then run `/openspec-apply-change` (or `/opsx:apply`) starting with Sprint 1 (security & ops quick wins — no schema changes).
+
+### Files Changed
+- `openspec/changes/audit-remediation/` (new — proposal, design, tasks, 9 spec deltas)
+- `HANDOFF.md`
 
 ---
 

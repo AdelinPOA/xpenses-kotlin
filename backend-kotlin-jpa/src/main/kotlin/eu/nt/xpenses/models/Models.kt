@@ -65,7 +65,7 @@ class Category(
     var name: String,
 
     @Column(name = "limit_amount")
-    var limitAmount: Double? = null,
+    var limitAmount: BigDecimal? = null,
 
     @Column(name = "is_active", nullable = false)
     var isActive: Boolean = true,
@@ -108,7 +108,7 @@ class ExpenseReport(
     var paidAt: Instant? = null,
 
     @Column(name = "total_amount", nullable = false)
-    var totalAmount: Double = 0.0,
+    var totalAmount: BigDecimal = BigDecimal.ZERO,
 
     @Column(nullable = false)
     var currency: String = "EUR",
@@ -202,16 +202,16 @@ class Expense(
     var report: ExpenseReport? = null,
 
     @Column(name = "amount_original", nullable = false)
-    var amountOriginal: Double,
+    var amountOriginal: BigDecimal,
 
     @Column(name = "currency_original", nullable = false)
     var currencyOriginal: String = "EUR",
 
     @Column(name = "amount_eur", nullable = false)
-    var amountEur: Double,
+    var amountEur: BigDecimal,
 
     @Column(name = "fx_rate", nullable = false)
-    var fxRate: Double = 1.0,
+    var fxRate: BigDecimal = BigDecimal.ONE,
 
     @Column(name = "tax_amount", nullable = false)
     var taxAmount: BigDecimal = BigDecimal.ZERO,
@@ -306,7 +306,7 @@ class FxRate(
     var rateDate: String,
 
     @Column(nullable = false)
-    var rate: Double,
+    var rate: BigDecimal,
 
     @Column(name = "fetched_at", nullable = false)
     var fetchedAt: Instant = Instant.now()
@@ -350,16 +350,16 @@ class AdvancePayment(
     var user: User,
 
     @Column(name = "amount_original", nullable = false)
-    var amountOriginal: Double,
+    var amountOriginal: BigDecimal,
 
     @Column(name = "currency_original", nullable = false)
     var currencyOriginal: String = "EUR",
 
     @Column(name = "amount_eur", nullable = false)
-    var amountEur: Double,
+    var amountEur: BigDecimal,
 
     @Column(name = "fx_rate", nullable = false)
-    var fxRate: Double = 1.0,
+    var fxRate: BigDecimal = BigDecimal.ONE,
 
     @Column(nullable = false)
     var date: String,
@@ -370,7 +370,7 @@ class AdvancePayment(
     var status: String = "paid",
 
     @Column(name = "requested_amount")
-    var requestedAmount: Double? = null,
+    var requestedAmount: BigDecimal? = null,
 
     @Column(name = "requested_currency")
     var requestedCurrency: String? = null,
@@ -426,16 +426,16 @@ class MileageRecord(
     var distanceKm: Double,
 
     @Column(name = "rate_before_tax", nullable = false)
-    var rateBeforeTax: Double,
+    var rateBeforeTax: BigDecimal,
 
     @Column(name = "rate_after_tax", nullable = false)
-    var rateAfterTax: Double,
+    var rateAfterTax: BigDecimal,
 
     @Column(name = "amount_before_tax", nullable = false)
-    var amountBeforeTax: Double,
+    var amountBeforeTax: BigDecimal,
 
     @Column(name = "amount_eur", nullable = false)
-    var amountEur: Double,
+    var amountEur: BigDecimal,
 
     @Column(name = "start_time", nullable = false)
     var startTime: Instant,

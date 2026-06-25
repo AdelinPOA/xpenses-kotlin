@@ -65,7 +65,7 @@ class UserController(
             return ResponseEntity.status(403).body(mapOf("detail" to "Forbidden"))
         }
 
-        val users = userRepository.findAll().sortedBy { it.createdAt }
+        val users = userRepository.findAllByOrderByCreatedAt()
         return ResponseEntity.ok(users.map { UserResponse.fromUser(it) })
     }
 

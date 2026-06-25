@@ -96,10 +96,10 @@ class OcrServiceTest {
     fun `scanReceipt should resolve currency and raw text from linked expense when hit cache`() {
         val expense = Expense(
             id = 5,
-            amountOriginal = 15.0,
+            amountOriginal = BigDecimal("15.00"),
             currencyOriginal = "RON",
-            amountEur = 3.0,
-            fxRate = 0.20,
+            amountEur = BigDecimal("3.00"),
+            fxRate = BigDecimal("0.20"),
             taxAmount = BigDecimal("2.4"),
             taxRate = BigDecimal("19.0"),
             date = "2024-03-01",

@@ -208,7 +208,7 @@ class LdapService(
         ctx.close()
         
         // Deactivate LDAP users no longer in the directory
-        val ldapUsers = userRepository.findAll().filter { it.authSource == "ldap" && it.isActive }
+        val ldapUsers = userRepository.findAllByAuthSourceAndIsActive("ldap", true)
         for (ldapUser in ldapUsers) {
             if (!directoryUsernames.contains(ldapUser.username)) {
                 ldapUser.isActive = false

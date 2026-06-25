@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.server.ResponseStatusException
 import org.springframework.http.HttpStatus
+import java.math.BigDecimal
 import java.time.Instant
 
 @Service
@@ -117,7 +118,7 @@ class ReportService(
             expenseRepository.save(exp)
         }
 
-        val totalAmount = updatedReport.expenses.sumOf { it.amountEur }
+        val totalAmount = updatedReport.expenses.map { it.amountEur }.fold(BigDecimal.ZERO) { acc, v -> acc.add(v) }
         updatedReport.status = "submitted"
         updatedReport.submittedAt = now
         updatedReport.totalAmount = totalAmount
@@ -131,12 +132,10 @@ class ReportService(
     }
 
     @Async
-    fun sendReportSubmittedNotification(reportTitle: String, userDisplayName: String, totalAmount: Double, currency: String) {
-        val approvers = userRepository.findAll().filter {
-            it.role in listOf("manager", "chef_finance") && it.isActive
-        }
+    fun sendReportSubmittedNotification(reportTitle: String, userDisplayName: String, totalAmount: BigDecimal, currency: String) {
+        val approvers = userRepository.findAllByRoleInAndIsActive(listOf("manager", "chef_finance"), true)
         val subject = "New expense report submitted: $reportTitle"
-        val content = "${userDisplayName} has submitted a new expense report: $reportTitle.\nTotal: ${String.format("%.2f", totalAmount)} $currency."
+        val content = "${userDisplayName} has submitted a new expense report: $reportTitle.\nTotal: ${totalAmount.setScale(2, java.math.RoundingMode.HALF_UP)} $currency."
         for (appr in approvers) {
             if (!appr.email.isNullOrEmpty() && appr.notificationsEnabled) {
                 emailSettingsService.sendEmail(appr.email!!, subject, content)
@@ -233,6 +232,7 @@ class ReportService(
         val now = Instant.now()
         
         report.status = "rejected"
+
         report.rejectedBy = currentUser
         report.rejectedAt = now
         report.rejectedReason = reason

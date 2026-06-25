@@ -152,7 +152,7 @@ class OcrController(
             if (hasEasy && hasFinal) {
                 easyocrCount++
                 if (r.easyocrAmount != null && finalAmount != null) {
-                    if (Math.abs(r.easyocrAmount!!.toDouble() - finalAmount) < 0.01) easyocrAmtOk++
+                    if (r.easyocrAmount!!.subtract(finalAmount).abs().compareTo(BigDecimal("0.01")) < 0) easyocrAmtOk++
                 }
                 if (r.easyocrDate != null && r.easyocrDate == finalDate) easyocrDateOk++
                 if (!r.easyocrMerchant.isNullOrEmpty() && !finalMerchant.isNullOrEmpty()) {
@@ -168,7 +168,7 @@ class OcrController(
             if (hasGemini && hasFinal) {
                 geminiCount++
                 if (r.geminiAmount != null && finalAmount != null) {
-                    if (Math.abs(r.geminiAmount!!.toDouble() - finalAmount) < 0.01) geminiAmtOk++
+                    if (r.geminiAmount!!.subtract(finalAmount).abs().compareTo(BigDecimal("0.01")) < 0) geminiAmtOk++
                 }
                 if (r.geminiDate != null && r.geminiDate == finalDate) geminiDateOk++
                 if (!r.geminiMerchant.isNullOrEmpty() && !finalMerchant.isNullOrEmpty()) {
@@ -184,7 +184,7 @@ class OcrController(
             if (hasMineru && hasFinal) {
                 mineruCount++
                 if (r.mineruAmount != null && finalAmount != null) {
-                    if (Math.abs(r.mineruAmount!!.toDouble() - finalAmount) < 0.01) mineruAmtOk++
+                    if (r.mineruAmount!!.subtract(finalAmount).abs().compareTo(BigDecimal("0.01")) < 0) mineruAmtOk++
                 }
                 if (r.mineruDate != null && r.mineruDate == finalDate) mineruDateOk++
                 if (!r.mineruMerchant.isNullOrEmpty() && !finalMerchant.isNullOrEmpty()) {
@@ -265,7 +265,7 @@ data class OcrComparisonRow(
     @JsonProperty("gemini_error") val geminiError: String?,
     @JsonProperty("mineru_error") val mineruError: String?,
     val provider: String,
-    @JsonProperty("final_amount") val finalAmount: Double?,
+    @JsonProperty("final_amount") val finalAmount: BigDecimal?,
     @JsonProperty("final_date") val finalDate: String?,
     @JsonProperty("final_merchant") val finalMerchant: String?,
     @JsonProperty("final_category_id") val finalCategoryId: Int?

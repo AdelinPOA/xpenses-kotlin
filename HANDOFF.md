@@ -40,7 +40,7 @@ All remaining MEDIUM-priority audit items (M1–M22 excl. M3) implemented:
 - **Full Audit Remediation (from hermes.md/todo.md)** — Implemented P0 (all 7 critical/security fixes), P1 (all 18 high-priority fixes), and most P2 items. Branch: `fix/audit-remediation`. 24 files modified + 1 new Flyway migration.
 
 #### P0 — Critical / Security (7/7)
-- **C0** `V17__fix_expenses_status_check.sql` — new migration adding `'paid'` to `chk_expenses_status` CHECK constraint
+- **C0** `V21__fix_expenses_status_check.sql` (renamed from V17) — new migration adding `'paid'` to `chk_expenses_status` CHECK constraint
 - **C1** `EmailImportService.pollAndProcessEmails` — added `@Async` + `@Transactional` to scheduled IMAP polling
 - **C2** `ReportService.submitReport` — replaced `.get()` with `.orElseThrow { ResponseStatusException(NOT_FOUND) }`
 - **C3** `EmailImportService.parseDelegationEmailGemini` — moved Gemini API key from `?key=` query param to `x-goog-api-key` header
@@ -89,6 +89,20 @@ All remaining MEDIUM-priority audit items (M1–M22 excl. M3) implemented:
 - `Models.kt`, `Repositories.kt`
 - `ExpenseForm.tsx`, `ExpensesClient.tsx`, `reports/[id]/page.tsx`
 - `todo.md`
+
+---
+
+## Previous Session (2026-06-25, session 86) — fix/payreport-paid-constraint
+
+### What Was Done
+- **Fixed CRITICAL bug: `payReport` violated `chk_expenses_status`.** `ReportService.payReport` sets each attached expense to `status='paid'`, but the V5 `chk_expenses_status` CHECK constraint only allowed `('draft','submitted','approved','rejected')` for the `expenses` table.
+  - **Fix:** Merged `V21__fix_expenses_status_check.sql` to drop and re-add constraint with `'paid'` status.
+  - Added a **flushing regression test** in `ReportStateMachineTest.kt` that forces `entityManager.flush()` after pay.
+- **Fixed HIGH regression: #9's CSRF filter had broken the entire controller test suite.**
+  - **Fix:** rebuilt MockMvc in `IntegrationTestBase` to include default `Origin` header matching `cors.allowed-origins`.
+- **Fixed LOW: `FxServiceTest` asserted `Double` against `BigDecimal`.**
+  - **Fix:** scale-insensitive `BigDecimal.compareTo` assertions.
+- Pre-existing unstaged `frontend/next-env.d.ts` (auto-generated) left alone.
 
 ---
 

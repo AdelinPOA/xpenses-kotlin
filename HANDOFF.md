@@ -1,6 +1,22 @@
 # HANDOFF.md — xpenses-kotlin
 
-## Current Session (2026-06-25, session 90) — fix/audit-medium-mop-up
+## Current Session (2026-06-25, session 91) — merge-all-last-night-work
+
+### What Was Done
+- **Merged all last night's work branches into `main`:**
+  - Merged `fix/payreport-paid-constraint` and resolved duplicate database migration conflict (removed duplicate `V21__add_paid_to_expenses_status.sql` as `V21__fix_expenses_status_check.sql` implements it).
+  - Merged `feat/deployment-to-hst-dbn` and integrated all session logs (Session 86 deployment, Session 87 todo cleanup, Session 88 audit report) in chronological order.
+- **Fixed test failures:**
+  - Resolved `taskExecutor` argument missing in `OcrServiceTest.kt` instantiation.
+  - Resolved `NullPointerException` in `AsyncOcrTest.kt` mock checks by stubbing `save` and `saveAndFlush` to return their argument.
+  - Resolved context load failure in `IntegrationTestBase.kt` by registering `encryption.secret` dynamically so `CryptoService` can initialize correctly.
+- **Verified project build & quality:**
+  - Ran the containerized Gradle unit & integration test suite. All 63/63 tests are green.
+  - Pushed all merged changes and test fixes to the remote repository.
+
+---
+
+## Previous Session (2026-06-25, session 90) — fix/audit-medium-mop-up
 
 ### What Was Done
 All remaining MEDIUM-priority audit items (M1–M22 excl. M3) implemented:

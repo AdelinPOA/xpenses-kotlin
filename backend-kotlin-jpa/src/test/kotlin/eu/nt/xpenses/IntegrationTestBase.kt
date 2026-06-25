@@ -10,12 +10,16 @@ import org.mockito.ArgumentMatchers.anyString
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity
 import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
+import org.springframework.test.web.servlet.setup.MockMvcBuilders.webAppContextSetup
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.web.context.WebApplicationContext
 import org.testcontainers.containers.PostgreSQLContainer
 import java.math.BigDecimal
 
@@ -48,7 +52,9 @@ abstract class IntegrationTestBase {
         }
     }
 
-    @Autowired lateinit var mockMvc: MockMvc
+    @Autowired lateinit var webApplicationContext: WebApplicationContext
+    lateinit var mockMvc: MockMvc
+
     @Autowired lateinit var userRepository: UserRepository
     @Autowired lateinit var categoryRepository: CategoryRepository
     @Autowired lateinit var expenseRepository: ExpenseRepository
@@ -63,6 +69,17 @@ abstract class IntegrationTestBase {
 
     @BeforeEach
     fun setUpBase() {
+        // Build MockMvc with the full Spring Security filter chain plus a default Origin header.
+        // The csrfOriginRefererFilter (SecurityConfig) 403s state-changing requests lacking an
+        // Origin/Referer; MockMvc sends none by default, so a default matching cors.allowed-origins
+        // is injected here. The actual request's method/path/body take precedence; only the header
+        // is inherited. (Login/refresh are in the filter's skipPaths and don't need it.)
+        mockMvc = webAppContextSetup(webApplicationContext)
+            .apply<org.springframework.test.web.servlet.setup.DefaultMockMvcBuilder>(springSecurity())
+            .defaultRequest<org.springframework.test.web.servlet.setup.DefaultMockMvcBuilder>(
+                get("/").header("Origin", "http://localhost:3001")
+            )
+            .build()
         authHelper = TestAuthHelper(mockMvc)
         given(fxService.getRate(anyString(), anyString())).willReturn(BigDecimal.ONE)
     }

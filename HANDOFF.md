@@ -1,6 +1,26 @@
 # HANDOFF.md — xpenses-kotlin
 
-## Current Session (2026-06-22, session 85)
+## Current Session (2026-06-25, session 86)
+
+### What Was Done
+- **Codebase audit** (direct verification + 2 parallel review agents: backend/persistence, security/auth). Security layer audited clean (JWT, CSRF, crypto, IDOR scoping, path traversal all solid). The prior session-60 `todo.md` list was confirmed fully resolved by the merged `codebase-hardening-round` (#9). Rewrote `todo.md` with the 5 open findings.
+- **Fixed CRITICAL bug: `payReport` violated `chk_expenses_status`.** `ReportService.payReport` (`ReportService.kt:277`) sets each attached expense to `status='paid'`, but the V5 `chk_expenses_status` CHECK constraint only allowed `('draft','submitted','approved','rejected')` for the `expenses` table (the `expense_reports` constraint already allowed `'paid'`). Paying any approved report raised a Postgres CHECK violation → HTTP 500 in prod, rolled back. Invisible to tests because `@Transactional` rollback never flushed the dirty expense UPDATE.
+  - **Fix:** `V21__add_paid_to_expenses_status.sql` (DROP + re-ADD constraint with `'paid'`). V5 untouched.
+  - Added a **flushing regression test** in `ReportStateMachineTest.kt` that forces `entityManager.flush()` after pay and reloads the expense — actually exercises the constraint.
+- **Fixed HIGH regression: #9's CSRF filter had broken the entire controller test suite.** `csrfOriginRefererFilter` (`SecurityConfig.kt:93`) 403s state-changing requests lacking an Origin/Referer header; no MockMvc test sent one, so 13/18 `ReportStateMachineTest` cases (+ Advance/Expense/User controller tests) were 403ing — and the few that "passed" expected 403 for unrelated reasons (passing for the wrong reason, masking real failures).
+  - **Fix:** rebuilt MockMvc in `IntegrationTestBase` via `webAppContextSetup(...).apply(springSecurity()).defaultRequest(get("/").header("Origin","http://localhost:3001"))` — wires the full security filter chain plus a default Origin matching `cors.allowed-origins`. Login/refresh are in the filter's `skipPaths`.
+- **Fixed LOW: `FxServiceTest` asserted `Double` against `BigDecimal`** (`assertEquals(1.0, rate)`), always-false after `FxService.getRate` was migrated to `BigDecimal`. Switched to scale-insensitive `BigDecimal.compareTo` assertions. Surfaced only once the CSRF fix unblocked the rest of the suite.
+- **Verified:** full backend suite green — **63 tests, 0 failures, 0 errors** on JDK21 + Testcontainers.
+
+### Notes
+- **Local JVM is JDK 25** — cannot compile Kotlin 2.1.0 (Internal compiler error), so `make test`/`make build` fail the `check-java-version` guard. Ran the suite in a `eclipse-temurin:21-jdk` Docker container with the host Docker socket mounted (Testcontainers spawns a sibling Postgres; `TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal`, `--add-host=host.docker.internal:host-gateway`, host `~/.gradle` mounted for `--offline`). Install JDK 21 via SDKMAN for native local `make`.
+- **CI follow-up:** #9 merged with a fully-broken controller suite — confirm `.github/workflows/ci.yml`'s test job actually fails the build on red (logged in `todo.md`).
+- **Remaining open findings** (in `todo.md`, not yet fixed): #2 `mod` can pay reports (contradicts chef_finance-only policy), #3 unbounded in-memory load on `GET /api/reports?all=true`, #4 FX cache duplicate-row race (no unique constraint on `fx_rates`), #5 `getExpense` omits `manager` from privileged allowlist.
+- Pre-existing unstaged `frontend/next-env.d.ts` (auto-generated) left alone.
+
+---
+
+## Previous Session (2026-06-22, session 85)
 
 ### What Was Done
 - **Finished `codebase-hardening-round` OpenSpec change** — 4 specs implemented across 31 files (+348/-220 lines):

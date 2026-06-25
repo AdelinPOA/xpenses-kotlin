@@ -23,14 +23,15 @@ class FxServiceTest {
     fun `getRate for EUR returns 1_0 without any repository or HTTP call`() {
         val rate = fxService.getRate("EUR", "2026-06-01")
 
-        assertEquals(1.0, rate)
+        // getRate returns BigDecimal; compareTo is scale-insensitive (1 vs 1.0)
+        assertEquals(0, BigDecimal.ONE.compareTo(rate))
         verifyNoInteractions(fxRateRepository)
     }
 
     @Test
     fun `getRate for EUR lowercase returns 1_0`() {
         val rate = fxService.getRate("eur", "2026-06-01")
-        assertEquals(1.0, rate)
+        assertEquals(0, BigDecimal.ONE.compareTo(rate))
     }
 
     @Test
@@ -47,7 +48,7 @@ class FxServiceTest {
 
         val rate = fxService.getRate("USD", "2026-06-01")
 
-        assertEquals(0.92, rate)
+        assertEquals(0, BigDecimal("0.92").compareTo(rate))
         // save() must NOT be called — value came from cache, no API fetch needed
         verify(fxRateRepository, never()).save(any(FxRate::class.java))
     }

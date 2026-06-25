@@ -279,6 +279,30 @@ class ReportStateMachineTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `paying a report flushes paid status to its expenses without violating chk_expenses_status`() {
+        // Regression for the V5 chk_expenses_status constraint omitting 'paid' (fixed in V21).
+        // payReport sets each attached expense to status='paid'. The happy-path test above only
+        // asserts the response JSON (built from the in-memory report) and never flushes the
+        // expense UPDATE to Postgres, so the CHECK violation stayed invisible. Force the flush
+        // here: against the old constraint this throws; with V21 it persists cleanly.
+        val report = makeReport("tech1").also { it.status = "approved"; expenseReportRepository.save(it) }
+        val expense = makeExpense("tech1", report).also { it.status = "approved"; expenseRepository.save(it) }
+        entityManager.flush()
+        entityManager.clear()
+        val cookie = authHelper.loginAs("cfo1", "cfo1")
+
+        mockMvc.perform(post("/api/reports/${report.id}/pay").cookie(cookie))
+            .andExpect(status().isOk)
+
+        // Force the expense UPDATE to hit the DB — this is what actually exercises the constraint.
+        entityManager.flush()
+        entityManager.clear()
+
+        val refreshed = expenseRepository.findById(expense.id!!).get()
+        assertEquals("paid", refreshed.status)
+    }
+
+    @Test
     fun `manager cannot pay approved report → 403`() {
         val report = makeReport("tech1").also { it.status = "approved"; expenseReportRepository.save(it) }
         entityManager.flush()

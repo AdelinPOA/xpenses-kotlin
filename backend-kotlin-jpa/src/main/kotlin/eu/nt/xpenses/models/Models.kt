@@ -44,6 +44,9 @@ class User(
     @Column(name = "notifications_enabled", nullable = false)
     var notificationsEnabled: Boolean = true,
 
+    @Column(name = "token_version", nullable = false)
+    var tokenVersion: Int = 0,
+
     @Column(name = "created_at", nullable = false)
     var createdAt: Instant = Instant.now(),
 
@@ -62,7 +65,7 @@ class Category(
     var name: String,
 
     @Column(name = "limit_amount")
-    var limitAmount: Double? = null,
+    var limitAmount: BigDecimal? = null,
 
     @Column(name = "is_active", nullable = false)
     var isActive: Boolean = true,
@@ -106,7 +109,7 @@ class ExpenseReport(
     var paidAt: Instant? = null,
 
     @Column(name = "total_amount", nullable = false)
-    var totalAmount: Double = 0.0,
+    var totalAmount: BigDecimal = BigDecimal.ZERO,
 
     @Column(nullable = false)
     var currency: String = "EUR",
@@ -179,7 +182,7 @@ class ExpenseReport(
 
 @Entity
 @Table(name = "expenses")
-@SQLDelete(sql = "UPDATE expenses SET deleted = true, deleted_at = NOW() WHERE id=?")
+@SQLDelete(sql = "UPDATE expenses SET deleted = true, deleted_at = NOW() WHERE id=? AND version=?")
 // TODO: cascade soft-delete to children via service-layer logic
 @SQLRestriction("deleted = false")
 class Expense(
@@ -201,16 +204,16 @@ class Expense(
     var report: ExpenseReport? = null,
 
     @Column(name = "amount_original", nullable = false)
-    var amountOriginal: Double,
+    var amountOriginal: BigDecimal,
 
     @Column(name = "currency_original", nullable = false)
     var currencyOriginal: String = "EUR",
 
     @Column(name = "amount_eur", nullable = false)
-    var amountEur: Double,
+    var amountEur: BigDecimal,
 
     @Column(name = "fx_rate", nullable = false)
-    var fxRate: Double = 1.0,
+    var fxRate: BigDecimal = BigDecimal.ONE,
 
     @Column(name = "tax_amount", nullable = false)
     var taxAmount: BigDecimal = BigDecimal.ZERO,
@@ -242,6 +245,10 @@ class Expense(
 
     @Column(name = "updated_at", nullable = false)
     var updatedAt: Instant = Instant.now(),
+
+    @Version
+    @Column(nullable = false)
+    var version: Int = 0,
 
     @Column(nullable = false)
     var deleted: Boolean = false,
@@ -302,7 +309,7 @@ class FxRate(
     var rateDate: String,
 
     @Column(nullable = false)
-    var rate: Double,
+    var rate: BigDecimal,
 
     @Column(name = "fetched_at", nullable = false)
     var fetchedAt: Instant = Instant.now()
@@ -346,16 +353,16 @@ class AdvancePayment(
     var user: User,
 
     @Column(name = "amount_original", nullable = false)
-    var amountOriginal: Double,
+    var amountOriginal: BigDecimal,
 
     @Column(name = "currency_original", nullable = false)
     var currencyOriginal: String = "EUR",
 
     @Column(name = "amount_eur", nullable = false)
-    var amountEur: Double,
+    var amountEur: BigDecimal,
 
     @Column(name = "fx_rate", nullable = false)
-    var fxRate: Double = 1.0,
+    var fxRate: BigDecimal = BigDecimal.ONE,
 
     @Column(nullable = false)
     var date: String,
@@ -366,7 +373,7 @@ class AdvancePayment(
     var status: String = "paid",
 
     @Column(name = "requested_amount")
-    var requestedAmount: Double? = null,
+    var requestedAmount: BigDecimal? = null,
 
     @Column(name = "requested_currency")
     var requestedCurrency: String? = null,
@@ -389,7 +396,11 @@ class AdvancePayment(
     var createdAt: Instant = Instant.now(),
 
     @Column(name = "updated_at", nullable = false)
-    var updatedAt: Instant = Instant.now()
+    var updatedAt: Instant = Instant.now(),
+
+    @Version
+    @Column(nullable = false)
+    var version: Int = 0
 )
 
 @Entity
@@ -418,16 +429,16 @@ class MileageRecord(
     var distanceKm: Double,
 
     @Column(name = "rate_before_tax", nullable = false)
-    var rateBeforeTax: Double,
+    var rateBeforeTax: BigDecimal,
 
     @Column(name = "rate_after_tax", nullable = false)
-    var rateAfterTax: Double,
+    var rateAfterTax: BigDecimal,
 
     @Column(name = "amount_before_tax", nullable = false)
-    var amountBeforeTax: Double,
+    var amountBeforeTax: BigDecimal,
 
     @Column(name = "amount_eur", nullable = false)
-    var amountEur: Double,
+    var amountEur: BigDecimal,
 
     @Column(name = "start_time", nullable = false)
     var startTime: Instant,
@@ -441,7 +452,11 @@ class MileageRecord(
     var createdAt: Instant = Instant.now(),
 
     @Column(name = "updated_at", nullable = false)
-    var updatedAt: Instant = Instant.now()
+    var updatedAt: Instant = Instant.now(),
+
+    @Version
+    @Column(nullable = false)
+    var version: Int = 0
 )
 
 @Entity

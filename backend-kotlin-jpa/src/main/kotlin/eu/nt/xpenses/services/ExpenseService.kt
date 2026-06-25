@@ -35,8 +35,8 @@ class ExpenseService(
             throw ResponseStatusException(HttpStatus.BAD_GATEWAY, "Failed to fetch exchange rate: ${e.message}")
         }
 
-        val amountEur = BigDecimal.valueOf(body.amount).multiply(BigDecimal.valueOf(fxRate)).setScale(2, RoundingMode.HALF_UP).toDouble()
-        val taxAmountEur = BigDecimal.valueOf(body.taxAmount).multiply(BigDecimal.valueOf(fxRate)).setScale(2, RoundingMode.HALF_UP)
+        val amountEur = body.amount.multiply(fxRate).setScale(2, RoundingMode.HALF_UP)
+        val taxAmountEur = body.taxAmount.multiply(fxRate).setScale(2, RoundingMode.HALF_UP)
 
         val category = body.categoryId?.let {
             categoryRepository.findById(it).orElseThrow {
@@ -65,8 +65,8 @@ class ExpenseService(
             currencyOriginal = body.currency.uppercase(),
             amountEur = amountEur,
             fxRate = fxRate,
-            taxAmount = BigDecimal.valueOf(body.taxAmount),
-            taxRate = body.taxRate?.let { BigDecimal.valueOf(it) },
+            taxAmount = body.taxAmount,
+            taxRate = body.taxRate,
             taxAmountEur = taxAmountEur,
             date = body.date,
             description = body.description,
@@ -109,8 +109,8 @@ class ExpenseService(
             val effAmount = body.amount ?: expense.amountOriginal
             val effCurrency = (body.currency ?: expense.currencyOriginal).uppercase()
             val effDate = body.date ?: expense.date
-            val effTaxAmount = body.taxAmount ?: expense.taxAmount.toDouble()
-            val effTaxRate = body.taxRate ?: expense.taxRate?.toDouble()
+            val effTaxAmount = body.taxAmount ?: expense.taxAmount
+            val effTaxRate = body.taxRate ?: expense.taxRate
 
             val fxRate = try {
                 fxService.getRate(effCurrency, effDate)
@@ -121,10 +121,10 @@ class ExpenseService(
             expense.amountOriginal = effAmount
             expense.currencyOriginal = effCurrency
             expense.fxRate = fxRate
-            expense.amountEur = BigDecimal.valueOf(effAmount).multiply(BigDecimal.valueOf(fxRate)).setScale(2, RoundingMode.HALF_UP).toDouble()
-            expense.taxAmount = BigDecimal.valueOf(effTaxAmount)
-            expense.taxRate = effTaxRate?.let { BigDecimal.valueOf(it) }
-            expense.taxAmountEur = BigDecimal.valueOf(effTaxAmount).multiply(BigDecimal.valueOf(fxRate)).setScale(2, RoundingMode.HALF_UP)
+            expense.amountEur = effAmount.multiply(fxRate).setScale(2, RoundingMode.HALF_UP)
+            expense.taxAmount = effTaxAmount
+            expense.taxRate = effTaxRate
+            expense.taxAmountEur = effTaxAmount.multiply(fxRate).setScale(2, RoundingMode.HALF_UP)
         }
 
         if (body.date != null) expense.date = body.date
@@ -186,8 +186,8 @@ class ExpenseService(
             throw ResponseStatusException(HttpStatus.BAD_GATEWAY, "Failed to fetch exchange rate: ${e.message}")
         }
 
-        val amountEur = BigDecimal.valueOf(expense.amountOriginal).multiply(BigDecimal.valueOf(fxRate)).setScale(2, RoundingMode.HALF_UP).toDouble()
-        val taxAmountEur = expense.taxAmount.multiply(BigDecimal.valueOf(fxRate)).setScale(2, RoundingMode.HALF_UP)
+        val amountEur = expense.amountOriginal.multiply(fxRate).setScale(2, RoundingMode.HALF_UP)
+        val taxAmountEur = expense.taxAmount.multiply(fxRate).setScale(2, RoundingMode.HALF_UP)
 
         val newExpense = Expense(
             user = currentUser,

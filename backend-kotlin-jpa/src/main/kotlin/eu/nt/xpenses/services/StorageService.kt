@@ -119,11 +119,11 @@ class StorageService(
 
         val localConfig = config["local"] as? Map<*, *>
         val localPath = localConfig?.get("path") as? String ?: defaultReceiptsDir
-        val baseDir = File(localPath).absoluteFile
+        val baseDir = File(localPath).canonicalFile
 
         if (providerType == "local") {
-            val target = File(baseDir, relativePath).absoluteFile
-            if (!target.startsWith(baseDir)) {
+            val target = File(baseDir, relativePath).canonicalFile
+            if (!target.canonicalPath.startsWith(baseDir.canonicalPath + File.separator)) {
                 throw IllegalArgumentException("Invalid target filepath: path traversal detected")
             }
             // Ensure parent directory exists
@@ -132,17 +132,17 @@ class StorageService(
         }
 
         // Remote provider: use cache directory
-        val cacheBase = File(baseDir, "cache").absoluteFile
-        val target = File(cacheBase, relativePath).absoluteFile
-        if (!target.startsWith(cacheBase)) {
+        val cacheBase = File(baseDir, "cache").canonicalFile
+        val target = File(cacheBase, relativePath).canonicalFile
+        if (!target.canonicalPath.startsWith(cacheBase.canonicalPath + File.separator)) {
             throw IllegalArgumentException("Invalid target cache path: path traversal detected")
         }
 
         if (!target.exists()) {
             // Check local default fallback
-            val fallbackBase = File(defaultReceiptsDir).absoluteFile
-            val fallbackTarget = File(fallbackBase, relativePath).absoluteFile
-            if (fallbackTarget.exists() && fallbackTarget.startsWith(fallbackBase)) {
+            val fallbackBase = File(defaultReceiptsDir).canonicalFile
+            val fallbackTarget = File(fallbackBase, relativePath).canonicalFile
+            if (fallbackTarget.exists() && fallbackTarget.canonicalPath.startsWith(fallbackBase.canonicalPath + File.separator)) {
                 return fallbackTarget.absolutePath
             }
 
@@ -329,7 +329,12 @@ class StorageService(
                             // local
                             val localConfig = oldConfig["local"] as? Map<*, *>
                             val localPath = localConfig?.get("path") as? String ?: defaultReceiptsDir
-                            File(localPath, path).readBytes()
+                            val migrationBase = File(localPath).canonicalFile
+                            val migrationFile = File(migrationBase, path).canonicalFile
+                            if (!migrationFile.canonicalPath.startsWith(migrationBase.canonicalPath + File.separator)) {
+                                throw IllegalArgumentException("Invalid target filepath: path traversal detected")
+                            }
+                            migrationFile.readBytes()
                         }
 
                         // Write file bytes to new provider

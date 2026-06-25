@@ -36,9 +36,9 @@ class MileageController(
         return report
     }
 
-    private fun getMileageRates(): Pair<Double, Double> {
-        val rateBt = appSettingRepository.findById("mileage_rate_before_tax").orElse(null)?.value?.toDoubleOrNull() ?: 0.60
-        val rateAt = appSettingRepository.findById("mileage_rate_after_tax").orElse(null)?.value?.toDoubleOrNull() ?: 0.40
+    private fun getMileageRates(): Pair<BigDecimal, BigDecimal> {
+        val rateBt = appSettingRepository.findById("mileage_rate_before_tax").orElse(null)?.value?.let { BigDecimal(it) } ?: BigDecimal("0.60")
+        val rateAt = appSettingRepository.findById("mileage_rate_after_tax").orElse(null)?.value?.let { BigDecimal(it) } ?: BigDecimal("0.40")
         return Pair(rateBt, rateAt)
     }
 
@@ -79,8 +79,9 @@ class MileageController(
         }
 
         val (rateBt, rateAt) = getMileageRates()
-        val amountBeforeTax = BigDecimal.valueOf(body.distanceKm).multiply(BigDecimal.valueOf(rateBt)).setScale(2, RoundingMode.HALF_UP).toDouble()
-        val amountEur = BigDecimal.valueOf(body.distanceKm).multiply(BigDecimal.valueOf(rateAt)).setScale(2, RoundingMode.HALF_UP).toDouble()
+        val distanceBd = BigDecimal.valueOf(body.distanceKm)
+        val amountBeforeTax = distanceBd.multiply(rateBt).setScale(2, RoundingMode.HALF_UP)
+        val amountEur = distanceBd.multiply(rateAt).setScale(2, RoundingMode.HALF_UP)
 
         val record = MileageRecord(
             report = report,
@@ -143,8 +144,9 @@ class MileageController(
 
         if (body.distanceKm != null) {
             rec.distanceKm = body.distanceKm
-            rec.amountBeforeTax = BigDecimal.valueOf(body.distanceKm).multiply(BigDecimal.valueOf(rec.rateBeforeTax)).setScale(2, RoundingMode.HALF_UP).toDouble()
-            rec.amountEur = BigDecimal.valueOf(body.distanceKm).multiply(BigDecimal.valueOf(rec.rateAfterTax)).setScale(2, RoundingMode.HALF_UP).toDouble()
+            val distanceBd = BigDecimal.valueOf(body.distanceKm)
+            rec.amountBeforeTax = distanceBd.multiply(rec.rateBeforeTax).setScale(2, RoundingMode.HALF_UP)
+            rec.amountEur = distanceBd.multiply(rec.rateAfterTax).setScale(2, RoundingMode.HALF_UP)
         }
 
         rec.updatedAt = Instant.now()
@@ -230,10 +232,10 @@ data class MileageRecordOut(
     val origin: String,
     val destination: String,
     @JsonProperty("distance_km") val distanceKm: Double,
-    @JsonProperty("rate_before_tax") val rateBeforeTax: Double,
-    @JsonProperty("rate_after_tax") val rateAfterTax: Double,
-    @JsonProperty("amount_before_tax") val amountBeforeTax: Double,
-    @JsonProperty("amount_eur") val amountEur: Double,
+    @JsonProperty("rate_before_tax") val rateBeforeTax: BigDecimal,
+    @JsonProperty("rate_after_tax") val rateAfterTax: BigDecimal,
+    @JsonProperty("amount_before_tax") val amountBeforeTax: BigDecimal,
+    @JsonProperty("amount_eur") val amountEur: BigDecimal,
     @JsonProperty("start_time") val startTime: Instant,
     @JsonProperty("end_time") val endTime: Instant,
     val description: String?,

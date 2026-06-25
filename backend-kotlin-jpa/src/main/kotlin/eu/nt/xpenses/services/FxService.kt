@@ -7,6 +7,11 @@ import org.springframework.stereotype.Service
 import org.springframework.web.client.RestClient
 import org.springframework.web.client.body
 import java.net.URLEncoder
+import org.springframework.http.client.JdkClientHttpRequestFactory
+import java.net.http.HttpClient
+import java.time.Duration
+import java.math.BigDecimal
+import java.math.RoundingMode
 import java.time.Instant
 
 @Service
@@ -14,12 +19,17 @@ class FxService(
     private val fxRateRepository: FxRateRepository
 ) {
     private val log = LoggerFactory.getLogger(FxService::class.java)
-    private val restClient = RestClient.builder().build()
+    private val restClient = RestClient.builder()
+        .requestFactory(JdkClientHttpRequestFactory(HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(10))
+            .build()
+        ).also { it.setReadTimeout(Duration.ofSeconds(30)) })
+        .build()
 
-    fun getRate(fromCurrency: String, date: String): Double {
+    fun getRate(fromCurrency: String, date: String): BigDecimal {
         val currency = fromCurrency.uppercase().trim()
         if (currency == "EUR") {
-            return 1.0
+            return BigDecimal.ONE
         }
 
         // Check cache
@@ -34,7 +44,7 @@ class FxService(
             rate = fetchFallback(currency, date)
         }
 
-        if (rate == null || rate == 0.0) {
+        if (rate == null || rate.compareTo(BigDecimal.ZERO) == 0) {
             throw IllegalArgumentException("Invalid rate returned for $currency: $rate")
         }
 
@@ -59,7 +69,15 @@ class FxService(
         return rate
     }
 
-    private fun fetchFrankfurter(currency: String, date: String): Double? {
+    fun convert(amount: BigDecimal, fromCurrency: String, date: String): BigDecimal {
+        if (fromCurrency.uppercase().trim() == "EUR") {
+            return amount.setScale(2, RoundingMode.HALF_UP)
+        }
+        val rate = getRate(fromCurrency, date)
+        return amount.divide(rate, 6, RoundingMode.HALF_UP).setScale(2, RoundingMode.HALF_UP)
+    }
+
+    private fun fetchFrankfurter(currency: String, date: String): BigDecimal? {
         return try {
             val encodedCurrency = URLEncoder.encode(currency, "UTF-8")
             val url = "https://api.frankfurter.dev/v1/$date?from=$encodedCurrency&to=EUR"
@@ -70,13 +88,13 @@ class FxService(
             
             val rates = response?.get("rates") as? Map<*, *>
             val eurRate = rates?.get("EUR")
-            (eurRate as? Number)?.toDouble()
+            (eurRate as? Number)?.toDouble()?.let { BigDecimal.valueOf(it) }
         } catch (e: Exception) {
             null
         }
     }
 
-    private fun fetchFallback(currency: String, date: String): Double? {
+    private fun fetchFallback(currency: String, date: String): BigDecimal? {
         val curLower = currency.lowercase()
         val encodedCurLower = URLEncoder.encode(curLower, "UTF-8")
         return try {
@@ -98,7 +116,7 @@ class FxService(
 
             val rates = response?.get(curLower) as? Map<*, *>
             val eurRate = rates?.get("eur")
-            (eurRate as? Number)?.toDouble()
+            (eurRate as? Number)?.toDouble()?.let { BigDecimal.valueOf(it) }
         } catch (e: Exception) {
             null
         }

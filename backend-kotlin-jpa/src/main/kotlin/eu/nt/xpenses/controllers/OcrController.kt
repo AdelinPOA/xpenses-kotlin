@@ -186,7 +186,7 @@ class OcrController(
                 // Per-field: only count if THIS specific field exists
                 if (hasEasyAmount && finalAmount != null) {
                     easyocrAmtDenom++
-                    if (Math.abs(r.easyocrAmount!!.toDouble() - finalAmount) < 0.01) easyocrAmtOk++
+                    if (r.easyocrAmount!!.subtract(finalAmount).abs().compareTo(BigDecimal("0.01")) < 0) easyocrAmtOk++
                 }
                 if (hasEasyDate && finalDate != null) {
                     easyocrDateDenom++
@@ -211,7 +211,7 @@ class OcrController(
                 geminiCount++
                 if (hasGeminiAmount && finalAmount != null) {
                     geminiAmtDenom++
-                    if (Math.abs(r.geminiAmount!!.toDouble() - finalAmount) < 0.01) geminiAmtOk++
+                    if (r.geminiAmount!!.subtract(finalAmount).abs().compareTo(BigDecimal("0.01")) < 0) geminiAmtOk++
                 }
                 if (hasGeminiDate && finalDate != null) {
                     geminiDateDenom++
@@ -236,7 +236,7 @@ class OcrController(
                 mineruCount++
                 if (hasMineruAmount && finalAmount != null) {
                     mineruAmtDenom++
-                    if (Math.abs(r.mineruAmount!!.toDouble() - finalAmount) < 0.01) mineruAmtOk++
+                    if (r.mineruAmount!!.subtract(finalAmount).abs().compareTo(BigDecimal("0.01")) < 0) mineruAmtOk++
                 }
                 if (hasMineruDate && finalDate != null) {
                     mineruDateDenom++
@@ -326,7 +326,7 @@ data class OcrComparisonRow(
     @JsonProperty("gemini_error") val geminiError: String?,
     @JsonProperty("mineru_error") val mineruError: String?,
     val provider: String,
-    @JsonProperty("final_amount") val finalAmount: Double?,
+    @JsonProperty("final_amount") val finalAmount: BigDecimal?,
     @JsonProperty("final_date") val finalDate: String?,
     @JsonProperty("final_merchant") val finalMerchant: String?,
     @JsonProperty("final_category_id") val finalCategoryId: Int?

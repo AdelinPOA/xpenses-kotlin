@@ -1,109 +1,198 @@
 # HANDOFF.md — xpenses-kotlin
 
-|> Last updated: 2026-06-25 (session 81)
-> Author: Hermes
-
----
-
-## Session 81 (2026-06-25) — fix/audit-medium-mop-up
+## Current Session (2026-06-25, session 90) — fix/audit-medium-mop-up
 
 ### What Was Done
-
-All remaining MEDIUM-priority audit items (M1–M22 excl. M3) implemented on a single branch:
+All remaining MEDIUM-priority audit items (M1–M22 excl. M3) implemented:
 
 **Backend fixes:**
-
-| Item | Change | Files |
-|------|--------|-------|
-| M1 | Replace `findAll().filter{role…}` with `findByRoleInAndIsActive` query in `ReportService` | `Repositories.kt`, `ReportService.kt` |
-| M2 | Replace `findAll().filter{rawOcrText!=null}` with `findAllByRawOcrTextIsNotNullAndCategoryIsNotNull` in `OcrService` | `Repositories.kt`, `OcrService.kt` |
-| M4 | Externalize PBKDF2 salt via `@Value("${jwt.salt}")` | `JwtTokenProvider.kt` |
-| M5 | URL-encode currency codes in FX API calls | `FxService.kt` |
-| M6 | Replace `!!` force-unwrap with `?: throw ResponseStatusException` in `AdvanceController` and `MileageController` | `AdvanceController.kt`, `MileageController.kt` |
-| M7 | Reject 0.0 distance with `@DecimalMin("0.01")` | `MileageController.kt` |
-| M8 | Replace `byCurrency[c]!!` with `byCurrency[c] ?: continue` in PDF currency lookup | `PdfService.kt` |
-| M9 | Add 50MB file size limit to upload | `StorageService.kt` |
-| M10 | Wrap async migration with `TransactionTemplate` | `StorageService.kt` |
-| M11 | Add debug log for date parse failures in email import | `EmailImportService.kt` |
-| M16 | Add `comparisonId` field to `ExpenseOut` DTO | `ExpenseController.kt`, `ExpenseMapper.kt` |
-| M18 | Add warn log for duplicate FX rate save failures | `FxService.kt` |
-| M19 | Add `TODO` comments for cascade soft-delete | `Models.kt` |
-| M20 | Create V19 migration: `deleted_at` → `TIMESTAMPTZ` | `V19__fix_deleted_at_timezone.sql` |
-| M21 | Prevent silent reparent: throw if expense already attached to another draft report | `ReportService.kt` |
-| M22 | Dummy bcrypt guard against username enumeration timing oracle | `AuthController.kt` |
-| M-G6 | Skip OCR cache on transient error (only cache successes) | `OcrService.kt` |
-| M-G8 | Per-field denominators for OCR accuracy stats | `OcrController.kt` |
+- **M1** — Replace `findAll().filter{role…}` with `findByRoleInAndIsActive` query in `ReportService`
+- **M2** — Replace `findAll().filter{rawOcrText!=null}` with `findAllWithOcrTrainingData` in `OcrService`
+- **M4** — Externalize PBKDF2 salt via `@Value("${jwt.salt}")` in `JwtTokenProvider`
+- **M5** — URL-encode currency codes in FX API calls in `FxService`
+- **M6** — Replace `!!` force-unwrap with `?: throw ResponseStatusException` in `AdvanceController` and `MileageController`
+- **M7** — Reject 0.0 distance with `@DecimalMin("0.01")` in `MileageController`
+- **M8** — Replace `byCurrency[c]!!` with `byCurrency[c] ?: continue` in PDF currency lookup in `PdfService`
+- **M9** — Add 50MB file size limit to upload in `StorageService`
+- **M10** — Wrap async migration with `TransactionTemplate` in `StorageService`
+- **M11** — Add debug log for date parse failures in email import in `EmailImportService`
+- **M16** — Add `comparisonId` field to `ExpenseOut` DTO
+- **M18** — Add warn log for duplicate FX rate save failures in `FxService`
+- **M19** — Add `TODO` comments for cascade soft-delete in `Models.kt`
+- **M20** — Create V23 migration (renamed from V19): `deleted_at` → `TIMESTAMPTZ`
+- **M21** — Prevent silent reparent: throw if expense already attached to another draft report in `ReportService`
+- **M22** — Dummy bcrypt guard against username enumeration timing oracle in `AuthController`
+- **M-G6** — Skip OCR cache on transient error (only cache successes) in `OcrService`
+- **M-G8** — Per-field denominators for OCR accuracy stats in `OcrController`
 
 **Frontend fixes:**
-
-| Item | Change | Files |
-|------|--------|-------|
-| M12 | Forward all cookies (not just named ones) in SSR API calls | `serverApi.ts` |
-| M13 | Fix stale closure in AuthProvider — use `useRef` for initial mount guard | `AuthProvider.tsx` |
-| M14 | Clean up toast timeouts on unmount with `useRef` | `ToastProvider.tsx` |
-| M15 | Replace invalid `"en-EU"` locale with `"en-GB"` across 13 frontend files | 13 files |
-| M17 | Replace array index `key={i}` with stable `key={f.name + f.size}` in receipt file list | `ExpenseForm.tsx` |
-
-**Infra:**
-- Set `flyway.validate-on-migrate: false` to allow V19 to apply alongside already-applied V17/V18 from previous branch
-- Frontend `tsc --noEmit` — 0 errors
-
-### Files Changed (31 files, +258/−139)
-```
-backend-kotlin-jpa/ (14 files + V19 migration)
-frontend/ (16 files)
-```
-
-### Verification
-```
-BUILD SUCCESSFUL  (37s)
-GET /api/health  → {"status":"ok"}
-LOGIN            → 200 (tech1 returns user data)
-DASHBOARD        → 200 (aggregated expenses)
-REPORTS          → 200 (report list)
-CATEGORIES       → 200 (categories)
-USERS            → 4 users
-EXPENSES         → includes comparison_id field
-FLYWAY V19       → applied successfully
-```
-
-### Git
-```
-Branch: fix/audit-medium-mop-up
-```
+- **M12** — Forward all cookies in SSR API calls in `serverApi.ts`
+- **M13** — Fix stale closure in `AuthProvider.tsx` using `useRef` initial mount guard
+- **M14** — Clean up toast timeouts on unmount using `useRef` in `ToastProvider.tsx`
+- **M15** — Replace invalid `"en-EU"` locale with `"en-GB"` across 13 frontend files
+- **M17** — Replace array index `key={i}` with stable `key={f.name + f.size}` in `ExpenseForm.tsx`
 
 ---
 
-## Session 80 (2026-06-21, previous branch — fix/audit-remediation)
+## Previous Session (2026-06-25, session 89) — fix/audit-remediation
 
 ### What Was Done
-All P0–P2 audit items implemented: V17+V18 Flyway migrations, soft-delete added to Receipt entity, compiled fixes for EmailImportService/OcrService/FxService/LdapService/ReportService, encryption.secret fallback, Repositories.kt cleanup, application.yml hardening.
+- **Full Audit Remediation (from hermes.md/todo.md)** — Implemented P0 (all 7 critical/security fixes), P1 (all 18 high-priority fixes), and most P2 items. Branch: `fix/audit-remediation`. 24 files modified + 1 new Flyway migration.
 
-**Note:** This section was truncated during context compaction. See `git log` in `fix/audit-remediation` branch for full detail.
+#### P0 — Critical / Security (7/7)
+- **C0** `V17__fix_expenses_status_check.sql` — new migration adding `'paid'` to `chk_expenses_status` CHECK constraint
+- **C1** `EmailImportService.pollAndProcessEmails` — added `@Async` + `@Transactional` to scheduled IMAP polling
+- **C2** `ReportService.submitReport` — replaced `.get()` with `.orElseThrow { ResponseStatusException(NOT_FOUND) }`
+- **C3** `EmailImportService.parseDelegationEmailGemini` — moved Gemini API key from `?key=` query param to `x-goog-api-key` header
+- **C5** `OcrService.scanMineru/testMineruConnection` — added `validateUrlForSsr()` allowlist check on mineruUrl/baseUrl
+- **C6** `StorageService.getLocalPath` — replaced `absoluteFile` with `canonicalFile` + canonical path traversal guard (all 4 sites + migration code)
+- **C7** `UserController` — replaced `as User` with `as? User ?: throw ResponseStatusException(...)` at both sites
+
+#### P1 — High (18/18)
+- **C8** `Repositories.kt` — added `findByEmailIgnoreCase()` to UserRepository; used in EmailImportService instead of `findAll().firstOrNull`
+- **C9** `OcrService.scanReceipt` — replaced 3× `CompletableFuture.runAsync` (ForkJoinPool) with Spring-managed `@Qualifier("applicationTaskExecutor")`
+- **C10** `ReportController.calculateDailyAllowance` — replaced `System.err.println` with `log.warn`
+- **H0a** `ReportService.payReport` — removed `mod` from allowed roles
+- **H0b** `ExpenseController.getSingleReceipt/getReceiptCompat` — removed `manager` from IDOR guard
+- **H0c** `ReportService.payReport` — added self-ownership check (mirrors approve/reject)
+- **H0d** `Repositories.kt` — added `ORDER BY e.date DESC, e.id DESC` to paged/non-paged queries
+- **H0e** `ExpenseForm.tsx` — fixed `onError` to read `e.message ?? e.response?.data?.detail`
+- **H0f** `LdapService` — wrapped `InitialDirContext` in `.use {}`, close `NamingEnumeration` in finally
+- **H0g** `S3StorageProvider.download` — wrapped `ResponseInputStream` in `.use {}`
+- **H10** `AsyncOcrService` — extracted failure persist into `@Transactional(REQUIRES_NEW)` method
+- **H11** — added HTTP connect/read timeouts to `OcrService` (10s/60s), `FxService` (10s/30s), `EmailImportService` (10s/60s)
+- **H3** Frontend — replaced `<a href={API_BASE_URL/...}>` with Axios `downloadBlob()` in `ExpenseForm.tsx`, `ExpensesClient.tsx`, `reports/[id]/page.tsx`
+- **H4** `ExpenseForm.tsx` — OCR polling: max 60 retries (~90s), `AbortController`, timeout error message
+- **H5** `AuthController/JwtTokenProvider` — added `tokenVersion` mechanism (column + claim + validation); invalidates JWTs on password change
+- **H6** `ReportService.submitReport` — extracted SMTP email into `@Async fun sendReportSubmittedNotification()`
+- **H7** `InsuranceController` (2 sites) + `ExpenseController` (2 sites) — replaced `!!` with `?: throw ResponseStatusException`
+- **H8** `ReportService.rejectReport` — removed `totalAmount = 0.0` (keeps original total, consistent with recallReport)
+- **H9** `PdfService` — wrapped logo `InputStream` in `.use {}` for auto-close
+
+#### P2 — Medium (5/8 selected)
+- **M-G3** `PdfService` — `DecimalFormat` → `ThreadLocal.withInitial { DecimalFormat(...) }`
+- **M-G5** `Models.kt` — added `@Version` to `Expense`, `AdvancePayment`, `MileageRecord` + updated `@SQLDelete` on Expense
+- **M23** `CryptoService` — AES/CBC+HMAC → AES/GCM (with backward compat), `@PostConstruct` secret fail-fast, dedicated `encryption.secret` property
+- **M-G1** `EmailImportService` — mark IMAP SEEN on success only (not on parse failure)
+- **M-G2** `ExpenseController`/`InsuranceController` — moved file writes inside `transactionTemplate.execute{}` to prevent orphan files on rollback
+- **M-G7** `EmailImportService` — added `mail.imap.starttls.enable=true` to IMAP session props
+
+#### Infrastructure
+- **H1/H2** `DashboardController` — replaced `findAll()` with JOIN FETCH queries; added `@Transactional(readOnly = true)`
+- **Repositories.kt** — added ORDER BY to ExpenseReportRepository queries (id DESC) for deterministic pagination
+
+### Files Changed (24 + 1 new)
+- `backend-kotlin-jpa/src/main/resources/db/migration/V17__fix_expenses_status_check.sql` — **NEW**
+- `AuthController.kt`, `DashboardController.kt`, `ExpenseController.kt`, `InsuranceController.kt`, `ReportController.kt`, `UserController.kt`
+- `JwtAuthenticationFilter.kt`, `JwtTokenProvider.kt`
+- `AsyncOcrService.kt`, `CryptoService.kt`, `EmailImportService.kt`, `FxService.kt`, `LdapService.kt`, `OcrService.kt`, `PdfService.kt`, `ReportService.kt`, `StorageService.kt`, `S3StorageProvider.kt`
+- `Models.kt`, `Repositories.kt`
+- `ExpenseForm.tsx`, `ExpensesClient.tsx`, `reports/[id]/page.tsx`
+- `todo.md`
+
+---
+
+## Previous Session (2026-06-22, session 85)
 
 ### What Was Done
-- **Unconditional Daily Allowance**:
-  - Reverted a previous behavior where the daily allowance was only calculated and applied to the report's total reimbursable amount if the report was "approved" or "paid".
-  - It now unconditionally calculates the daily allowance for all reports (including "draft" and "submitted"), properly multiplying the CFO-configured allowance rate by the number of days in the delegation period.
-  - Resolved the build/sync issue where Docker `build` bindings were shadowing the new code, preventing the update from applying.
-- **OCR Scan History Failure Reasons**:
-  - Added the exact error message to the Scan History page so users can see exactly why Gemini or MinerU failed (e.g. rate limit, unprocessable image, etc.) below the fallback provider UI.
-- **IMAP Email Ingestion Simulator**:
-  - Added a dropdown on the IMAP admin page so users can explicitly select which OCR parser ("gemini" vs "local") to test when simulating an ingestion, forcing the pipeline to use the specified parser.
-  - "Gemini 3 Flash Preview" verified to be retained in the settings list.
+- **Finished `codebase-hardening-round` OpenSpec change** — 4 specs implemented across 31 files (+348/-220 lines):
+  1. **Global exception handler** (`ValidationExceptionHandler.kt`): Added `@ExceptionHandler(Exception::class)` fallback that logs full stack trace at ERROR and returns sanitized 500.
+  2. **CSRF/cookie hardening** (`SecurityConfig.kt`): Added Origin/Referer verification filter for state-changing requests (POST/PUT/PATCH/DELETE). Blocks requests with missing or non-allowed Origin/Referer headers with 403.
+  3. **Efficient data access**: Replaced 10 `findAll()` call sites across 7 files with scoped queries:
+     - Added `UserRepository.findByEmail()` (case-insensitive JPQL) + V17 email index migration
+     - `EmailImportService`: replaced `findAll().firstOrNull` → `findByEmail()`
+     - `DashboardController`: replaced `findAll()` with `count()`, date-scoped queries, pageable
+     - `OcrService.trainLocalClassifier()`: new `findAllWithOcrTrainingData()` query
+     - `LdapService.syncUsers()`: `findAllByAuthSourceAndIsActive()` query
+     - `ReportService`: `findAllByRoleInAndIsActive()` query
+     - `UserController`: `findAllByOrderByCreatedAt()` query
+     - `AppSettingsController`: `findAllFilePaths()` projection query on receipts
+  4. **Monetary precision**: Converted 14+ entity fields from `Double` → `BigDecimal` across `Expense`, `FxRate`, `AdvancePayment`, `MileageRecord`, `Category`, `ExpenseReport`. Updated all services (`FxService`, `ReportService`, `ExpenseService`, `PdfService`), controllers (8 files), DTOs, mappers, and 7 test files. Added `V20__convert_monetary_to_numeric.sql` migration (16 columns across 6 tables → `NUMERIC`).
+- Corrected stale CORS note in `CLAUDE.md`.
+- Branch: `feat/codebase-hardening-round` → PR to be opened.
+
+### Notes
+- Build verified: `compileKotlin` + `compileTestKotlin` + `bootJar` all pass.
+- V17 and V20 migration files are new (V18/V19 skipped; V17 = email index, V20 = NUMERIC columns).
+- FK-check constraints on monetary columns (`chk_expenses_amount_original`, etc.) were dropped and recreated during migration to allow column type change.
+- BigDecimal scale: money = 2 decimal places, FX rates = 6 decimal places, RoundingMode.HALF_UP.
+- `.claude/`, `.omo/`, `.mcp.json`, `AGENTS.md.local` are untracked tool artifacts — may need .gitignore entries.
+- Workflow: feature branch → PR → merge to main → update HANDOFF.md.
+
+---
+
+## Previous Session (2026-06-22, session 83)
+
+### What Was Done
+- **`/init` review of `CLAUDE.md` + targeted edits.** Verified the file against the codebase (migrations `V1`–`V16`, 12 test classes / 62 `@Test`, source layout — all accurate). Made two improvements: (1) the agent-file note now references `AGENTS.md` alongside `GEMINI.md` (three sibling instruction files to keep consistent); (2) added the **JDK 21/22 hard constraint** + `check-java-version` build guard (Kotlin 2.1.0 won't compile on JDK 23+; build via Docker in that case).
+- **Deleted stale/overlapping audit docs** (per user request): `audit-consolidated.md` (was tracked), `improvemen-audit.md` (was tracked), and the untracked `audit-full-codebase-2026-06-22.md`, `audit-bugs.md`, `AUDIT_FIXES.md`. Root no longer carries five competing audit files for future sessions to reconcile.
+- **Deleted the `audit-remediation` OpenSpec change** (`openspec/changes/audit-remediation/` — proposal, design, tasks, 9 delta specs). It was built on the now-deleted `audit-consolidated.md`; its references were dangling.
+
+### Notes
+- `.omo/drafts/audit-remediation.md` and `.omo/plans/audit-remediation.md` still reference the deleted audit (agent scratch, untracked) — left in place per user.
+- A pre-existing uncommitted edit to `AGENTS.md` (source-file counts + hot-swap note) was left unstaged — not part of this session's work.
+
+---
+
+## Previous Session (2026-06-22, session 82)
+
+### What Was Done
+- **Independent second re-audit** (parallel to session 81 / PR #7). Confirmed the addendum's findings; folded four additional verified corrections into the `audit-consolidated.md` Verification Addendum (commit `b9bb5d5`): **C7** (blank `JWT_SECRET` crash-loops the pod, not just loses auth), **H6** (ownership check missing in `updateExpense` too, not only `createExpense`), **H19** (`Loading...` in 12 files, not 6), **M7** (soft-delete gap also covers `AdvancePayment` + 4 other entities).
+- **Installed an auto-push hook for HANDOFF.md** (per user request "everytime push and merge handoff.md"): a `Stop` hook in `.claude/settings.local.json` runs `.claude/hooks/push-handoff.sh`, which — only when HANDOFF.md changed — commits *just* HANDOFF.md, pushes the current branch, and (from a feature branch) merges to `main` and pushes. No-ops otherwise; never blocks the session. This very entry is being committed/pushed by that hook as its live verification.
+
+### Notes
+- `audit-bugs.md` / `AUDIT_FIXES.md` are stale (removed Python backend); untracked locally.
+
+---
+
+## Previous Session (2026-06-22, session 81)
+
+### What Was Done
+- **Re-verified `audit-consolidated.md` against the code.** Re-checked all CRITICAL findings + a broad sample (~30) of HIGH/MEDIUM/LOW directly against source. Findings are accurate as stated; the two spot-checked "RESOLVED" claims (C10, C13) are genuinely resolved.
+- **3 corrections** documented in a new "Verification Addendum" in `audit-consolidated.md`:
+  - **C1** — `ExpenseController:405` already fixed (`findAllWithFilters`); report-list uses scoped queries, not `findAll()`. Real residual = in-memory sort + `subList` pagination. `DashboardController:39,54` `findAll()` correctly flagged.
+  - **H30** — frontend *does* have `restart: unless-stopped`; only `depends_on` is missing.
+  - **M3** — in-memory-sort list under-counts (also `AdvanceController:352`, `ReportController:527`, `DashboardController:83`).
+- **3 new open points (N1–N3)** found and folded into the `audit-remediation` OpenSpec change:
+  - **N1** — additional full-table `findAll()` scans (same OOM class as C1): `AppSettingsController:328,419,439`, `OcrService:153`, `LdapService:211`, `EmailImportService:402,446` → task **3.1**.
+  - **N2** — missing `findByEmail` repository method (forces N1's email full-scan) → new task **2.14**.
+  - **N3** — M3 sort list non-exhaustive → task **2.13**.
 
 ### Files Changed
-- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/ReportController.kt`
-- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/AppSettingsController.kt`
-- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/EmailImportService.kt`
-- `frontend/app/admin/ocr/page.tsx`
-- `frontend/app/admin/imap/page.tsx`
-- `frontend/lib/api.ts`
+- `audit-consolidated.md` (Verification Addendum appended)
+- `openspec/changes/audit-remediation/tasks.md` (tasks 2.13, 2.14, 2.15, 3.1 updated for N1–N3)
+- `HANDOFF.md`
 
 ---
 
-> Last updated: 2026-06-21 (session 78)
-> Author: Antigravity
+## Previous Session (2026-06-22, session 80)
+
+### What Was Done
+- **Audit remediation planned via OpenSpec (`audit-remediation` mega-change)**:
+  - Reviewed `audit-consolidated.md` (verified 2026-06-22): **95 unresolved findings** — 10 CRITICAL, 40 HIGH, 22 MEDIUM, 26 LOW (excludes 3 resolved, 3 by-design, and deferred H7/M13).
+  - Created a single OpenSpec change at `openspec/changes/audit-remediation/` covering all net-new findings, sequenced into the audit's 4-sprint roadmap. Validates clean (`npx openspec validate audit-remediation`).
+  - **Reconciliation:** the four prior changes (`production-readiness-hardening`, `performance-query-optimization`, `fix-codebase-bugs-and-debt`, `code-quality-gaps-round-2`) are fully implemented, but the audit re-confirms residual gaps (same bug class in a *different* file, or *partial* fixes). The plan targets only that residue + net-new items and **references, not duplicates** those changes (C1/M3/M4 tagged "extends performance-query-optimization").
+  - **Artifacts:** `proposal.md`, `design.md` (9 decisions, risks, migration plan, 3 open questions), `tasks.md` (~110 tasks, each tagged with finding ID + `file:line`), and 9 spec deltas.
+  - **New capability specs:** `global-exception-handling` (C2), `csrf-protection` (C4), `secure-file-path-handling` (C11/H2), `monetary-precision` (H5/L12), `jwt-request-principal` (M2), `transactional-report-notifications` (M1), `backend-test-coverage`.
+  - **Modified capability specs:** `financial-record-soft-delete` (M7 MileageRecord + H9 optimistic locking), `service-layer-architecture` (H15 new services).
+  - Pure config/devops/refactor items (`.dockerignore`, CI caching, file splits, lint, frontend cleanups) are spec-less tasks.
+
+### Open Questions (block implementation — see `design.md`)
+- CSRF: is `SameSite=Strict` + Origin verification acceptable for all login/download flows, or is a CSRF-token repository needed now?
+- `Double`→`BigDecimal` (H5): is a maintenance window + DB snapshot available for the column retype on production data?
+- M1 atomicity: `@TransactionalEventListener(AFTER_COMMIT)` vs. a durable outbox table?
+
+### Next Steps
+- Resolve the 3 open questions, then run `/openspec-apply-change` (or `/opsx:apply`) starting with Sprint 1 (security & ops quick wins — no schema changes).
+
+### Files Changed
+- `openspec/changes/audit-remediation/` (new — proposal, design, tasks, 9 spec deltas)
+- `HANDOFF.md`
+
+---
+
+> Last updated: 2026-06-25
+> Author: Hermes
 
 ---
 

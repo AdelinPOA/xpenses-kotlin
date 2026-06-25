@@ -30,6 +30,13 @@ class JwtAuthenticationFilter(
                 if (claims != null) {
                     val user = userRepository.findById(claims.userId).orElse(null)
                     if (user != null && user.isActive) {
+                        // Token version check: if the JWT was issued before a password change,
+                        // reject the token so the user must re-login.
+                        if (claims.tokenVersion < user.tokenVersion) {
+                            SecurityContextHolder.clearContext()
+                            filterChain.doFilter(request, response)
+                            return
+                        }
                         val authorities = listOf(SimpleGrantedAuthority("ROLE_${user.role}"))
                         val auth = UsernamePasswordAuthenticationToken(user, null, authorities)
                         SecurityContextHolder.getContext().authentication = auth

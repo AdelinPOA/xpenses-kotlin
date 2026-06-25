@@ -32,6 +32,9 @@ jwt:
   secret: ${JWT_SECRET:}
   access-expires-minutes: 15
 
+encryption:
+  secret: ${ENCRYPTION_SECRET:${JWT_SECRET:}}
+
 seed:
   demo:
     users: ${SEED_DEMO_USERS:false}

@@ -17,7 +17,16 @@ import java.math.BigDecimal
 @Repository
 interface UserRepository : JpaRepository<User, Int> {
     fun findByUsername(username: String): User?
-    fun findByRoleInAndIsActive(roles: Collection<String>, isActive: Boolean): List<User>
+
+    @Query("SELECT u FROM User u WHERE LOWER(u.email) = LOWER(:email)")
+    fun findByEmail(@Param("email") email: String): User?
+
+    fun findAllByAuthSourceAndIsActive(authSource: String, isActive: Boolean): List<User>
+
+    @Query("SELECT u FROM User u WHERE u.role IN :roles AND u.isActive = :isActive")
+    fun findAllByRoleInAndIsActive(@Param("roles") roles: List<String>, @Param("isActive") isActive: Boolean): List<User>
+
+    fun findAllByOrderByCreatedAt(): List<User>
 }
 
 @Repository
@@ -33,16 +42,16 @@ interface ExpenseReportRepository : JpaRepository<ExpenseReport, Int> {
     @Query("SELECT DISTINCT r FROM ExpenseReport r LEFT JOIN FETCH r.expenses LEFT JOIN FETCH r.user WHERE r.id = :id")
     fun findByIdWithExpenses(@Param("id") id: Int): Optional<ExpenseReport>
 
-    @Query("SELECT DISTINCT r FROM ExpenseReport r LEFT JOIN FETCH r.expenses LEFT JOIN FETCH r.user")
+    @Query("SELECT DISTINCT r FROM ExpenseReport r LEFT JOIN FETCH r.expenses LEFT JOIN FETCH r.user ORDER BY r.id DESC")
     fun findAllWithExpenses(): List<ExpenseReport>
 
-    @Query("SELECT DISTINCT r FROM ExpenseReport r LEFT JOIN FETCH r.expenses LEFT JOIN FETCH r.user WHERE r.user.id = :userId")
+    @Query("SELECT DISTINCT r FROM ExpenseReport r LEFT JOIN FETCH r.expenses LEFT JOIN FETCH r.user WHERE r.user.id = :userId ORDER BY r.id DESC")
     fun findAllByUserIdWithExpenses(@Param("userId") userId: Int): List<ExpenseReport>
 
-    @Query("SELECT DISTINCT r FROM ExpenseReport r LEFT JOIN FETCH r.expenses LEFT JOIN FETCH r.user WHERE r.status = :status")
+    @Query("SELECT DISTINCT r FROM ExpenseReport r LEFT JOIN FETCH r.expenses LEFT JOIN FETCH r.user WHERE r.status = :status ORDER BY r.id DESC")
     fun findAllByStatusWithExpenses(@Param("status") status: String): List<ExpenseReport>
 
-    @Query("SELECT DISTINCT r FROM ExpenseReport r LEFT JOIN FETCH r.expenses LEFT JOIN FETCH r.user WHERE r.user.id = :userId AND r.status = :status")
+    @Query("SELECT DISTINCT r FROM ExpenseReport r LEFT JOIN FETCH r.expenses LEFT JOIN FETCH r.user WHERE r.user.id = :userId AND r.status = :status ORDER BY r.id DESC")
     fun findAllByUserIdAndStatusWithExpenses(@Param("userId") userId: Int, @Param("status") status: String): List<ExpenseReport>
 
     @Query(value = "SELECT * FROM expense_reports WHERE deleted = true", nativeQuery = true)
@@ -54,6 +63,9 @@ interface ExpenseRepository : JpaRepository<Expense, Int> {
     fun findAllByUserId(userId: Int): List<Expense>
     fun findAllByReportId(reportId: Int): List<Expense>
 
+    @Query("SELECT e FROM Expense e WHERE e.rawOcrText IS NOT NULL AND e.category IS NOT NULL")
+    fun findAllWithOcrTrainingData(): List<Expense>
+
     @Query("""
         SELECT e FROM Expense e
         WHERE (:userId IS NULL OR e.user.id = :userId)
@@ -62,7 +74,7 @@ interface ExpenseRepository : JpaRepository<Expense, Int> {
           AND (:categoryId IS NULL OR e.category.id = :categoryId)
           AND (:fromDate IS NULL OR e.date >= :fromDate)
           AND (:toDate IS NULL OR e.date <= :toDate)
-        ORDER BY e.date DESC
+        ORDER BY e.date DESC, e.id DESC
     """)
     // Eager-join the to-one relations (user, category) to avoid N+1 during DTO mapping.
     // The receipts collection is intentionally excluded — it is resolved via Hibernate's
@@ -86,6 +98,7 @@ interface ExpenseRepository : JpaRepository<Expense, Int> {
           AND (:categoryId IS NULL OR e.category.id = :categoryId)
           AND (:fromDate IS NULL OR e.date >= :fromDate)
           AND (:toDate IS NULL OR e.date <= :toDate)
+        ORDER BY e.date DESC, e.id DESC
     """)
     // See findAllWithFilters: to-one relations are join-fetched here; the receipts
     // collection is left to default_batch_fetch_size so pagination stays at the DB level.
@@ -106,8 +119,14 @@ interface ExpenseRepository : JpaRepository<Expense, Int> {
     @Query("SELECT e FROM Expense e WHERE e.user.id = :userId AND e.status = :status")
     fun findAllByUserIdAndStatus(@Param("userId") userId: Int, @Param("status") status: String): List<Expense>
 
+    @Query("SELECT e FROM Expense e WHERE e.date >= :fromDate AND e.date <= :toDate")
+    fun findAllByDateBetween(@Param("fromDate") fromDate: String, @Param("toDate") toDate: String): List<Expense>
+
     @Query("SELECT e FROM Expense e WHERE e.user.id = :userId AND e.date >= :fromDate AND e.date <= :toDate")
     fun findAllByUserIdAndDateBetween(@Param("userId") userId: Int, @Param("fromDate") fromDate: String, @Param("toDate") toDate: String): List<Expense>
+
+    @Query("SELECT e FROM Expense e WHERE e.date >= :fromDate")
+    fun findAllByDateFrom(@Param("fromDate") fromDate: String): List<Expense>
 
     @Query("SELECT e FROM Expense e WHERE e.user.id = :userId AND e.date >= :fromDate")
     fun findAllByUserIdAndDateFrom(@Param("userId") userId: Int, @Param("fromDate") fromDate: String): List<Expense>
@@ -115,16 +134,22 @@ interface ExpenseRepository : JpaRepository<Expense, Int> {
     @Query("SELECT e FROM Expense e WHERE e.user.id = :userId AND e.date <= :toDate")
     fun findAllByUserIdAndDateTo(@Param("userId") userId: Int, @Param("toDate") toDate: String): List<Expense>
 
+    @Query("SELECT e FROM Expense e ORDER BY e.createdAt DESC")
+    fun findRecentExpenses(pageable: Pageable): List<Expense>
+
+    @Query("SELECT e FROM Expense e WHERE e.user.id = :userId ORDER BY e.createdAt DESC")
+    fun findRecentExpensesByUserId(@Param("userId") userId: Int, pageable: Pageable): List<Expense>
+
     @Query(value = "SELECT * FROM expenses WHERE deleted = true", nativeQuery = true)
     fun findDeletedAudit(): List<Expense>
-
-    @Query("SELECT e FROM Expense e WHERE e.rawOcrText IS NOT NULL AND e.category IS NOT NULL")
-    fun findAllByRawOcrTextIsNotNullAndCategoryIsNotNull(): List<Expense>
 }
 
 @Repository
 interface ReceiptRepository : JpaRepository<Receipt, Int> {
     fun findAllByExpenseId(expenseId: Int): List<Receipt>
+
+    @Query("SELECT r.filePath FROM Receipt r WHERE r.filePath IS NOT NULL")
+    fun findAllFilePaths(): List<String>
 }
 
 @Repository

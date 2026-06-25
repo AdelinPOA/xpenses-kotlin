@@ -6,6 +6,7 @@ import eu.nt.xpenses.repositories.OcrJobRepository
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
 
 @Service
@@ -37,9 +38,15 @@ class AsyncOcrService(
             
         } catch (e: Exception) {
             log.error("OCR Job {} failed: {}", jobId, e.message, e)
-            job.status = "failed"
-            job.errorMessage = e.message ?: "Unknown error"
-            ocrJobRepository.save(job)
+            saveJobFailure(job.id!!, e.message ?: "Unknown error")
         }
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    fun saveJobFailure(jobId: Int, errorMessage: String) {
+        val job = ocrJobRepository.findById(jobId).orElse(null) ?: return
+        job.status = "failed"
+        job.errorMessage = errorMessage
+        ocrJobRepository.save(job)
     }
 }

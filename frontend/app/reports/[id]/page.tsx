@@ -198,22 +198,20 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
                 Edit
               </Link>
             )}
-            <a
-              href={`${API_BASE_URL}/reports/${id}/export`}
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center gap-2 px-3 py-1.5 border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 text-sm font-medium rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800"
+            <button
+              onClick={() => downloadBlob(`/reports/${id}/export`, {}, `report_${id}.pdf`)}
+              className="flex items-center gap-2 px-3 py-1.5 border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 text-sm font-medium rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
             >
               <FileDown className="w-4 h-4" />
               Export PDF
-            </a>
-            <a
-              href={`${API_BASE_URL}/reports/${id}/receipts-zip`}
-              className="flex items-center gap-2 px-3 py-1.5 border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 text-sm font-medium rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800"
+            </button>
+            <button
+              onClick={() => downloadBlob(`/reports/${id}/receipts-zip`, {}, `receipts_${id}.zip`)}
+              className="flex items-center gap-2 px-3 py-1.5 border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 text-sm font-medium rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
             >
               <FolderDown className="w-4 h-4" />
               Download receipts
-            </a>
+            </button>
             <div className="relative">
               <button
                 disabled={exporting}
@@ -552,15 +550,13 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
                       {e.receipts?.length > 0 ? (
                         <div className="flex items-center justify-end gap-1">
                           {e.receipts.map((r) => (
-                            <a
+                            <button
                               key={r.id}
-                              href={`${API_BASE_URL}/expenses/${e.id}/receipts/${r.id}`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-blue-600 dark:text-blue-400 hover:underline text-xs"
+                              onClick={() => downloadBlob(`/expenses/${e.id}/receipts/${r.id}`, {}, r.original_name || `receipt_${r.id}`)}
+                              className="text-blue-600 dark:text-blue-400 hover:underline text-xs cursor-pointer"
                             >
                               {e.receipts.length === 1 ? "View" : (r.original_name?.split(".").pop()?.toUpperCase() || "View")}
-                            </a>
+                            </button>
                           ))}
                         </div>
                       ) : (

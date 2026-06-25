@@ -73,7 +73,7 @@ class AuthController(
             return ResponseEntity.status(400).body(mapOf("detail" to "Unsupported auth source"))
         }
 
-        val accessToken = tokenProvider.createAccessToken(user.id!!, user.username, user.role)
+        val accessToken = tokenProvider.createAccessToken(user.id!!, user.username, user.role, user.tokenVersion)
         val rawRefreshToken = tokenProvider.createRefreshToken()
         val hashedRefreshToken = tokenProvider.hashRefreshToken(rawRefreshToken)
 
@@ -127,7 +127,7 @@ class AuthController(
         // Rotate token
         refreshTokenRepository.delete(storedToken)
 
-        val newAccessToken = tokenProvider.createAccessToken(user.id!!, user.username, user.role)
+        val newAccessToken = tokenProvider.createAccessToken(user.id!!, user.username, user.role, user.tokenVersion)
         val newRawRefreshToken = tokenProvider.createRefreshToken()
         val newHashedRefreshToken = tokenProvider.hashRefreshToken(newRawRefreshToken)
 
@@ -185,6 +185,7 @@ class AuthController(
         }
 
         currentUser.passwordHash = passwordEncoder.encode(body.newPassword)
+        currentUser.tokenVersion++
         userRepository.save(currentUser)
         refreshTokenRepository.deleteByUserId(currentUser.id!!)
         return ResponseEntity.ok(mapOf("status" to "password changed"))

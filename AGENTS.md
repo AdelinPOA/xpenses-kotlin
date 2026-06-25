@@ -35,8 +35,8 @@ Kotlin 2.1.0 compiles only on **JDK 21 or 22**. On JDK 23+, use Docker to build:
 
 ## Architecture at a glance
 
-- **Backend**: `backend-kotlin-jpa/` — Spring Boot 3.4.5 + JPA/Hibernate + Flyway
-- **Frontend**: `frontend/` — Next.js 15 + React 19 + Tailwind CSS v4 (CSS-first, no `tailwind.config.js`)
+- **Backend**: `backend-kotlin-jpa/` — Spring Boot 3.4.5 + JPA/Hibernate + Flyway (42 source files)
+- **Frontend**: `frontend/` — Next.js 15 + React 19 + Tailwind CSS v4 (CSS-first, no `tailwind.config.js`) (58+ source files)
 - **OCR sidecar**: `ocr-sidecar/` — Python FastAPI + EasyOCR (internal port 5000, no host mapping)
 - **MinerU OCR**: `mineru/` — opt-in via `docker compose --profile mineru up` (port 8002)
 
@@ -81,3 +81,4 @@ Key vars: `JWT_SECRET` (required), `COOKIE_SECURE`, `SEED_DEMO_USERS`, `CORS_ALL
 - `build.gradle.kts` sets `api.version=1.45` for Testcontainers on Docker 29+ and disables `processTestAot` (GraalVM AOT spins up a context with Docker).
 - Rate limiting (bucket4j) on `/api/auth/login` (10/min) and `/api/auth/refresh` (5/min) by remote IP.
 - `audit.md` / `auditv2.md` are historical artifacts — not authoritative.
+- **Pre-hot-swap compile**: On JDK 23+, run Gradle in a JDK 21 container to compile classes for hot-swap into the running Docker backend.

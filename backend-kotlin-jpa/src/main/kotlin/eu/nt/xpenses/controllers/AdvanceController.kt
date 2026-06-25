@@ -83,10 +83,10 @@ class AdvanceController(
             val advance = AdvancePayment(
                 report = report,
                 user = currentUser,
-                amountOriginal = 0.0,
+                amountOriginal = BigDecimal.ZERO,
                 currencyOriginal = body.currency.uppercase(),
-                amountEur = 0.0,
-                fxRate = 0.0,
+                amountEur = BigDecimal.ZERO,
+                fxRate = BigDecimal.ZERO,
                 date = "",
                 description = body.description,
                 status = "requested",
@@ -116,7 +116,7 @@ class AdvanceController(
             throw ResponseStatusException(HttpStatus.BAD_GATEWAY, "Failed to fetch exchange rate: ${e.message}")
         }
 
-        val amountEur = BigDecimal.valueOf(body.amount).multiply(BigDecimal.valueOf(fxRate)).setScale(2, RoundingMode.HALF_UP).toDouble()
+        val amountEur = body.amount.multiply(fxRate).setScale(2, RoundingMode.HALF_UP)
 
         val advance = AdvancePayment(
             report = report,
@@ -185,7 +185,7 @@ class AdvanceController(
             adv.amountOriginal = effAmount
             adv.currencyOriginal = effCurrency
             adv.fxRate = fxRate
-            adv.amountEur = BigDecimal.valueOf(effAmount).multiply(BigDecimal.valueOf(fxRate)).setScale(2, RoundingMode.HALF_UP).toDouble()
+            adv.amountEur = effAmount.multiply(fxRate).setScale(2, RoundingMode.HALF_UP)
         }
 
         if (body.date != null) adv.date = body.date
@@ -274,7 +274,7 @@ class AdvanceController(
             throw ResponseStatusException(HttpStatus.BAD_GATEWAY, "Failed to fetch exchange rate: ${e.message}")
         }
 
-        val amountEur = BigDecimal.valueOf(body.amount).multiply(BigDecimal.valueOf(fxRate)).setScale(2, RoundingMode.HALF_UP).toDouble()
+        val amountEur = body.amount.multiply(fxRate).setScale(2, RoundingMode.HALF_UP)
         val now = Instant.now()
 
         adv.amountOriginal = body.amount
@@ -407,21 +407,21 @@ class AdvanceController(
 
 data class AdvancePaymentCreate(
     @field:NotBlank val type: String = "paid",
-    @field:Min(0) val amount: Double,
+    @field:Min(0) val amount: BigDecimal,
     @field:NotBlank @field:Pattern(regexp = "^[A-Z]{3}$") val currency: String = "EUR",
     val date: String? = null,
     val description: String? = null
 )
 
 data class AdvancePaymentUpdate(
-    @field:Min(0) val amount: Double? = null,
+    @field:Min(0) val amount: BigDecimal? = null,
     @field:Pattern(regexp = "^[A-Z]{3}$") val currency: String? = null,
     val date: String? = null,
     val description: String? = null
 )
 
 data class AdvancePayBody(
-    @field:Min(0) val amount: Double,
+    @field:Min(0) val amount: BigDecimal,
     @field:NotBlank @field:Pattern(regexp = "^[A-Z]{3}$") val currency: String = "EUR",
     @field:NotBlank val date: String
 )
@@ -435,13 +435,13 @@ data class AdvancePaymentOut(
     @JsonProperty("report_id") val reportId: Int,
     @JsonProperty("user_id") val userId: Int,
     val status: String,
-    @JsonProperty("amount_original") val amountOriginal: Double,
+    @JsonProperty("amount_original") val amountOriginal: BigDecimal,
     @JsonProperty("currency_original") val currencyOriginal: String,
-    @JsonProperty("amount_eur") val amountEur: Double,
-    @JsonProperty("fx_rate") val fxRate: Double,
+    @JsonProperty("amount_eur") val amountEur: BigDecimal,
+    @JsonProperty("fx_rate") val fxRate: BigDecimal,
     val date: String,
     val description: String?,
-    @JsonProperty("requested_amount") val requestedAmount: Double?,
+    @JsonProperty("requested_amount") val requestedAmount: BigDecimal?,
     @JsonProperty("requested_currency") val requestedCurrency: String?,
     @JsonProperty("paid_by") val paidBy: Int?,
     @JsonProperty("paid_by_name") val paidByName: String?,
@@ -458,13 +458,13 @@ data class PendingAdvanceOut(
     @JsonProperty("report_id") val reportId: Int,
     @JsonProperty("user_id") val userId: Int,
     val status: String,
-    @JsonProperty("amount_original") val amountOriginal: Double,
+    @JsonProperty("amount_original") val amountOriginal: BigDecimal,
     @JsonProperty("currency_original") val currencyOriginal: String,
-    @JsonProperty("amount_eur") val amountEur: Double,
-    @JsonProperty("fx_rate") val fxRate: Double,
+    @JsonProperty("amount_eur") val amountEur: BigDecimal,
+    @JsonProperty("fx_rate") val fxRate: BigDecimal,
     val date: String,
     val description: String?,
-    @JsonProperty("requested_amount") val requestedAmount: Double?,
+    @JsonProperty("requested_amount") val requestedAmount: BigDecimal?,
     @JsonProperty("requested_currency") val requestedCurrency: String?,
     @JsonProperty("paid_by") val paidBy: Int?,
     @JsonProperty("paid_by_name") val paidByName: String?,

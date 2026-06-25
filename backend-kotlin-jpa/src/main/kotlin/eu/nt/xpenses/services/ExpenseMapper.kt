@@ -5,6 +5,7 @@ import eu.nt.xpenses.models.Receipt
 import eu.nt.xpenses.controllers.ExpenseOut
 import eu.nt.xpenses.controllers.ReceiptOut
 import org.springframework.stereotype.Component
+import java.math.BigDecimal
 
 @Component
 class ExpenseMapper {
@@ -34,9 +35,9 @@ class ExpenseMapper {
             currencyOriginal = expense.currencyOriginal,
             amountEur = expense.amountEur,
             fxRate = expense.fxRate,
-            taxAmount = expense.taxAmount.toDouble(),
-            taxRate = expense.taxRate?.toDouble(),
-            taxAmountEur = expense.taxAmountEur.toDouble(),
+            taxAmount = expense.taxAmount,
+            taxRate = expense.taxRate,
+            taxAmountEur = expense.taxAmountEur,
             date = expense.date,
             description = expense.description,
             merchant = expense.merchant,

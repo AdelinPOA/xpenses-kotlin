@@ -17,6 +17,7 @@ import org.springframework.test.context.DynamicPropertySource
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.transaction.annotation.Transactional
 import org.testcontainers.containers.PostgreSQLContainer
+import java.math.BigDecimal
 
 // @Transactional wraps each test method and rolls back, giving isolation without truncation.
 // MockMvc (WebEnvironment.MOCK) dispatches synchronously in the same thread, so controller
@@ -63,6 +64,6 @@ abstract class IntegrationTestBase {
     @BeforeEach
     fun setUpBase() {
         authHelper = TestAuthHelper(mockMvc)
-        given(fxService.getRate(anyString(), anyString())).willReturn(1.0)
+        given(fxService.getRate(anyString(), anyString())).willReturn(BigDecimal.ONE)
     }
 }

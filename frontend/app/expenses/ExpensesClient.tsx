@@ -197,15 +197,13 @@ function ExpensesPageContent() {
                       {e.receipts?.length > 0 ? (
                         <div className="flex items-center justify-end gap-1">
                           {e.receipts.map((r) => (
-                            <a
+                            <button
                               key={r.id}
-                              href={`${API_BASE_URL}/expenses/${e.id}/receipts/${r.id}`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-blue-600 dark:text-blue-400 hover:underline text-xs"
+                              onClick={() => downloadBlob(`/expenses/${e.id}/receipts/${r.id}`, {}, r.original_name || `receipt_${r.id}`)}
+                              className="text-blue-600 dark:text-blue-400 hover:underline text-xs cursor-pointer"
                             >
                               {e.receipts.length === 1 ? "View" : (r.original_name?.split(".").pop()?.toUpperCase() || "View")}
-                            </a>
+                            </button>
                           ))}
                         </div>
                       ) : (

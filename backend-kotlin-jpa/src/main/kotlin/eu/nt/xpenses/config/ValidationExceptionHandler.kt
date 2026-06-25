@@ -1,6 +1,7 @@
 package eu.nt.xpenses.config
 
 import jakarta.validation.ConstraintViolationException
+import org.slf4j.LoggerFactory
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.web.bind.MethodArgumentNotValidException
@@ -12,6 +13,8 @@ import org.springframework.web.server.ResponseStatusException
 
 @RestControllerAdvice
 class ValidationExceptionHandler {
+
+    private val log = LoggerFactory.getLogger(ValidationExceptionHandler::class.java)
 
     @ExceptionHandler(MethodArgumentNotValidException::class)
     fun handleValidationException(ex: MethodArgumentNotValidException): ResponseEntity<Map<String, String>> {
@@ -53,6 +56,12 @@ class ValidationExceptionHandler {
     @ExceptionHandler(ResponseStatusException::class)
     fun handleResponseStatusException(ex: ResponseStatusException): ResponseEntity<Map<String, String>> {
         return ResponseEntity.status(ex.statusCode).body(mapOf("detail" to (ex.reason ?: ex.message ?: "Error")))
+    }
+
+    @ExceptionHandler(Exception::class)
+    fun handleUnhandledException(ex: Exception): ResponseEntity<Map<String, String>> {
+        log.error("Unhandled exception: ${ex.message}", ex)
+        return ResponseEntity.status(500).body(mapOf("detail" to "Internal server error"))
     }
 }
 

@@ -208,7 +208,7 @@ class LdapService(
         ctx.close()
         
         // Deactivate LDAP users no longer in the directory
-        val ldapUsers = userRepository.findAll().filter { it.authSource == "ldap" && it.isActive }
+        val ldapUsers = userRepository.findAllByAuthSourceAndIsActive("ldap", true)
         for (ldapUser in ldapUsers) {
             if (!directoryUsernames.contains(ldapUser.username)) {
                 ldapUser.isActive = false
@@ -228,38 +228,46 @@ class LdapService(
         }
         try {
             val ctx = bindServiceAccount(config)
-            val searchControls = SearchControls().apply {
-                searchScope = SearchControls.SUBTREE_SCOPE
-                returningAttributes = arrayOf("dn")
+            try {
+                val searchControls = SearchControls().apply {
+                    searchScope = SearchControls.SUBTREE_SCOPE
+                    returningAttributes = arrayOf("dn")
+                }
+
+                // Search for DN (safely escaping user input filter chars)
+                val cleanUsername = escapeFilterChars(username)
+                val filter = "(${config.attrUsername}=$cleanUsername)"
+                val results = ctx.search(config.baseDn, filter, searchControls)
+
+                try {
+                    if (!results.hasMore()) {
+                        throw LDAPBindException("User not found in directory")
+                    }
+
+                    val entry = results.next()
+                    val userDn = entry.nameInNamespace
+
+                    // Re-bind as user
+                    val userEnv = Hashtable<String, String>().apply {
+                        put(Context.INITIAL_CONTEXT_FACTORY, "com.sun.jndi.ldap.LdapCtxFactory")
+                        val prefix = if (config.useTls) "ldaps" else "ldap"
+                        put(Context.PROVIDER_URL, "$prefix://${config.host}:${config.port}")
+                        put(Context.SECURITY_AUTHENTICATION, "simple")
+                        put(Context.SECURITY_PRINCIPAL, userDn)
+                        put(Context.SECURITY_CREDENTIALS, password)
+                    }
+
+                    val userCtx = InitialDirContext(userEnv)
+                    try {
+                        userCtx.close()
+                    } catch (_: Exception) {}
+                } finally {
+                    try { results.close() } catch (_: Exception) {}
+                }
+                return true
+            } finally {
+                try { ctx.close() } catch (_: Exception) {}
             }
-            
-            // Search for DN (safely escaping user input filter chars)
-            val cleanUsername = escapeFilterChars(username)
-            val filter = "(${config.attrUsername}=$cleanUsername)"
-            val results = ctx.search(config.baseDn, filter, searchControls)
-            
-            if (!results.hasMore()) {
-                ctx.close()
-                throw LDAPBindException("User not found in directory")
-            }
-            
-            val entry = results.next()
-            val userDn = entry.nameInNamespace
-            ctx.close()
-            
-            // Re-bind as user
-            val userEnv = Hashtable<String, String>().apply {
-                put(Context.INITIAL_CONTEXT_FACTORY, "com.sun.jndi.ldap.LdapCtxFactory")
-                val prefix = if (config.useTls) "ldaps" else "ldap"
-                put(Context.PROVIDER_URL, "$prefix://${config.host}:${config.port}")
-                put(Context.SECURITY_AUTHENTICATION, "simple")
-                put(Context.SECURITY_PRINCIPAL, userDn)
-                put(Context.SECURITY_CREDENTIALS, password)
-            }
-            
-            val userCtx = InitialDirContext(userEnv)
-            userCtx.close()
-            return true
         } catch (e: LDAPBindException) {
             throw e
         } catch (e: Exception) {

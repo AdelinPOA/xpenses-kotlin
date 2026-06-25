@@ -166,28 +166,20 @@ class ExpenseController(
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Only the owner can perform this action")
         }
 
-        val uploadedFiles = mutableListOf<Pair<String, MultipartFile>>()
-        val now = Instant.now()
-
-        for (file in files) {
-            val originalName = file.originalFilename ?: "receipt"
-            val content = file.bytes
-            
-            val relativePath = try {
-                saveReceiptLocal(expenseId, originalName, content)
-            } catch (e: IllegalArgumentException) {
-                throw ResponseStatusException(HttpStatus.BAD_REQUEST, e.message)
-            }
-            uploadedFiles.add(Pair(relativePath, file))
-        }
-
         val saved = transactionTemplate.execute {
             val txExpense = expenseRepository.findById(expenseId).orElseThrow {
                 ResponseStatusException(HttpStatus.NOT_FOUND, "Expense not found")
             }
+            val now = Instant.now()
             val savedReceiptsList = mutableListOf<Map<String, Any>>()
-            for ((relativePath, file) in uploadedFiles) {
+            for (file in files) {
                 val originalName = file.originalFilename ?: "receipt"
+                val content = file.bytes
+                val relativePath = try {
+                    saveReceiptLocal(expenseId, originalName, content)
+                } catch (e: IllegalArgumentException) {
+                    throw ResponseStatusException(HttpStatus.BAD_REQUEST, e.message)
+                }
                 val receipt = Receipt(
                     expense = txExpense,
                     filePath = relativePath,
@@ -204,7 +196,7 @@ class ExpenseController(
             txExpense.updatedAt = now
             expenseRepository.save(txExpense)
             savedReceiptsList
-        }!!
+        } ?: throw ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Transaction failed")
 
         return saved
     }
@@ -252,7 +244,7 @@ class ExpenseController(
             expense.updatedAt = Instant.now()
             expenseRepository.save(expense)
             path
-        }!!
+        } ?: throw ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Transaction failed")
 
         try {
             storageService.deleteFile(filePath)
@@ -275,7 +267,7 @@ class ExpenseController(
             ResponseStatusException(HttpStatus.NOT_FOUND, "Expense not found")
         }
 
-        if (currentUser.role !in listOf("chef_finance", "mod", "manager") && expense.user?.id != currentUser.id) {
+        if (currentUser.role !in listOf("chef_finance", "mod") && expense.user?.id != currentUser.id) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Not your expense")
         }
 
@@ -314,7 +306,7 @@ class ExpenseController(
             ResponseStatusException(HttpStatus.NOT_FOUND, "Expense not found")
         }
 
-        if (currentUser.role !in listOf("chef_finance", "mod", "manager") && expense.user?.id != currentUser.id) {
+        if (currentUser.role !in listOf("chef_finance", "mod") && expense.user?.id != currentUser.id) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Not your expense")
         }
 
@@ -423,9 +415,9 @@ class ExpenseController(
                 put("currency", e.currencyOriginal)
                 put("amount_eur", e.amountEur)
                 put("fx_rate", e.fxRate)
-                put("tax_amount", e.taxAmount.toDouble())
-                put("tax_rate", e.taxRate?.toDouble() ?: "")
-                put("tax_amount_eur", e.taxAmountEur.toDouble())
+                put("tax_amount", e.taxAmount)
+                put("tax_rate", e.taxRate ?: "")
+                put("tax_amount_eur", e.taxAmountEur)
                 put("status", e.status)
                 put("report_id", e.report?.id ?: "")
                 if (includeUser) put("user", e.user?.displayName ?: "")
@@ -468,13 +460,13 @@ data class ExpenseOut(
     @JsonProperty("comparison_id") val comparisonId: Int? = null,
     @JsonProperty("category_name") val categoryName: String?,
     @JsonProperty("report_id") val reportId: Int?,
-    @JsonProperty("amount_original") val amountOriginal: Double,
+    @JsonProperty("amount_original") val amountOriginal: BigDecimal,
     @JsonProperty("currency_original") val currencyOriginal: String,
-    @JsonProperty("amount_eur") val amountEur: Double,
-    @JsonProperty("fx_rate") val fxRate: Double,
-    @JsonProperty("tax_amount") val taxAmount: Double,
-    @JsonProperty("tax_rate") val taxRate: Double?,
-    @JsonProperty("tax_amount_eur") val taxAmountEur: Double,
+    @JsonProperty("amount_eur") val amountEur: BigDecimal,
+    @JsonProperty("fx_rate") val fxRate: BigDecimal,
+    @JsonProperty("tax_amount") val taxAmount: BigDecimal,
+    @JsonProperty("tax_rate") val taxRate: BigDecimal?,
+    @JsonProperty("tax_amount_eur") val taxAmountEur: BigDecimal,
     val date: String,
     val description: String?,
     val merchant: String?,
@@ -489,10 +481,10 @@ data class ExpenseOut(
 data class ExpenseCreate(
     @JsonProperty("category_id") val categoryId: Int? = null,
     @JsonProperty("report_id") val reportId: Int? = null,
-    @field:Min(0) val amount: Double,
+    @field:Min(0) val amount: BigDecimal,
     @field:NotBlank @field:Pattern(regexp = "^[A-Z]{3}$") val currency: String = "EUR",
-    @JsonProperty("tax_amount") val taxAmount: Double = 0.0,
-    @JsonProperty("tax_rate") val taxRate: Double? = null,
+    @JsonProperty("tax_amount") val taxAmount: BigDecimal = BigDecimal.ZERO,
+    @JsonProperty("tax_rate") val taxRate: BigDecimal? = null,
     @field:NotBlank val date: String,
     val description: String? = null,
     val merchant: String? = null,
@@ -503,10 +495,10 @@ data class ExpenseCreate(
 data class ExpenseUpdate(
     @JsonProperty("category_id") val categoryId: Int? = null,
     @JsonProperty("report_id") val reportId: Int? = null,
-    @field:Min(0) val amount: Double? = null,
+    @field:Min(0) val amount: BigDecimal? = null,
     @field:Pattern(regexp = "^[A-Z]{3}$") val currency: String? = null,
-    @JsonProperty("tax_amount") val taxAmount: Double? = null,
-    @JsonProperty("tax_rate") val taxRate: Double? = null,
+    @JsonProperty("tax_amount") val taxAmount: BigDecimal? = null,
+    @JsonProperty("tax_rate") val taxRate: BigDecimal? = null,
     val date: String? = null,
     val description: String? = null,
     val merchant: String? = null,

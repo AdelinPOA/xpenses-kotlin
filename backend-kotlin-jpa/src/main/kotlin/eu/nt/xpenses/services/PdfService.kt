@@ -617,7 +617,7 @@ class PdfService(
     }
 
     private fun formatBigDecimal(amount: BigDecimal): String {
-        return decimalFormat.format(amount.setScale(2, RoundingMode.HALF_UP))
+        return decimalFormat.get().format(amount.setScale(2, RoundingMode.HALF_UP))
     }
 
     private fun formatAmount(amount: Double): String {

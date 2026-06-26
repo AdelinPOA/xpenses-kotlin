@@ -7,6 +7,7 @@ import eu.nt.xpenses.services.ExpenseMapper
 import eu.nt.xpenses.services.ExportService
 import eu.nt.xpenses.services.FxService
 import eu.nt.xpenses.services.ExpenseService
+import eu.nt.xpenses.services.OcrService
 import eu.nt.xpenses.services.StorageService
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
@@ -45,7 +46,8 @@ class ExpenseController(
     private val exportService: ExportService,
     private val expenseMapper: ExpenseMapper,
     private val transactionTemplate: TransactionTemplate,
-    private val expenseService: ExpenseService
+    private val expenseService: ExpenseService,
+    private val ocrService: OcrService
 ) {
     private val log = LoggerFactory.getLogger(ExpenseController::class.java)
 
@@ -92,6 +94,108 @@ class ExpenseController(
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
         val savedExpense = expenseService.createExpense(body, currentUser)
         return ResponseEntity.status(HttpStatus.CREATED).body(expenseMapper.toExpenseOut(savedExpense))
+    }
+
+    // ── Bulk upload ──────────────────────────────────────────────────────────
+    // POST /api/expenses/bulk-upload
+    // Accepts up to 20 receipt images/PDFs. Per file: runs OCR synchronously,
+    // creates a draft expense, attaches the receipt. Returns all created expenses
+    // plus a per-file error list for files that failed validation or OCR.
+    @PostMapping("/bulk-upload")
+    @Transactional
+    fun bulkUploadExpenses(
+        @RequestParam("files") files: List<MultipartFile>,
+        request: HttpServletRequest
+    ): ResponseEntity<BulkUploadResult> {
+        val currentUser = request.getAttribute("currentUser") as? User
+            ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
+
+        if (files.size > 20) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Maximum 20 files per bulk upload")
+        }
+
+        val allowedExt = setOf("jpg", "jpeg", "png", "webp", "pdf")
+        val created = mutableListOf<ExpenseOut>()
+        val errors = mutableListOf<BulkUploadError>()
+        val today = LocalDate.now().toString()
+
+        for (file in files) {
+            val filename = file.originalFilename ?: "receipt"
+            val ext = filename.substringAfterLast('.', "").lowercase()
+
+            // Client-side-style validation — keep going for other files on error
+            if (ext !in allowedExt) {
+                errors.add(BulkUploadError(filename, "File type .$ext not supported"))
+                continue
+            }
+            if (file.size > 10 * 1024 * 1024) {
+                errors.add(BulkUploadError(filename, "File exceeds 10 MB limit"))
+                continue
+            }
+
+            // Run OCR synchronously — never let a single OCR failure abort the batch
+            val ocrResult: Map<String, Any?> = try {
+                ocrService.scanReceipt(file.bytes, filename)
+            } catch (e: Exception) {
+                log.warn("OCR failed for $filename: ${e.message}")
+                emptyMap()
+            }
+
+            val amount = (ocrResult["amount"] as? Number)
+                ?.let { BigDecimal.valueOf(it.toDouble()) }
+                ?: BigDecimal.ZERO
+            val currency = (ocrResult["currency"] as? String)
+                ?.takeIf { it.matches(Regex("^[A-Z]{3}$")) } ?: "EUR"
+            val date = (ocrResult["date"] as? String) ?: today
+            val merchant = ocrResult["merchant"] as? String
+            val description = (ocrResult["description"] as? String)
+                ?: if (ocrResult.isEmpty()) "OCR failed — please fill manually" else null
+            val categoryId = ocrResult["category_id"] as? Int
+            val rawOcrText = ocrResult["raw_text"] as? String
+            val taxAmount = (ocrResult["tax_amount"] as? Number)
+                ?.let { BigDecimal.valueOf(it.toDouble()) } ?: BigDecimal.ZERO
+
+            val dto = ExpenseCreate(
+                categoryId = categoryId,
+                reportId = null,           // always unattached — user assigns to report later
+                amount = amount,
+                currency = currency,
+                taxAmount = taxAmount,
+                date = date,
+                description = description,
+                merchant = merchant,
+                rawOcrText = rawOcrText
+            )
+
+            val expense = try {
+                expenseService.createExpense(dto, currentUser)
+            } catch (e: Exception) {
+                log.error("Failed to create expense for $filename: ${e.message}")
+                errors.add(BulkUploadError(filename, "Could not create expense: ${e.message}"))
+                continue
+            }
+
+            // Attach receipt to the just-created expense
+            try {
+                val relativePath = saveReceiptLocal(expense.id!!, filename, file.bytes)
+                val receipt = Receipt(
+                    expense = expense,
+                    filePath = relativePath,
+                    originalName = filename,
+                    createdAt = Instant.now()
+                )
+                receiptRepository.save(receipt)
+                expense.updatedAt = Instant.now()
+                expenseRepository.save(expense)
+            } catch (e: Exception) {
+                log.warn("Receipt storage failed for expense ${expense.id}: ${e.message}")
+                // Expense still usable without receipt; don't fail the whole entry
+            }
+
+            created.add(expenseMapper.toExpenseOut(expense))
+        }
+
+        return ResponseEntity.ok(BulkUploadResult(created, errors))
     }
 
     @GetMapping("/{expenseId}")
@@ -504,4 +608,14 @@ data class ExpenseUpdate(
     val merchant: String? = null,
     @JsonProperty("raw_ocr_text") val rawOcrText: String? = null,
     @JsonProperty("comparison_id") val comparisonId: Int? = null
+)
+
+data class BulkUploadError(
+    val filename: String,
+    val reason: String
+)
+
+data class BulkUploadResult(
+    val created: List<ExpenseOut>,
+    val errors: List<BulkUploadError>
 )

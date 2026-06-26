@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useCallback, useRef, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import api, { Expense, Category, API_BASE_URL, duplicateExpense, downloadBlob, isPagedResponse, PagedResponse } from "@/lib/api";
@@ -10,6 +10,8 @@ import AppShell from "@/components/layout/AppShell";
 import Badge from "@/components/ui/Badge";
 import EmptyState from "@/components/ui/EmptyState";
 import { useToast } from "@/components/ToastProvider";
+import BulkUploadZone from "@/components/expenses/BulkUploadZone";
+import BulkReviewDrawer from "@/components/expenses/BulkReviewDrawer";
 import { Plus, Trash2, Pencil, Copy, Download } from "lucide-react";
 
 function formatAmount(amount: number, currency: string) {
@@ -25,11 +27,43 @@ function ExpensesPageContent() {
   const [categoryFilter, setCategoryFilter] = useState("");
   const [exporting, setExporting] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [bulkFiles, setBulkFiles] = useState<File[]>([]);
+  const [showBulkDrawer, setShowBulkDrawer] = useState(false);
+  const dragCounterRef = useRef(0); // track nested drag-enter/leave pairs
 
   useEffect(() => {
     const catId = searchParams.get("category_id");
     if (catId) setCategoryFilter(catId);
   }, [searchParams]);
+
+  // Page-level drag handlers — useCallback so they're stable refs for event listeners
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    dragCounterRef.current += 1;
+    if (dragCounterRef.current === 1) setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    dragCounterRef.current -= 1;
+    if (dragCounterRef.current === 0) setIsDragging(false);
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    dragCounterRef.current = 0;
+    setIsDragging(false);
+  }, []);
+
+  function handleFilesDropped(files: File[]) {
+    setBulkFiles(files);
+    setShowBulkDrawer(true);
+  }
 
   async function handleExport(format: "csv" | "xlsx") {
     setExporting(true);
@@ -81,12 +115,25 @@ function ExpensesPageContent() {
 
   return (
     <AppShell>
+      <div
+        onDragEnter={handleDragEnter}
+        onDragLeave={handleDragLeave}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+      >
+      <BulkReviewDrawer
+        files={bulkFiles}
+        isOpen={showBulkDrawer}
+        onClose={() => setShowBulkDrawer(false)}
+      />
+
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Expenses</h1>
           <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">{expenses?.length ?? 0} total</p>
         </div>
         <div className="flex items-center gap-2">
+          <BulkUploadZone isDragging={isDragging} onFilesDropped={handleFilesDropped} />
           <div className="relative">
             <button
               disabled={exporting}
@@ -242,6 +289,7 @@ function ExpensesPageContent() {
           </div>
         )}
       </div>
+      </div>  {/* end drag wrapper */}
     </AppShell>
   );
 }

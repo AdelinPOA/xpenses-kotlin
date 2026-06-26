@@ -1,6 +1,30 @@
 # HANDOFF.md — xpenses-kotlin
 
-## Current Session (2026-06-25, session 91) — merge-all-last-night-work
+## Current Session (2026-06-26, session 92) — dashboard-scoping-and-cache-fix
+
+### What Was Done
+- **Git cleanup:** Deleted 24 merged remote branches, 2 stale unmerged branches (`feat/inventory-and-reports`, `fix/audit-low-cleanup`), closed 2 superseded Dependabot PRs (#3, #4), deleted 4 stale local branches on server. Pruned Docker build cache on server — freed **11.32 GB**.
+- **Bug found & fixed — dashboard scoping:**
+  - Root cause: `DashboardController` hardcoded `chef_finance` and `mod` to always return org-wide data regardless of the `?all` query param. `cfo1`/`mod1` therefore always saw every user's expenses instead of their own.
+  - Fix: Backend now honours `?all` for all privileged roles (`chef_finance`, `mod`, `manager`). Org-wide data is returned only when `all=true` is explicitly requested.
+- **Bug found & fixed — TanStack Query cache not user-scoped:**
+  - Root cause: Query key `["dashboard", { all }]` contained no user identity. When a second user logged in on the same browser, they saw the previous user's stale cached dashboard data.
+  - Fix: User ID added to the query key: `["dashboard", user.id, { all }]`.
+- **UX improvement — privileged users default to org-wide view:**
+  - `chef_finance` and `mod` now open the dashboard in org-wide ("company overview") mode by default. They can switch to their personal view via the toggle.
+  - `manager` gains the same toggle (previously only `chef_finance`/`mod` had it).
+  - `useEffect` on `user.id` sets `showAll=true` for org-wide roles once the user is known.
+
+### Files Changed
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/DashboardController.kt` — scoping logic
+- `frontend/app/dashboard/DashboardClient.tsx` — default `showAll`, user-scoped cache key, toggle for manager
+
+### Verified
+- `tech1` → personal €920 ✅  |  `manager1` → personal €0 ✅  |  `cfo1 ?all=true` → org €920 ✅  |  `cfo1 ?all=false` → personal €0 ✅
+
+---
+
+## Previous Session (2026-06-25, session 91) — merge-all-last-night-work
 
 ### What Was Done
 - **Merged all last night's work branches into `main`:**

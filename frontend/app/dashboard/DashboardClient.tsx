@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import api, { DashboardStats } from "@/lib/api";
 import { dashboardKeys } from "@/lib/queryKeys";
 import AppShell from "@/components/layout/AppShell";
@@ -21,11 +21,21 @@ function formatEur(amount: number) {
 
 export default function DashboardClient() {
   const { user, loading: authLoading } = useAuth();
+  // chef_finance and mod default to org-wide view; everyone else defaults to personal view.
+  const isOrgWideRole = user?.role === "chef_finance" || user?.role === "mod";
   const [showAll, setShowAll] = useState(false);
-  const isPrivileged = user?.role === "chef_finance" || user?.role === "mod";
+  // Once the user is known, set the correct default without causing an extra render loop.
+  useEffect(() => {
+    if (user) setShowAll(isOrgWideRole);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
+  // All privileged roles (chef_finance, mod, manager) can toggle between personal and org view.
+  const canToggle = user?.role === "chef_finance" || user?.role === "mod" || user?.role === "manager";
 
   const { data, isLoading } = useQuery<DashboardStats>({
-    queryKey: [...dashboardKeys.all, { all: showAll }],
+    // Include user.id in the key so the cache is never shared across different logged-in users.
+    queryKey: [...dashboardKeys.all, user?.id, { all: showAll }],
     queryFn: () => api.get("/dashboard", { params: { all: showAll } }).then((r) => r.data),
     enabled: !!user,
   });
@@ -57,7 +67,7 @@ export default function DashboardClient() {
             {showAll ? "Organization-wide overview" : "Here is what's happening with your expenses."}
           </p>
         </div>
-        {isPrivileged && (
+        {canToggle && (
           <button
             onClick={() => setShowAll(!showAll)}
             className={clsx(

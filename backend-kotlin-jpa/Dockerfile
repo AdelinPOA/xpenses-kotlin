@@ -14,9 +14,9 @@ RUN --mount=type=cache,target=/root/.gradle \
 # Copy source code
 COPY src src
 
-# Compile standard Spring Boot executable JAR (incremental thanks to cached ~/.gradle)
+# Compile standard Spring Boot executable JAR (clean first to avoid stale AOT-generated classes)
 RUN --mount=type=cache,target=/root/.gradle \
-    ./gradlew bootJar --no-daemon && \
+    ./gradlew clean bootJar --no-daemon && \
     mkdir -p /workspace/app/unpacked && \
     cd /workspace/app/unpacked && \
     jar -xf ../build/libs/*.jar

@@ -36,7 +36,11 @@ class DashboardController(
         val now = LocalDate.now(ZoneOffset.UTC)
         val monthStart = String.format("%d-%02d-01", now.year, now.monthValue)
 
-        val isOrgWide = currentUser.role in listOf("chef_finance", "mod") || (all && currentUser.role == "manager")
+        // Privileged roles (chef_finance, mod, manager) can request org-wide data via ?all=true.
+        // The frontend defaults showAll=true for chef_finance/mod and showAll=false for everyone else,
+        // giving privileged users an org overview by default while letting them switch to personal view.
+        val canViewAll = currentUser.role in listOf("chef_finance", "mod", "manager")
+        val isOrgWide = all && canViewAll
 
         val expenseCountTotal = if (isOrgWide) expenseRepository.count() else expenseRepository.findAllByUserId(currentUser.id!!).size.toLong()
         val monthExpenses = if (isOrgWide) {

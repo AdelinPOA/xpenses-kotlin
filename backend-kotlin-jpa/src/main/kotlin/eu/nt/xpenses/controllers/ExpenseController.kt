@@ -97,11 +97,11 @@ class ExpenseController(
     }
 
     // ── Bulk upload ──────────────────────────────────────────────────────────
-    // POST /api/expenses/bulk-upload
+    // POST /api/expenses/bulkUpload
     // Accepts up to 20 receipt images/PDFs. Per file: runs OCR synchronously,
     // creates a draft expense, attaches the receipt. Returns all created expenses
     // plus a per-file error list for files that failed validation or OCR.
-    @PostMapping("/bulk-upload")
+    @PostMapping("/bulkUpload")
     fun bulkUploadExpenses(
         @RequestParam("files") files: List<MultipartFile>,
         request: HttpServletRequest

@@ -632,7 +632,7 @@ export interface BulkUploadResult {
 export async function bulkUploadExpenses(files: File[]): Promise<BulkUploadResult> {
   const form = new FormData();
   files.forEach((f) => form.append("files", f));
-  const { data } = await api.post<BulkUploadResult>("/expenses/bulk-upload", form);
+  const { data } = await api.post<BulkUploadResult>("/expenses/bulkUpload", form);
   return data;
 }
 

@@ -1,6 +1,41 @@
 # HANDOFF.md — xpenses-kotlin
 
-## Current Session (2026-06-26, session 92) — dashboard-scoping-and-cache-fix
+## Current Session (2026-06-26, session 93) — bulk-expense-upload
+
+### What Was Done
+- **Implemented bulk expense upload feature:** Drag-and-drop receipt images/PDFs on `/expenses` → OCR → draft expenses → review drawer before assigning to a report.
+- **Backend:** New `BulkExpenseController.kt` at `POST /api/expenses/bulk-upload`:
+  - Accepts up to 20 files (jpg/png/webp/pdf, max 10 MB each)
+  - Per-file: runs `ocrService.scanReceipt()` synchronously, maps result → `ExpenseCreate`, creates draft expense, attaches receipt
+  - OCR failure handled gracefully: expense still created with empty fields, description set to "OCR failed — please fill manually"
+  - Returns `BulkUploadResult { created: List<ExpenseOut>, errors: List<BulkUploadError> }`
+  - `BulkUploadError` and `BulkUploadResult` data classes in `ExpenseController.kt`
+- **Frontend:** Three new components:
+  - `BulkUploadZone.tsx`: "Upload receipts" button + full-viewport drag overlay portal (only shown when dragging)
+  - `BulkReviewDrawer.tsx`: Right-side drawer with uploading spinner → editable rows (merchant, amount, currency, date, category, description) → "Done reviewing" button
+  - `BulkExpenseRow` (inside drawer): thumbnail, inline edits via `PATCH /expenses/{id}` on blur, delete button
+  - `ExpensesClient.tsx`: drag counter pattern for nested drag events, wires all components
+- **Bug encountered & fixed:** Spring Boot 3 AOT processor bug — `@PostMapping("/bulk-upload")` was silently dropped from handler registrations when same controller also had bare `@PostMapping` (no path). Fixed by moving bulk upload to a dedicated `BulkExpenseController` class.
+- **Dockerfile fix:** Added `clean` and `--no-build-cache` to Gradle `bootJar` command to prevent stale AOT-generated classes in BuildKit cache.
+- **Smoke test PASSED:** `POST /api/expenses/bulk-upload` with PNG → `created: 1, errors: 0`, draft expense with receipt attached.
+
+### Files Changed
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/BulkExpenseController.kt` — new file
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/ExpenseController.kt` — added DTOs (`BulkUploadError`, `BulkUploadResult`), removed OcrService dependency
+- `backend-kotlin-jpa/Dockerfile` — `clean bootJar --no-build-cache`
+- `frontend/lib/api.ts` — `BulkUploadError`, `BulkUploadResult` types, `bulkUploadExpenses()`
+- `frontend/components/expenses/BulkUploadZone.tsx` — new file
+- `frontend/components/expenses/BulkReviewDrawer.tsx` — new file
+- `frontend/app/expenses/ExpensesClient.tsx` — drag handlers, state, BulkUploadZone, BulkReviewDrawer
+
+### Next Steps
+- Merge `feat/bulk-expense-upload` PR to `main`
+- Server should be switched to `main` after merge
+- Manual UI test: drag real receipt images to `http://192.168.100.48:3001/expenses` and verify OCR-populated draft expenses appear in the review drawer
+
+---
+
+## Previous Session (2026-06-26, session 92) — dashboard-scoping-and-cache-fix
 
 ### What Was Done
 - **Git cleanup:** Deleted 24 merged remote branches, 2 stale unmerged branches (`feat/inventory-and-reports`, `fix/audit-low-cleanup`), closed 2 superseded Dependabot PRs (#3, #4), deleted 4 stale local branches on server. Pruned Docker build cache on server — freed **11.32 GB**.

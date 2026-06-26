@@ -45,7 +45,7 @@ class ExpenseController(
     private val exportService: ExportService,
     private val expenseMapper: ExpenseMapper,
     private val transactionTemplate: TransactionTemplate,
-    private val expenseService: ExpenseService
+    private val expenseService: ExpenseService,
 ) {
     private val log = LoggerFactory.getLogger(ExpenseController::class.java)
 
@@ -504,4 +504,14 @@ data class ExpenseUpdate(
     val merchant: String? = null,
     @JsonProperty("raw_ocr_text") val rawOcrText: String? = null,
     @JsonProperty("comparison_id") val comparisonId: Int? = null
+)
+
+data class BulkUploadError(
+    val filename: String,
+    val reason: String
+)
+
+data class BulkUploadResult(
+    val created: List<ExpenseOut>,
+    val errors: List<BulkUploadError>
 )

@@ -617,6 +617,25 @@ export interface InsuranceFile {
   updated_at: string;
 }
 
+// ── Bulk expense upload ────────────────────────────────────────────────────
+
+export interface BulkUploadError {
+  filename: string;
+  reason: string;
+}
+
+export interface BulkUploadResult {
+  created: Expense[];
+  errors: BulkUploadError[];
+}
+
+export async function bulkUploadExpenses(files: File[]): Promise<BulkUploadResult> {
+  const form = new FormData();
+  files.forEach((f) => form.append("files", f));
+  const { data } = await api.post<BulkUploadResult>("/expenses/bulk-upload", form);
+  return data;
+}
+
 export async function downloadBlob(
   url: string,
   params: Record<string, unknown>,

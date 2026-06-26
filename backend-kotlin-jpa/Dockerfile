@@ -14,9 +14,10 @@ RUN --mount=type=cache,target=/root/.gradle \
 # Copy source code
 COPY src src
 
-# Compile standard Spring Boot executable JAR (incremental thanks to cached ~/.gradle)
+# Compile standard Spring Boot executable JAR
+# --no-build-cache prevents Gradle from restoring stale AOT-generated CGLIB proxies from cache
 RUN --mount=type=cache,target=/root/.gradle \
-    ./gradlew bootJar --no-daemon && \
+    ./gradlew clean bootJar --no-daemon --no-build-cache && \
     mkdir -p /workspace/app/unpacked && \
     cd /workspace/app/unpacked && \
     jar -xf ../build/libs/*.jar

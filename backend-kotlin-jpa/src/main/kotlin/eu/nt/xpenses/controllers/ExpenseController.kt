@@ -102,7 +102,6 @@ class ExpenseController(
     // creates a draft expense, attaches the receipt. Returns all created expenses
     // plus a per-file error list for files that failed validation or OCR.
     @PostMapping("/bulk-upload")
-    @Transactional
     fun bulkUploadExpenses(
         @RequestParam("files") files: List<MultipartFile>,
         request: HttpServletRequest

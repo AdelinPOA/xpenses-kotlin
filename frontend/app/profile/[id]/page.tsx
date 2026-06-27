@@ -156,48 +156,82 @@ export default function UserProfileDetailPage() {
             <EmptyState message="No reports found for this user." />
           ) : (
             <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm overflow-hidden border border-slate-200 dark:border-slate-700">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-50 dark:bg-slate-800 text-xs text-slate-500 dark:text-slate-400 uppercase">
-                    <tr>
-                      <th className="text-left px-4 py-3">Report Title</th>
-                      <th className="text-left px-4 py-3">Date Range</th>
-                      <th className="text-right px-4 py-3">Total Amount</th>
-                      <th className="text-center px-4 py-3">Status</th>
-                      <th className="text-center px-4 py-3">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {reports.map((report) => (
-                      <tr key={report.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                        <td className="px-4 py-3 font-semibold text-slate-800 dark:text-slate-200">
-                          {report.title}
-                        </td>
-                        <td className="px-4 py-3 text-slate-500 dark:text-slate-400">
-                          {report.date_from && report.date_to
-                            ? `${report.date_from} — ${report.date_to}`
-                            : "-"}
-                        </td>
-                        <td className="px-4 py-3 text-right font-bold text-slate-800 dark:text-slate-200">
+              <>
+                {/* Mobile: stacked cards */}
+                <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-800">
+                  {reports.map((report) => (
+                    <div key={report.id} className="p-4">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="font-semibold text-slate-800 dark:text-slate-200">{report.title}</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                            {report.date_from && report.date_to
+                              ? `${report.date_from} — ${report.date_to}`
+                              : "-"}
+                          </p>
+                        </div>
+                        <p className="font-bold text-slate-800 dark:text-slate-200 shrink-0">
                           {formatEur(report.total_amount)}
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          <Badge status={report.status} />
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          <button
-                            onClick={() => setSelectedReportId(report.id)}
-                            className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline px-2 py-1"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                            View Summary
-                          </button>
-                        </td>
+                        </p>
+                      </div>
+                      <div className="flex items-center justify-between mt-3">
+                        <Badge status={report.status} />
+                        <button
+                          onClick={() => setSelectedReportId(report.id)}
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline px-2 py-1"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          View Summary
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Desktop: table */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-slate-50 dark:bg-slate-800 text-xs text-slate-500 dark:text-slate-400 uppercase">
+                      <tr>
+                        <th className="text-left px-4 py-3">Report Title</th>
+                        <th className="text-left px-4 py-3">Date Range</th>
+                        <th className="text-right px-4 py-3">Total Amount</th>
+                        <th className="text-center px-4 py-3">Status</th>
+                        <th className="text-center px-4 py-3">Actions</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                      {reports.map((report) => (
+                        <tr key={report.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                          <td className="px-4 py-3 font-semibold text-slate-800 dark:text-slate-200">
+                            {report.title}
+                          </td>
+                          <td className="px-4 py-3 text-slate-500 dark:text-slate-400">
+                            {report.date_from && report.date_to
+                              ? `${report.date_from} — ${report.date_to}`
+                              : "-"}
+                          </td>
+                          <td className="px-4 py-3 text-right font-bold text-slate-800 dark:text-slate-200">
+                            {formatEur(report.total_amount)}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <Badge status={report.status} />
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <button
+                              onClick={() => setSelectedReportId(report.id)}
+                              className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline px-2 py-1"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              View Summary
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             </div>
           )}
         </div>

@@ -298,7 +298,54 @@ function ReportsPageContent() {
             }
           />
         ) : (
-          <div className="overflow-x-auto">
+          <>
+            {/* Mobile: stacked cards */}
+            <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-700">
+              {sorted.map((r) => (
+                <div key={r.id} className="p-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <Link href={`/reports/${r.id}`} className="font-medium text-slate-800 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400">
+                        {r.title}
+                      </Link>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                        {showAll && r.user_display_name ? `${r.user_display_name} · ` : ""}
+                        {r.date_from && r.date_to ? `${r.date_from} — ${r.date_to}` : "—"}
+                      </p>
+                    </div>
+                    <p className="font-semibold text-slate-900 dark:text-slate-100 shrink-0">
+                      {formatEur(r.expenses.reduce((s, e) => s + e.amount_eur, 0) || r.total_amount)}
+                    </p>
+                  </div>
+                  <div className="flex items-center justify-between mt-3">
+                    <div className="flex items-center gap-2">
+                      <Badge status={r.status} />
+                      <span className="text-xs text-slate-400 dark:text-slate-500">
+                        {r.expenses.length} expense{r.expenses.length === 1 ? "" : "s"}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Link href={`/reports/${r.id}`}>
+                        <Eye className="w-4 h-4 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400" />
+                      </Link>
+                      {r.status === "draft" && r.user_id === user?.id && (
+                        <>
+                          <button title="Submit report" onClick={() => quickSubmit.mutate(r.id)} disabled={quickSubmit.isPending}>
+                            <Send className="w-4 h-4 text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400" />
+                          </button>
+                          <button onClick={() => setConfirmDeleteId(r.id)} disabled={del.isPending}>
+                            <Trash2 className="w-4 h-4 text-slate-400 hover:text-red-500" />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop: table */}
+            <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-slate-50 dark:bg-slate-800 text-xs text-slate-500 dark:text-slate-400 uppercase">
                 <tr>
@@ -377,7 +424,8 @@ function ReportsPageContent() {
                 ))}
               </tbody>
             </table>
-          </div>
+            </div>
+          </>
         )}
       </div>
 

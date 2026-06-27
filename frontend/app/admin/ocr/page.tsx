@@ -376,7 +376,126 @@ export default function OcrAdminPage() {
                     <h3 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                       Scan History & Comparisons (Last {compData.history.length})
                     </h3>
-                    <div className="overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-lg">
+                    {/* Mobile: stacked cards */}
+                    <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg">
+                      {compData.history.map((row) => {
+                        const formatCat = (id: number | null) => {
+                          if (!id) return null;
+                          const cat = categories?.find((c: Category) => c.id === id);
+                          return cat ? cat.name : `ID: ${id}`;
+                        };
+
+                        const isLinked = row.final_amount !== null || row.final_date !== null || row.final_merchant !== null;
+
+                        const isGeminiRequested = row.provider === "gemini" || row.provider?.startsWith("gemini-");
+                        const geminiFailed = isGeminiRequested && (row.gemini_error || (row.gemini_amount === null && row.gemini_merchant === null));
+
+                        let isFallback = false;
+                        let actualProviderStr = row.provider || "gemini";
+                        let errorMsg: string | null = null;
+
+                        if (geminiFailed) {
+                          isFallback = true;
+                          actualProviderStr = "easyocr";
+                          errorMsg = row.gemini_error;
+                        }
+
+                        const fields = [
+                          {
+                            name: "Amount",
+                            easy: row.easyocr_amount !== null ? `${row.easyocr_amount}` : null,
+                            gem: row.gemini_amount !== null ? `${row.gemini_amount}` : null,
+                            final: isLinked ? (row.final_amount !== null ? `${row.final_amount}` : "—") : null,
+                          },
+                          {
+                            name: "Merchant",
+                            easy: row.easyocr_merchant || null,
+                            gem: row.gemini_merchant || null,
+                            final: isLinked ? (row.final_merchant || "—") : null,
+                          },
+                          {
+                            name: "Date",
+                            easy: row.easyocr_date || null,
+                            gem: row.gemini_date || null,
+                            final: isLinked ? (row.final_date || "—") : null,
+                          },
+                          {
+                            name: "Category",
+                            easy: formatCat(row.easyocr_category_id),
+                            gem: formatCat(row.gemini_category_id),
+                            final: isLinked ? (formatCat(row.final_category_id) ?? "—") : null,
+                          },
+                        ];
+
+                        return (
+                          <div key={row.id} className="p-3">
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <div className="font-semibold text-sm text-slate-700 dark:text-slate-300 truncate max-w-[200px]" title={row.receipt_filename ?? ""}>
+                                  {row.receipt_filename ?? "receipt.jpg"}
+                                </div>
+                                <div className="text-[10px] text-slate-400 mt-1 flex items-center gap-1.5">
+                                  <span>{new Date(row.created_at).toLocaleDateString()}</span>
+                                  <span className={`px-1.5 py-0.5 rounded text-[9px] font-semibold font-mono uppercase tracking-wider ${isFallback ? "bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400 line-through opacity-70" : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400"}`}>
+                                    {row.provider || "gemini"}
+                                  </span>
+                                </div>
+                              </div>
+                              {!isLinked && (
+                                <span className="shrink-0 text-[9px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800 font-semibold">
+                                  Not saved yet
+                                </span>
+                              )}
+                            </div>
+                            {isFallback && (
+                              <div className="flex flex-col gap-0.5 mt-1.5">
+                                <span className="text-[9px] text-rose-500 font-semibold uppercase tracking-wider">Failed</span>
+                                <div className="flex items-center gap-1 mt-0.5">
+                                  <span className="text-[9px] text-slate-500">Used:</span>
+                                  <span className="px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800/50 text-[9px] font-semibold font-mono uppercase tracking-wider">
+                                    {actualProviderStr}
+                                  </span>
+                                </div>
+                                {errorMsg && (
+                                  <div className="text-[8px] text-rose-400 dark:text-rose-300 mt-1 leading-tight border-l-2 border-rose-400 dark:border-rose-800 pl-1">
+                                    {errorMsg}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                            <div className="mt-2 space-y-1.5">
+                              {fields.map((f) => (
+                                <div key={f.name} className="flex items-center justify-between text-[11px] gap-2">
+                                  <span className="font-medium text-slate-500 dark:text-slate-400 shrink-0 w-16">{f.name}</span>
+                                  <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                                    {f.easy !== null ? (
+                                      <span className={`px-2 py-0.5 rounded border text-[11px] font-medium ${isLinked ? getStatusColor(f.easy, f.final) : "text-slate-600 bg-slate-100/50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-800"}`}>
+                                        {f.easy}
+                                      </span>
+                                    ) : (
+                                      <span className="text-slate-400">—</span>
+                                    )}
+                                    {f.gem !== null ? (
+                                      <span className={`px-2 py-0.5 rounded border text-[11px] font-medium ${isLinked ? getStatusColor(f.gem, f.final) : "text-slate-600 bg-slate-100/50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-800"}`}>
+                                        {f.gem}
+                                      </span>
+                                    ) : (
+                                      <span className="text-slate-400">—</span>
+                                    )}
+                                    <span className="px-2 py-0.5 rounded bg-blue-50/30 dark:bg-blue-950/10 font-semibold text-slate-800 dark:text-slate-200 text-[11px]">
+                                      {f.final !== null ? f.final : <span className="text-[10px] text-amber-600 dark:text-amber-400 italic">Pending…</span>}
+                                    </span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Desktop: table */}
+                    <div className="hidden md:block overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-lg">
                       <table className="w-full text-left border-collapse text-xs">
                         <thead>
                           <tr className="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-semibold">

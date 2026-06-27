@@ -38,7 +38,6 @@ Kotlin 2.1.0 compiles only on **JDK 21 or 22**. On JDK 23+, use Docker to build:
 - **Backend**: `backend-kotlin-jpa/` — Spring Boot 3.4.5 + JPA/Hibernate + Flyway (42 source files)
 - **Frontend**: `frontend/` — Next.js 15 + React 19 + Tailwind CSS v4 (CSS-first, no `tailwind.config.js`) (58+ source files)
 - **OCR sidecar**: `ocr-sidecar/` — Python FastAPI + EasyOCR (internal port 5000, no host mapping)
-- **MinerU OCR**: `mineru/` — opt-in via `docker compose --profile mineru up` (port 8002)
 
 ## Backend patterns
 
@@ -70,7 +69,6 @@ Kotlin 2.1.0 compiles only on **JDK 21 or 22**. On JDK 23+, use Docker to build:
 | Frontend | 3001 | 3000 |
 | Backend API | 8001 | 8080 |
 | PostgreSQL | 5432 | 5432 |
-| MinerU | 8002 | 8000 |
 
 ## Environment
 

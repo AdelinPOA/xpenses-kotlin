@@ -34,8 +34,7 @@ data class OCRConfig(
     var provider: String = "easyocr",
     @JsonProperty("ocr_enabled") var ocrEnabled: Boolean = true,
     @JsonProperty("gemini_api_key") var geminiApiKey: String = "",
-    @JsonProperty("password_set") var passwordSet: Boolean = false,
-    @JsonProperty("mineru_url") var mineruUrl: String = "http://mineru:8000"
+    @JsonProperty("password_set") var passwordSet: Boolean = false
 )
 
 class NaiveBayesClassifier {
@@ -108,8 +107,7 @@ class OcrService(
 ) {
     private val log = LoggerFactory.getLogger(OcrService::class.java)
     // Force HTTP/1.1: the JDK HttpClient defaults to an HTTP/1.1->HTTP/2 (h2c) upgrade on plain
-    // HTTP, which uvicorn (MinerU) rejects, causing 422 "files: Field required". EasyOCR's
-    // Flask server ignores the upgrade, but FastAPI/uvicorn does not. Pin to HTTP/1.1.
+    // HTTP, which some receiving servers reject. Pin to HTTP/1.1 for compatibility.
     private val restClient = RestClient.builder()
         .requestFactory(JdkClientHttpRequestFactory(HttpClient.newBuilder()
             .version(HttpClient.Version.HTTP_1_1)
@@ -185,28 +183,6 @@ class OcrService(
         }
     }
 
-    fun testMineruConnection(baseUrl: String): Map<String, Any> {
-        try {
-            validateUrlForSsr(baseUrl)
-        } catch (e: IllegalArgumentException) {
-            return mapOf<String, Any>("success" to false, "message" to (e.message ?: "Validation failed"))
-        }
-        val url = baseUrl.trimEnd('/') + "/docs"
-        return try {
-            val response = restClient.get()
-                .uri(url)
-                .retrieve()
-                .toEntity(String::class.java)
-            if (response.statusCode.is2xxSuccessful) {
-                mapOf("success" to true, "message" to "MinerU API is reachable at $baseUrl")
-            } else {
-                mapOf("success" to false, "message" to "MinerU responded with HTTP ${response.statusCode}")
-            }
-        } catch (e: Exception) {
-            mapOf("success" to false, "message" to "Could not connect to $baseUrl: ${e.message}")
-        }
-    }
-
     fun scanReceipt(fileBytes: ByteArray, filename: String): Map<String, Any?> {
         val config = getOcrConfig()
         if (!config.ocrEnabled) {
@@ -227,7 +203,6 @@ class OcrService(
         if (cachedComparison != null) {
             val isProviderPopulated = when {
                 config.provider == "gemini" || config.provider.startsWith("gemini-") -> cachedComparison.geminiAmount != null || cachedComparison.geminiDate != null || cachedComparison.geminiMerchant != null || cachedComparison.geminiCategoryId != null
-                config.provider == "mineru" -> cachedComparison.mineruAmount != null || cachedComparison.mineruDate != null || cachedComparison.mineruMerchant != null || cachedComparison.mineruCategoryId != null
                 else -> cachedComparison.easyocrAmount != null || cachedComparison.easyocrDate != null || cachedComparison.easyocrMerchant != null || cachedComparison.easyocrCategoryId != null
             }
 
@@ -247,11 +222,6 @@ class OcrService(
                     easyocrMerchant = cachedComparison.easyocrMerchant,
                     easyocrCategoryId = cachedComparison.easyocrCategoryId,
                     easyocrError = cachedComparison.easyocrError,
-                    mineruAmount = cachedComparison.mineruAmount,
-                    mineruDate = cachedComparison.mineruDate,
-                    mineruMerchant = cachedComparison.mineruMerchant,
-                    mineruCategoryId = cachedComparison.mineruCategoryId,
-                    mineruError = cachedComparison.mineruError,
                     createdAt = Instant.now()
                 )
                 val savedComparison = try {
@@ -264,27 +234,22 @@ class OcrService(
                 val cachedExp = cachedComparison.expense
                 val amount = when {
                     config.provider == "gemini" || config.provider.startsWith("gemini-") -> cachedComparison.geminiAmount?.toDouble()
-                    config.provider == "mineru" -> cachedComparison.mineruAmount?.toDouble()
                     else -> cachedComparison.easyocrAmount?.toDouble()
                 }
                 val date = when {
                     config.provider == "gemini" || config.provider.startsWith("gemini-") -> cachedComparison.geminiDate
-                    config.provider == "mineru" -> cachedComparison.mineruDate
                     else -> cachedComparison.easyocrDate
                 }
                 val merchant = when {
                     config.provider == "gemini" || config.provider.startsWith("gemini-") -> cachedComparison.geminiMerchant
-                    config.provider == "mineru" -> cachedComparison.mineruMerchant
                     else -> cachedComparison.easyocrMerchant
                 }
                 val categoryId = when {
                     config.provider == "gemini" || config.provider.startsWith("gemini-") -> cachedComparison.geminiCategoryId
-                    config.provider == "mineru" -> cachedComparison.mineruCategoryId
                     else -> cachedComparison.easyocrCategoryId
                 }
                 val providerError = when {
                     config.provider == "gemini" || config.provider.startsWith("gemini-") -> cachedComparison.geminiError
-                    config.provider == "mineru" -> cachedComparison.mineruError
                     else -> cachedComparison.easyocrError
                 }
 
@@ -318,7 +283,6 @@ class OcrService(
 
         var geminiResult: Map<String, Any?>? = null
         var easyocrResult: Map<String, Any?>? = null
-        var mineruResult: Map<String, Any?>? = null
         var finalResult: Map<String, Any?>
 
         // Pre-save the comparison record to obtain an ID for async background updates
@@ -358,23 +322,6 @@ class OcrService(
                 }
                 finalResult = easyocrResult
             }
-        } else if (config.provider == "mineru") {
-            try {
-                mineruResult = scanMineru(fileBytes, filename, config.mineruUrl, categories, classifier)
-            } catch (e: Exception) {
-                mineruResult = errorResult("MinerU failed: ${e.message}")
-            }
-
-            if (mineruResult != null && mineruResult["amount"] != null) {
-                finalResult = mineruResult
-            } else {
-                try {
-                    easyocrResult = scanEasyOcr(fileBytes, filename, categories, classifier)
-                } catch (e: Exception) {
-                    easyocrResult = errorResult("EasyOCR failed: ${e.message}")
-                }
-                finalResult = easyocrResult
-            }
         } else { // easyocr
             try {
                 easyocrResult = scanEasyOcr(fileBytes, filename, categories, classifier)
@@ -393,9 +340,6 @@ class OcrService(
                 if (easyocrResult != null) {
                     updateEasyOcrComparison(comparisonId, easyocrResult)
                 }
-                if (mineruResult != null) {
-                    updateMineruComparison(comparisonId, mineruResult)
-                }
             } catch (e: Exception) {
                 log.warn("Failed to update synchronous OCR comparison results: {}", e.message)
             }
@@ -409,18 +353,6 @@ class OcrService(
                     } catch (e: Exception) {
                         log.error("Async EasyOCR failed: ${e.message}")
                         updateEasyOcrComparison(comparisonId, errorResult("EasyOCR failed: ${e.message}"))
-                    }
-                }, taskExecutor)
-            }
-
-            if (mineruResult == null) {
-                CompletableFuture.runAsync({
-                    try {
-                        val res = scanMineru(fileBytes, filename, config.mineruUrl, categories, classifier)
-                        updateMineruComparison(comparisonId, res)
-                    } catch (e: Exception) {
-                        log.error("Async MinerU failed: ${e.message}")
-                        updateMineruComparison(comparisonId, errorResult("MinerU failed: ${e.message}"))
                     }
                 }, taskExecutor)
             }
@@ -468,19 +400,6 @@ class OcrService(
             ocrComparisonRepository.updateEasyOcrResult(id, amount, date, merchant, categoryId, error)
         } catch (e: Exception) {
             log.warn("Failed to update EasyOCR comparison record: {}", e.message)
-        }
-    }
-
-    private fun updateMineruComparison(id: Int, result: Map<String, Any?>) {
-        try {
-            val amount = (result["amount"] as? Number)?.let { BigDecimal.valueOf(it.toDouble()) }
-            val date = result["date"] as? String
-            val merchant = result["merchant"] as? String
-            val categoryId = result["category_id"] as? Int
-            val error = result["provider_error"] as? String
-            ocrComparisonRepository.updateMineruResult(id, amount, date, merchant, categoryId, error)
-        } catch (e: Exception) {
-            log.warn("Failed to update MinerU comparison record: {}", e.message)
         }
     }
 
@@ -571,107 +490,6 @@ class OcrService(
             log.warn("EasyOCR sidecar API call failed: {}", e.message)
             emptyList()
         }
-    }
-
-    private fun scanMineru(
-        fileBytes: ByteArray,
-        filename: String,
-        mineruUrl: String,
-        categories: List<eu.nt.xpenses.models.Category>,
-        classifier: NaiveBayesClassifier?
-    ): Map<String, Any?> {
-        validateUrlForSsr(mineruUrl)
-        val url = mineruUrl.trimEnd('/') + "/file_parse"
-        val resource = object : ByteArrayResource(fileBytes) {
-            override fun getFilename(): String = filename
-        }
-
-        val parts = LinkedMultiValueMap<String, Any>().apply {
-            add("files", resource)
-            add("backend", "pipeline")
-            add("lang_list", "latin")
-            add("return_md", true)
-        }
-
-        val headers = HttpHeaders().apply {
-            contentType = MediaType.MULTIPART_FORM_DATA
-        }
-
-        val response = restClient.post()
-            .uri(url)
-            .headers { it.addAll(headers) }
-            .body(parts)
-            .retrieve()
-            .body<Map<String, Any>>() ?: throw Exception("Empty response from MinerU")
-
-        // Parse markdown results
-        var mdText = ""
-        val results = response["results"] ?: response
-        if (results is List<*> && results.isNotEmpty()) {
-            val first = results[0] as? Map<*, *>
-            if (first != null) {
-                val doc = first["document"] as? Map<*, *> ?: first
-                mdText = (doc["md_content"] ?: doc["content"] ?: "").toString()
-            }
-        } else if (results is Map<*, *>) {
-            val doc = results["document"] as? Map<*, *>
-            if (doc != null) {
-                mdText = (doc["md_content"] ?: doc["content"] ?: "").toString()
-            } else {
-                val firstVal = results.values.firstOrNull { it is Map<*, *> } as? Map<*, *>
-                mdText = (firstVal?.get("md_content") ?: firstVal?.get("content") ?: "").toString()
-            }
-        }
-
-        val cleanLines = mdText.split("\n")
-            .map { it.replace(Regex("[#*`_>|\\[\\]]"), "").trim() }
-            .filter { it.isNotEmpty() }
-        
-        val rawText = cleanLines.joinToString("\n")
-        val (amount, currency) = extractAmount(cleanLines)
-        val (taxAmount, taxRate) = extractTax(cleanLines)
-        val date = extractDate(cleanLines)
-        val merchant = extractMerchant(cleanLines)
-
-        var categoryId: Int? = null
-        if (classifier != null && rawText.isNotEmpty()) {
-            categoryId = classifier.predict(rawText)
-        }
-        if (categoryId == null && rawText.isNotEmpty()) {
-            val textLower = rawText.lowercase()
-            for (cat in categories) {
-                val catNameLower = cat.name.lowercase()
-                if (textLower.contains(catNameLower)) {
-                    categoryId = cat.id
-                    break
-                }
-                val words = catNameLower.split(" ").map { it.trim() }.filter { it.length > 3 }
-                if (words.isNotEmpty() && words.any { textLower.contains(it) }) {
-                    categoryId = cat.id
-                    break
-                }
-            }
-        }
-
-        val description = if (merchant != null) "Scanned receipt from $merchant" else "Scanned receipt"
-        val warnings = mutableListOf<String>()
-        if (amount == null) warnings.add("Could not extract amount")
-        if (date == null) warnings.add("Could not extract date")
-        if (merchant == null) warnings.add("Could not extract merchant")
-
-        return mapOf(
-            "amount" to amount,
-            "currency" to currency,
-            "tax_amount" to taxAmount,
-            "tax_rate" to taxRate,
-            "date" to date,
-            "merchant" to merchant,
-            "category_id" to categoryId,
-            "description" to description,
-            "raw_text" to rawText,
-            "confidence" to 0.95,
-            "warnings" to warnings
-        )
     }
 
     fun geminiModelName(provider: String): String {
@@ -1003,15 +821,4 @@ class OcrService(
         return r
     }
 
-    private fun validateUrlForSsr(url: String, allowedHosts: List<String> = listOf("localhost", "127.0.0.1", "mineru")) {
-        try {
-            val parsed = java.net.URL(url)
-            val host = parsed.host
-            if (host == null || allowedHosts.none { host == it || host.endsWith(".$it") }) {
-                throw IllegalArgumentException("URL host '$host' is not in the allowed list: $allowedHosts")
-            }
-        } catch (e: java.net.MalformedURLException) {
-            throw IllegalArgumentException("Invalid URL: $url", e)
-        }
-    }
 }

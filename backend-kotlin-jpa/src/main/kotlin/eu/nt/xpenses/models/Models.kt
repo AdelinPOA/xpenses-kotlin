@@ -628,26 +628,11 @@ class OcrComparison(
     @Column(name = "easyocr_category_id")
     var easyocrCategoryId: Int? = null,
 
-    @Column(name = "mineru_amount")
-    var mineruAmount: BigDecimal? = null,
-
-    @Column(name = "mineru_date")
-    var mineruDate: String? = null,
-
-    @Column(name = "mineru_merchant")
-    var mineruMerchant: String? = null,
-
-    @Column(name = "mineru_category_id")
-    var mineruCategoryId: Int? = null,
-
     @Column(name = "easyocr_error")
     var easyocrError: String? = null,
 
     @Column(name = "gemini_error")
     var geminiError: String? = null,
-
-    @Column(name = "mineru_error")
-    var mineruError: String? = null,
 
     @Column(name = "sha256")
     var sha256: String? = null,

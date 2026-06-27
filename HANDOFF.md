@@ -1,5 +1,37 @@
 # HANDOFF.md — xpenses-kotlin
 
+## Current Session (2026-06-27, session 94) — remove-mineru
+
+### What Was Done
+- **Removed MinerU OCR provider completely** (branch `chore/remove-mineru`): it was an opt-in local OCR engine, never the default, and added DB columns/UI surface/compose service that weren't worth the maintenance cost.
+  - Backend: deleted `scanMineru`, `testMineruConnection`, `updateMineruComparison`, mineru branches in `OcrService.scanReceipt`'s cache/provider dispatch, and the now-dead `validateUrlForSsr` SSRF guard (only ever called by MinerU code paths). Removed `mineru_*` fields from `OcrComparison` entity, `OcrComparisonRepository`, `OcrController` accuracy stats, and `AppSettingsController` OCR config DTOs/endpoints (`/api/settings/ocr/test-mineru` gone).
+  - DB: new migration `V24__drop_mineru_columns.sql` drops `mineru_amount/date/merchant/category_id/error` from `ocr_comparisons`. (V1/V6, which originally added them, are left untouched — never edit applied migrations.)
+  - Frontend: removed MinerU option/config UI/test-connection from `/admin/ocr`, and `mineru_*` fields/types from `lib/api.ts`.
+  - Infra: removed `mineru` service + `mineru-models` volume from `docker-compose.yml`; deleted `mineru/` directory (including a 950KB `.so` binary that had been committed to git — `mineru/gpu-libs/libze_loader.so.1`).
+  - Docs: scrubbed MinerU mentions from `CLAUDE.md`, `README.md`, `AGENTS.md`, `GEMINI.md`.
+- **Verified clean**: Kotlin compiles (`compileKotlin`/`compileTestKotlin` via Docker JDK 21), frontend `tsc --noEmit` and `npm run lint` pass with no new warnings.
+- **Pre-existing test failure found, not caused by this change**: `DashboardControllerTest > chef_finance dashboard shows org-wide data` fails on `origin/main` too (62/63 → confirmed same failure on main before any mineru changes). Test never got updated after session 92's dashboard-scoping change (privileged roles now need explicit `?all=true`); test still calls the endpoint without it and expects org-wide counts. Flagged as a separate background task, not fixed here.
+- **Audit pass also flagged** (not yet acted on): 9 stale AI-audit scratch files at repo root (`glm52.md`, `hermes.md`, `mino25.md`, `nemotron.md`, `todo.md`, `kotlin_migration_plan.md`, `TOKEN_OPTIMIZATION.md`, `reasonix.toml`, `test.kts`), 26 already-merged-but-undeleted remote branches, 2 open Dependabot PRs.
+
+### Files Changed
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/OcrService.kt`
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/OcrController.kt`
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/AppSettingsController.kt`
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/models/Models.kt`
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/repositories/Repositories.kt`
+- `backend-kotlin-jpa/src/main/resources/db/migration/V24__drop_mineru_columns.sql` — new
+- `frontend/app/admin/ocr/page.tsx`, `frontend/lib/api.ts`
+- `docker-compose.yml`
+- `mineru/` — deleted entirely
+- `CLAUDE.md`, `README.md`, `AGENTS.md`, `GEMINI.md`
+
+### Next Steps
+- Run `make test` (full Testcontainers suite) before merging — only the pre-existing DashboardControllerTest failure is expected.
+- Merge `chore/remove-mineru` to `main` when reviewed.
+- Decide on the separately-flagged audit cleanup items (stale docs, merged branches, Dependabot PRs) — none touched in this session.
+
+---
+
 ## Current Session (2026-06-26, session 93) — bulk-expense-upload
 
 ### What Was Done

@@ -386,7 +386,6 @@ export interface OcrConfig {
   provider: string;
   ocr_enabled: boolean;
   gemini_api_key?: string | null;
-  mineru_url?: string | null;
 }
 
 export async function getOcrConfig(): Promise<OcrConfig> {
@@ -401,11 +400,6 @@ export async function updateOcrConfig(config: Partial<OcrConfig>): Promise<OcrCo
 
 export async function testOcrConfig(payload: { gemini_api_key?: string | null; provider?: string }): Promise<{ success: boolean; message: string }> {
   const { data } = await api.post("/settings/ocr/test", payload);
-  return data;
-}
-
-export async function testMinerUConfig(): Promise<{ success: boolean; message: string }> {
-  const { data } = await api.post("/settings/ocr/test-mineru");
   return data;
 }
 
@@ -483,10 +477,6 @@ export interface OCRComparisonStats {
   gemini_date_accuracy: number;
   gemini_merchant_accuracy: number;
   gemini_category_accuracy: number;
-  mineru_amount_accuracy: number;
-  mineru_date_accuracy: number;
-  mineru_merchant_accuracy: number;
-  mineru_category_accuracy: number;
 }
 
 export interface OCRComparisonRow {
@@ -501,13 +491,8 @@ export interface OCRComparisonRow {
   easyocr_date: string | null;
   easyocr_merchant: string | null;
   easyocr_category_id: number | null;
-  mineru_amount: number | null;
-  mineru_date: string | null;
-  mineru_merchant: string | null;
-  mineru_category_id: number | null;
   easyocr_error: string | null;
   gemini_error: string | null;
-  mineru_error: string | null;
   provider: string;
   final_amount: number | null;
   final_date: string | null;

@@ -130,14 +130,8 @@ class OcrController(
         var geminiMerchantOk = 0
         var geminiCatOk = 0
 
-        var mineruAmtOk = 0
-        var mineruDateOk = 0
-        var mineruMerchantOk = 0
-        var mineruCatOk = 0
-
         var easyocrCount = 0
         var geminiCount = 0
-        var mineruCount = 0
 
         // Per-field denominators for accurate per-field accuracy calculation
         var easyocrAmtDenom = 0
@@ -148,10 +142,6 @@ class OcrController(
         var geminiDateDenom = 0
         var geminiMerchantDenom = 0
         var geminiCatDenom = 0
-        var mineruAmtDenom = 0
-        var mineruDateDenom = 0
-        var mineruMerchantDenom = 0
-        var mineruCatDenom = 0
 
         val responseHistory = history.map { r ->
             val expense = r.expense
@@ -173,12 +163,6 @@ class OcrController(
             val hasGeminiMerchant = r.geminiMerchant != null
             val hasGeminiCategory = r.geminiCategoryId != null
             val hasGemini = hasGeminiAmount || hasGeminiDate || hasGeminiMerchant || hasGeminiCategory
-
-            val hasMineruAmount = r.mineruAmount != null
-            val hasMineruDate = r.mineruDate != null
-            val hasMineruMerchant = r.mineruMerchant != null
-            val hasMineruCategory = r.mineruCategoryId != null
-            val hasMineru = hasMineruAmount || hasMineruDate || hasMineruMerchant || hasMineruCategory
 
             // EasyOCR accuracy
             if (hasEasy && hasFinal) {
@@ -231,31 +215,6 @@ class OcrController(
                 }
             }
 
-            // MinerU accuracy
-            if (hasMineru && hasFinal) {
-                mineruCount++
-                if (hasMineruAmount && finalAmount != null) {
-                    mineruAmtDenom++
-                    if (r.mineruAmount!!.subtract(finalAmount).abs().compareTo(BigDecimal("0.01")) < 0) mineruAmtOk++
-                }
-                if (hasMineruDate && finalDate != null) {
-                    mineruDateDenom++
-                    if (r.mineruDate == finalDate) mineruDateOk++
-                }
-                if (hasMineruMerchant) {
-                    mineruMerchantDenom++
-                    if (!r.mineruMerchant.isNullOrEmpty() && !finalMerchant.isNullOrEmpty()) {
-                        if (r.mineruMerchant!!.trim().lowercase() == finalMerchant.trim().lowercase()) mineruMerchantOk++
-                    } else if (r.mineruMerchant.isNullOrEmpty() && finalMerchant.isNullOrEmpty()) {
-                        mineruMerchantOk++
-                    }
-                }
-                if (hasMineruCategory && finalCategoryId != null) {
-                    mineruCatDenom++
-                    if (r.mineruCategoryId == finalCategoryId) mineruCatOk++
-                }
-            }
-
             OcrComparisonRow(
                 id = r.id!!,
                 receiptFilename = r.receiptFilename,
@@ -268,13 +227,8 @@ class OcrController(
                 easyocrDate = r.easyocrDate,
                 easyocrMerchant = r.easyocrMerchant,
                 easyocrCategoryId = r.easyocrCategoryId,
-                mineruAmount = r.mineruAmount,
-                mineruDate = r.mineruDate,
-                mineruMerchant = r.mineruMerchant,
-                mineruCategoryId = r.mineruCategoryId,
                 easyocrError = r.easyocrError,
                 geminiError = r.geminiError,
-                mineruError = r.mineruError,
                 provider = r.provider,
                 finalAmount = finalAmount,
                 finalDate = finalDate,
@@ -292,11 +246,7 @@ class OcrController(
             "gemini_amount_accuracy" to if (geminiAmtDenom > 0) Math.round((geminiAmtOk.toDouble() / geminiAmtDenom) * 10000.0) / 100.0 else 0.0,
             "gemini_date_accuracy" to if (geminiDateDenom > 0) Math.round((geminiDateOk.toDouble() / geminiDateDenom) * 10000.0) / 100.0 else 0.0,
             "gemini_merchant_accuracy" to if (geminiMerchantDenom > 0) Math.round((geminiMerchantOk.toDouble() / geminiMerchantDenom) * 10000.0) / 100.0 else 0.0,
-            "gemini_category_accuracy" to if (geminiCatDenom > 0) Math.round((geminiCatOk.toDouble() / geminiCatDenom) * 10000.0) / 100.0 else 0.0,
-            "mineru_amount_accuracy" to if (mineruAmtDenom > 0) Math.round((mineruAmtOk.toDouble() / mineruAmtDenom) * 10000.0) / 100.0 else 0.0,
-            "mineru_date_accuracy" to if (mineruDateDenom > 0) Math.round((mineruDateOk.toDouble() / mineruDateDenom) * 10000.0) / 100.0 else 0.0,
-            "mineru_merchant_accuracy" to if (mineruMerchantDenom > 0) Math.round((mineruMerchantOk.toDouble() / mineruMerchantDenom) * 10000.0) / 100.0 else 0.0,
-            "mineru_category_accuracy" to if (mineruCatDenom > 0) Math.round((mineruCatOk.toDouble() / mineruCatDenom) * 10000.0) / 100.0 else 0.0
+            "gemini_category_accuracy" to if (geminiCatDenom > 0) Math.round((geminiCatOk.toDouble() / geminiCatDenom) * 10000.0) / 100.0 else 0.0
         )
 
         return ResponseEntity.ok(mapOf(
@@ -318,13 +268,8 @@ data class OcrComparisonRow(
     @JsonProperty("easyocr_date") val easyocrDate: String?,
     @JsonProperty("easyocr_merchant") val easyocrMerchant: String?,
     @JsonProperty("easyocr_category_id") val easyocrCategoryId: Int?,
-    @JsonProperty("mineru_amount") val mineruAmount: BigDecimal?,
-    @JsonProperty("mineru_date") val mineruDate: String?,
-    @JsonProperty("mineru_merchant") val mineruMerchant: String?,
-    @JsonProperty("mineru_category_id") val mineruCategoryId: Int?,
     @JsonProperty("easyocr_error") val easyocrError: String?,
     @JsonProperty("gemini_error") val geminiError: String?,
-    @JsonProperty("mineru_error") val mineruError: String?,
     val provider: String,
     @JsonProperty("final_amount") val finalAmount: BigDecimal?,
     @JsonProperty("final_date") val finalDate: String?,

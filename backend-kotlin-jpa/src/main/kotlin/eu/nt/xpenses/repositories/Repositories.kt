@@ -190,25 +190,13 @@ interface OcrComparisonRepository : JpaRepository<OcrComparison, Int> {
     @Query("SELECT o FROM OcrComparison o LEFT JOIN FETCH o.expense ORDER BY o.createdAt DESC")
     fun findAllOrdered(): List<OcrComparison>
 
-    @Query("SELECT o FROM OcrComparison o LEFT JOIN FETCH o.expense WHERE o.sha256 = :sha256 ORDER BY CASE WHEN o.expense IS NOT NULL THEN 1 WHEN o.easyocrAmount IS NOT NULL OR o.geminiAmount IS NOT NULL OR o.mineruAmount IS NOT NULL THEN 2 ELSE 3 END ASC, o.id DESC")
+    @Query("SELECT o FROM OcrComparison o LEFT JOIN FETCH o.expense WHERE o.sha256 = :sha256 ORDER BY CASE WHEN o.expense IS NOT NULL THEN 1 WHEN o.easyocrAmount IS NOT NULL OR o.geminiAmount IS NOT NULL THEN 2 ELSE 3 END ASC, o.id DESC")
     fun findBestCachedComparison(@Param("sha256") sha256: String): List<OcrComparison>
 
     @Modifying
     @Transactional
     @Query("UPDATE OcrComparison o SET o.easyocrAmount = :amount, o.easyocrDate = :date, o.easyocrMerchant = :merchant, o.easyocrCategoryId = :categoryId, o.easyocrError = :error WHERE o.id = :id")
     fun updateEasyOcrResult(
-        @Param("id") id: Int,
-        @Param("amount") amount: BigDecimal?,
-        @Param("date") date: String?,
-        @Param("merchant") merchant: String?,
-        @Param("categoryId") categoryId: Int?,
-        @Param("error") error: String?
-    )
-
-    @Modifying
-    @Transactional
-    @Query("UPDATE OcrComparison o SET o.mineruAmount = :amount, o.mineruDate = :date, o.mineruMerchant = :merchant, o.mineruCategoryId = :categoryId, o.mineruError = :error WHERE o.id = :id")
-    fun updateMineruResult(
         @Param("id") id: Int,
         @Param("amount") amount: BigDecimal?,
         @Param("date") date: String?,

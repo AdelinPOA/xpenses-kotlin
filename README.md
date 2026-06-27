@@ -18,7 +18,7 @@ Self-hosted expense management application for internal company use. Built with 
 - **Digital signatures** — canvas-based signature pad; sign reports with one click; stored per-user
 - **Soft Delete & Audit** — Financial records are soft-deleted to maintain data integrity, with explicit audit read paths
 - **Categories** — with optional EUR spending limits
-- **Async OCR receipt scanning** — hybrid local & cloud system: EasyOCR (local), Gemini (2.5 Flash, 3.1 Flash-Lite, 3.5 Flash) (cloud), MinerU (opt-in local). Features browser-side image compression, parallel poppler PDF rendering, dynamic MIME type mapping, and SHA-256 database-backed caching for sub-50ms duplicate scans. Auto-fills category, description, amount, currency, date, merchant, tax; includes Naive Bayes category classifier
+- **Async OCR receipt scanning** — hybrid local & cloud system: EasyOCR (local), Gemini (2.5 Flash, 3.1 Flash-Lite, 3.5 Flash) (cloud). Features browser-side image compression, parallel poppler PDF rendering, dynamic MIME type mapping, and SHA-256 database-backed caching for sub-50ms duplicate scans. Auto-fills category, description, amount, currency, date, merchant, tax; includes Naive Bayes category classifier
 - **Email receipt import** — IMAP-based ingestion with side-by-side local & Gemini parsing
 - **Dashboard** — monthly totals, spend by category (clickable), recent expenses (clickable), time-of-day greetings, role-specific action cards
 - **Role-differentiated UX** — 4 roles (Technician, Manager, Chef of Finances, Moderator); each sees only relevant actions
@@ -47,9 +47,9 @@ submitted → draft (via recall, by owner)
 | Forms & validation | react-hook-form 7 + zod 4 |
 | PDF generation | OpenPDF 2.0.3 + PDFBox 3.0.2 |
 | Excel export | Apache POI 5.3 |
-| OCR | EasyOCR (sidecar) + Gemini 2.5 Flash (cloud) + MinerU 2.5 (opt-in) |
+| OCR | EasyOCR (sidecar) + Gemini 2.5 Flash (cloud) |
 | Auth | JWT (access 15min + refresh 7d) in httpOnly cookies |
-| Containerization | Docker Compose (5 services) |
+| Containerization | Docker Compose (4 services) |
 
 ## Quick Start
 
@@ -61,7 +61,7 @@ submitted → draft (via recall, by owner)
 
 ```bash
 cp .env.example .env
-docker compose up -d db backend ocr-sidecar mineru
+docker compose up -d db backend ocr-sidecar
 cd frontend && npm install && npm run dev -- -p 3001
 ```
 
@@ -71,7 +71,6 @@ cd frontend && npm install && npm run dev -- -p 3001
 | Backend API | http://localhost:8001/api | Docker |
 | Database | port 5432 | Docker (internal) |
 | EasyOCR sidecar | port 8004 | Docker (internal) |
-| MinerU 2.5 | port 8002 | Docker (opt-in: `--profile mineru`) |
 
 ### Production (company server)
 
@@ -86,9 +85,6 @@ docker compose up -d --build
 | Frontend | http://localhost:3001 |
 | Backend API | http://localhost:8001/api |
 | Health check | http://localhost:8001/api/health |
-
-> **Note**: The `mineru` service requires `--profile mineru` flag:  
-> `docker compose --profile mineru up -d --build`
 
 **Test accounts** (when `SEED_DEMO_USERS=true`):
 
@@ -117,8 +113,6 @@ xpenses-kotlin/
 ├── ocr-sidecar/                 # Python FastAPI — EasyOCR microservice
 │   ├── app.py
 │   └── Dockerfile
-├── mineru/                      # MinerU 2.5 local OCR (opt-in profile)
-│   └── Dockerfile
 ├── docker-compose.yml           # Service orchestration
 ├── Makefile                     # Common dev commands
 ├── .env / .env.example          # Environment configuration
@@ -145,14 +139,8 @@ The backend is built with **Spring Boot 3.4.5** + **Spring MVC** + **JPA/Hiberna
 | `backend` | `./backend-kotlin-jpa` | 8001 → 8080 | Kotlin Spring Boot backend |
 | `frontend` | `./frontend` | 3001 → 3000 | Next.js production build (use `npm run dev` for hot reload) |
 | `ocr-sidecar` | `./ocr-sidecar` | 5000 (internal) | EasyOCR (en + ro), CPU-only |
-| `mineru` | `./mineru` | 8002 → 8000 | Opt-in: `docker compose --profile mineru up` |
 
-**MinerU permissions note**: The `mineru` container runs as the `mineru` user (uid 1000). The model cache directory (`/home/mineru/.cache`) is pre-created during Docker build with correct ownership. If you encounter `PermissionError` at runtime, run:
-```bash
-docker exec -u root xpenses-mineru chown -R mineru:mineru /home/mineru/.cache
-```
-
-**Volumes**: `pgdata`, `xpenses-data`, `ocr-models`, `mineru-models`
+**Volumes**: `pgdata`, `xpenses-data`, `ocr-models`
 **Network**: `xpenses-net` (bridge), backend uses public DNS (`8.8.8.8`, `1.1.1.1`)
 
 ## Frontend Architecture
@@ -198,13 +186,12 @@ All routes prefixed with `/api/`.
 
 ## OCR System
 
-Three providers with automatic fallback:
+Two providers with automatic fallback:
 
 | Provider | Type | Setup |
 |----------|------|-------|
 | **EasyOCR** | Local (sidecar) | Always available, en + ro |
 | **Gemini (2.5, 3.1, 3.5)** | Cloud API | API key configured in admin panel |
-| **MinerU 2.5** | Local (opt-in) | `docker compose --profile mineru up` |
 
 Features:
 - Structured JSON extraction (category, description, amount, currency, date, merchant, tax)

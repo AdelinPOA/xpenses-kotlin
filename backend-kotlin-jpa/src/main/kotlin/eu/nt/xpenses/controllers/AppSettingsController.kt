@@ -95,8 +95,7 @@ class AppSettingsController(
         return ResponseEntity.ok(OCRConfigOut(
             provider = config.provider,
             ocrEnabled = config.ocrEnabled,
-            geminiApiKey = if (config.passwordSet) "••••••••" else null,
-            mineruUrl = config.mineruUrl
+            geminiApiKey = if (config.passwordSet) "••••••••" else null
         ))
     }
 
@@ -107,7 +106,6 @@ class AppSettingsController(
         val existing = ocrService.getOcrConfig()
         val provider = body.provider ?: existing.provider
         val ocrEnabled = body.ocrEnabled ?: existing.ocrEnabled
-        val mineruUrl = body.mineruUrl ?: existing.mineruUrl
 
         val key = if (body.geminiApiKey == "••••••••" || body.geminiApiKey == null) {
             existing.geminiApiKey
@@ -118,8 +116,7 @@ class AppSettingsController(
         val config = OCRConfig(
             provider = provider,
             ocrEnabled = ocrEnabled,
-            geminiApiKey = key,
-            mineruUrl = mineruUrl
+            geminiApiKey = key
         )
         ocrService.saveOcrConfig(config)
 
@@ -127,8 +124,7 @@ class AppSettingsController(
         return ResponseEntity.ok(OCRConfigOut(
             provider = updated.provider,
             ocrEnabled = updated.ocrEnabled,
-            geminiApiKey = if (updated.passwordSet) "••••••••" else null,
-            mineruUrl = updated.mineruUrl
+            geminiApiKey = if (updated.passwordSet) "••••••••" else null
         ))
     }
 
@@ -146,15 +142,6 @@ class AppSettingsController(
         }
 
         val result = ocrService.testGeminiConnection(key, body.provider ?: "gemini")
-        return ResponseEntity.ok(result)
-    }
-
-    @PostMapping("/ocr/test-mineru")
-    @PreAuthorize("hasRole('mod')")
-    fun testMineruSettings(): ResponseEntity<*> {
-        val config = ocrService.getOcrConfig()
-        val url = config.mineruUrl.ifEmpty { "http://mineru:8000" }
-        val result = ocrService.testMineruConnection(url)
         return ResponseEntity.ok(result)
     }
 
@@ -476,15 +463,13 @@ data class MileageRatesUpdate(
 data class OCRConfigOut(
     val provider: String,
     @JsonProperty("ocr_enabled") val ocrEnabled: Boolean,
-    @JsonProperty("gemini_api_key") val geminiApiKey: String? = null,
-    @JsonProperty("mineru_url") val mineruUrl: String? = null
+    @JsonProperty("gemini_api_key") val geminiApiKey: String? = null
 )
 
 data class OCRConfigUpdate(
     val provider: String? = null,
     @JsonProperty("ocr_enabled") val ocrEnabled: Boolean? = null,
-    @JsonProperty("gemini_api_key") val geminiApiKey: String? = null,
-    @JsonProperty("mineru_url") val mineruUrl: String? = null
+    @JsonProperty("gemini_api_key") val geminiApiKey: String? = null
 )
 
 data class OCRTestRequest(

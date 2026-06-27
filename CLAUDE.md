@@ -70,7 +70,6 @@ curl http://localhost:8001/api/health
 | Frontend (Next.js) | 3001 | 3000 |
 | Backend (Kotlin/Spring) | 8001 | 8080 |
 | PostgreSQL | 5432 | 5432 |
-| MinerU OCR (opt-in) | 8002 | 8000 |
 
 ## Active Backend: Kotlin (Spring Boot JPA)
 
@@ -131,7 +130,7 @@ backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/
     ├── ExportService.kt        # CSV/Excel export via Apache POI
     ├── FxService.kt            # Frankfurter + fallback; caches in fx_rates table
     ├── PdfService.kt           # OpenPDF report generation + PDFBox receipt merging
-    ├── OcrService.kt           # EasyOCR subprocess + Gemini + MinerU + NaiveBayes classifier
+    ├── OcrService.kt           # EasyOCR subprocess + Gemini + NaiveBayes classifier
     ├── AsyncOcrService.kt      # Runs OCR off-thread; persists results to ocr_jobs table
     ├── StorageService.kt       # Dispatches to storage/ providers
     ├── storage/
@@ -228,7 +227,7 @@ Frontend uses two URLs to reach the backend:
 - **Crypto:** HKDF-SHA256 key derivation from `JWT_SECRET` with a per-subsystem `info` label. Each subsystem (LDAP, OCR, IMAP, storage) gets a distinct encryption key. Rotating `JWT_SECRET` invalidates all encrypted settings.
 - **App settings table:** Key/value JSON rows in `app_settings`. Keys: `mileage_rate_before_tax`, `mileage_rate_after_tax`, `daily_allowance_rate`, `ldap_config`, `ocr_config`, `imap_config`, `storage_config`, `storage_migration_status`. All use upsert on the key column.
 - **Receipt storage:** Pluggable via `StorageService` → `storage/` providers. Local and S3 providers work; SFTP/SMB/WebDAV are stubbed. Filenames sanitized before storage.
-- **OCR:** EasyOCR (local subprocess) + Gemini 2.5 Flash (cloud) + MinerU (self-hosted HTTP API). Both active provider and EasyOCR run in parallel for comparison tracking.
+- **OCR:** EasyOCR (local subprocess) + Gemini 2.5 Flash (cloud). Both active provider and EasyOCR run in parallel for comparison tracking.
 - **Dashboard scoping:** `chef_finance` and `mod` always see org-wide data. `manager` sees org-wide with `?all=true`. Others see only their own data.
 
 ## App Settings Keys

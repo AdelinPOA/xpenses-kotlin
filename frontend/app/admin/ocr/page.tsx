@@ -6,7 +6,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import api, { Category, OcrConfig, getOcrConfig, updateOcrConfig, testOcrConfig, testMinerUConfig, getOcrComparisons } from "@/lib/api";
+import api, { Category, OcrConfig, getOcrConfig, updateOcrConfig, testOcrConfig, getOcrComparisons } from "@/lib/api";
 import { ocrKeys, categoryKeys } from "@/lib/queryKeys";
 import AppShell from "@/components/layout/AppShell";
 import { useAuth } from "@/components/AuthProvider";
@@ -19,14 +19,12 @@ const DEFAULT_FORM: FormState = {
   ocr_enabled: true,
   provider: "easyocr",
   gemini_api_key: "",
-  mineru_url: "http://mineru:8000",
 };
 
 const ocrConfigSchema = z.object({
   ocr_enabled: z.boolean(),
   provider: z.string(),
   gemini_api_key: z.string(),
-  mineru_url: z.string().optional().nullable(),
   password_set: z.boolean().optional(),
 }).refine(
   (data) => {
@@ -72,10 +70,6 @@ export default function OcrAdminPage() {
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const [testing, setTesting] = useState(false);
 
-  // MinerU test states
-  const [mineruTestResult, setMineruTestResult] = useState<{ success: boolean; message: string } | null>(null);
-  const [mineruTesting, setMineruTesting] = useState(false);
-
   const { register, handleSubmit, reset, watch, setValue, formState: { errors, isDirty } } = useForm<FormState>({
     resolver: zodResolver(ocrConfigSchema) as any,
     defaultValues: DEFAULT_FORM,
@@ -109,7 +103,6 @@ export default function OcrAdminPage() {
         ocr_enabled: data.ocr_enabled,
         provider: data.provider,
         gemini_api_key: data.gemini_api_key ? "••••••••" : "",
-        mineru_url: data.mineru_url ?? "http://mineru:8000",
       });
       setPwChanged(false);
     }
@@ -142,9 +135,6 @@ export default function OcrAdminPage() {
           ? formData.gemini_api_key
           : "••••••••",
       };
-    if (formData.provider === "mineru") {
-      payload.mineru_url = formData.mineru_url || "http://mineru:8000";
-    }
     saveMutation.mutate(payload);
   };
 
@@ -163,22 +153,6 @@ export default function OcrAdminPage() {
       toast.error("Gemini connection test failed: Request error");
     } finally {
       setTesting(false);
-    }
-  }
-
-  async function handleMineruTest() {
-    setMineruTesting(true);
-    setMineruTestResult(null);
-    try {
-      const res = await testMinerUConfig();
-      setMineruTestResult(res);
-      if (res.success) toast.success("MinerU API connection verified!");
-      else toast.error(`MinerU connection test failed: ${res.message}`);
-    } catch {
-      setMineruTestResult({ success: false, message: "Test request failed" });
-      toast.error("MinerU connection test failed: Request error");
-    } finally {
-      setMineruTesting(false);
     }
   }
 
@@ -246,7 +220,6 @@ export default function OcrAdminPage() {
                       {...register("provider")}
                     >
                       <option value="easyocr">EasyOCR (Local CPU - Default)</option>
-                      <option value="mineru">MinerU 2.5 (Local - High Accuracy)</option>
                       <option value="gemini">Google Gemini 2.5 Flash (Cloud API)</option>
                       <option value="gemini-3.1-flash-lite">Google Gemini 3.1 Flash-Lite (Cloud API - Cost Efficient)</option>
                       <option value="gemini-3-flash">Google Gemini 3 Flash (Cloud API - Preview)</option>
@@ -258,58 +231,6 @@ export default function OcrAdminPage() {
                 </div>
               )}
             </section>
-
-            {ocrEnabled && provider === "mineru" && (
-              <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-sm space-y-4 animate-fadeIn">
-                <div className="flex items-center gap-2 text-violet-600 dark:text-violet-400 mb-1">
-                  <Cpu className="w-5 h-5" />
-                  <h2 className="text-sm font-semibold uppercase tracking-wider">MinerU 2.5 — Local API</h2>
-                </div>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  MinerU must be running as a Docker service. Start it with:{" "}
-                  <code className="bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-[11px] font-mono">
-                    docker compose --profile mineru up -d mineru
-                  </code>
-                </p>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">MinerU API base URL</label>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      className="flex-1 border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 dark:text-slate-100 border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 transition-all duration-200 font-mono"
-                      placeholder="http://mineru:8000"
-                      {...register("mineru_url")}
-                    />
-                    <button
-                      type="button"
-                      onClick={handleMineruTest}
-                      disabled={mineruTesting}
-                      className="px-4 py-2 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-violet-500/20 transition-all duration-200 disabled:opacity-50 whitespace-nowrap"
-                    >
-                      {mineruTesting ? "Testing..." : "Test Connection"}
-                    </button>
-                  </div>
-                  <span className="text-[10px] text-slate-400 block mt-1.5">
-                    Use the Docker service name or IP where mineru-api is running. EasyOCR still runs in parallel for accuracy comparison.
-                  </span>
-                </div>
-
-                {mineruTestResult && (
-                  <div className={`p-4 rounded-lg text-sm flex items-start gap-2 animate-fadeIn border ${
-                    mineruTestResult.success
-                      ? "bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-950/20 dark:border-emerald-900/50 dark:text-emerald-300"
-                      : "bg-rose-50 border-rose-200 text-rose-800 dark:bg-rose-950/20 dark:border-rose-900/50 dark:text-rose-300"
-                  }`}>
-                    {mineruTestResult.success ? (
-                      <CheckCircle className="w-5 h-5 flex-shrink-0 text-emerald-600 dark:text-emerald-400" />
-                    ) : (
-                      <AlertCircle className="w-5 h-5 flex-shrink-0 text-rose-600 dark:text-rose-400" />
-                    )}
-                    <div className="flex-1 font-medium">{mineruTestResult.message}</div>
-                  </div>
-                )}
-              </section>
-            )}
 
             {ocrEnabled && (provider === "gemini" || provider?.startsWith("gemini-")) && (
               <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-sm space-y-4 animate-fadeIn">
@@ -396,7 +317,7 @@ export default function OcrAdminPage() {
                 </div>
               ) : (
                 <>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* EasyOCR Card */}
                     <div className="border border-slate-200 dark:border-slate-800 rounded-lg p-4 bg-slate-50 dark:bg-slate-950/40">
                        <h3 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3 flex items-center justify-between">
@@ -448,32 +369,6 @@ export default function OcrAdminPage() {
                         </div>
                       </div>
                     </div>
-
-                    {/* MinerU Card */}
-                    <div className="border border-slate-200 dark:border-slate-800 rounded-lg p-4 bg-slate-50 dark:bg-slate-950/40">
-                      <h3 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3 flex items-center justify-between">
-                        <span>MinerU 2.5 (Local)</span>
-                        <span className="text-emerald-600 dark:text-emerald-400 font-bold">Accuracy</span>
-                      </h3>
-                      <div className="space-y-2.5">
-                        <div className="flex justify-between text-sm">
-                          <span className="text-slate-600 dark:text-slate-400">Amount extraction:</span>
-                          <span className="font-semibold text-slate-800 dark:text-slate-200">{compData.stats.mineru_amount_accuracy}%</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-slate-600 dark:text-slate-400">Date extraction:</span>
-                          <span className="font-semibold text-slate-800 dark:text-slate-200">{compData.stats.mineru_date_accuracy}%</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-slate-600 dark:text-slate-400">Merchant name:</span>
-                          <span className="font-semibold text-slate-800 dark:text-slate-200">{compData.stats.mineru_merchant_accuracy}%</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-slate-600 dark:text-slate-400">Category classification:</span>
-                          <span className="font-semibold text-slate-800 dark:text-slate-200">{compData.stats.mineru_category_accuracy}%</span>
-                        </div>
-                      </div>
-                    </div>
                   </div>
 
                   {/* History list */}
@@ -489,7 +384,6 @@ export default function OcrAdminPage() {
                             <th className="p-3">Field</th>
                             <th className="p-3">EasyOCR (Local)</th>
                             <th className="p-3 font-semibold text-indigo-600 dark:text-indigo-400">Gemini (Cloud)</th>
-                            <th className="p-3 font-semibold text-emerald-600 dark:text-emerald-400">MinerU 2.5 (Local)</th>
                             <th className="p-3 bg-blue-50/50 dark:bg-blue-950/20 font-bold text-blue-800 dark:text-blue-300">Final (Ground Truth)</th>
                           </tr>
                         </thead>
@@ -505,10 +399,8 @@ export default function OcrAdminPage() {
                             const isLinked = row.final_amount !== null || row.final_date !== null || row.final_merchant !== null;
 
                             const isGeminiRequested = row.provider === "gemini" || row.provider?.startsWith("gemini-");
-                            const isMineruRequested = row.provider === "mineru";
                             const geminiFailed = isGeminiRequested && (row.gemini_error || (row.gemini_amount === null && row.gemini_merchant === null));
-                            const mineruFailed = isMineruRequested && (row.mineru_error || (row.mineru_amount === null && row.mineru_merchant === null));
-                            
+
                             let isFallback = false;
                             let actualProviderStr = row.provider || "gemini";
                             let errorMsg: string | null = null;
@@ -517,10 +409,6 @@ export default function OcrAdminPage() {
                               isFallback = true;
                               actualProviderStr = "easyocr";
                               errorMsg = row.gemini_error;
-                            } else if (mineruFailed) {
-                              isFallback = true;
-                              actualProviderStr = "easyocr";
-                              errorMsg = row.mineru_error;
                             }
 
                             const fields = [
@@ -528,28 +416,24 @@ export default function OcrAdminPage() {
                                 name: "Amount",
                                 easy: row.easyocr_amount !== null ? `${row.easyocr_amount}` : null,
                                 gem: row.gemini_amount !== null ? `${row.gemini_amount}` : null,
-                                min: row.mineru_amount !== null ? `${row.mineru_amount}` : null,
                                 final: isLinked ? (row.final_amount !== null ? `${row.final_amount}` : "—") : null,
                               },
                               {
                                 name: "Merchant",
                                 easy: row.easyocr_merchant || null,
                                 gem: row.gemini_merchant || null,
-                                min: row.mineru_merchant || null,
                                 final: isLinked ? (row.final_merchant || "—") : null,
                               },
                               {
                                 name: "Date",
                                 easy: row.easyocr_date || null,
                                 gem: row.gemini_date || null,
-                                min: row.mineru_date || null,
                                 final: isLinked ? (row.final_date || "—") : null,
                               },
                               {
                                 name: "Category",
                                 easy: formatCat(row.easyocr_category_id),
                                 gem: formatCat(row.gemini_category_id),
-                                min: formatCat(row.mineru_category_id),
                                 final: isLinked ? (formatCat(row.final_category_id) ?? "—") : null,
                               },
                             ];
@@ -606,15 +490,6 @@ export default function OcrAdminPage() {
                                   {f.gem !== null ? (
                                     <span className={`px-2 py-0.5 rounded border text-[11px] font-medium ${isLinked ? getStatusColor(f.gem, f.final) : "text-slate-600 bg-slate-100/50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-800"}`}>
                                       {f.gem}
-                                    </span>
-                                  ) : (
-                                    <span className="text-slate-400">—</span>
-                                  )}
-                                </td>
-                                <td className="p-3">
-                                  {f.min !== null ? (
-                                    <span className={`px-2 py-0.5 rounded border text-[11px] font-medium ${isLinked ? getStatusColor(f.min, f.final) : "text-slate-600 bg-slate-100/50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-800"}`}>
-                                      {f.min}
                                     </span>
                                   ) : (
                                     <span className="text-slate-400">—</span>

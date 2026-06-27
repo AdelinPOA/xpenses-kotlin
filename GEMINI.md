@@ -104,7 +104,7 @@ Frontend uses two different URLs to reach the backend:
 ## Key Patterns
 
 - **FX conversion:** Primary: Frankfurter API (ECB rates). Fallback: fawazahmed0/currency-api. Rates cached per `(currency, date)` in `fx_rates` table. Changing amount/currency/date on an expense triggers automatic FX recalculation.
-- **OCR Scanning:** Hybrid local & cloud OCR system. Supported providers: local EasyOCR, Google Gemini 2.5 Flash API (Cloud), and local MinerU OCR. Config stored in DB `app_settings` under `ocr_config` key. API keys are encrypted via Fernet (password `xpenses-gemini-ocr-pw`). To prevent outbound name resolution timeouts, the backend container uses public DNS servers (`8.8.8.8`, `1.1.1.1`) specified in `docker-compose.yml`. Features:
+- **OCR Scanning:** Hybrid local & cloud OCR system. Supported providers: local EasyOCR and Google Gemini 2.5 Flash API (Cloud). Config stored in DB `app_settings` under `ocr_config` key. API keys are encrypted via Fernet (password `xpenses-gemini-ocr-pw`). To prevent outbound name resolution timeouts, the backend container uses public DNS servers (`8.8.8.8`, `1.1.1.1`) specified in `docker-compose.yml`. Features:
   - Gemini structured JSON schema matching (`category_id` and `description` extraction).
   - Pure Python self-learning Multinomial Naive Bayes category classifier trained on raw database scan texts.
   - Automatic fallback to EasyOCR with classification heuristics and warnings when Gemini API fails.

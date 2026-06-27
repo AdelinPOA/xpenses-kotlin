@@ -88,49 +88,6 @@ services:
     networks:
       - xpenses-net
 
-  # ── MinerU 2.5 local OCR API (opt-in) ────────────────────────────────────
-  # Start with: docker compose --profile mineru up -d mineru
-  # Or rebuild:  docker compose --profile mineru build mineru
-  # Accessible from backend container at: http://mineru:8000
-  # GPU: uses Intel Arc / integrated GPU via /dev/dri + Level Zero compute runtime
-  mineru:
-    image: xpenses-mineru:latest
-    build:
-      context: ./mineru
-      dockerfile: Dockerfile
-    container_name: xpenses-mineru
-    profiles:
-      - mineru
-    ports:
-      - "8002:8000"   # optional: reach from host at http://localhost:8002
-    volumes:
-      - mineru-models:/home/mineru/.cache   # cache downloaded models between restarts
-      #- ./mineru/gpu-libs:/opt/intel/gpu-libs:ro   # host Intel GPU compute libs — uncomment for XPU
-    networks:
-      - xpenses-net
-    restart: unless-stopped
-    #devices:
-    #  - /dev/dri:/dev/dri        # Intel GPU — uncomment for XPU mode
-    #group_add:
-    #  - "44"                     # video group — uncomment for XPU mode
-    #  - "107"                    # render group — uncomment for XPU mode
-    environment:
-      - MINERU_DEVICE_MODE=cpu   # use CPU (change to xpu for Intel GPU acceleration)
-      #- LD_LIBRARY_PATH=/opt/intel/gpu-libs  # uncomment for XPU mode
-      - SYCL_CACHE_PERSISTENT=1  # keep compiled SYCL kernels between runs
-      - NEO_CACHE_DIR=/tmp/neo-cache  # cache GPU binary kernels
-    deploy:
-      resources:
-        limits:
-          cpus: '12.0'
-          memory: 4096M
-    healthcheck:
-      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/docs')\" || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s  # give time for models to load on first start
-
   ocr-sidecar:
     image: xpenses-ocr-sidecar:latest
     build:
@@ -163,6 +120,4 @@ volumes:
   pgdata:
     driver: local
   ocr-models:
-    driver: local
-  mineru-models:
     driver: local

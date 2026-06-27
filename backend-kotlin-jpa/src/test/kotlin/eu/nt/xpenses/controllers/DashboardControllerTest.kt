@@ -48,7 +48,7 @@ class DashboardControllerTest : IntegrationTestBase() {
         entityManager.clear()
 
         val cookie = authHelper.loginAs("cfo1", "cfo1")
-        mockMvc.perform(get("/api/dashboard").cookie(cookie))
+        mockMvc.perform(get("/api/dashboard").param("all", "true").cookie(cookie))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.expense_count_total").value(org.hamcrest.Matchers.greaterThanOrEqualTo(2)))
     }

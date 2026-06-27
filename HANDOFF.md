@@ -1,6 +1,23 @@
 # HANDOFF.md — xpenses-kotlin
 
-## Current Session (2026-06-27, session 94) — remove-mineru
+## Current Session (2026-06-27, session 95) — postcss-cve-and-dashboard-test-fix
+
+### What Was Done
+- **Installed `gh` CLI** in this environment (via apt, authenticated with the token already embedded in the `origin` remote) so future sessions can query/act on PRs, issues, and Dependabot alerts directly.
+- **Fixed Dependabot alert #14** (CVE-2026-41305 / GHSA-qx2v-qp2m-jg93, XSS via unescaped `</style>` in PostCSS's CSS stringify output): Next.js 15.5.18 pins a nested `postcss@8.4.31`. Added an npm `overrides` entry (`"postcss": "^8.5.10"`) in `frontend/package.json`, forcing a single hoisted `postcss@8.5.15` across the tree. Verified `npm install` (0 vulnerabilities), `npm run lint`, `npm run build` all pass. Merged via [PR #13](https://github.com/AdelinPOA/xpenses-kotlin/pull/13).
+- **Fixed the pre-existing `DashboardControllerTest` CI failure** flagged in session 94: `chef_finance dashboard shows org-wide data` was failing on every push to `main` since session 92's dashboard-scoping fix (`ea23048`), because the test still called `GET /api/dashboard` without `?all=true` and expected the old (buggy) always-org-wide behavior. Updated the test to pass `?all=true`. Also corrected the now-stale "Dashboard scoping" line in `CLAUDE.md` and `GEMINI.md` (still described chef_finance/mod as always org-wide). Verified locally with JDK 21 (`./gradlew test --tests 'eu.nt.xpenses.controllers.DashboardControllerTest'` → pass). Merged via [PR #14](https://github.com/AdelinPOA/xpenses-kotlin/pull/14); CI fully green (frontend, backend, Docker build, gitleaks).
+
+### Files Changed
+- `frontend/package.json`, `frontend/package-lock.json` — postcss override
+- `backend-kotlin-jpa/src/test/kotlin/eu/nt/xpenses/controllers/DashboardControllerTest.kt` — pass `?all=true`
+- `CLAUDE.md`, `GEMINI.md` — corrected dashboard scoping doc line
+
+### Next Steps
+- Other audit items flagged in session 94 still unaddressed: 9 stale AI-audit scratch files at repo root, 26 already-merged-but-undeleted remote branches, remaining Dependabot PRs (if any beyond #14).
+
+---
+
+## Previous Session (2026-06-27, session 94) — remove-mineru
 
 ### What Was Done
 - **Removed MinerU OCR provider completely** (branch `chore/remove-mineru`): it was an opt-in local OCR engine, never the default, and added DB columns/UI surface/compose service that weren't worth the maintenance cost.

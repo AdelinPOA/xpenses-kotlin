@@ -228,7 +228,7 @@ Frontend uses two URLs to reach the backend:
 - **App settings table:** Key/value JSON rows in `app_settings`. Keys: `mileage_rate_before_tax`, `mileage_rate_after_tax`, `daily_allowance_rate`, `ldap_config`, `ocr_config`, `imap_config`, `storage_config`, `storage_migration_status`. All use upsert on the key column.
 - **Receipt storage:** Pluggable via `StorageService` → `storage/` providers. Local and S3 providers work; SFTP/SMB/WebDAV are stubbed. Filenames sanitized before storage.
 - **OCR:** EasyOCR (local subprocess) + Gemini 2.5 Flash (cloud). Both active provider and EasyOCR run in parallel for comparison tracking.
-- **Dashboard scoping:** `chef_finance` and `mod` always see org-wide data. `manager` sees org-wide with `?all=true`. Others see only their own data.
+- **Dashboard scoping:** `chef_finance`, `mod`, and `manager` see org-wide data only when passing `?all=true` (the frontend defaults this on for `chef_finance`/`mod`); without it, they see only their own data, same as everyone else.
 
 ## App Settings Keys
 

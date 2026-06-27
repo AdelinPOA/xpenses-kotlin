@@ -492,12 +492,26 @@ export default function LdapAdminPage() {
               <>
                 <p className="font-semibold text-emerald-800 dark:text-emerald-300 mb-3">✓ Connection successful</p>
                 {testResult.preview.length > 0 && (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-xs">
-                      <thead><tr className="text-left text-slate-500 dark:text-slate-400 font-semibold"><th className="pb-2 pr-3">Username</th><th className="pb-2 pr-3">Email</th><th className="pb-2">Mapped role</th></tr></thead>
-                      <tbody className="divide-y divide-emerald-100 dark:divide-emerald-900/10">{testResult.preview.map((u, i) => <tr key={i}><td className="py-2 pr-3 text-slate-700 dark:text-slate-300 font-medium">{u.username}</td><td className="py-2 pr-3 text-slate-600 dark:text-slate-400">{u.email}</td><td className="py-2 text-slate-700 dark:text-slate-300">{u.mapped_role}</td></tr>)}</tbody>
-                    </table>
-                  </div>
+                  <>
+                    {/* Mobile: stacked cards */}
+                    <div className="md:hidden divide-y divide-emerald-100 dark:divide-emerald-900/10">
+                      {testResult.preview.map((u, i) => (
+                        <div key={i} className="py-2">
+                          <p className="text-slate-700 dark:text-slate-300 font-medium">{u.username}</p>
+                          <p className="text-slate-600 dark:text-slate-400 text-[11px] mt-0.5">{u.email}</p>
+                          <p className="text-slate-700 dark:text-slate-300 text-[11px] mt-0.5">Role: {u.mapped_role}</p>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Desktop: table */}
+                    <div className="hidden md:block overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead><tr className="text-left text-slate-500 dark:text-slate-400 font-semibold"><th className="pb-2 pr-3">Username</th><th className="pb-2 pr-3">Email</th><th className="pb-2">Mapped role</th></tr></thead>
+                        <tbody className="divide-y divide-emerald-100 dark:divide-emerald-900/10">{testResult.preview.map((u, i) => <tr key={i}><td className="py-2 pr-3 text-slate-700 dark:text-slate-300 font-medium">{u.username}</td><td className="py-2 pr-3 text-slate-600 dark:text-slate-400">{u.email}</td><td className="py-2 text-slate-700 dark:text-slate-300">{u.mapped_role}</td></tr>)}</tbody>
+                      </table>
+                    </div>
+                  </>
                 )}
               </>
             ) : (

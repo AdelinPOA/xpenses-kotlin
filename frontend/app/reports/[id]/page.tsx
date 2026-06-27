@@ -518,56 +518,95 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
         {!report.expenses.length ? (
           <EmptyState message="No expenses attached to this report" />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 dark:bg-slate-800 text-xs text-slate-500 dark:text-slate-400 uppercase">
-                <tr>
-                  <th className="text-left px-4 py-3">Date</th>
-                  <th className="text-left px-4 py-3">Merchant</th>
-                  <th className="text-left px-4 py-3 hidden sm:table-cell">Category</th>
-                  <th className="text-left px-4 py-3 hidden md:table-cell">Description</th>
-                  <th className="text-right px-4 py-3 hidden sm:table-cell">Original</th>
-                  <th className="text-right px-4 py-3">EUR</th>
-                  <th className="text-right px-4 py-3">Receipt</th>
-                </tr>
-              </thead>
-              <tbody>
-                {report.expenses.map((e) => (
-                  <tr key={e.id} className="border-t border-slate-100 dark:border-slate-700">
-                    <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{e.date}</td>
-                    <td className="px-4 py-3 font-medium text-slate-800 dark:text-slate-200">{e.merchant || "—"}</td>
-                    <td className="px-4 py-3 text-slate-500 dark:text-slate-400 hidden sm:table-cell">{e.category_name || "—"}</td>
-                    <td className="px-4 py-3 text-slate-500 dark:text-slate-400 hidden md:table-cell">{e.description || "—"}</td>
-                    <td className="px-4 py-3 text-right text-slate-500 dark:text-slate-400 hidden sm:table-cell">
-                      {e.currency_original !== "EUR"
-                        ? formatAmount(e.amount_original, e.currency_original)
-                        : "—"}
-                    </td>
-                    <td className="px-4 py-3 text-right font-semibold text-slate-900 dark:text-slate-100">
-                      {formatAmount(e.amount_eur, "EUR")}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      {e.receipts?.length > 0 ? (
-                        <div className="flex items-center justify-end gap-1">
-                          {e.receipts.map((r) => (
-                            <button
-                              key={r.id}
-                              onClick={() => downloadBlob(`/expenses/${e.id}/receipts/${r.id}`, {}, r.original_name || `receipt_${r.id}`)}
-                              className="text-blue-600 dark:text-blue-400 hover:underline text-xs cursor-pointer"
-                            >
-                              {e.receipts.length === 1 ? "View" : (r.original_name?.split(".").pop()?.toUpperCase() || "View")}
-                            </button>
-                          ))}
-                        </div>
-                      ) : (
-                        <span className="text-slate-300 dark:text-slate-600 text-xs">—</span>
+          <>
+            {/* Mobile: stacked cards */}
+            <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-700">
+              {report.expenses.map((e) => (
+                <div key={e.id} className="p-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="font-medium text-slate-800 dark:text-slate-200">{e.merchant || "—"}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{e.date} · {e.category_name || "—"}</p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="font-semibold text-slate-900 dark:text-slate-100">{formatAmount(e.amount_eur, "EUR")}</p>
+                      {e.currency_original !== "EUR" && (
+                        <p className="text-xs text-slate-400 dark:text-slate-500">{formatAmount(e.amount_original, e.currency_original)}</p>
                       )}
-                    </td>
+                    </div>
+                  </div>
+                  {e.description && (
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">{e.description}</p>
+                  )}
+                  {e.receipts?.length > 0 && (
+                    <div className="flex items-center gap-2 mt-3">
+                      {e.receipts.map((r) => (
+                        <button
+                          key={r.id}
+                          onClick={() => downloadBlob(`/expenses/${e.id}/receipts/${r.id}`, {}, r.original_name || `receipt_${r.id}`)}
+                          className="text-blue-600 dark:text-blue-400 hover:underline text-xs cursor-pointer"
+                        >
+                          {e.receipts.length === 1 ? "View" : (r.original_name?.split(".").pop()?.toUpperCase() || "View")}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop: table */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 dark:bg-slate-800 text-xs text-slate-500 dark:text-slate-400 uppercase">
+                  <tr>
+                    <th className="text-left px-4 py-3">Date</th>
+                    <th className="text-left px-4 py-3">Merchant</th>
+                    <th className="text-left px-4 py-3 hidden sm:table-cell">Category</th>
+                    <th className="text-left px-4 py-3 hidden md:table-cell">Description</th>
+                    <th className="text-right px-4 py-3 hidden sm:table-cell">Original</th>
+                    <th className="text-right px-4 py-3">EUR</th>
+                    <th className="text-right px-4 py-3">Receipt</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {report.expenses.map((e) => (
+                    <tr key={e.id} className="border-t border-slate-100 dark:border-slate-700">
+                      <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{e.date}</td>
+                      <td className="px-4 py-3 font-medium text-slate-800 dark:text-slate-200">{e.merchant || "—"}</td>
+                      <td className="px-4 py-3 text-slate-500 dark:text-slate-400 hidden sm:table-cell">{e.category_name || "—"}</td>
+                      <td className="px-4 py-3 text-slate-500 dark:text-slate-400 hidden md:table-cell">{e.description || "—"}</td>
+                      <td className="px-4 py-3 text-right text-slate-500 dark:text-slate-400 hidden sm:table-cell">
+                        {e.currency_original !== "EUR"
+                          ? formatAmount(e.amount_original, e.currency_original)
+                          : "—"}
+                      </td>
+                      <td className="px-4 py-3 text-right font-semibold text-slate-900 dark:text-slate-100">
+                        {formatAmount(e.amount_eur, "EUR")}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        {e.receipts?.length > 0 ? (
+                          <div className="flex items-center justify-end gap-1">
+                            {e.receipts.map((r) => (
+                              <button
+                                key={r.id}
+                                onClick={() => downloadBlob(`/expenses/${e.id}/receipts/${r.id}`, {}, r.original_name || `receipt_${r.id}`)}
+                                className="text-blue-600 dark:text-blue-400 hover:underline text-xs cursor-pointer"
+                              >
+                                {e.receipts.length === 1 ? "View" : (r.original_name?.split(".").pop()?.toUpperCase() || "View")}
+                              </button>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-slate-300 dark:text-slate-600 text-xs">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
 

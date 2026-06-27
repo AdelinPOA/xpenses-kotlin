@@ -155,41 +155,69 @@ export default function CategoriesPage() {
         ) : !categories?.length ? (
           <EmptyState message="No categories yet" />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 dark:bg-slate-800 text-xs text-slate-500 dark:text-slate-400 uppercase">
-                <tr>
-                  <th className="text-left px-4 py-3">Name</th>
-                  <th className="text-left px-4 py-3">Spending limit</th>
-                  <th className="text-center px-4 py-3">Active</th>
-                  <th className="px-4 py-3"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {categories.map((cat) => (
-                  <tr key={cat.id} className="border-t border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800">
-                    <td className="px-4 py-3 font-medium text-slate-800 dark:text-slate-200">{cat.name}</td>
-                    <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{formatLimit(cat.limit_amount)}</td>
-                    <td className="px-4 py-3 text-center">
+          <>
+            {/* Mobile: stacked cards */}
+            <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-700">
+              {categories.map((cat) => (
+                <div key={cat.id} className="p-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2">
                       <span className={`inline-block w-2 h-2 rounded-full ${cat.is_active ? "bg-emerald-500" : "bg-slate-300 dark:bg-slate-600"}`} />
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button onClick={() => startEdit(cat)}>
-                          <Pencil className="w-4 h-4 text-slate-400 dark:text-slate-500 hover:text-blue-600" />
-                        </button>
-                        {cat.is_active && (
-                          <button onClick={() => deactivate.mutate(cat.id)} disabled={deactivate.isPending}>
-                            <X className="w-4 h-4 text-slate-400 dark:text-slate-500 hover:text-red-500" />
-                          </button>
-                        )}
-                      </div>
-                    </td>
+                      <p className="font-medium text-slate-800 dark:text-slate-200">{cat.name}</p>
+                    </div>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 shrink-0">{formatLimit(cat.limit_amount)}</p>
+                  </div>
+                  <div className="flex items-center justify-end gap-3 mt-3">
+                    <button onClick={() => startEdit(cat)}>
+                      <Pencil className="w-4 h-4 text-slate-400 dark:text-slate-500 hover:text-blue-600" />
+                    </button>
+                    {cat.is_active && (
+                      <button onClick={() => deactivate.mutate(cat.id)} disabled={deactivate.isPending}>
+                        <X className="w-4 h-4 text-slate-400 dark:text-slate-500 hover:text-red-500" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop: table */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 dark:bg-slate-800 text-xs text-slate-500 dark:text-slate-400 uppercase">
+                  <tr>
+                    <th className="text-left px-4 py-3">Name</th>
+                    <th className="text-left px-4 py-3">Spending limit</th>
+                    <th className="text-center px-4 py-3">Active</th>
+                    <th className="px-4 py-3"></th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {categories.map((cat) => (
+                    <tr key={cat.id} className="border-t border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800">
+                      <td className="px-4 py-3 font-medium text-slate-800 dark:text-slate-200">{cat.name}</td>
+                      <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{formatLimit(cat.limit_amount)}</td>
+                      <td className="px-4 py-3 text-center">
+                        <span className={`inline-block w-2 h-2 rounded-full ${cat.is_active ? "bg-emerald-500" : "bg-slate-300 dark:bg-slate-600"}`} />
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <button onClick={() => startEdit(cat)}>
+                            <Pencil className="w-4 h-4 text-slate-400 dark:text-slate-500 hover:text-blue-600" />
+                          </button>
+                          {cat.is_active && (
+                            <button onClick={() => deactivate.mutate(cat.id)} disabled={deactivate.isPending}>
+                              <X className="w-4 h-4 text-slate-400 dark:text-slate-500 hover:text-red-500" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
     </AppShell>

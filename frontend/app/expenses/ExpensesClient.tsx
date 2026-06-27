@@ -206,43 +206,31 @@ function ExpensesPageContent() {
         ) : !expenses?.length ? (
           <EmptyState message="No expenses found" />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 dark:bg-slate-800 text-xs text-slate-500 dark:text-slate-400 uppercase">
-                <tr>
-                  <th className="text-left px-4 py-3">Date</th>
-                  <th className="text-left px-4 py-3">Merchant</th>
-                  <th className="text-left px-4 py-3">Category</th>
-                  <th className="text-left px-4 py-3">Description</th>
-                  <th className="text-right px-4 py-3">EUR</th>
-                  <th className="text-center px-4 py-3">Status</th>
-                  <th className="text-right px-4 py-3">Receipt</th>
-                  <th className="px-4 py-3"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {expenses.map((e) => (
-                  <tr key={e.id} className="border-t border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                    <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{e.date}</td>
-                    <td className="px-4 py-3 font-medium text-slate-800 dark:text-slate-200">{e.merchant || "—"}</td>
-                    <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{e.category_name || "—"}</td>
-                    <td className="px-4 py-3 text-slate-500 dark:text-slate-400 max-w-[180px] truncate">{e.description || "—"}</td>
-                    <td className="px-4 py-3 text-right">
-                      <span className="font-semibold text-slate-900 dark:text-slate-100">
-                        {formatAmount(e.amount_eur, "EUR")}
-                      </span>
+          <>
+            {/* Mobile: stacked cards */}
+            <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-700">
+              {expenses.map((e) => (
+                <div key={e.id} className="p-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="font-medium text-slate-800 dark:text-slate-200">{e.merchant || "—"}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{e.date} · {e.category_name || "—"}</p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="font-semibold text-slate-900 dark:text-slate-100">{formatAmount(e.amount_eur, "EUR")}</p>
                       {e.currency_original !== "EUR" && (
-                        <span className="block text-xs text-slate-400 dark:text-slate-500 font-normal">
-                          {formatAmount(e.amount_original, e.currency_original)}
-                        </span>
+                        <p className="text-xs text-slate-400 dark:text-slate-500">{formatAmount(e.amount_original, e.currency_original)}</p>
                       )}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <Badge status={e.status} />
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      {e.receipts?.length > 0 ? (
-                        <div className="flex items-center justify-end gap-1">
+                    </div>
+                  </div>
+                  {e.description && (
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">{e.description}</p>
+                  )}
+                  <div className="flex items-center justify-between mt-3">
+                    <Badge status={e.status} />
+                    <div className="flex items-center gap-3">
+                      {e.receipts?.length > 0 && (
+                        <div className="flex items-center gap-2">
                           {e.receipts.map((r) => (
                             <button
                               key={r.id}
@@ -253,40 +241,114 @@ function ExpensesPageContent() {
                             </button>
                           ))}
                         </div>
-                      ) : (
-                        <span className="text-slate-300 dark:text-slate-600 text-xs">—</span>
                       )}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => duplicate.mutate(e.id)}
-                          disabled={duplicate.isPending}
-                          title="Duplicate Expense"
-                          className="text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 disabled:opacity-50"
-                        >
-                          <Copy className="w-4 h-4" />
-                        </button>
-                        {e.status === "draft" && (
-                          <>
-                            <Link href={`/expenses/${e.id}/edit`}>
-                              <Pencil className="w-4 h-4 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400" />
-                            </Link>
-                            <button
-                              onClick={() => del.mutate(e.id)}
-                              disabled={del.isPending}
-                            >
-                              <Trash2 className="w-4 h-4 text-slate-400 hover:text-red-500" />
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </td>
+                      <button
+                        onClick={() => duplicate.mutate(e.id)}
+                        disabled={duplicate.isPending}
+                        title="Duplicate Expense"
+                        className="text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 disabled:opacity-50"
+                      >
+                        <Copy className="w-4 h-4" />
+                      </button>
+                      {e.status === "draft" && (
+                        <>
+                          <Link href={`/expenses/${e.id}/edit`}>
+                            <Pencil className="w-4 h-4 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400" />
+                          </Link>
+                          <button onClick={() => del.mutate(e.id)} disabled={del.isPending}>
+                            <Trash2 className="w-4 h-4 text-slate-400 hover:text-red-500" />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop: table */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 dark:bg-slate-800 text-xs text-slate-500 dark:text-slate-400 uppercase">
+                  <tr>
+                    <th className="text-left px-4 py-3">Date</th>
+                    <th className="text-left px-4 py-3">Merchant</th>
+                    <th className="text-left px-4 py-3">Category</th>
+                    <th className="text-left px-4 py-3">Description</th>
+                    <th className="text-right px-4 py-3">EUR</th>
+                    <th className="text-center px-4 py-3">Status</th>
+                    <th className="text-right px-4 py-3">Receipt</th>
+                    <th className="px-4 py-3"></th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {expenses.map((e) => (
+                    <tr key={e.id} className="border-t border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                      <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{e.date}</td>
+                      <td className="px-4 py-3 font-medium text-slate-800 dark:text-slate-200">{e.merchant || "—"}</td>
+                      <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{e.category_name || "—"}</td>
+                      <td className="px-4 py-3 text-slate-500 dark:text-slate-400 max-w-[180px] truncate">{e.description || "—"}</td>
+                      <td className="px-4 py-3 text-right">
+                        <span className="font-semibold text-slate-900 dark:text-slate-100">
+                          {formatAmount(e.amount_eur, "EUR")}
+                        </span>
+                        {e.currency_original !== "EUR" && (
+                          <span className="block text-xs text-slate-400 dark:text-slate-500 font-normal">
+                            {formatAmount(e.amount_original, e.currency_original)}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <Badge status={e.status} />
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        {e.receipts?.length > 0 ? (
+                          <div className="flex items-center justify-end gap-1">
+                            {e.receipts.map((r) => (
+                              <button
+                                key={r.id}
+                                onClick={() => downloadBlob(`/expenses/${e.id}/receipts/${r.id}`, {}, r.original_name || `receipt_${r.id}`)}
+                                className="text-blue-600 dark:text-blue-400 hover:underline text-xs cursor-pointer"
+                              >
+                                {e.receipts.length === 1 ? "View" : (r.original_name?.split(".").pop()?.toUpperCase() || "View")}
+                              </button>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-slate-300 dark:text-slate-600 text-xs">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => duplicate.mutate(e.id)}
+                            disabled={duplicate.isPending}
+                            title="Duplicate Expense"
+                            className="text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 disabled:opacity-50"
+                          >
+                            <Copy className="w-4 h-4" />
+                          </button>
+                          {e.status === "draft" && (
+                            <>
+                              <Link href={`/expenses/${e.id}/edit`}>
+                                <Pencil className="w-4 h-4 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400" />
+                              </Link>
+                              <button
+                                onClick={() => del.mutate(e.id)}
+                                disabled={del.isPending}
+                              >
+                                <Trash2 className="w-4 h-4 text-slate-400 hover:text-red-500" />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
       </div>  {/* end drag wrapper */}

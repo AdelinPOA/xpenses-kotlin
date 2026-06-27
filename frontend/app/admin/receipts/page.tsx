@@ -137,22 +137,34 @@ export default function ReceiptsCleanupPage() {
                 </p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-slate-200 dark:border-slate-800">
-                      <th className="py-3 text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase">File Path (Relative)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {orphans.map((filePath, index) => (
-                      <tr key={index} className="border-b border-slate-100 dark:border-slate-800/50 hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
-                        <td className="py-3.5 text-sm text-slate-700 dark:text-slate-300 font-mono break-all">{filePath}</td>
+              <>
+                {/* Mobile: stacked cards */}
+                <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-700">
+                  {orphans.map((filePath, index) => (
+                    <div key={index} className="p-4">
+                      <p className="text-sm text-slate-700 dark:text-slate-300 font-mono break-all">{filePath}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Desktop: table */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-slate-200 dark:border-slate-800">
+                        <th className="py-3 text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase">File Path (Relative)</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {orphans.map((filePath, index) => (
+                        <tr key={index} className="border-b border-slate-100 dark:border-slate-800/50 hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                          <td className="py-3.5 text-sm text-slate-700 dark:text-slate-300 font-mono break-all">{filePath}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             )}
           </div>
         </div>

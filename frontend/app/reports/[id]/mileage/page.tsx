@@ -220,58 +220,106 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
         {records.length === 0 ? (
           <p className="p-6 text-sm text-slate-400 dark:text-slate-500 text-center">No mileage records yet</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 dark:bg-slate-800 text-xs text-slate-500 dark:text-slate-400 uppercase">
-                <tr>
-                  <th className="text-left px-4 py-3">Start Time</th>
-                  <th className="text-left px-4 py-3">Duration</th>
-                  <th className="text-left px-4 py-3">Route</th>
-                  <th className="text-right px-4 py-3">km</th>
-                  <th className="text-right px-4 py-3">Rate BT</th>
-                  <th className="text-right px-4 py-3">Gross</th>
-                  <th className="text-right px-4 py-3">Rate AT</th>
-                  <th className="text-right px-4 py-3">Net</th>
-                  {report.status === "draft" && <th className="text-right px-4 py-3">Actions</th>}
-                </tr>
-              </thead>
-              <tbody>
-                {records.map((m) => (
-                  <tr key={m.id} className="border-t border-slate-100 dark:border-slate-700">
-                    <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{formatDateTime(m.start_time)}</td>
-                    <td className="px-4 py-3 text-blue-600 dark:text-blue-400 font-medium">{formatDuration(m.duration_minutes)}</td>
-                    <td className="px-4 py-3 font-medium text-slate-800 dark:text-slate-200">
-                      {m.origin} → {m.destination}
-                      {m.description && <span className="block text-xs text-slate-400 dark:text-slate-500">{m.description}</span>}
-                    </td>
-                    <td className="px-4 py-3 text-right text-slate-600 dark:text-slate-400">{m.distance_km.toFixed(1)}</td>
-                    <td className="px-4 py-3 text-right text-slate-400 dark:text-slate-500">€{m.rate_before_tax.toFixed(2)}</td>
-                    <td className="px-4 py-3 text-right text-slate-600 dark:text-slate-400">{formatAmount(m.amount_before_tax, "EUR")}</td>
-                    <td className="px-4 py-3 text-right text-slate-400 dark:text-slate-500">€{m.rate_after_tax.toFixed(2)}</td>
-                    <td className="px-4 py-3 text-right font-semibold text-slate-900 dark:text-slate-100">{formatAmount(m.amount_eur, "EUR")}</td>
+          <>
+            {/* Mobile: stacked cards */}
+            <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-700">
+              {records.map((m) => (
+                <div key={m.id} className="p-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="font-medium text-slate-800 dark:text-slate-200">{m.origin} → {m.destination}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{formatDateTime(m.start_time)}</p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="font-semibold text-slate-900 dark:text-slate-100">{formatAmount(m.amount_eur, "EUR")}</p>
+                      <p className="text-xs text-slate-400 dark:text-slate-500">{m.distance_km.toFixed(1)} km</p>
+                    </div>
+                  </div>
+                  {m.description && (
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">{m.description}</p>
+                  )}
+                  <div className="flex items-center justify-between mt-3">
+                    <div className="flex items-center gap-3 text-xs text-slate-400 dark:text-slate-500">
+                      <span className="text-blue-600 dark:text-blue-400 font-medium">{formatDuration(m.duration_minutes)}</span>
+                      <span>Gross: {formatAmount(m.amount_before_tax, "EUR")}</span>
+                    </div>
                     {report.status === "draft" && (
-                      <td className="px-4 py-3 text-right">
-                        <button onClick={() => deleteMileage.mutate(m.id)} className="text-slate-400 hover:text-red-500">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </td>
+                      <button onClick={() => deleteMileage.mutate(m.id)} className="text-slate-400 hover:text-red-500">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     )}
+                  </div>
+                </div>
+              ))}
+              <div className="p-4 bg-slate-50 dark:bg-slate-800">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="font-bold text-slate-700 dark:text-slate-300">Total</p>
+                  <div className="text-right shrink-0">
+                    <p className="font-bold text-emerald-600 dark:text-emerald-400">{formatAmount(totalNet, "EUR")}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{totalKm.toFixed(1)} km</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400 mt-2">
+                  <span className="text-blue-600 dark:text-blue-400 font-bold">{formatDuration(totalDuration)}</span>
+                  <span>Gross: {formatAmount(totalGross, "EUR")}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Desktop: table */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 dark:bg-slate-800 text-xs text-slate-500 dark:text-slate-400 uppercase">
+                  <tr>
+                    <th className="text-left px-4 py-3">Start Time</th>
+                    <th className="text-left px-4 py-3">Duration</th>
+                    <th className="text-left px-4 py-3">Route</th>
+                    <th className="text-right px-4 py-3">km</th>
+                    <th className="text-right px-4 py-3">Rate BT</th>
+                    <th className="text-right px-4 py-3">Gross</th>
+                    <th className="text-right px-4 py-3">Rate AT</th>
+                    <th className="text-right px-4 py-3">Net</th>
+                    {report.status === "draft" && <th className="text-right px-4 py-3">Actions</th>}
                   </tr>
-                ))}
-                <tr className="border-t-2 border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-800">
-                  <td className="px-4 py-3 font-bold text-slate-700 dark:text-slate-300">Total</td>
-                  <td className="px-4 py-3 font-bold text-blue-600 dark:text-blue-400">{formatDuration(totalDuration)}</td>
-                  <td className="px-4 py-3"></td>
-                  <td className="px-4 py-3 text-right font-bold text-slate-700 dark:text-slate-300">{totalKm.toFixed(1)}</td>
-                  <td className="px-4 py-3"></td>
-                  <td className="px-4 py-3 text-right font-bold text-slate-700 dark:text-slate-300">{formatAmount(totalGross, "EUR")}</td>
-                  <td className="px-4 py-3"></td>
-                  <td className="px-4 py-3 text-right font-bold text-emerald-600 dark:text-emerald-400">{formatAmount(totalNet, "EUR")}</td>
-                  {report.status === "draft" && <td></td>}
-                </tr>
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {records.map((m) => (
+                    <tr key={m.id} className="border-t border-slate-100 dark:border-slate-700">
+                      <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{formatDateTime(m.start_time)}</td>
+                      <td className="px-4 py-3 text-blue-600 dark:text-blue-400 font-medium">{formatDuration(m.duration_minutes)}</td>
+                      <td className="px-4 py-3 font-medium text-slate-800 dark:text-slate-200">
+                        {m.origin} → {m.destination}
+                        {m.description && <span className="block text-xs text-slate-400 dark:text-slate-500">{m.description}</span>}
+                      </td>
+                      <td className="px-4 py-3 text-right text-slate-600 dark:text-slate-400">{m.distance_km.toFixed(1)}</td>
+                      <td className="px-4 py-3 text-right text-slate-400 dark:text-slate-500">€{m.rate_before_tax.toFixed(2)}</td>
+                      <td className="px-4 py-3 text-right text-slate-600 dark:text-slate-400">{formatAmount(m.amount_before_tax, "EUR")}</td>
+                      <td className="px-4 py-3 text-right text-slate-400 dark:text-slate-500">€{m.rate_after_tax.toFixed(2)}</td>
+                      <td className="px-4 py-3 text-right font-semibold text-slate-900 dark:text-slate-100">{formatAmount(m.amount_eur, "EUR")}</td>
+                      {report.status === "draft" && (
+                        <td className="px-4 py-3 text-right">
+                          <button onClick={() => deleteMileage.mutate(m.id)} className="text-slate-400 hover:text-red-500">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                  <tr className="border-t-2 border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-800">
+                    <td className="px-4 py-3 font-bold text-slate-700 dark:text-slate-300">Total</td>
+                    <td className="px-4 py-3 font-bold text-blue-600 dark:text-blue-400">{formatDuration(totalDuration)}</td>
+                    <td className="px-4 py-3"></td>
+                    <td className="px-4 py-3 text-right font-bold text-slate-700 dark:text-slate-300">{totalKm.toFixed(1)}</td>
+                    <td className="px-4 py-3"></td>
+                    <td className="px-4 py-3 text-right font-bold text-slate-700 dark:text-slate-300">{formatAmount(totalGross, "EUR")}</td>
+                    <td className="px-4 py-3"></td>
+                    <td className="px-4 py-3 text-right font-bold text-emerald-600 dark:text-emerald-400">{formatAmount(totalNet, "EUR")}</td>
+                    {report.status === "draft" && <td></td>}
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
     </AppShell>

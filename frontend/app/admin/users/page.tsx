@@ -236,38 +236,40 @@ export default function AdminUsersPage() {
         <EmptyState message="No users found" />
       ) : (
         <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 dark:bg-slate-800 text-xs text-slate-500 dark:text-slate-400 uppercase">
-                <tr>
-                  <th className="text-left px-4 py-3">User</th>
-                  <th className="text-left px-4 py-3">Username</th>
-                  <th className="text-left px-4 py-3">Role</th>
-                  <th className="text-left px-4 py-3">Auth Source</th>
-                  <th className="text-center px-4 py-3">Status</th>
-                  <th className="text-center px-4 py-3">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.map((u) => {
-                  const isSelf = u.id === currentUser.id;
-                  return (
-                    <tr key={u.id} className="border-t border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800">
-                      {/* User */}
-                      <td className="px-4 py-3">
+          <>
+            {/* Mobile: stacked cards */}
+            <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-700">
+              {users.map((u) => {
+                const isSelf = u.id === currentUser.id;
+                return (
+                  <div key={u.id} className="p-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
                         <Link href={`/profile/${u.id}`} className="font-semibold text-blue-600 dark:text-blue-400 hover:underline">
                           {u.display_name}
                         </Link>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{u.username}</p>
                         {u.email && (
                           <p className="text-xs text-slate-400 dark:text-slate-500">{u.email}</p>
                         )}
-                      </td>
-
-                      {/* Username */}
-                      <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{u.username}</td>
-
-                      {/* Role dropdown */}
-                      <td className="px-4 py-3">
+                      </div>
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium shrink-0 ${
+                          u.is_active
+                            ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                            : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                        }`}
+                      >
+                        {u.is_active ? "Active" : "Inactive"}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between mt-3">
+                      <div className="flex items-center gap-2">
+                        {u.auth_source === "ldap" ? (
+                          <span className="px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">ldap</span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300">local</span>
+                        )}
                         <select
                           value={u.role}
                           disabled={!canEdit || isSelf || roleMutation.isPending}
@@ -285,63 +287,145 @@ export default function AdminUsersPage() {
                             </option>
                           ))}
                         </select>
-                      </td>
-
-                      {/* Auth Source badge */}
-                      <td className="px-4 py-3">
-                        {u.auth_source === "ldap" ? (
-                          <span className="px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">ldap</span>
-                        ) : (
-                          <span className="px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300">local</span>
-                        )}
-                      </td>
-
-                      {/* Status badge */}
-                      <td className="px-4 py-3 text-center">
-                        <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                            u.is_active
-                              ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                              : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                          }`}
+                      </div>
+                      {canEdit ? (
+                        <button
+                          onClick={() =>
+                            activeMutation.mutate({ id: u.id, is_active: !u.is_active })
+                          }
+                          disabled={isSelf || activeMutation.isPending}
+                          title={
+                            isSelf
+                              ? "Cannot deactivate yourself"
+                              : u.is_active
+                              ? "Deactivate user"
+                              : "Activate user"
+                          }
+                          className="inline-flex items-center justify-center p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed"
                         >
-                          {u.is_active ? "Active" : "Inactive"}
-                        </span>
-                      </td>
+                          {u.is_active ? (
+                            <ShieldOff className="w-4 h-4 text-slate-500 dark:text-slate-400 hover:text-red-500" />
+                          ) : (
+                            <Shield className="w-4 h-4 text-slate-500 dark:text-slate-400 hover:text-green-500" />
+                          )}
+                        </button>
+                      ) : (
+                        <span className="text-slate-400 dark:text-slate-600 text-xs">-</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
 
-                      {/* Toggle active */}
-                      <td className="px-4 py-3 text-center">
-                        {canEdit ? (
-                          <button
-                            onClick={() =>
-                              activeMutation.mutate({ id: u.id, is_active: !u.is_active })
+            {/* Desktop: table */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 dark:bg-slate-800 text-xs text-slate-500 dark:text-slate-400 uppercase">
+                  <tr>
+                    <th className="text-left px-4 py-3">User</th>
+                    <th className="text-left px-4 py-3">Username</th>
+                    <th className="text-left px-4 py-3">Role</th>
+                    <th className="text-left px-4 py-3">Auth Source</th>
+                    <th className="text-center px-4 py-3">Status</th>
+                    <th className="text-center px-4 py-3">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map((u) => {
+                    const isSelf = u.id === currentUser.id;
+                    return (
+                      <tr key={u.id} className="border-t border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800">
+                        {/* User */}
+                        <td className="px-4 py-3">
+                          <Link href={`/profile/${u.id}`} className="font-semibold text-blue-600 dark:text-blue-400 hover:underline">
+                            {u.display_name}
+                          </Link>
+                          {u.email && (
+                            <p className="text-xs text-slate-400 dark:text-slate-500">{u.email}</p>
+                          )}
+                        </td>
+
+                        {/* Username */}
+                        <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{u.username}</td>
+
+                        {/* Role dropdown */}
+                        <td className="px-4 py-3">
+                          <select
+                            value={u.role}
+                            disabled={!canEdit || isSelf || roleMutation.isPending}
+                            onChange={(e) =>
+                              roleMutation.mutate({
+                                id: u.id,
+                                role: e.target.value as User["role"],
+                              })
                             }
-                            disabled={isSelf || activeMutation.isPending}
-                            title={
-                              isSelf
-                                ? "Cannot deactivate yourself"
-                                : u.is_active
-                                ? "Deactivate user"
-                                : "Activate user"
-                            }
-                            className="inline-flex items-center justify-center p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                            className="text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-2 py-1 bg-white dark:bg-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-300 disabled:opacity-50 disabled:cursor-not-allowed"
                           >
-                            {u.is_active ? (
-                              <ShieldOff className="w-4 h-4 text-slate-500 dark:text-slate-400 hover:text-red-500" />
-                            ) : (
-                              <Shield className="w-4 h-4 text-slate-500 dark:text-slate-400 hover:text-green-500" />
-                            )}
-                          </button>
-                        ) : (
-                          <span className="text-slate-400 dark:text-slate-600">-</span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                            {ROLE_OPTIONS.map((opt) => (
+                              <option key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+
+                        {/* Auth Source badge */}
+                        <td className="px-4 py-3">
+                          {u.auth_source === "ldap" ? (
+                            <span className="px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">ldap</span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300">local</span>
+                          )}
+                        </td>
+
+                        {/* Status badge */}
+                        <td className="px-4 py-3 text-center">
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                              u.is_active
+                                ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                                : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                            }`}
+                          >
+                            {u.is_active ? "Active" : "Inactive"}
+                          </span>
+                        </td>
+
+                        {/* Toggle active */}
+                        <td className="px-4 py-3 text-center">
+                          {canEdit ? (
+                            <button
+                              onClick={() =>
+                                activeMutation.mutate({ id: u.id, is_active: !u.is_active })
+                              }
+                              disabled={isSelf || activeMutation.isPending}
+                              title={
+                                isSelf
+                                  ? "Cannot deactivate yourself"
+                                  : u.is_active
+                                  ? "Deactivate user"
+                                  : "Activate user"
+                              }
+                              className="inline-flex items-center justify-center p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                              {u.is_active ? (
+                                <ShieldOff className="w-4 h-4 text-slate-500 dark:text-slate-400 hover:text-red-500" />
+                              ) : (
+                                <Shield className="w-4 h-4 text-slate-500 dark:text-slate-400 hover:text-green-500" />
+                              )}
+                            </button>
+                          ) : (
+                            <span className="text-slate-400 dark:text-slate-600">-</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
         </div>
       )}
     </AppShell>

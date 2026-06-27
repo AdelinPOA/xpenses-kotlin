@@ -251,23 +251,13 @@ export default function AdvancesPage({ params }: { params: Promise<{ id: string 
         {report.advances.length === 0 ? (
           <p className="p-6 text-sm text-slate-400 dark:text-slate-500 text-center">No advance payments yet</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 dark:bg-slate-800 text-xs text-slate-500 dark:text-slate-400 uppercase">
-                <tr>
-                  <th className="text-left px-4 py-3">Status</th>
-                  <th className="text-left px-4 py-3">Date</th>
-                  <th className="text-left px-4 py-3">Description</th>
-                  <th className="text-right px-4 py-3">Requested</th>
-                  <th className="text-right px-4 py-3">Paid (EUR)</th>
-                  <th className="text-left px-4 py-3">Paid By</th>
-                  <th className="text-right px-4 py-3">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {[...requestedAdvances, ...paidAdvances, ...rejectedAdvances].map((a) => (
-                  <tr key={a.id} className={`border-t border-slate-100 dark:border-slate-700 ${a.status === "rejected" ? "opacity-50" : ""}`}>
-                    <td className="px-4 py-3">
+          <>
+            {/* Mobile: stacked cards */}
+            <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-700">
+              {[...requestedAdvances, ...paidAdvances, ...rejectedAdvances].map((a) => (
+                <div key={a.id} className={`p-4 ${a.status === "rejected" ? "opacity-50" : ""}`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
                       <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
                         a.status === "paid" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400" :
                         a.status === "requested" ? "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400" :
@@ -275,56 +265,138 @@ export default function AdvancesPage({ params }: { params: Promise<{ id: string 
                       }`}>
                         {a.status}
                       </span>
-                    </td>
-                    <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{a.date || "—"}</td>
-                    <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{a.description || "—"}</td>
-                    <td className="px-4 py-3 text-right text-slate-500 dark:text-slate-400">
-                      {a.requested_amount ? formatAmount(a.requested_amount, a.requested_currency || "EUR") : "—"}
-                    </td>
-                    <td className="px-4 py-3 text-right font-semibold text-slate-900 dark:text-slate-100">
-                      {a.status === "paid" ? formatAmount(a.amount_eur, "EUR") : "—"}
-                    </td>
-                    <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{a.paid_by_name || "—"}</td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        {a.status === "requested" && canManage && payingId !== a.id && (
-                          <>
-                            <button
-                              onClick={() => { setPayingId(a.id); setPayAmount(String(a.requested_amount || "")); setPayCurrency(a.requested_currency || "EUR"); }}
-                              className="text-xs px-2 py-1 bg-emerald-600 text-white rounded hover:bg-emerald-700"
-                            >
-                              Pay
-                            </button>
-                            <button
-                              onClick={() => rejectAdvance.mutate({ advanceId: a.id, reason: "" })}
-                              className="text-xs px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700"
-                            >
-                              Reject
-                            </button>
-                          </>
-                        )}
-                        {a.status === "requested" && isOwner && (
-                          <button onClick={() => deleteAdvance.mutate(a.id)} className="text-slate-400 hover:text-red-500">
-                            <Trash2 className="w-4 h-4" />
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{a.date || "—"}</p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="font-semibold text-slate-900 dark:text-slate-100">
+                        {a.status === "paid" ? formatAmount(a.amount_eur, "EUR") : "—"}
+                      </p>
+                      {a.requested_amount ? (
+                        <p className="text-xs text-slate-400 dark:text-slate-500">
+                          Req: {formatAmount(a.requested_amount, a.requested_currency || "EUR")}
+                        </p>
+                      ) : null}
+                    </div>
+                  </div>
+                  {a.description && (
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">{a.description}</p>
+                  )}
+                  <div className="flex items-center justify-between mt-3">
+                    <span className="text-xs text-slate-400 dark:text-slate-500">Paid by: {a.paid_by_name || "—"}</span>
+                    <div className="flex items-center gap-2">
+                      {a.status === "requested" && canManage && payingId !== a.id && (
+                        <>
+                          <button
+                            onClick={() => { setPayingId(a.id); setPayAmount(String(a.requested_amount || "")); setPayCurrency(a.requested_currency || "EUR"); }}
+                            className="text-xs px-2 py-1 bg-emerald-600 text-white rounded hover:bg-emerald-700"
+                          >
+                            Pay
                           </button>
-                        )}
-                        {a.status === "paid" && report.status === "draft" && (isOwner || isPrivileged) && (
-                          <button onClick={() => deleteAdvance.mutate(a.id)} className="text-slate-400 hover:text-red-500">
-                            <Trash2 className="w-4 h-4" />
+                          <button
+                            onClick={() => rejectAdvance.mutate({ advanceId: a.id, reason: "" })}
+                            className="text-xs px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700"
+                          >
+                            Reject
                           </button>
-                        )}
-                        {a.status === "rejected" && isOwner && (
-                          <button onClick={() => deleteAdvance.mutate(a.id)} className="text-slate-400 hover:text-red-500">
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        )}
-                      </div>
-                    </td>
+                        </>
+                      )}
+                      {a.status === "requested" && isOwner && (
+                        <button onClick={() => deleteAdvance.mutate(a.id)} className="text-slate-400 hover:text-red-500">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                      {a.status === "paid" && report.status === "draft" && (isOwner || isPrivileged) && (
+                        <button onClick={() => deleteAdvance.mutate(a.id)} className="text-slate-400 hover:text-red-500">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                      {a.status === "rejected" && isOwner && (
+                        <button onClick={() => deleteAdvance.mutate(a.id)} className="text-slate-400 hover:text-red-500">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop: table */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 dark:bg-slate-800 text-xs text-slate-500 dark:text-slate-400 uppercase">
+                  <tr>
+                    <th className="text-left px-4 py-3">Status</th>
+                    <th className="text-left px-4 py-3">Date</th>
+                    <th className="text-left px-4 py-3">Description</th>
+                    <th className="text-right px-4 py-3">Requested</th>
+                    <th className="text-right px-4 py-3">Paid (EUR)</th>
+                    <th className="text-left px-4 py-3">Paid By</th>
+                    <th className="text-right px-4 py-3">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {[...requestedAdvances, ...paidAdvances, ...rejectedAdvances].map((a) => (
+                    <tr key={a.id} className={`border-t border-slate-100 dark:border-slate-700 ${a.status === "rejected" ? "opacity-50" : ""}`}>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
+                          a.status === "paid" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400" :
+                          a.status === "requested" ? "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400" :
+                          "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400"
+                        }`}>
+                          {a.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{a.date || "—"}</td>
+                      <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{a.description || "—"}</td>
+                      <td className="px-4 py-3 text-right text-slate-500 dark:text-slate-400">
+                        {a.requested_amount ? formatAmount(a.requested_amount, a.requested_currency || "EUR") : "—"}
+                      </td>
+                      <td className="px-4 py-3 text-right font-semibold text-slate-900 dark:text-slate-100">
+                        {a.status === "paid" ? formatAmount(a.amount_eur, "EUR") : "—"}
+                      </td>
+                      <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{a.paid_by_name || "—"}</td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          {a.status === "requested" && canManage && payingId !== a.id && (
+                            <>
+                              <button
+                                onClick={() => { setPayingId(a.id); setPayAmount(String(a.requested_amount || "")); setPayCurrency(a.requested_currency || "EUR"); }}
+                                className="text-xs px-2 py-1 bg-emerald-600 text-white rounded hover:bg-emerald-700"
+                              >
+                                Pay
+                              </button>
+                              <button
+                                onClick={() => rejectAdvance.mutate({ advanceId: a.id, reason: "" })}
+                                className="text-xs px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700"
+                              >
+                                Reject
+                              </button>
+                            </>
+                          )}
+                          {a.status === "requested" && isOwner && (
+                            <button onClick={() => deleteAdvance.mutate(a.id)} className="text-slate-400 hover:text-red-500">
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                          {a.status === "paid" && report.status === "draft" && (isOwner || isPrivileged) && (
+                            <button onClick={() => deleteAdvance.mutate(a.id)} className="text-slate-400 hover:text-red-500">
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                          {a.status === "rejected" && isOwner && (
+                            <button onClick={() => deleteAdvance.mutate(a.id)} className="text-slate-400 hover:text-red-500">
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
 

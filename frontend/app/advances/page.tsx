@@ -96,7 +96,55 @@ export default function GlobalAdvancesPage() {
         </div>
       ) : (
         <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm">
-          <div className="overflow-x-auto">
+          {/* Mobile: stacked cards */}
+          <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-700">
+            {pending.map((a) => (
+              <div key={a.id} className="p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="font-medium text-slate-800 dark:text-slate-200">{a.user_display_name}</p>
+                    <Link href={`/reports/${a.report_id}/advances`} className="text-xs text-blue-600 dark:text-blue-400 hover:underline">
+                      {a.report_title}
+                    </Link>
+                  </div>
+                  <p className="font-semibold text-orange-600 dark:text-orange-400 shrink-0">
+                    {formatAmount(a.requested_amount || 0, a.requested_currency || "EUR")}
+                  </p>
+                </div>
+                {a.description && (
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">{a.description}</p>
+                )}
+                <div className="flex items-center justify-between mt-3">
+                  <span className="text-xs text-slate-400 dark:text-slate-500">
+                    {new Date(a.created_at).toLocaleDateString()}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        setPayingId(a.id);
+                        setPayReportId(a.report_id);
+                        setPayAmount(String(a.requested_amount || ""));
+                        setPayCurrency(a.requested_currency || "EUR");
+                      }}
+                      className="text-xs px-2 py-1 bg-emerald-600 text-white rounded hover:bg-emerald-700"
+                    >
+                      Pay
+                    </button>
+                    <button
+                      onClick={() => rejectAdvance.mutate({ reportId: a.report_id, advanceId: a.id })}
+                      disabled={rejectAdvance.isPending}
+                      className="text-xs px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
+                    >
+                      Reject
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop: table */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-slate-50 dark:bg-slate-800 text-xs text-slate-500 dark:text-slate-400 uppercase">
                 <tr>

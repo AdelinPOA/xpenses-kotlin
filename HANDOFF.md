@@ -1,6 +1,30 @@
 # HANDOFF.md — xpenses-kotlin
 
-## Current Session (2026-06-27, session 95) — postcss-cve-and-dashboard-test-fix
+## Current Session (2026-06-27, session 96) — mobile-responsive-tables
+
+### What Was Done
+- **User-reported bug**: on `/expenses` (and as it turned out, 11 other pages), mobile users had to horizontally drag-scroll a table to see all columns — confirmed live on `xpenses.nt-automation.eu:3001` via Chrome DevTools device mode at 570px width (the table cut off mid-row with a visible horizontal scrollbar).
+- **Root cause**: 12 list/detail pages render their data as an HTML `<table>` wrapped only in `overflow-x-auto`. Tables don't reflow — on phone widths they just become a horizontally-scrollable strip. Checked `AppShell`/`Sidebar` too; that breakpoint (`lg`, overlay drawer below / fixed above) was already clean, no tablet-overlap bug there.
+- **Fix**: added a parallel `md:hidden` stacked-card view per page (one card per row, reusing the exact same data/handlers/mutations as the table row); the existing table is now `hidden md:block`, completely unchanged at `md:` (768px) and up. No business logic, columns, sort, or desktop styling changed. Implemented the pattern on `/expenses` and `/reports` directly, then dispatched 4 parallel `general-purpose` subagents to apply the same pattern (with the two reference files as their spec) to the other 10 pages: `/advances`, `/categories`, `/admin/receipts`, `/admin/users`, `/profile/[id]`, `/reports/[id]`, `/reports/[id]/advances`, `/reports/[id]/mileage`, `/admin/ldap`, `/admin/ocr`.
+- **Verification**: `tsc --noEmit`, `eslint`, and `npm run build` all clean across all 26 routes. Hand-reviewed the `admin/users/page.tsx` diff specifically (largest diff, touches role/active-status mutations) — confirmed desktop table logic is byte-for-byte preserved and the mobile card reuses the same `roleMutation`/`activeMutation`/`canEdit`/`isSelf` guards, no security-check changes.
+- **Merged via [PR #15](https://github.com/AdelinPOA/xpenses-kotlin/pull/15)**, CI fully green.
+- **Deployed to the live server**: this sandbox *is* `xpenses.nt-automation.eu` (the domain resolves externally to this same host; `localhost:3001` doesn't work from the user's browser because it's a different machine's loopback, but the domain reaches this host's Docker port mapping). With the user's explicit confirmation (brief downtime), ran `docker compose up -d --build frontend` to rebuild/restart the frontend container from the merged `main`.
+- **Visually confirmed the fix live** via the Claude-in-Chrome browser extension at 570px width (DevTools device mode — `resize_window` didn't reliably stick on this maximized Windows browser window, but `F12` device-toolbar toggle did): `/expenses`, `/reports`, and `/admin/users` all render clean stacked cards with no horizontal scrollbar. Did not spot-check the remaining 9 pages live, but they follow the identical verified pattern.
+
+### Files Changed
+- `frontend/app/expenses/ExpensesClient.tsx`, `frontend/app/reports/page.tsx` — written directly (reference implementation)
+- `frontend/app/advances/page.tsx`, `frontend/app/categories/page.tsx`, `frontend/app/admin/receipts/page.tsx` — subagent batch 1
+- `frontend/app/admin/users/page.tsx`, `frontend/app/profile/[id]/page.tsx` — subagent batch 2
+- `frontend/app/reports/[id]/page.tsx`, `frontend/app/reports/[id]/advances/page.tsx`, `frontend/app/reports/[id]/mileage/page.tsx` — subagent batch 3
+- `frontend/app/admin/ldap/page.tsx`, `frontend/app/admin/ocr/page.tsx` — subagent batch 4
+
+### Next Steps
+- Spot-check the remaining 9 pages' mobile card layouts live if the user wants extra reassurance (pattern is identical to the 3 already verified).
+- Other audit items flagged in session 94 still unaddressed: 9 stale AI-audit scratch files at repo root, 26 already-merged-but-undeleted remote branches, remaining Dependabot PRs (if any beyond #14).
+
+---
+
+## Previous Session (2026-06-27, session 95) — postcss-cve-and-dashboard-test-fix
 
 ### What Was Done
 - **Installed `gh` CLI** in this environment (via apt, authenticated with the token already embedded in the `origin` remote) so future sessions can query/act on PRs, issues, and Dependabot alerts directly.

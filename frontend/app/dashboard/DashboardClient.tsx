@@ -13,7 +13,7 @@ import EmptyState from "@/components/ui/EmptyState";
 import Link from "next/link";
 import { useAuth } from "@/components/AuthProvider";
 import clsx from "clsx";
-import { CheckSquare, Banknote, FileText } from "lucide-react";
+import { CheckSquare, Banknote, FileText, Plus } from "lucide-react";
 
 function formatEur(amount: number) {
   return new Intl.NumberFormat("en-GB", { style: "currency", currency: "EUR" }).format(amount);
@@ -234,6 +234,15 @@ export default function DashboardClient() {
           )}
         </div>
       </div>
+
+      {/* Mobile quick-add: skips drilling through the sidebar to reach the expense form */}
+      <Link
+        href="/expenses/new"
+        aria-label="Add expense"
+        className="md:hidden fixed bottom-6 right-6 z-20 flex items-center justify-center w-14 h-14 rounded-full bg-blue-600 text-white shadow-lg hover:bg-blue-700 active:scale-95 transition-all"
+      >
+        <Plus className="w-6 h-6" />
+      </Link>
     </AppShell>
   );
 }

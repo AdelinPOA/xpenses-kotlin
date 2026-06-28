@@ -1,6 +1,24 @@
 # HANDOFF.md — xpenses-kotlin
 
-## Current Session (2026-06-28, session 97) — appshell-width-cap-fix
+## Current Session (2026-06-28, session 98) — production-readiness-review-and-https
+
+### What Was Done
+- **Full production-readiness review** of the app now that it's moved to the "final server" and is being tested by a few colleagues. Findings written to [`before_production.md`](../before_production.md) (repo root). Key issues found: no TLS anywhere, `SEED_DEMO_USERS=true` live with weak demo passwords (`tech1/tech1` etc.), `docker-compose.override.yml` publishing Postgres `5432` + hot-swap mounts on what may be the live server, `SPRING_PROFILES_ACTIVE=prod` never set (JSON logging profile unused), default Postgres password, unscheduled backup script, no off-box backups, public Swagger UI, stale AI-audit scratch files at repo root, no uptime monitoring.
+- **Implemented HTTPS via Caddy reverse proxy** — the top must-fix item. Constraint discovered along the way: only ports `3000` (another app, not ours) and `3001` are open to the public on this host; DNS is on Zooku (Romanian registrar, no ACME API). Explored cert-acquisition options (manual DNS-01, temp-open-80-then-close, self-signed, CNAME delegation to a Cloudflare-hosted side domain) before settling on: **open port 80 just for Caddy's automatic ACME HTTP-01 challenge/renewal**, serve the actual app over TLS on port 3001 (the already-open port) — avoids ever needing 443 open, avoids manual DNS-01 TXT record juggling at Zooku, and Caddy renews automatically forever.
+- New `Caddyfile` at repo root: routes `/api/*` → `backend:8080`, everything else → `frontend:3000`, site address `xpenses.nt-automation.eu:3001`, automatic HTTPS (no manual cert paths — Caddy handles ACME itself now that 80 is open).
+- `docker-compose.yml`: added `caddy` service (ports `80:80` for ACME challenge + `3001:3001` for the app), removed direct `8001`/`3001` port publishing from `backend`/`frontend` (Caddy is now the sole public entry point), frontend's `NEXT_PUBLIC_API_URL` updated to `https://xpenses.nt-automation.eu:3001/api`.
+- `.env` (not tracked in git): `COOKIE_SECURE=true`, `CORS_ALLOWED_ORIGINS=https://xpenses.nt-automation.eu:3001`, `NEXT_PUBLIC_API_URL` updated to match.
+- **Not yet done / next steps**: `SEED_DEMO_USERS` still `true` in live `.env` (intentionally left alone this session, scope was TLS only — flip to `false` next and create real accounts); confirm `docker-compose.override.yml` isn't accidentally active on the live host (exposes Postgres `5432` + dev hot-swap mounts if so); set `SPRING_PROFILES_ACTIVE=prod`; rotate the default Postgres password; schedule `scripts/backup-db.sh` via cron; clear the 9 stale AI-audit scratch files at repo root (flagged since session 94, still untouched); deploy with `docker compose up -d --build` and verify `https://xpenses.nt-automation.eu:3001` live (padlock + `Secure` cookie flag).
+
+### Files Changed
+- `before_production.md` — new, full readiness checklist
+- `Caddyfile` — new
+- `docker-compose.yml` — added `caddy` service, removed direct backend/frontend port publishing
+- `.env` — TLS-related vars updated (not tracked in git)
+
+---
+
+## Previous Session (2026-06-28, session 97) — appshell-width-cap-fix
 
 ### What Was Done
 - **User-reported bug**: on wide desktop monitors, all pages showed a large dead empty strip on the right side of the screen.

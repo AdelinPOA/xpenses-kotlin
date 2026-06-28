@@ -28,8 +28,6 @@ services:
       context: ./backend-kotlin-jpa
       dockerfile: Dockerfile
     container_name: xpenses-backend
-    ports:
-      - "8001:8080"
     env_file: .env
     dns:
       - 8.8.8.8
@@ -67,11 +65,9 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: xpenses-frontend
-    ports:
-      - "3001:3000"
     environment:
       - NODE_ENV=production
-      - NEXT_PUBLIC_API_URL=http://localhost:8001/api
+      - NEXT_PUBLIC_API_URL=https://xpenses.nt-automation.eu:3001/api
       - INTERNAL_API_URL=http://backend:8080/api
     deploy:
       resources:
@@ -110,6 +106,22 @@ services:
       timeout: 5s
       retries: 3
 
+  caddy:
+    image: caddy:2-alpine
+    container_name: xpenses-caddy
+    ports:
+      - "80:80"
+      - "3001:3001"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy-data:/data
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - xpenses-net
+    restart: unless-stopped
+
 networks:
   xpenses-net:
     driver: bridge
@@ -120,4 +132,6 @@ volumes:
   pgdata:
     driver: local
   ocr-models:
+    driver: local
+  caddy-data:
     driver: local

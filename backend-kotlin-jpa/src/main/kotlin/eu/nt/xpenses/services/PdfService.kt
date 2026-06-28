@@ -6,7 +6,9 @@ import com.lowagie.text.pdf.draw.DottedLineSeparator
 import eu.nt.xpenses.models.*
 import eu.nt.xpenses.repositories.AppSettingRepository
 import org.apache.pdfbox.Loader
-import org.apache.pdfbox.pdmodel.PDDocument
+import org.apache.pdfbox.io.IOUtils
+import org.apache.pdfbox.io.RandomAccessReadBuffer
+import org.apache.pdfbox.multipdf.PDFMergerUtility
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 import org.slf4j.LoggerFactory
@@ -590,30 +592,20 @@ class PdfService(
     }
 
     private fun mergePdfFiles(mainPdfBytes: ByteArray, pdfFiles: List<ByteArray>): ByteArray {
-        val destination = PDDocument()
-        try {
-            Loader.loadPDF(mainPdfBytes).use { source ->
-                for (page in source.pages) {
-                    destination.importPage(page)
-                }
+        val merger = PDFMergerUtility()
+        merger.addSource(RandomAccessReadBuffer(mainPdfBytes))
+        for (pdfBytes in pdfFiles) {
+            try {
+                Loader.loadPDF(pdfBytes).close()
+                merger.addSource(RandomAccessReadBuffer(pdfBytes))
+            } catch (e: Exception) {
+                log.warn("Failed to merge PDF page: {}", e.message)
             }
-            for (pdfBytes in pdfFiles) {
-                try {
-                    Loader.loadPDF(pdfBytes).use { source ->
-                        for (page in source.pages) {
-                            destination.importPage(page)
-                        }
-                    }
-                } catch (e: Exception) {
-                    log.warn("Failed to merge PDF page: {}", e.message)
-                }
-            }
-            val outStream = ByteArrayOutputStream()
-            destination.save(outStream)
-            return outStream.toByteArray()
-        } finally {
-            destination.close()
         }
+        val outStream = ByteArrayOutputStream()
+        merger.setDestinationStream(outStream)
+        merger.mergeDocuments(IOUtils.createMemoryOnlyStreamCache())
+        return outStream.toByteArray()
     }
 
     private fun formatBigDecimal(amount: BigDecimal): String {

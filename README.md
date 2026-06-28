@@ -39,7 +39,7 @@ submitted → draft (via recall, by owner)
 
 | Layer | Technology |
 |-------|------------|
-| Backend | Kotlin 2.1 / Spring Boot 3.4.5 / MVC + JPA/Hibernate |
+| Backend | Kotlin 2.4 / Spring Boot 3.4.5 / MVC + JPA/Hibernate |
 | Database | PostgreSQL 16 (Flyway migrations) |
 | Frontend | Next.js 15 + React 19 + TypeScript 5 |
 | Styling | Tailwind CSS v4 (CSS-first config) |
@@ -103,7 +103,7 @@ xpenses-kotlin/
 │   ├── src/main/kotlin/         #   15 controllers, 13 services, models, repositories
 │   ├── src/test/kotlin/         #   JUnit 5 + MockMvc + Testcontainers suite
 │   ├── src/main/resources/      #   application.yml & Flyway migrations
-│   ├── build.gradle.kts         #   Spring Boot 3.4.5, Kotlin 2.1.0
+│   ├── build.gradle.kts         #   Spring Boot 3.4.5, Kotlin 2.4.0
 │   └── Dockerfile
 ├── frontend/                    # Next.js 15 frontend
 │   ├── app/                     #   App Router pages (10 route groups + admin panel)
@@ -122,7 +122,7 @@ xpenses-kotlin/
 
 ## Backend Architecture
 
-The backend is built with **Spring Boot 3.4.5** + **Spring MVC** + **JPA/Hibernate** running on **Kotlin 2.1**.
+The backend is built with **Spring Boot 3.4.5** + **Spring MVC** + **JPA/Hibernate** running on **Kotlin 2.4**.
 
 - **15 controllers**: Auth, Expenses, Reports, Dashboard, Categories, Users, Advances, Mileage, Inventory, Insurance, Signatures, OCR, LDAP Settings, App Settings, Health
 - **13 services**: FX conversion, PDF generation, OCR (hybrid + async), email/IMAP, LDAP, storage (local + S3 providers), crypto, CSV/Excel export, and a thin service layer (`ExpenseService`, `ReportService`, `ExpenseMapper`) that keeps controllers slim
@@ -238,7 +238,7 @@ To run all tests locally:
 
 ### JDK Version
 
-The Kotlin backend (Kotlin 2.1.0) requires **JDK 21 or 22**. It does not compile on JDK 23+.
+The Kotlin backend (Kotlin 2.4.0) requires **JDK 21+**. The Gradle toolchain pins to 21 as the floor (matching CI and the runtime image), but Kotlin 2.4.0 compiles fine on newer host JDKs too (e.g. 25).
 
 ```bash
 # Check your JDK version
@@ -251,9 +251,8 @@ sdk use java 21.0.8-tem
 # The project includes a .java-version file for SDKMAN!/jEnv/asdf
 ```
 
-**If you're on JDK 25+**, use the Docker-based build instead (the container uses `eclipse-temurin:21-jre-alpine`):
+If `make check-java-version` fails (below JDK 21), use the Docker-based build instead (the container uses `eclipse-temurin:21-jre-alpine`):
 ```bash
-make build   # runs check-java-version first, fails with clear message on wrong JDK
 docker compose up -d --build   # works regardless of host JDK
 ```
 
@@ -263,12 +262,7 @@ The local environment is configured for fast JVM hot-swapping using `spring-boot
 
 To hot-swap Kotlin class files and resources into the running backend container in under 1s without rebuilding or restarting Docker:
 1. Ensure the services are running: `docker compose up -d`
-2. Run a compilation on the host:
-    * **With host JDK 21/22**: Run `./gradlew classes processResources`
-    * **With host JDK 23+ (e.g. JDK 25)**: Run compile in a container to sync files:
-      ```bash
-      docker run --rm -v $(pwd)/backend-kotlin-jpa:/workspace/app -w /workspace/app eclipse-temurin:21-jdk-alpine ./gradlew classes processResources --no-daemon
-      ```
+2. Run a compilation on the host: `./gradlew classes processResources`
 3. The backend container detects the updated classes in the host-mounted directory and reloads the application context in under 1 second.
 
 ## Roadmap

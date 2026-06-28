@@ -12,11 +12,11 @@ rebuild:
 logs:
 	docker compose logs -f backend
 
-# Check JDK version (Kotlin 2.1.0 requires JDK 21 or 22)
+# Check JDK version (Kotlin 2.4.0 requires JDK 21+; the Gradle toolchain targets 21 as the floor)
 check-java-version:
 	@java_version=$$(java -version 2>&1 | head -1 | sed 's/.*version "\([0-9]*\)\..*/\1/'); \
-	if [ "$$java_version" -ne 21 ] && [ "$$java_version" -ne 22 ]; then \
-		echo "ERROR: Kotlin 2.1.0 requires JDK 21 or 22 (detected JDK $$java_version)"; \
+	if [ "$$java_version" -lt 21 ]; then \
+		echo "ERROR: Kotlin 2.4.0 requires JDK 21+ (detected JDK $$java_version)"; \
 		echo "Install JDK 21 via SDKMAN!: sdk install java 21.0.8-tem"; \
 		echo "Or use Docker: make docker-build"; \
 		exit 1; \

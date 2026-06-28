@@ -13,8 +13,7 @@ Create feature branches (`feat/feature-name`). Never commit to `main`.
 
 ## JDK constraint
 
-Kotlin 2.1.0 compiles only on **JDK 21 or 22**. On JDK 23+, use Docker to build:
-`make build` (runs `check-java-version` first and fails with a clear message). Use `.java-version` for SDKMAN!/jEnv/asdf.
+Kotlin 2.4.0 requires **JDK 21+** (the Gradle toolchain pins to 21 as the floor). `make build` runs `check-java-version` first and fails with a clear message below JDK 21. Use `.java-version` for SDKMAN!/jEnv/asdf.
 
 ## Key commands
 
@@ -22,7 +21,7 @@ Kotlin 2.1.0 compiles only on **JDK 21 or 22**. On JDK 23+, use Docker to build:
 |---------|-------------|
 | `make test` | Runs JUnit/Testcontainers suite (needs Docker) |
 | `./gradlew test --no-daemon --tests 'eu.nt.xpenses.report.ReportStateMachineTest'` | Single test class |
-| `make build` | `./gradlew bootJar --no-daemon` (JDK 21/22 only) |
+| `make build` | `./gradlew bootJar --no-daemon` (JDK 21+) |
 | `make rebuild` | `docker compose up -d --build backend` |
 | `make up` | `docker compose up -d --build` |
 | `make logs` | `docker compose logs -f backend` |
@@ -30,7 +29,7 @@ Kotlin 2.1.0 compiles only on **JDK 21 or 22**. On JDK 23+, use Docker to build:
 ## Hot-swap (preferred over Docker rebuild)
 
 1. `docker compose up -d` (starts services)
-2. `./gradlew classes processResources` (or on JDK 23+, compile inside a container — see README)
+2. `./gradlew classes processResources`
 3. Backend reloads in <1s via `spring-boot-devtools` + `docker-compose.override.yml`
 
 ## Architecture at a glance
@@ -79,4 +78,3 @@ Key vars: `JWT_SECRET` (required), `COOKIE_SECURE`, `SEED_DEMO_USERS`, `CORS_ALL
 - `build.gradle.kts` sets `api.version=1.45` for Testcontainers on Docker 29+ and disables `processTestAot` (GraalVM AOT spins up a context with Docker).
 - Rate limiting (bucket4j) on `/api/auth/login` (10/min) and `/api/auth/refresh` (5/min) by remote IP.
 - `audit.md` / `auditv2.md` are historical artifacts — not authoritative.
-- **Pre-hot-swap compile**: On JDK 23+, run Gradle in a JDK 21 container to compile classes for hot-swap into the running Docker backend.

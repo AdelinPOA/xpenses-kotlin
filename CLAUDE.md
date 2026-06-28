@@ -18,7 +18,7 @@ This repo is worked on in a pair-programming mode. To maximize efficiency and re
   - **Do NOT** run `docker compose up -d --build` or `docker compose build` frequently. Rebuilding Docker containers consumes CPU and adds overhead. Prefer the hot-swap workflow (see README "Backend Hot-Swapping").
   - Run the Spring Boot backend on a **standard JVM** (standard JAR execution) during active development rather than compiling GraalVM Native images (which takes several minutes).
   - Prefer targeted Gradle commands (e.g., `./gradlew compileKotlin`, or `./gradlew test --tests '...'` for a single class) instead of complete system builds.
-  - **JDK constraint**: Kotlin 2.1.0 compiles only on **JDK 21 or 22**. `make build` / `make test` run `check-java-version` first and fail with a clear message on JDK 23+; build via Docker in that case. A `.java-version` file pins the version for SDKMAN!/jEnv/asdf.
+  - **JDK constraint**: Kotlin 2.4.0 requires **JDK 21+** (the Gradle toolchain pins to 21 as the floor, matching CI and the runtime image). `make build` / `make test` run `check-java-version` first and fail with a clear message if below JDK 21. A `.java-version` file pins the version for SDKMAN!/jEnv/asdf.
 
 ## Project Tracking (MANDATORY)
 
@@ -79,7 +79,7 @@ curl http://localhost:8001/api/health
 
 | Layer | Technology |
 |---|---|
-| Language | Kotlin 2.1.0 / Java 21 |
+| Language | Kotlin 2.4.0 / Java 21 |
 | Framework | Spring Boot 3.4.5 (Spring MVC, not WebFlux) |
 | ORM | Spring Data JPA + Hibernate |
 | Database driver | PostgreSQL JDBC |

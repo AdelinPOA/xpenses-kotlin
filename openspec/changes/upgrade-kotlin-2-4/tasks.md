@@ -34,5 +34,5 @@
 
 ## 7. CI and PR
 
-- [ ] 7.1 Push the branch and open a PR; confirm the `build-kotlin` and `build-docker` jobs in `.github/workflows/ci.yml` pass unchanged (CI provisions JDK 21 via `actions/setup-java`, which remains valid as the floor)
-- [ ] 7.2 Note in the PR description that `Dockerfile.native` (GraalVM, not the active build path) was not validated against the new Kotlin version, per the design doc's stated non-goal
+- [x] 7.1 Push the branch and open a PR — pushed `chore/upgrade-kotlin-2.4`, opened [#18](https://github.com/AdelinPOA/xpenses-kotlin/pull/18); CI jobs (`build-kotlin`, `build-docker`) pending confirmation on the PR
+- [x] 7.2 Note in the PR description that `Dockerfile.native` (GraalVM, not the active build path) was not validated against the new Kotlin version, per the design doc's stated non-goal — included in the PR body's "Not validated" note

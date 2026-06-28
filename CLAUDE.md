@@ -61,6 +61,10 @@ curl -b /tmp/cookies.txt http://localhost:8001/api/expenses
 
 # Health check
 curl http://localhost:8001/api/health
+
+# Local dev with frontend hot reload (Turbopack) instead of the Dockerized frontend
+docker compose up -d db backend ocr-sidecar
+cd frontend && npm install && npm run dev -- -p 3001
 ```
 
 ## Ports
@@ -70,6 +74,7 @@ curl http://localhost:8001/api/health
 | Frontend (Next.js) | 3001 | 3000 |
 | Backend (Kotlin/Spring) | 8001 | 8080 |
 | PostgreSQL | 5432 | 5432 |
+| OCR sidecar (EasyOCR, Python FastAPI) | — (internal only) | 5000 |
 
 ## Active Backend: Kotlin (Spring Boot JPA)
 
@@ -130,7 +135,7 @@ backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/
     ├── ExportService.kt        # CSV/Excel export via Apache POI
     ├── FxService.kt            # Frankfurter + fallback; caches in fx_rates table
     ├── PdfService.kt           # OpenPDF report generation + PDFBox receipt merging
-    ├── OcrService.kt           # EasyOCR subprocess + Gemini + NaiveBayes classifier
+    ├── OcrService.kt           # EasyOCR sidecar client + Gemini + NaiveBayes classifier
     ├── AsyncOcrService.kt      # Runs OCR off-thread; persists results to ocr_jobs table
     ├── StorageService.kt       # Dispatches to storage/ providers
     ├── storage/
@@ -191,7 +196,7 @@ submitted → draft (via recall, by owner)
 - **Soft delete**: `ExpenseReport`, `Expense`, `Receipt` (and other financial records, migration `V13`) use Hibernate `@SQLDelete` + `@SQLRestriction("deleted = false")`. `repository.delete(...)` issues an `UPDATE ... SET deleted = true` instead of a `DELETE`, and all reads are transparently filtered to non-deleted rows. Do not assume a `delete` physically removes the row.
 - **In-memory filtering**: expense listing fetches by user (or all) then filters `reportId`, `categoryId`, `status`, `fromDate`, `toDate` in Kotlin (in `ExpenseService`). For large datasets consider adding SQL-level WHERE clauses via custom repository queries.
 - **Storage providers**: `StorageService` dispatches to `storage/` providers. `local` is fully functional; `S3StorageProvider` exists. Other remote providers (SFTP/SMB/WebDAV) are still stubbed.
-- **Async OCR**: `OcrController` enqueues work and `AsyncOcrService` runs it off the request thread, persisting status/results to the `ocr_jobs` table (migration `V14`); clients poll for completion. `OcrService` still spawns EasyOCR as a Python subprocess (`runEasyOcrSubprocess()`), requiring Python + EasyOCR in the container image (shared Docker volume).
+- **Async OCR**: `OcrController` enqueues work and `AsyncOcrService` runs it off the request thread, persisting status/results to the `ocr_jobs` table (migration `V14`); clients poll for completion. `OcrService` calls the `ocr-sidecar` Docker service (Python FastAPI + EasyOCR, internal port 5000) over HTTP via Spring `RestClient`, run in parallel with the active cloud provider (Gemini) for comparison tracking.
 - **Daily allowance**: read from `app_settings` table via `getDailyAllowanceRate()` in `ReportController`. Configurable via `PATCH /api/settings/daily-allowance-rate` by `chef_finance`.
 - **CORS**: configured via `cors.allowed-origins` (env `CORS_ALLOWED_ORIGINS`) in `SecurityConfig`. Set to your production domain.
 

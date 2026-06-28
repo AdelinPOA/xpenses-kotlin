@@ -1,6 +1,22 @@
 # HANDOFF.md — xpenses-kotlin
 
-## Current Session (2026-06-28, session 97) — appshell-width-cap-fix
+## Current Session (2026-06-28, session 98) — production-readiness-review-and-cleanup
+
+### What Was Done
+- **Production Readiness Review**: Conducted a full audit of database setups, Spring profile configurations, security settings, reverse proxy setups, and application code.
+- **Checklist Creation**: Authored a detailed, prioritized list of remaining production-readiness steps in [production_readiness_checklist.md](file:///root/.gemini/antigravity-ide/brain/2d79fcb5-7e3f-4f7f-9389-c0402cf2af9e/production_readiness_checklist.md).
+- **Workspace Cleanup**: Deleted 9 stale AI-audit scratch files (`todo.md`, `hermes.md`, `nemotron.md`, `glm52.md`, `TOKEN_OPTIMIZATION.md`, `kotlin_migration_plan.md`, `mino25.md`, `reasonix.toml`, `test.kts`) from Git tracking, committing the changes to a new branch `feat/stale-files-cleanup` and pushing to GitHub.
+
+### Files Changed
+- Deleted: `todo.md`, `hermes.md`, `nemotron.md`, `glm52.md`, `TOKEN_OPTIMIZATION.md`, `kotlin_migration_plan.md`, `mino25.md`, `reasonix.toml`, `test.kts`
+
+### Next Steps
+- Implement key choices from the production readiness checklist (bootstrapping admin account, SSL reverse proxy setup, disabling demo users, secure cookies).
+- Prune 26+ merged remote branches from GitHub.
+
+---
+
+## Previous Session (2026-06-28, session 97) — appshell-width-cap-fix
 
 ### What Was Done
 - **User-reported bug**: on wide desktop monitors, all pages showed a large dead empty strip on the right side of the screen.

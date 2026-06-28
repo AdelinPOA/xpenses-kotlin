@@ -1,6 +1,24 @@
 # HANDOFF.md — xpenses-kotlin
 
-## Current Session (2026-06-27, session 96) — mobile-responsive-tables
+## Current Session (2026-06-28, session 97) — appshell-width-cap-fix
+
+### What Was Done
+- **User-reported bug**: on wide desktop monitors, all pages showed a large dead empty strip on the right side of the screen.
+- **Root cause**: `frontend/components/layout/AppShell.tsx` capped the shared `<main>` content area at `max-w-7xl` (1280px) without centering it. Since `main` is offset by the fixed `lg:ml-[220px]` sidebar but not flexed/centered, any viewport wider than ~1280px + 220px left a growing uncentered gap on the right — affecting every page that uses `AppShell` (all authenticated routes), not just the dashboard.
+- **Fix**: removed the `max-w-7xl` class from `main` so content fills the available width. Confirmed no page relies on the shell's outer cap for narrow layouts — pages/components that need a constrained width (login form, modals, drawers) already set their own local `max-w-*` independent of `AppShell`.
+- Added a missing `frontend/.dockerignore` (excludes `node_modules`, `.next`) — discovered while verifying the fix that a stale local `.next` build (from running `next dev` directly on the host to test) was being copied into the Docker build context and silently shadowing the rebuilt output. Without it, future ad-hoc local builds could mask real changes in the production image the same way.
+- **Verified live**: rebuilt the frontend Docker image (`docker compose build frontend` + `--force-recreate`), confirmed via grepping the built JS chunk that `max-w-7xl` was gone, then visually confirmed on the live `xpenses.nt-automation.eu:3001` dashboard and reports pages at 1920×1080 — content now stretches edge-to-edge with no dead space.
+
+### Files Changed
+- `frontend/components/layout/AppShell.tsx` — removed `max-w-7xl` from main content wrapper
+- `frontend/.dockerignore` — new file, excludes `node_modules`/`.next` from build context
+
+### Next Steps
+- Other audit items flagged in session 94 still unaddressed: 9 stale AI-audit scratch files at repo root, 26 already-merged-but-undeleted remote branches, remaining Dependabot PRs (if any beyond #14).
+
+---
+
+## Previous Session (2026-06-27, session 96) — mobile-responsive-tables
 
 ### What Was Done
 - **User-reported bug**: on `/expenses` (and as it turned out, 11 other pages), mobile users had to horizontally drag-scroll a table to see all columns — confirmed live on `xpenses.nt-automation.eu:3001` via Chrome DevTools device mode at 570px width (the table cut off mid-row with a visible horizontal scrollbar).

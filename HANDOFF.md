@@ -1,6 +1,27 @@
 # HANDOFF.md — xpenses-kotlin
 
-## Current Session (2026-06-28, session 98) — production-readiness-review-and-https
+## Current Session (2026-06-28, session 99) — fix-pdf-export-font-corruption
+
+### What Was Done
+- **User-reported bug**: PDF export of expense reports (post FastAPI→Kotlin migration) showed most amounts and merged receipt content as dots/missing-glyph placeholders, while plain ASCII text (titles, dates, names) rendered fine. Confirmed by user it was a real rendering bug, not a screenshot redaction.
+- **Root cause found via standalone repro** (not just code reading): OpenPDF auto-embeds a fallback Unicode CID font (`LiberationSans`, `FontFile2`) whenever it hits a character outside base Helvetica/WinAnsi — e.g. `€`. `PdfService.mergePdfFiles()` then round-tripped the main PDF + receipt PDFs through `PDDocument.importPage()` (manual loop) before saving. Verified empirically (built a tiny test PDF with OpenPDF + `€` text using the project's pinned `openpdf:2.0.3` jar, ran it through the exact `importPage` loop): the font *dictionary* (Length, FontDescriptor, etc.) survives the round-trip but the actual embedded font *stream bytes* come out empty (`stream\r\n\r\nendstream` with nothing between). Any glyph routed through that corrupted fallback font renders as a missing-glyph box in viewers — exactly the dot pattern in the screenshots. Confirmed the fix by re-running the same repro through `org.apache.pdfbox.multipdf.PDFMergerUtility` instead — font stream came out intact with real compressed font data.
+- **Fix**: replaced the manual `importPage` loop in `PdfService.mergePdfFiles()` with `PDFMergerUtility`. Kept per-receipt validation (`Loader.loadPDF(pdfBytes).close()` before `addSource`) so one corrupt receipt file still can't take down the whole report's PDF generation (the old per-file try/catch around `importPage` provided this; `PDFMergerUtility.addSource()` defers parsing until `mergeDocuments()`, so without the explicit pre-validation a single bad receipt would have failed the *entire* merge instead of just being skipped).
+- **Deployed directly to `main`** per explicit user instruction this session (skipping the usual feature-branch workflow) — committed `9cba856`, pushed, then hot-swapped into the running production container at `xpenses.nt-automation.eu:3001`.
+- **Hot-swap caveat discovered**: the README's "hot-swap classes in <1s, no restart" claim doesn't apply to this deployment's `Dockerfile`. It launches via `org.springframework.boot.loader.launch.PropertiesLauncher` with `LOADER_PATH` env pointing at the host-mounted `build/classes/kotlin/main` — that's a classpath override read **once at JVM startup**, not a live file-watcher. `spring-boot-devtools` is `developmentOnly` scope and excluded from the `bootJar` entirely, so it's never active in the running container regardless. After `./gradlew classes processResources`, the backend container still needs an actual restart (`docker compose restart backend`, no rebuild needed) to pick up new classes. Did this live on production with explicit user confirmation (brief downtime, "still for testing").
+- User to verify the fix themselves on `http://xpenses.nt-automation.eu:3001/reports/6` (did not generate/download a report in this session per user request).
+- **Not done**: `make test` skipped per explicit user instruction this session. No automated test added for `mergePdfFiles()` — worth adding one that asserts a `€`-containing PDF survives a merge with non-empty font streams, given how easy this regression was to miss visually in code review alone.
+
+### Files Changed
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/PdfService.kt` — `mergePdfFiles()` now uses `PDFMergerUtility` instead of manual `PDDocument.importPage()` loop
+
+### Next Steps
+- User to confirm visually on the live site that € amounts and merged receipt pages now render correctly.
+- Consider adding a regression test for `mergePdfFiles()` covering embedded-font preservation (the bug class here — silent stream corruption with intact-looking dictionaries — won't be caught by a test that only checks the merge doesn't throw).
+- This was committed straight to `main` without a feature branch or `make test`, both deviations from the documented branch/CI policy — explicitly requested by the user for this fix given the production-testing urgency.
+
+---
+
+## Previous Session (2026-06-28, session 98) — production-readiness-review-and-https
 
 ### What Was Done
 - **Full production-readiness review** of the app now that it's moved to the "final server" and is being tested by a few colleagues. Findings written to [`before_production.md`](../before_production.md) (repo root). Key issues found: no TLS anywhere, `SEED_DEMO_USERS=true` live with weak demo passwords (`tech1/tech1` etc.), `docker-compose.override.yml` publishing Postgres `5432` + hot-swap mounts on what may be the live server, `SPRING_PROFILES_ACTIVE=prod` never set (JSON logging profile unused), default Postgres password, unscheduled backup script, no off-box backups, public Swagger UI, stale AI-audit scratch files at repo root, no uptime monitoring.

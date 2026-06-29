@@ -71,6 +71,8 @@ curl http://localhost:8001/api/health
 | Backend (Kotlin/Spring) | 8001 | 8080 |
 | PostgreSQL | 5432 | 5432 |
 
+**Production HTTPS (temporarily reverted to plain HTTP, as of 2026-06-29):** The production `docker-compose.yml` has a `caddy` reverse-proxy service for automatic HTTPS (added session 98), but port 80 is currently not reachable from the internet, so Caddy can't complete its Let's Encrypt ACME challenge (`docker logs xpenses-caddy` shows `"Timeout during connect (likely firewall problem)"`). Production is running on `frontend`'s direct `3001:3000` port mapping (plain HTTP) instead, with `caddy`'s `3001:3001` mapping removed to avoid a port conflict — `caddy`'s `80:80` mapping is still published so it keeps retrying ACME in the background. User plans to open port 80 in a few days; once Caddy logs show a successful cert issuance, switch back by re-adding `caddy`'s `3001:3001` mapping and removing `frontend`'s direct `3001:3000` mapping. See HANDOFF.md session 100 for full details.
+
 ## Active Backend: Kotlin (Spring Boot JPA)
 
 **The live backend is `backend-kotlin-jpa/`**, built as a standard JVM jar (`bootJar`) and served on port 8080 inside the container (mapped to host 8001). The Python FastAPI backend has been removed — migration is 100% complete.

@@ -65,6 +65,8 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: xpenses-frontend
+    ports:
+      - "3001:3000"
     environment:
       - NODE_ENV=production
       - NEXT_PUBLIC_API_URL=http://xpenses.nt-automation.eu:8001/api
@@ -89,7 +91,6 @@ services:
     container_name: xpenses-caddy
     ports:
       - "80:80"
-      - "3001:3001"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile
       - caddy-data:/data

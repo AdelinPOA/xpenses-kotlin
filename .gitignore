@@ -42,3 +42,12 @@ logs/
 .DS_Store
 Thumbs.db
 .worktrees/
+
+# Skill-manager installs (personal tooling, not project source; some are symlinks)
+/agent/skills/cavecrew
+/agent/skills/caveman*
+/.agents/skills/cavecrew
+/.agents/skills/caveman*
+/.claude/skills/cavecrew
+/.claude/skills/caveman*
+/skills-lock.json

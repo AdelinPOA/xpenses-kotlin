@@ -469,10 +469,6 @@ export async function getStorageMigrationStatus(): Promise<StorageMigrationStatu
 
 export interface OCRComparisonStats {
   total_scanned: number;
-  easyocr_amount_accuracy: number;
-  easyocr_date_accuracy: number;
-  easyocr_merchant_accuracy: number;
-  easyocr_category_accuracy: number;
   gemini_amount_accuracy: number;
   gemini_date_accuracy: number;
   gemini_merchant_accuracy: number;
@@ -487,11 +483,6 @@ export interface OCRComparisonRow {
   gemini_date: string | null;
   gemini_merchant: string | null;
   gemini_category_id: number | null;
-  easyocr_amount: number | null;
-  easyocr_date: string | null;
-  easyocr_merchant: string | null;
-  easyocr_category_id: number | null;
-  easyocr_error: string | null;
   gemini_error: string | null;
   provider: string;
   final_amount: number | null;

@@ -1,6 +1,41 @@
 # HANDOFF.md — xpenses-kotlin
 
-## Current Session (2026-06-28, session 99) — fix-pdf-export-font-corruption
+## Current Session (2026-06-29, session 100) — remove-easyocr
+
+### What Was Done
+- **Removed EasyOCR entirely** per explicit user request — the admin OCR comparison dashboard showed EasyOCR badly underperforming Gemini (66.67%/0%/0%/33.33% vs ~100% accuracy on amount/date/merchant/category), and it required a dedicated Python sidecar microservice (`ocr-sidecar/`) just for a fallback path nobody wanted to keep.
+- Used the mandated OpenSpec workflow: `/openspec-propose` (brainstormed scope/decisions with the user first) → `openspec/changes/remove-easyocr/` (proposal, design, delta specs for `gemini-ocr`/`async-receipt-ocr`/`ocr-sidecar-service`, 30-item tasks.md) → `/openspec-apply-change` to implement all 10 task groups.
+- **New architecture**: Gemini is now the sole OCR provider, with an internal multi-tier model fallback chain replacing the old Gemini→EasyOCR fallback: `gemini-3.1-flash-lite` → `gemini-3.5-flash` → `gemini-3-flash` → `gemini-2.5-flash` (final safety net, matches the prior hardcoded default). `OCRConfig.provider` default changed from `"easyocr"` to `"gemini-3.1-flash-lite"`. On full exhaustion, the last error persists to `geminiError` and the user fills the expense form manually — no local fallback exists anymore.
+- **DB**: new Flyway migration `V25__drop_easyocr_columns.sql` drops `easyocr_amount/date/merchant/category_id/error` from `ocr_comparisons` (irreversible, explicitly approved by user — historical EasyOCR comparison data had no ongoing value).
+- **Backend**: deleted `scanEasyOcr()`, `runEasyOcrSidecar()`, `updateEasyOcrComparison()`, the `NaiveBayesClassifier` class + `trainLocalClassifier()`, and the now-dead `extractAmount`/`extractTax`/`extractDate`/`extractMerchant` text-heuristic helpers (only ever used by EasyOCR's local text parsing — Gemini returns structured JSON directly, so none of this was reachable once EasyOCR's call path was gone). Removed `updateEasyOcrResult()` and the `easyocrAmount IS NOT NULL` cache-priority branch from `Repositories.kt`. Removed all `easyocr*` accuracy counters/fields from `OcrController` and `OcrComparisonRow`.
+- **Frontend**: removed the EasyOCR dropdown option, accuracy comparison card, and the EasyOCR column/fallback-rendering logic from `/admin/ocr`'s scan history table (both mobile and desktop views); removed the 9 `easyocr_*` fields from `lib/api.ts` types.
+- **Infra**: deleted `ocr-sidecar/` (app.py, Dockerfile, requirements.txt) entirely; removed its `docker-compose.yml` service block, the backend's `depends_on`, and the `ocr-models` volume.
+- **Tests**: rewrote `OcrServiceTest.kt` — dropped EasyOCR fixtures, added fallback-chain and total-exhaustion coverage. Found and fixed a **latent pre-existing test bug** along the way: the test's plain `ObjectMapper()` had no Kotlin module registered, so `OCRConfig` JSON deserialization always silently threw and fell back to defaults — invisible before because the old default (`provider="easyocr"`) happened to match the old cache-hit test's assertion branch by coincidence. Fixed by registering `KotlinModule` to match what Spring Boot actually does in production. Also learned the hard way that `ArgumentMatchers.any()`/`any(Class)` return `null`, which blows up Kotlin's non-null parameter checks on natively-Kotlin-declared functions (works fine for Java/Spring interface methods, which Kotlin treats as platform types) — worked around by stubbing the spied `scanGemini()` with literal argument values instead of matchers.
+- **Docs**: updated CLAUDE.md, README.md, AGENTS.md, GEMINI.md to describe the Gemini-only multi-tier architecture (ports table, repo tree, services table, OCR provider table, Flyway version range `V1`–`V25`).
+- **Deployed live**: with explicit user confirmation, rebuilt and redeployed the full `docker-compose` stack (`docker compose up -d --build --remove-orphans`). Along the way found and fixed an **unrelated pre-existing port conflict**: the working tree already had uncommitted `docker-compose.yml` changes (from before this session) that gave `frontend` `3001:3000` AND `caddy` `3001:3001` — both binding the same host port. Removed frontend's direct port mapping (caddy is the intended public entry point per session 98's HTTPS work) with user approval, then redeployed successfully. Verified: `make build`/`make test` pass (65 tests), V25 migration applied (confirmed via `flyway_schema_history` + `\d ocr_comparisons`), `make test-health` OK, `/api/ocr/comparison` returns gemini-only fields against real historical data.
+- **Not done**: visual confirmation of the `/admin/ocr` page in a real browser — an automated browser-tool check hit a connectivity error reaching `xpenses.nt-automation.eu` from this environment (unrelated to the code change; all API-level checks passed). User should give it a visual pass.
+
+### Files Changed
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/OcrService.kt` — Gemini-only multi-tier fallback chain, EasyOCR code deleted
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/OcrController.kt` — EasyOCR accuracy stats removed
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/models/Models.kt` — `OcrComparison` easyocr fields removed
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/repositories/Repositories.kt` — `updateEasyOcrResult()` removed, cache query simplified
+- `backend-kotlin-jpa/src/main/resources/db/migration/V25__drop_easyocr_columns.sql` — new migration
+- `backend-kotlin-jpa/src/test/kotlin/eu/nt/xpenses/services/OcrServiceTest.kt` — rewritten with fallback-chain/exhaustion tests
+- `frontend/app/admin/ocr/page.tsx`, `frontend/lib/api.ts` — EasyOCR UI/types removed
+- `ocr-sidecar/` — deleted entirely
+- `docker-compose.yml` — ocr-sidecar service/volume removed; frontend's direct `3001` port mapping also removed (unrelated port-conflict fix)
+- `CLAUDE.md`, `README.md`, `AGENTS.md`, `GEMINI.md` — architecture docs updated
+- `openspec/changes/remove-easyocr/` — full OpenSpec proposal (proposal/design/specs/tasks)
+
+### Next Steps
+- User to visually confirm `/admin/ocr` on the live site shows no EasyOCR references and a real receipt scan completes via Gemini.
+- Merge `feat/remove-easyocr` branch to `main` per the project's branch policy once confirmed.
+- Consider archiving the `remove-easyocr` OpenSpec change (`/openspec-archive-change`) after merge.
+
+---
+
+## Previous Session (2026-06-28, session 99) — fix-pdf-export-font-corruption
 
 ### What Was Done
 - **User-reported bug**: PDF export of expense reports (post FastAPI→Kotlin migration) showed most amounts and merged receipt content as dots/missing-glyph placeholders, while plain ASCII text (titles, dates, names) rendered fine. Confirmed by user it was a real rendering bug, not a screenshot redaction.

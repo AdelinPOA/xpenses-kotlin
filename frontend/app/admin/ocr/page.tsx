@@ -17,7 +17,7 @@ type FormState = OcrConfig;
 
 const DEFAULT_FORM: FormState = {
   ocr_enabled: true,
-  provider: "easyocr",
+  provider: "gemini-3.1-flash-lite",
   gemini_api_key: "",
 };
 
@@ -219,9 +219,8 @@ export default function OcrAdminPage() {
                       className="w-full border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200"
                       {...register("provider")}
                     >
-                      <option value="easyocr">EasyOCR (Local CPU - Default)</option>
+                      <option value="gemini-3.1-flash-lite">Google Gemini 3.1 Flash-Lite (Cloud API - Default)</option>
                       <option value="gemini">Google Gemini 2.5 Flash (Cloud API)</option>
-                      <option value="gemini-3.1-flash-lite">Google Gemini 3.1 Flash-Lite (Cloud API - Cost Efficient)</option>
                       <option value="gemini-3-flash">Google Gemini 3 Flash (Cloud API - Preview)</option>
                       <option value="gemini-3.5-flash">Google Gemini 3.5 Flash (Cloud API - Latest)</option>
                       <option value="ollama" disabled>Ollama Local Vision LLM (Coming Soon)</option>
@@ -317,33 +316,7 @@ export default function OcrAdminPage() {
                 </div>
               ) : (
                 <>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* EasyOCR Card */}
-                    <div className="border border-slate-200 dark:border-slate-800 rounded-lg p-4 bg-slate-50 dark:bg-slate-950/40">
-                       <h3 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3 flex items-center justify-between">
-                        <span>EasyOCR (Local)</span>
-                        <span className="text-blue-600 dark:text-blue-400 font-bold">Accuracy</span>
-                      </h3>
-                      <div className="space-y-2.5">
-                        <div className="flex justify-between text-sm">
-                          <span className="text-slate-600 dark:text-slate-400">Amount extraction:</span>
-                          <span className="font-semibold text-slate-800 dark:text-slate-200">{compData.stats.easyocr_amount_accuracy}%</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-slate-600 dark:text-slate-400">Date extraction:</span>
-                          <span className="font-semibold text-slate-800 dark:text-slate-200">{compData.stats.easyocr_date_accuracy}%</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-slate-600 dark:text-slate-400">Merchant name:</span>
-                          <span className="font-semibold text-slate-800 dark:text-slate-200">{compData.stats.easyocr_merchant_accuracy}%</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-slate-600 dark:text-slate-400">Category classification:</span>
-                          <span className="font-semibold text-slate-800 dark:text-slate-200">{compData.stats.easyocr_category_accuracy}%</span>
-                        </div>
-                      </div>
-                    </div>
-
+                  <div className="grid grid-cols-1 gap-4">
                     {/* Google Gemini Card */}
                     <div className="border border-slate-200 dark:border-slate-800 rounded-lg p-4 bg-slate-50 dark:bg-slate-950/40">
                       <h3 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3 flex items-center justify-between">
@@ -387,41 +360,27 @@ export default function OcrAdminPage() {
 
                         const isLinked = row.final_amount !== null || row.final_date !== null || row.final_merchant !== null;
 
-                        const isGeminiRequested = row.provider === "gemini" || row.provider?.startsWith("gemini-");
-                        const geminiFailed = isGeminiRequested && (row.gemini_error || (row.gemini_amount === null && row.gemini_merchant === null));
-
-                        let isFallback = false;
-                        let actualProviderStr = row.provider || "gemini";
-                        let errorMsg: string | null = null;
-
-                        if (geminiFailed) {
-                          isFallback = true;
-                          actualProviderStr = "easyocr";
-                          errorMsg = row.gemini_error;
-                        }
+                        const isFailed = row.gemini_error || (row.gemini_amount === null && row.gemini_merchant === null);
+                        const errorMsg: string | null = isFailed ? row.gemini_error : null;
 
                         const fields = [
                           {
                             name: "Amount",
-                            easy: row.easyocr_amount !== null ? `${row.easyocr_amount}` : null,
                             gem: row.gemini_amount !== null ? `${row.gemini_amount}` : null,
                             final: isLinked ? (row.final_amount !== null ? `${row.final_amount}` : "—") : null,
                           },
                           {
                             name: "Merchant",
-                            easy: row.easyocr_merchant || null,
                             gem: row.gemini_merchant || null,
                             final: isLinked ? (row.final_merchant || "—") : null,
                           },
                           {
                             name: "Date",
-                            easy: row.easyocr_date || null,
                             gem: row.gemini_date || null,
                             final: isLinked ? (row.final_date || "—") : null,
                           },
                           {
                             name: "Category",
-                            easy: formatCat(row.easyocr_category_id),
                             gem: formatCat(row.gemini_category_id),
                             final: isLinked ? (formatCat(row.final_category_id) ?? "—") : null,
                           },
@@ -436,7 +395,7 @@ export default function OcrAdminPage() {
                                 </div>
                                 <div className="text-[10px] text-slate-400 mt-1 flex items-center gap-1.5">
                                   <span>{new Date(row.created_at).toLocaleDateString()}</span>
-                                  <span className={`px-1.5 py-0.5 rounded text-[9px] font-semibold font-mono uppercase tracking-wider ${isFallback ? "bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400 line-through opacity-70" : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400"}`}>
+                                  <span className={`px-1.5 py-0.5 rounded text-[9px] font-semibold font-mono uppercase tracking-wider ${isFailed ? "bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400 line-through opacity-70" : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400"}`}>
                                     {row.provider || "gemini"}
                                   </span>
                                 </div>
@@ -447,15 +406,9 @@ export default function OcrAdminPage() {
                                 </span>
                               )}
                             </div>
-                            {isFallback && (
+                            {isFailed && (
                               <div className="flex flex-col gap-0.5 mt-1.5">
                                 <span className="text-[9px] text-rose-500 font-semibold uppercase tracking-wider">Failed</span>
-                                <div className="flex items-center gap-1 mt-0.5">
-                                  <span className="text-[9px] text-slate-500">Used:</span>
-                                  <span className="px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800/50 text-[9px] font-semibold font-mono uppercase tracking-wider">
-                                    {actualProviderStr}
-                                  </span>
-                                </div>
                                 {errorMsg && (
                                   <div className="text-[8px] text-rose-400 dark:text-rose-300 mt-1 leading-tight border-l-2 border-rose-400 dark:border-rose-800 pl-1">
                                     {errorMsg}
@@ -468,13 +421,6 @@ export default function OcrAdminPage() {
                                 <div key={f.name} className="flex items-center justify-between text-[11px] gap-2">
                                   <span className="font-medium text-slate-500 dark:text-slate-400 shrink-0 w-16">{f.name}</span>
                                   <div className="flex items-center gap-1.5 flex-wrap justify-end">
-                                    {f.easy !== null ? (
-                                      <span className={`px-2 py-0.5 rounded border text-[11px] font-medium ${isLinked ? getStatusColor(f.easy, f.final) : "text-slate-600 bg-slate-100/50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-800"}`}>
-                                        {f.easy}
-                                      </span>
-                                    ) : (
-                                      <span className="text-slate-400">—</span>
-                                    )}
                                     {f.gem !== null ? (
                                       <span className={`px-2 py-0.5 rounded border text-[11px] font-medium ${isLinked ? getStatusColor(f.gem, f.final) : "text-slate-600 bg-slate-100/50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-800"}`}>
                                         {f.gem}
@@ -501,7 +447,6 @@ export default function OcrAdminPage() {
                           <tr className="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-semibold">
                             <th className="p-3 border-r border-slate-200 dark:border-slate-800">Receipt / Date</th>
                             <th className="p-3">Field</th>
-                            <th className="p-3">EasyOCR (Local)</th>
                             <th className="p-3 font-semibold text-indigo-600 dark:text-indigo-400">Gemini (Cloud)</th>
                             <th className="p-3 bg-blue-50/50 dark:bg-blue-950/20 font-bold text-blue-800 dark:text-blue-300">Final (Ground Truth)</th>
                           </tr>
@@ -517,41 +462,27 @@ export default function OcrAdminPage() {
                             // null final_* means this scan hasn't been linked to a saved expense yet
                             const isLinked = row.final_amount !== null || row.final_date !== null || row.final_merchant !== null;
 
-                            const isGeminiRequested = row.provider === "gemini" || row.provider?.startsWith("gemini-");
-                            const geminiFailed = isGeminiRequested && (row.gemini_error || (row.gemini_amount === null && row.gemini_merchant === null));
-
-                            let isFallback = false;
-                            let actualProviderStr = row.provider || "gemini";
-                            let errorMsg: string | null = null;
-
-                            if (geminiFailed) {
-                              isFallback = true;
-                              actualProviderStr = "easyocr";
-                              errorMsg = row.gemini_error;
-                            }
+                            const isFailed = row.gemini_error || (row.gemini_amount === null && row.gemini_merchant === null);
+                            const errorMsg: string | null = isFailed ? row.gemini_error : null;
 
                             const fields = [
                               {
                                 name: "Amount",
-                                easy: row.easyocr_amount !== null ? `${row.easyocr_amount}` : null,
                                 gem: row.gemini_amount !== null ? `${row.gemini_amount}` : null,
                                 final: isLinked ? (row.final_amount !== null ? `${row.final_amount}` : "—") : null,
                               },
                               {
                                 name: "Merchant",
-                                easy: row.easyocr_merchant || null,
                                 gem: row.gemini_merchant || null,
                                 final: isLinked ? (row.final_merchant || "—") : null,
                               },
                               {
                                 name: "Date",
-                                easy: row.easyocr_date || null,
                                 gem: row.gemini_date || null,
                                 final: isLinked ? (row.final_date || "—") : null,
                               },
                               {
                                 name: "Category",
-                                easy: formatCat(row.easyocr_category_id),
                                 gem: formatCat(row.gemini_category_id),
                                 final: isLinked ? (formatCat(row.final_category_id) ?? "—") : null,
                               },
@@ -567,19 +498,13 @@ export default function OcrAdminPage() {
                                     <div className="text-[10px] text-slate-400 mt-1 flex flex-col gap-1">
                                       <div className="flex items-center gap-1.5">
                                         <span>{new Date(row.created_at).toLocaleDateString()}</span>
-                                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-semibold font-mono uppercase tracking-wider ${isFallback ? "bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400 line-through opacity-70" : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400"}`}>
+                                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-semibold font-mono uppercase tracking-wider ${isFailed ? "bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400 line-through opacity-70" : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400"}`}>
                                           {row.provider || "gemini"}
                                         </span>
                                       </div>
-                                      {isFallback && (
+                                      {isFailed && (
                                         <div className="flex flex-col gap-0.5 mt-0.5">
                                           <span className="text-[9px] text-rose-500 font-semibold uppercase tracking-wider">Failed</span>
-                                          <div className="flex items-center gap-1 mt-0.5">
-                                            <span className="text-[9px] text-slate-500">Used:</span>
-                                            <span className="px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800/50 text-[9px] font-semibold font-mono uppercase tracking-wider">
-                                              {actualProviderStr}
-                                            </span>
-                                          </div>
                                           {errorMsg && (
                                             <div className="text-[8px] text-rose-400 dark:text-rose-300 mt-1 leading-tight border-l-2 border-rose-400 dark:border-rose-800 pl-1">
                                               {errorMsg}
@@ -596,15 +521,6 @@ export default function OcrAdminPage() {
                                   </td>
                                 )}
                                 <td className="p-3 font-medium text-slate-500 dark:text-slate-400">{f.name}</td>
-                                <td className="p-3">
-                                  {f.easy !== null ? (
-                                    <span className={`px-2 py-0.5 rounded border text-[11px] font-medium ${isLinked ? getStatusColor(f.easy, f.final) : "text-slate-600 bg-slate-100/50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-800"}`}>
-                                      {f.easy}
-                                    </span>
-                                  ) : (
-                                    <span className="text-slate-400">—</span>
-                                  )}
-                                </td>
                                 <td className="p-3">
                                   {f.gem !== null ? (
                                     <span className={`px-2 py-0.5 rounded border text-[11px] font-medium ${isLinked ? getStatusColor(f.gem, f.final) : "text-slate-600 bg-slate-100/50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-800"}`}>

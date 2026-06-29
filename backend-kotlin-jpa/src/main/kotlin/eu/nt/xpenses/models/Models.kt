@@ -616,21 +616,6 @@ class OcrComparison(
     @Column(name = "gemini_category_id")
     var geminiCategoryId: Int? = null,
 
-    @Column(name = "easyocr_amount")
-    var easyocrAmount: BigDecimal? = null,
-
-    @Column(name = "easyocr_date")
-    var easyocrDate: String? = null,
-
-    @Column(name = "easyocr_merchant")
-    var easyocrMerchant: String? = null,
-
-    @Column(name = "easyocr_category_id")
-    var easyocrCategoryId: Int? = null,
-
-    @Column(name = "easyocr_error")
-    var easyocrError: String? = null,
-
     @Column(name = "gemini_error")
     var geminiError: String? = null,
 

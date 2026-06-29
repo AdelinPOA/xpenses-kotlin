@@ -36,11 +36,11 @@ Kotlin 2.4.0 requires **JDK 21+** (the Gradle toolchain pins to 21 as the floor)
 
 - **Backend**: `backend-kotlin-jpa/` — Spring Boot 3.4.5 + JPA/Hibernate + Flyway (42 source files)
 - **Frontend**: `frontend/` — Next.js 15 + React 19 + Tailwind CSS v4 (CSS-first, no `tailwind.config.js`) (58+ source files)
-- **OCR sidecar**: `ocr-sidecar/` — Python FastAPI + EasyOCR (internal port 5000, no host mapping)
+- **OCR**: Gemini-only, with an internal multi-tier model fallback chain (no sidecar/local provider)
 
 ## Backend patterns
 
-- **`ddl-auto: validate`** — all schema changes go through Flyway migrations (`V1`–`V16`). Never edit an applied migration; add a new one.
+- **`ddl-auto: validate`** — all schema changes go through Flyway migrations (`V1`–`V25`). Never edit an applied migration; add a new one.
 - **Soft delete**: `@SQLDelete` + `@SQLRestriction("deleted = false")` on financial entities. `delete()` is an UPDATE, not a DELETE.
 - **Controllers are thin**: read `request.getAttribute("currentUser") as? User`, delegate to service. Business logic goes in `ExpenseService`/`ReportService`/etc.
 - **All entities** in `Models.kt`, **all repos** in `Repositories.kt` (single files). Jackson `SNAKE_CASE` by default.

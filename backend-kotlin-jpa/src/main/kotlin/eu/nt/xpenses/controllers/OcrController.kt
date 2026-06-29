@@ -119,25 +119,15 @@ class OcrController(
     @PreAuthorize("hasRole('mod')")
     fun getOcrComparisons(): ResponseEntity<*> {
         val history = ocrComparisonRepository.findAllOrdered().take(100)
-        
-        var easyocrAmtOk = 0
-        var easyocrDateOk = 0
-        var easyocrMerchantOk = 0
-        var easyocrCatOk = 0
 
         var geminiAmtOk = 0
         var geminiDateOk = 0
         var geminiMerchantOk = 0
         var geminiCatOk = 0
 
-        var easyocrCount = 0
         var geminiCount = 0
 
         // Per-field denominators for accurate per-field accuracy calculation
-        var easyocrAmtDenom = 0
-        var easyocrDateDenom = 0
-        var easyocrMerchantDenom = 0
-        var easyocrCatDenom = 0
         var geminiAmtDenom = 0
         var geminiDateDenom = 0
         var geminiMerchantDenom = 0
@@ -152,43 +142,11 @@ class OcrController(
             val finalCategoryId = expense?.category?.id
 
             // Per-field existence checks
-            val hasEasyAmount = r.easyocrAmount != null
-            val hasEasyDate = r.easyocrDate != null
-            val hasEasyMerchant = r.easyocrMerchant != null
-            val hasEasyCategory = r.easyocrCategoryId != null
-            val hasEasy = hasEasyAmount || hasEasyDate || hasEasyMerchant || hasEasyCategory
-
             val hasGeminiAmount = r.geminiAmount != null
             val hasGeminiDate = r.geminiDate != null
             val hasGeminiMerchant = r.geminiMerchant != null
             val hasGeminiCategory = r.geminiCategoryId != null
             val hasGemini = hasGeminiAmount || hasGeminiDate || hasGeminiMerchant || hasGeminiCategory
-
-            // EasyOCR accuracy
-            if (hasEasy && hasFinal) {
-                easyocrCount++
-                // Per-field: only count if THIS specific field exists
-                if (hasEasyAmount && finalAmount != null) {
-                    easyocrAmtDenom++
-                    if (r.easyocrAmount!!.subtract(finalAmount).abs().compareTo(BigDecimal("0.01")) < 0) easyocrAmtOk++
-                }
-                if (hasEasyDate && finalDate != null) {
-                    easyocrDateDenom++
-                    if (r.easyocrDate == finalDate) easyocrDateOk++
-                }
-                if (hasEasyMerchant) {
-                    easyocrMerchantDenom++
-                    if (!r.easyocrMerchant.isNullOrEmpty() && !finalMerchant.isNullOrEmpty()) {
-                        if (r.easyocrMerchant!!.trim().lowercase() == finalMerchant.trim().lowercase()) easyocrMerchantOk++
-                    } else if (r.easyocrMerchant.isNullOrEmpty() && finalMerchant.isNullOrEmpty()) {
-                        easyocrMerchantOk++
-                    }
-                }
-                if (hasEasyCategory && finalCategoryId != null) {
-                    easyocrCatDenom++
-                    if (r.easyocrCategoryId == finalCategoryId) easyocrCatOk++
-                }
-            }
 
             // Gemini accuracy
             if (hasGemini && hasFinal) {
@@ -223,11 +181,6 @@ class OcrController(
                 geminiDate = r.geminiDate,
                 geminiMerchant = r.geminiMerchant,
                 geminiCategoryId = r.geminiCategoryId,
-                easyocrAmount = r.easyocrAmount,
-                easyocrDate = r.easyocrDate,
-                easyocrMerchant = r.easyocrMerchant,
-                easyocrCategoryId = r.easyocrCategoryId,
-                easyocrError = r.easyocrError,
                 geminiError = r.geminiError,
                 provider = r.provider,
                 finalAmount = finalAmount,
@@ -239,10 +192,6 @@ class OcrController(
 
         val stats = mapOf(
             "total_scanned" to history.size,
-            "easyocr_amount_accuracy" to if (easyocrAmtDenom > 0) Math.round((easyocrAmtOk.toDouble() / easyocrAmtDenom) * 10000.0) / 100.0 else 0.0,
-            "easyocr_date_accuracy" to if (easyocrDateDenom > 0) Math.round((easyocrDateOk.toDouble() / easyocrDateDenom) * 10000.0) / 100.0 else 0.0,
-            "easyocr_merchant_accuracy" to if (easyocrMerchantDenom > 0) Math.round((easyocrMerchantOk.toDouble() / easyocrMerchantDenom) * 10000.0) / 100.0 else 0.0,
-            "easyocr_category_accuracy" to if (easyocrCatDenom > 0) Math.round((easyocrCatOk.toDouble() / easyocrCatDenom) * 10000.0) / 100.0 else 0.0,
             "gemini_amount_accuracy" to if (geminiAmtDenom > 0) Math.round((geminiAmtOk.toDouble() / geminiAmtDenom) * 10000.0) / 100.0 else 0.0,
             "gemini_date_accuracy" to if (geminiDateDenom > 0) Math.round((geminiDateOk.toDouble() / geminiDateDenom) * 10000.0) / 100.0 else 0.0,
             "gemini_merchant_accuracy" to if (geminiMerchantDenom > 0) Math.round((geminiMerchantOk.toDouble() / geminiMerchantDenom) * 10000.0) / 100.0 else 0.0,
@@ -264,11 +213,6 @@ data class OcrComparisonRow(
     @JsonProperty("gemini_date") val geminiDate: String?,
     @JsonProperty("gemini_merchant") val geminiMerchant: String?,
     @JsonProperty("gemini_category_id") val geminiCategoryId: Int?,
-    @JsonProperty("easyocr_amount") val easyocrAmount: BigDecimal?,
-    @JsonProperty("easyocr_date") val easyocrDate: String?,
-    @JsonProperty("easyocr_merchant") val easyocrMerchant: String?,
-    @JsonProperty("easyocr_category_id") val easyocrCategoryId: Int?,
-    @JsonProperty("easyocr_error") val easyocrError: String?,
     @JsonProperty("gemini_error") val geminiError: String?,
     val provider: String,
     @JsonProperty("final_amount") val finalAmount: BigDecimal?,

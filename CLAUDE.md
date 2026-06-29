@@ -130,7 +130,7 @@ backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/
     ├── ExportService.kt        # CSV/Excel export via Apache POI
     ├── FxService.kt            # Frankfurter + fallback; caches in fx_rates table
     ├── PdfService.kt           # OpenPDF report generation + PDFBox receipt merging
-    ├── OcrService.kt           # EasyOCR subprocess + Gemini + NaiveBayes classifier
+    ├── OcrService.kt           # Gemini-only OCR with multi-tier model fallback chain
     ├── AsyncOcrService.kt      # Runs OCR off-thread; persists results to ocr_jobs table
     ├── StorageService.kt       # Dispatches to storage/ providers
     ├── storage/
@@ -191,7 +191,7 @@ submitted → draft (via recall, by owner)
 - **Soft delete**: `ExpenseReport`, `Expense`, `Receipt` (and other financial records, migration `V13`) use Hibernate `@SQLDelete` + `@SQLRestriction("deleted = false")`. `repository.delete(...)` issues an `UPDATE ... SET deleted = true` instead of a `DELETE`, and all reads are transparently filtered to non-deleted rows. Do not assume a `delete` physically removes the row.
 - **In-memory filtering**: expense listing fetches by user (or all) then filters `reportId`, `categoryId`, `status`, `fromDate`, `toDate` in Kotlin (in `ExpenseService`). For large datasets consider adding SQL-level WHERE clauses via custom repository queries.
 - **Storage providers**: `StorageService` dispatches to `storage/` providers. `local` is fully functional; `S3StorageProvider` exists. Other remote providers (SFTP/SMB/WebDAV) are still stubbed.
-- **Async OCR**: `OcrController` enqueues work and `AsyncOcrService` runs it off the request thread, persisting status/results to the `ocr_jobs` table (migration `V14`); clients poll for completion. `OcrService` still spawns EasyOCR as a Python subprocess (`runEasyOcrSubprocess()`), requiring Python + EasyOCR in the container image (shared Docker volume).
+- **Async OCR**: `OcrController` enqueues work and `AsyncOcrService` runs it off the request thread, persisting status/results to the `ocr_jobs` table (migration `V14`); clients poll for completion. `OcrService` scans receipts via the Gemini API only, retrying against an ordered chain of model tiers (`gemini-3.1-flash-lite` → `gemini-3.5-flash` → `gemini-3-flash-preview` → `gemini-2.5-flash`) until one returns a usable result.
 - **Daily allowance**: read from `app_settings` table via `getDailyAllowanceRate()` in `ReportController`. Configurable via `PATCH /api/settings/daily-allowance-rate` by `chef_finance`.
 - **CORS**: configured via `cors.allowed-origins` (env `CORS_ALLOWED_ORIGINS`) in `SecurityConfig`. Set to your production domain.
 
@@ -227,7 +227,7 @@ Frontend uses two URLs to reach the backend:
 - **Crypto:** HKDF-SHA256 key derivation from `JWT_SECRET` with a per-subsystem `info` label. Each subsystem (LDAP, OCR, IMAP, storage) gets a distinct encryption key. Rotating `JWT_SECRET` invalidates all encrypted settings.
 - **App settings table:** Key/value JSON rows in `app_settings`. Keys: `mileage_rate_before_tax`, `mileage_rate_after_tax`, `daily_allowance_rate`, `ldap_config`, `ocr_config`, `imap_config`, `storage_config`, `storage_migration_status`. All use upsert on the key column.
 - **Receipt storage:** Pluggable via `StorageService` → `storage/` providers. Local and S3 providers work; SFTP/SMB/WebDAV are stubbed. Filenames sanitized before storage.
-- **OCR:** EasyOCR (local subprocess) + Gemini 2.5 Flash (cloud). Both active provider and EasyOCR run in parallel for comparison tracking.
+- **OCR:** Gemini only, with an internal multi-tier model fallback chain (`gemini-3.1-flash-lite` → `gemini-3.5-flash` → `gemini-3-flash-preview` → `gemini-2.5-flash`); no local/EasyOCR provider exists.
 - **Dashboard scoping:** `chef_finance`, `mod`, and `manager` see org-wide data only when passing `?all=true` (the frontend defaults this on for `chef_finance`/`mod`); without it, they see only their own data, same as everyone else.
 
 ## App Settings Keys

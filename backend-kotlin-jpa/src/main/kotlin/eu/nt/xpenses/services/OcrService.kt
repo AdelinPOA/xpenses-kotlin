@@ -7,15 +7,10 @@ import eu.nt.xpenses.models.AppSetting
 import eu.nt.xpenses.models.OcrComparison
 import eu.nt.xpenses.repositories.AppSettingRepository
 import eu.nt.xpenses.repositories.CategoryRepository
-import eu.nt.xpenses.repositories.ExpenseRepository
 import eu.nt.xpenses.repositories.OcrComparisonRepository
-import org.springframework.beans.factory.annotation.Qualifier
-import org.springframework.core.io.ByteArrayResource
 import org.springframework.http.HttpEntity
-import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Service
-import org.springframework.util.LinkedMultiValueMap
 import org.springframework.web.client.RestClient
 import org.springframework.web.client.body
 import org.springframework.http.client.JdkClientHttpRequestFactory
@@ -25,87 +20,35 @@ import java.io.File
 import java.math.BigDecimal
 import java.time.Instant
 import java.util.*
-import java.util.concurrent.CompletableFuture
-import java.util.concurrent.Executor
 import java.time.Duration
 import java.util.regex.Pattern
 
 data class OCRConfig(
-    var provider: String = "easyocr",
+    var provider: String = "gemini-3.1-flash-lite",
     @JsonProperty("ocr_enabled") var ocrEnabled: Boolean = true,
     @JsonProperty("gemini_api_key") var geminiApiKey: String = "",
     @JsonProperty("password_set") var passwordSet: Boolean = false
 )
 
-class NaiveBayesClassifier {
-    private val categoryCounts = mutableMapOf<Int, Int>()
-    private val wordCounts = mutableMapOf<Int, MutableMap<String, Int>>()
-    private val vocab = mutableSetOf<String>()
-    private var totalDocs = 0
-
-    fun tokenize(text: String?): List<String> {
-        if (text.isNullOrEmpty()) return emptyList()
-        val regex = Regex("[a-zA-Z]{3,}")
-        return regex.findAll(text).map { it.value.lowercase() }.toList()
-    }
-
-    fun train(data: List<Pair<String, Int>>) {
-        categoryCounts.clear()
-        wordCounts.clear()
-        vocab.clear()
-        totalDocs = data.size
-
-        for ((text, catId) in data) {
-            categoryCounts[catId] = (categoryCounts[catId] ?: 0) + 1
-            val words = tokenize(text)
-            for (w in words) {
-                val catWordCounts = wordCounts.getOrPut(catId) { mutableMapOf() }
-                catWordCounts[w] = (catWordCounts[w] ?: 0) + 1
-                vocab.add(w)
-            }
-        }
-    }
-
-    fun predict(text: String): Int? {
-        if (categoryCounts.isEmpty() || totalDocs == 0) return null
-        val words = tokenize(text)
-        if (words.isEmpty()) return null
-
-        var bestCat: Int? = null
-        var maxLogProb = Double.NEGATIVE_INFINITY
-        val vocabSize = vocab.size
-
-        for ((catId, catCount) in categoryCounts) {
-            var logProb = Math.log(catCount.toDouble() / totalDocs)
-            val totalWordsInCat = wordCounts[catId]?.values?.sum() ?: 0
-
-            for (w in words) {
-                if (vocab.contains(w)) {
-                    val wordCount = wordCounts[catId]?.get(w) ?: 0
-                    logProb += Math.log((wordCount + 1).toDouble() / (totalWordsInCat + vocabSize))
-                }
-            }
-
-            if (logProb > maxLogProb) {
-                maxLogProb = logProb
-                bestCat = catId
-            }
-        }
-        return bestCat
-    }
-}
-
 @Service
 class OcrService(
     private val appSettingRepository: AppSettingRepository,
     private val categoryRepository: CategoryRepository,
-    private val expenseRepository: ExpenseRepository,
     private val ocrComparisonRepository: OcrComparisonRepository,
     private val cryptoService: CryptoService,
-    private val objectMapper: ObjectMapper,
-    @Qualifier("applicationTaskExecutor") private val taskExecutor: Executor
+    private val objectMapper: ObjectMapper
 ) {
     private val log = LoggerFactory.getLogger(OcrService::class.java)
+
+    companion object {
+        // Tried in order; the first tier to return a parseable, non-empty result wins.
+        val GEMINI_FALLBACK_CHAIN = listOf(
+            "gemini-3.1-flash-lite",
+            "gemini-3.5-flash",
+            "gemini-3-flash",
+            "gemini-2.5-flash"
+        )
+    }
     // Force HTTP/1.1: the JDK HttpClient defaults to an HTTP/1.1->HTTP/2 (h2c) upgrade on plain
     // HTTP, which some receiving servers reject. Pin to HTTP/1.1 for compatibility.
     private val restClient = RestClient.builder()
@@ -118,7 +61,7 @@ class OcrService(
 
     fun getOcrConfig(): OCRConfig {
         val setting = appSettingRepository.findById("ocr_config").orElse(null)
-            ?: return OCRConfig(provider = "easyocr", ocrEnabled = true)
+            ?: return OCRConfig(provider = "gemini-3.1-flash-lite", ocrEnabled = true)
         
         return try {
             val config: OCRConfig = objectMapper.readValue(setting.value)
@@ -134,7 +77,7 @@ class OcrService(
             }
             config
         } catch (e: Exception) {
-            OCRConfig(provider = "easyocr", ocrEnabled = true)
+            OCRConfig(provider = "gemini-3.1-flash-lite", ocrEnabled = true)
         }
     }
 
@@ -153,15 +96,6 @@ class OcrService(
             updatedAt = Instant.now()
         )
         appSettingRepository.save(setting)
-    }
-
-    fun trainLocalClassifier(): NaiveBayesClassifier? {
-        val expenses = expenseRepository.findAllWithOcrTrainingData()
-        if (expenses.size < 5) return null
-        val data = expenses.map { Pair(it.rawOcrText!!, it.category!!.id!!) }
-        val classifier = NaiveBayesClassifier()
-        classifier.train(data)
-        return classifier
     }
 
     fun testGeminiConnection(apiKey: String, provider: String = "gemini"): Map<String, Any> {
@@ -188,9 +122,11 @@ class OcrService(
         if (!config.ocrEnabled) {
             return emptyResult(listOf("OCR is disabled in settings"))
         }
+        if (config.geminiApiKey.isEmpty()) {
+            return errorResult("Gemini API key not configured")
+        }
 
         val categories = categoryRepository.findAllByIsActiveTrue()
-        val classifier = trainLocalClassifier()
 
         // Calculate SHA-256 of the receipt bytes
         val digest = java.security.MessageDigest.getInstance("SHA-256")
@@ -201,13 +137,11 @@ class OcrService(
         val cachedComparison = ocrComparisonRepository.findBestCachedComparison(sha256).firstOrNull()
 
         if (cachedComparison != null) {
-            val isProviderPopulated = when {
-                config.provider == "gemini" || config.provider.startsWith("gemini-") -> cachedComparison.geminiAmount != null || cachedComparison.geminiDate != null || cachedComparison.geminiMerchant != null || cachedComparison.geminiCategoryId != null
-                else -> cachedComparison.easyocrAmount != null || cachedComparison.easyocrDate != null || cachedComparison.easyocrMerchant != null || cachedComparison.easyocrCategoryId != null
-            }
+            val isPopulated = cachedComparison.geminiAmount != null || cachedComparison.geminiDate != null ||
+                cachedComparison.geminiMerchant != null || cachedComparison.geminiCategoryId != null
 
-            if (isProviderPopulated) {
-                log.info("OCR cache hit for hash: {} using provider: {}", sha256, config.provider)
+            if (isPopulated) {
+                log.info("OCR cache hit for hash: {}", sha256)
                 val newComparison = OcrComparison(
                     receiptFilename = filename,
                     provider = config.provider,
@@ -217,11 +151,6 @@ class OcrService(
                     geminiMerchant = cachedComparison.geminiMerchant,
                     geminiCategoryId = cachedComparison.geminiCategoryId,
                     geminiError = cachedComparison.geminiError,
-                    easyocrAmount = cachedComparison.easyocrAmount,
-                    easyocrDate = cachedComparison.easyocrDate,
-                    easyocrMerchant = cachedComparison.easyocrMerchant,
-                    easyocrCategoryId = cachedComparison.easyocrCategoryId,
-                    easyocrError = cachedComparison.easyocrError,
                     createdAt = Instant.now()
                 )
                 val savedComparison = try {
@@ -232,26 +161,7 @@ class OcrService(
                 }
 
                 val cachedExp = cachedComparison.expense
-                val amount = when {
-                    config.provider == "gemini" || config.provider.startsWith("gemini-") -> cachedComparison.geminiAmount?.toDouble()
-                    else -> cachedComparison.easyocrAmount?.toDouble()
-                }
-                val date = when {
-                    config.provider == "gemini" || config.provider.startsWith("gemini-") -> cachedComparison.geminiDate
-                    else -> cachedComparison.easyocrDate
-                }
-                val merchant = when {
-                    config.provider == "gemini" || config.provider.startsWith("gemini-") -> cachedComparison.geminiMerchant
-                    else -> cachedComparison.easyocrMerchant
-                }
-                val categoryId = when {
-                    config.provider == "gemini" || config.provider.startsWith("gemini-") -> cachedComparison.geminiCategoryId
-                    else -> cachedComparison.easyocrCategoryId
-                }
-                val providerError = when {
-                    config.provider == "gemini" || config.provider.startsWith("gemini-") -> cachedComparison.geminiError
-                    else -> cachedComparison.easyocrError
-                }
+                val providerError = cachedComparison.geminiError
 
                 if (providerError != null) {
                     val errorRes = errorResult(providerError).toMutableMap()
@@ -261,14 +171,16 @@ class OcrService(
                     return errorRes
                 }
 
+                val amount = cachedComparison.geminiAmount?.toDouble()
+                val merchant = cachedComparison.geminiMerchant
                 val finalResult = mutableMapOf<String, Any?>(
                     "amount" to amount,
                     "currency" to (cachedExp?.currencyOriginal ?: "EUR"),
                     "tax_amount" to (cachedExp?.taxAmount?.toDouble() ?: 0.0),
                     "tax_rate" to (cachedExp?.taxRate?.toDouble()),
-                    "date" to date,
+                    "date" to cachedComparison.geminiDate,
                     "merchant" to merchant,
-                    "category_id" to categoryId,
+                    "category_id" to cachedComparison.geminiCategoryId,
                     "description" to (cachedExp?.description ?: if (merchant != null) "Scanned receipt from $merchant (cached)" else "Scanned receipt (cached)"),
                     "raw_text" to (cachedExp?.rawOcrText ?: ""),
                     "confidence" to 1.0,
@@ -281,11 +193,7 @@ class OcrService(
             }
         }
 
-        var geminiResult: Map<String, Any?>? = null
-        var easyocrResult: Map<String, Any?>? = null
-        var finalResult: Map<String, Any?>
-
-        // Pre-save the comparison record to obtain an ID for async background updates
+        // Pre-save the comparison record to obtain an ID for the fallback-chain attempts
         val comparison = OcrComparison(
             receiptFilename = filename,
             provider = config.provider,
@@ -300,74 +208,26 @@ class OcrService(
         }
         val comparisonId = savedComparison?.id
 
-        // 1. Run selected provider synchronously (and fallbacks if needed)
-        val isGeminiProvider = config.provider == "gemini" || config.provider.startsWith("gemini-")
-
-        if (isGeminiProvider) {
-            if (config.geminiApiKey.isNotEmpty()) {
-                try {
-                    geminiResult = scanGemini(fileBytes, filename, config.geminiApiKey, categories, config.provider)
-                } catch (e: Exception) {
-                    geminiResult = errorResult("Gemini failed: ${e.message}")
-                }
-            }
-
-            if (geminiResult != null && geminiResult["amount"] != null) {
-                finalResult = geminiResult
-            } else {
-                try {
-                    easyocrResult = scanEasyOcr(fileBytes, filename, categories, classifier)
-                } catch (e: Exception) {
-                    easyocrResult = errorResult("EasyOCR failed: ${e.message}")
-                }
-                finalResult = easyocrResult
-            }
-        } else { // easyocr
+        var result: Map<String, Any?>? = null
+        var lastError: String? = null
+        for (modelTier in GEMINI_FALLBACK_CHAIN) {
             try {
-                easyocrResult = scanEasyOcr(fileBytes, filename, categories, classifier)
+                val attempt = scanGemini(fileBytes, filename, config.geminiApiKey, categories, modelTier)
+                if (attempt["amount"] != null) {
+                    result = attempt
+                    break
+                }
+                lastError = "Gemini ($modelTier) returned no usable data"
             } catch (e: Exception) {
-                easyocrResult = errorResult("EasyOCR failed: ${e.message}")
+                lastError = "Gemini ($modelTier) failed: ${e.message}"
+                log.warn("Gemini OCR attempt failed for model tier {}: {}", modelTier, e.message)
             }
-            finalResult = easyocrResult
         }
 
-        // 2. Update the DB record for the synchronous scans and run the others in the background
+        val finalResult = result ?: errorResult(lastError ?: "All Gemini model tiers failed")
+
         if (comparisonId != null) {
-            try {
-                if (geminiResult != null) {
-                    updateGeminiComparison(comparisonId, geminiResult)
-                }
-                if (easyocrResult != null) {
-                    updateEasyOcrComparison(comparisonId, easyocrResult)
-                }
-            } catch (e: Exception) {
-                log.warn("Failed to update synchronous OCR comparison results: {}", e.message)
-            }
-
-            // Launch background tasks for the non-executed engines
-            if (easyocrResult == null) {
-                CompletableFuture.runAsync({
-                    try {
-                        val res = scanEasyOcr(fileBytes, filename, categories, classifier)
-                        updateEasyOcrComparison(comparisonId, res)
-                    } catch (e: Exception) {
-                        log.error("Async EasyOCR failed: ${e.message}")
-                        updateEasyOcrComparison(comparisonId, errorResult("EasyOCR failed: ${e.message}"))
-                    }
-                }, taskExecutor)
-            }
-
-            if (geminiResult == null && config.geminiApiKey.isNotEmpty()) {
-                CompletableFuture.runAsync({
-                    try {
-                        val res = scanGemini(fileBytes, filename, config.geminiApiKey, categories, config.provider)
-                        updateGeminiComparison(comparisonId, res)
-                    } catch (e: Exception) {
-                        log.error("Async Gemini failed: ${e.message}")
-                        updateGeminiComparison(comparisonId, errorResult("Gemini failed: ${e.message}"))
-                    }
-                }, taskExecutor)
-            }
+            updateGeminiComparison(comparisonId, finalResult)
         }
 
         val mutableResult = finalResult.toMutableMap()
@@ -390,108 +250,6 @@ class OcrService(
         }
     }
 
-    private fun updateEasyOcrComparison(id: Int, result: Map<String, Any?>) {
-        try {
-            val amount = (result["amount"] as? Number)?.let { BigDecimal.valueOf(it.toDouble()) }
-            val date = result["date"] as? String
-            val merchant = result["merchant"] as? String
-            val categoryId = result["category_id"] as? Int
-            val error = result["provider_error"] as? String
-            ocrComparisonRepository.updateEasyOcrResult(id, amount, date, merchant, categoryId, error)
-        } catch (e: Exception) {
-            log.warn("Failed to update EasyOCR comparison record: {}", e.message)
-        }
-    }
-
-    private fun scanEasyOcr(
-        fileBytes: ByteArray,
-        filename: String,
-        categories: List<eu.nt.xpenses.models.Category>,
-        classifier: NaiveBayesClassifier?
-    ): Map<String, Any?> {
-        val lines = runEasyOcrSidecar(fileBytes, filename)
-        val rawText = lines.joinToString("\n")
-
-        val (amount, currency) = extractAmount(lines)
-        val (taxAmount, taxRate) = extractTax(lines)
-        val date = extractDate(lines)
-        val merchant = extractMerchant(lines)
-
-        var categoryId: Int? = null
-        if (classifier != null && rawText.isNotEmpty()) {
-            categoryId = classifier.predict(rawText)
-        }
-        if (categoryId == null && rawText.isNotEmpty()) {
-            val textLower = rawText.lowercase()
-            for (cat in categories) {
-                val catNameLower = cat.name.lowercase()
-                if (textLower.contains(catNameLower)) {
-                    categoryId = cat.id
-                    break
-                }
-                val words = catNameLower.split(" ").map { it.trim() }.filter { it.length > 3 }
-                if (words.isNotEmpty() && words.any { textLower.contains(it) }) {
-                    categoryId = cat.id
-                    break
-                }
-            }
-        }
-
-        val description = if (merchant != null) "Scanned receipt from $merchant" else "Scanned receipt"
-        val warnings = mutableListOf<String>()
-        if (amount == null) warnings.add("Could not extract amount")
-        if (date == null) warnings.add("Could not extract date")
-        if (merchant == null) warnings.add("Could not extract merchant")
-
-        return mapOf(
-            "amount" to amount,
-            "currency" to currency,
-            "tax_amount" to taxAmount,
-            "tax_rate" to taxRate,
-            "date" to date,
-            "merchant" to merchant,
-            "category_id" to categoryId,
-            "description" to description,
-            "raw_text" to rawText,
-            "confidence" to 0.85,
-            "warnings" to warnings
-        )
-    }
-
-    private fun runEasyOcrSidecar(fileBytes: ByteArray, filename: String): List<String> {
-        val url = "http://ocr-sidecar:5000/api/scan"
-        return try {
-            val resource = object : ByteArrayResource(fileBytes) {
-                override fun getFilename(): String = filename
-            }
-
-            val parts = LinkedMultiValueMap<String, Any>().apply {
-                add("file", resource)
-            }
-
-            val headers = HttpHeaders().apply {
-                contentType = MediaType.MULTIPART_FORM_DATA
-            }
-
-            val response = restClient.post()
-                .uri(url)
-                .headers { it.addAll(headers) }
-                .body(parts)
-                .retrieve()
-                .body<Map<String, Any>>() ?: throw Exception("Empty response from EasyOCR sidecar")
-
-            if (response.containsKey("error")) {
-                log.warn("EasyOCR sidecar error: {}", response["error"])
-                emptyList()
-            } else {
-                (response["lines"] as? List<*>)?.map { it.toString() } ?: emptyList()
-            }
-        } catch (e: Exception) {
-            log.warn("EasyOCR sidecar API call failed: {}", e.message)
-            emptyList()
-        }
-    }
-
     fun geminiModelName(provider: String): String {
         return when (provider) {
             "gemini-3-flash" -> "gemini-3-flash-preview"
@@ -501,7 +259,7 @@ class OcrService(
         }
     }
 
-    private fun scanGemini(
+    internal fun scanGemini(
         fileBytes: ByteArray,
         filename: String,
         apiKey: String,
@@ -624,179 +382,6 @@ class OcrService(
             "confidence" to 1.0,
             "warnings" to warnings
         )
-    }
-
-    private fun extractAmount(lines: List<String>): Pair<Double?, String?> {
-        val totalKeywords = setOf("total", "suma", "amount", "to pay", "de plata", "plata", "grand total")
-        val currencySymbolMap = mapOf("€" to "EUR", "$" to "USD")
-        val currencyCodeMap = mapOf("EUR" to "EUR", "RON" to "RON", "USD" to "USD", "GBP" to "GBP", "LEI" to "RON")
-
-        val patterns = listOf(
-            Pair(Pattern.compile("([€$])\\s*([\\d.,]+\\d{2})"), Pair(2, 1)),
-            Pair(Pattern.compile("([\\d.,]+\\d{2})\\s*(EUR|RON|USD|GBP|lei)", Pattern.CASE_INSENSITIVE), Pair(1, 2)),
-            Pair(Pattern.compile("((?:\\d{1,3}\\.)*\\d{1,6}[,]\\d{2}|\\d{1,6}\\.\\d{2})"), Pair(1, null))
-        )
-
-        fun parseAmount(raw: String): Double {
-            val clean = if (raw.contains(",") && raw.contains(".")) {
-                raw.replace(".", "").replace(",", ".")
-            } else {
-                raw.replace(",", ".")
-            }
-            return clean.toDouble()
-        }
-
-        fun resolveCurrency(sym: String): String? {
-            val upper = sym.trim().uppercase()
-            if (currencySymbolMap.containsKey(sym.trim())) {
-                return currencySymbolMap[sym.trim()]
-            }
-            return currencyCodeMap[upper]
-        }
-
-        fun findInLine(line: String): Pair<Double?, String?> {
-            for ((pattern, grps) in patterns) {
-                val m = pattern.matcher(line)
-                if (m.find()) {
-                    try {
-                        val amount = parseAmount(m.group(grps.first))
-                        val currency = grps.second?.let { resolveCurrency(m.group(it)) }
-                        return Pair(amount, currency)
-                    } catch (e: Exception) {
-                        continue
-                    }
-                }
-            }
-            return Pair(null, null)
-        }
-
-        fun guessGlobalCurrency(): String? {
-            val fullText = lines.joinToString(" ").uppercase()
-            if (fullText.contains("€") || fullText.contains("EUR")) return "EUR"
-            if (fullText.contains("$") || fullText.contains("USD")) return "USD"
-            if (fullText.contains("RON") || fullText.contains("LEI")) return "RON"
-            return null
-        }
-
-        // Pass 1: keywords
-        val keywordResults = mutableListOf<Pair<Double, String?>>()
-        for (i in lines.indices) {
-            val lower = lines[i].lowercase()
-            if (totalKeywords.any { lower.contains(it) }) {
-                val (amt, cur) = findInLine(lines[i])
-                if (amt != null) {
-                    keywordResults.add(Pair(amt, cur))
-                    continue
-                }
-                for (j in 1..2) {
-                    if (i + j < lines.size) {
-                        val (lookaheadAmt, lookaheadCur) = findInLine(lines[i + j])
-                        if (lookaheadAmt != null) {
-                            keywordResults.add(Pair(lookaheadAmt, lookaheadCur))
-                            break
-                        }
-                    }
-                }
-            }
-        }
-
-        var finalAmt: Double? = null
-        var finalCur: String? = null
-
-        if (keywordResults.isNotEmpty()) {
-            val last = keywordResults.last()
-            finalAmt = last.first
-            finalCur = last.second
-        } else {
-            // Pass 2: max value
-            val allResults = mutableListOf<Pair<Double, String?>>()
-            for (line in lines) {
-                val (amt, cur) = findInLine(line)
-                if (amt != null) {
-                    allResults.add(Pair(amt, cur))
-                }
-            }
-            if (allResults.isNotEmpty()) {
-                val max = allResults.maxByOrNull { it.first }
-                if (max != null) {
-                    finalAmt = max.first
-                    finalCur = max.second
-                }
-            }
-        }
-
-        if (finalAmt != null && finalCur == null) {
-            finalCur = guessGlobalCurrency()
-        }
-
-        return Pair(finalAmt, finalCur)
-    }
-
-    private fun extractTax(lines: List<String>): Pair<Double?, Double?> {
-        val taxKeywords = setOf("tax", "vat", "tva", "taxa")
-        for (line in lines) {
-            val lower = line.lowercase()
-            if (taxKeywords.any { lower.contains(it) }) {
-                val pctMatch = Pattern.compile("(\\d+(?:[.,]\\d+)?)\\s*%").matcher(line)
-                val rate = if (pctMatch.find()) pctMatch.group(1).replace(",", ".").toDouble() else null
-
-                val amtMatch = Pattern.compile("(\\d+(?:[.,]\\d{2}))").matcher(line)
-                val amt = if (amtMatch.find()) amtMatch.group(1).replace(",", ".").toDouble() else null
-
-                if (amt != null || rate != null) {
-                    return Pair(amt, rate)
-                }
-            }
-        }
-        return Pair(null, null)
-    }
-
-    private fun extractDate(lines: List<String>): String? {
-        val ddMmYyyy = Pattern.compile("(\\d{2})[./\\-](\\d{2})[./\\-](\\d{4})")
-        val yyyyMmDd = Pattern.compile("(\\d{4})[./\\-](\\d{2})[./\\-](\\d{2})")
-
-        for (line in lines) {
-            var m = yyyyMmDd.matcher(line)
-            if (m.find()) {
-                val year = m.group(1).toInt()
-                val month = m.group(2).toInt()
-                val day = m.group(3).toInt()
-                if (month in 1..12 && day in 1..31) {
-                    return String.format("%04d-%02d-%02d", year, month, day)
-                }
-            }
-
-            m = ddMmYyyy.matcher(line)
-            if (m.find()) {
-                val day = m.group(1).toInt()
-                val month = m.group(2).toInt()
-                val year = m.group(3).toInt()
-                if (month in 1..12 && day in 1..31) {
-                    return String.format("%04d-%02d-%02d", year, month, day)
-                }
-            }
-        }
-        return null
-    }
-
-    private fun extractMerchant(lines: List<String>): String? {
-        val skipKeywords = setOf("bon fiscal", "receipt", "factura", "invoice", "chitanta", "tax invoice", "fiscal receipt")
-        val datePattern = Pattern.compile("\\d{2}[./\\-]\\d{2}[./\\-]\\d{2,4}")
-        val numbersOnly = Pattern.compile("^[\\d\\s\\W]+$")
-
-        for (line in lines) {
-            val stripped = line.trim()
-            if (stripped.length < 3) continue
-            if (datePattern.matcher(stripped).find()) continue
-            if (numbersOnly.matcher(stripped).matches()) continue
-            if (skipKeywords.contains(stripped.lowercase())) continue
-
-            // Title case formatting
-            return stripped.split(" ")
-                .filter { it.isNotEmpty() }
-                .joinToString(" ") { it.replaceFirstChar { char -> char.titlecase() } }
-        }
-        return null
     }
 
     private fun emptyResult(warnings: List<String>): Map<String, Any?> {

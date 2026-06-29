@@ -18,7 +18,7 @@ Self-hosted expense management application for internal company use. Built with 
 - **Digital signatures** — canvas-based signature pad; sign reports with one click; stored per-user
 - **Soft Delete & Audit** — Financial records are soft-deleted to maintain data integrity, with explicit audit read paths
 - **Categories** — with optional EUR spending limits
-- **Async OCR receipt scanning** — hybrid local & cloud system: EasyOCR (local), Gemini (2.5 Flash, 3.1 Flash-Lite, 3.5 Flash) (cloud). Features browser-side image compression, parallel poppler PDF rendering, dynamic MIME type mapping, and SHA-256 database-backed caching for sub-50ms duplicate scans. Auto-fills category, description, amount, currency, date, merchant, tax; includes Naive Bayes category classifier
+- **Async OCR receipt scanning** — Gemini-only cloud system with an internal multi-tier model fallback chain (3.1 Flash-Lite → 3.5 Flash → 3 Flash Preview → 2.5 Flash). Features browser-side image compression, parallel poppler PDF rendering, dynamic MIME type mapping, and SHA-256 database-backed caching for sub-50ms duplicate scans. Auto-fills category, description, amount, currency, date, merchant, tax
 - **Email receipt import** — IMAP-based ingestion with side-by-side local & Gemini parsing
 - **Dashboard** — monthly totals, spend by category (clickable), recent expenses (clickable), time-of-day greetings, role-specific action cards
 - **Role-differentiated UX** — 4 roles (Technician, Manager, Chef of Finances, Moderator); each sees only relevant actions
@@ -47,9 +47,9 @@ submitted → draft (via recall, by owner)
 | Forms & validation | react-hook-form 7 + zod 4 |
 | PDF generation | OpenPDF 2.0.3 + PDFBox 3.0.2 |
 | Excel export | Apache POI 5.3 |
-| OCR | EasyOCR (sidecar) + Gemini 2.5 Flash (cloud) |
+| OCR | Gemini (cloud, multi-tier model fallback) |
 | Auth | JWT (access 15min + refresh 7d) in httpOnly cookies |
-| Containerization | Docker Compose (4 services) |
+| Containerization | Docker Compose (3 services) |
 
 ## Quick Start
 
@@ -61,7 +61,7 @@ submitted → draft (via recall, by owner)
 
 ```bash
 cp .env.example .env
-docker compose up -d db backend ocr-sidecar
+docker compose up -d db backend
 cd frontend && npm install && npm run dev -- -p 3001
 ```
 
@@ -70,7 +70,6 @@ cd frontend && npm install && npm run dev -- -p 3001
 | Frontend (dev) | http://localhost:3001 | Hot reload via Turbopack |
 | Backend API | http://localhost:8001/api | Docker |
 | Database | port 5432 | Docker (internal) |
-| EasyOCR sidecar | port 8004 | Docker (internal) |
 
 ### Production (company server)
 
@@ -110,9 +109,6 @@ xpenses-kotlin/
 │   ├── components/              #   React components (dashboard, expenses, layout, ui)
 │   ├── lib/                     #   API client, auth, query keys, themes
 │   └── Dockerfile
-├── ocr-sidecar/                 # Python FastAPI — EasyOCR microservice
-│   ├── app.py
-│   └── Dockerfile
 ├── docker-compose.yml           # Service orchestration
 ├── Makefile                     # Common dev commands
 ├── .env / .env.example          # Environment configuration
@@ -125,8 +121,8 @@ xpenses-kotlin/
 The backend is built with **Spring Boot 3.4.5** + **Spring MVC** + **JPA/Hibernate** running on **Kotlin 2.4**.
 
 - **15 controllers**: Auth, Expenses, Reports, Dashboard, Categories, Users, Advances, Mileage, Inventory, Insurance, Signatures, OCR, LDAP Settings, App Settings, Health
-- **13 services**: FX conversion, PDF generation, OCR (hybrid + async), email/IMAP, LDAP, storage (local + S3 providers), crypto, CSV/Excel export, and a thin service layer (`ExpenseService`, `ReportService`, `ExpenseMapper`) that keeps controllers slim
-- **Flyway migrations** (`V1`–`V16`) for schema management
+- **13 services**: FX conversion, PDF generation, OCR (Gemini + async), email/IMAP, LDAP, storage (local + S3 providers), crypto, CSV/Excel export, and a thin service layer (`ExpenseService`, `ReportService`, `ExpenseMapper`) that keeps controllers slim
+- **Flyway migrations** (`V1`–`V25`) for schema management
 - **Spring Security** with JWT filter chain
 - **Soft delete** on financial records via Hibernate `@SQLDelete` / `@SQLRestriction`
 - **@Async** email notifications and OCR processing
@@ -137,10 +133,10 @@ The backend is built with **Spring Boot 3.4.5** + **Spring MVC** + **JPA/Hiberna
 |---------|--------------|-------|-------|
 | `db` | `postgres:16-alpine` | 5432 (internal) | Health check via `pg_isready` |
 | `backend` | `./backend-kotlin-jpa` | 8001 → 8080 | Kotlin Spring Boot backend |
-| `frontend` | `./frontend` | 3001 → 3000 | Next.js production build (use `npm run dev` for hot reload) |
-| `ocr-sidecar` | `./ocr-sidecar` | 5000 (internal) | EasyOCR (en + ro), CPU-only |
+| `frontend` | `./frontend` | 3000 (internal) | Next.js production build (use `npm run dev` for hot reload); not published directly — `caddy` is the public entry point |
+| `caddy` | `caddy:2-alpine` | 80, 3001 | Reverse proxy + automatic HTTPS; routes `/api/*` → backend, everything else → frontend |
 
-**Volumes**: `pgdata`, `xpenses-data`, `ocr-models`
+**Volumes**: `pgdata`, `xpenses-data`, `caddy-data`
 **Network**: `xpenses-net` (bridge), backend uses public DNS (`8.8.8.8`, `1.1.1.1`)
 
 ## Frontend Architecture
@@ -186,18 +182,19 @@ All routes prefixed with `/api/`.
 
 ## OCR System
 
-Two providers with automatic fallback:
+Gemini only, with an internal multi-tier model fallback chain — a single model's outage/rate-limit doesn't fail the whole scan:
 
-| Provider | Type | Setup |
-|----------|------|-------|
-| **EasyOCR** | Local (sidecar) | Always available, en + ro |
-| **Gemini (2.5, 3.1, 3.5)** | Cloud API | API key configured in admin panel |
+| Tier | Model | Setup |
+|------|-------|-------|
+| 1 (default) | `gemini-3.1-flash-lite` | API key configured in admin panel |
+| 2 | `gemini-3.5-flash` | Same key |
+| 3 | `gemini-3-flash-preview` | Same key |
+| 4 (final) | `gemini-2.5-flash` | Same key |
 
 Features:
 - Structured JSON extraction (category, description, amount, currency, date, merchant, tax)
-- Naive Bayes category classifier trained on historical scan texts
 - Drag-and-drop receipt upload with full form autofill
-- **Engine accuracy tracking** — admin comparison dashboard tracks per-field accuracy (amount, date, merchant, category) across all 3 engines against ground truth from saved expenses; scan history with side-by-side results
+- **Accuracy tracking** — admin comparison dashboard tracks per-field accuracy (amount, date, merchant, category) against ground truth from saved expenses; scan history with results and any failure reason
 
 ## Makefile
 

@@ -28,6 +28,8 @@ services:
       context: ./backend-kotlin-jpa
       dockerfile: Dockerfile
     container_name: xpenses-backend
+    ports:
+      - "8001:8080"
     env_file: .env
     dns:
       - 8.8.8.8
@@ -39,8 +41,6 @@ services:
       - SEED_DEMO_USERS=${SEED_DEMO_USERS:-true}
     depends_on:
       db:
-        condition: service_healthy
-      ocr-sidecar:
         condition: service_healthy
     volumes:
       - xpenses-data:/app/data
@@ -67,7 +67,7 @@ services:
     container_name: xpenses-frontend
     environment:
       - NODE_ENV=production
-      - NEXT_PUBLIC_API_URL=https://xpenses.nt-automation.eu:3001/api
+      - NEXT_PUBLIC_API_URL=http://xpenses.nt-automation.eu:8001/api
       - INTERNAL_API_URL=http://backend:8080/api
     deploy:
       resources:
@@ -83,28 +83,6 @@ services:
     restart: unless-stopped
     networks:
       - xpenses-net
-
-  ocr-sidecar:
-    image: xpenses-ocr-sidecar:latest
-    build:
-      context: ./ocr-sidecar
-      dockerfile: Dockerfile
-    container_name: xpenses-ocr-sidecar
-    volumes:
-      - ocr-models:/home/ocr/.EasyOCR
-    networks:
-      - xpenses-net
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          cpus: '6.0'
-          memory: 2048M
-    healthcheck:
-      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:5000/health')\" || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
 
   caddy:
     image: caddy:2-alpine
@@ -130,8 +108,6 @@ volumes:
   xpenses-data:
     driver: local
   pgdata:
-    driver: local
-  ocr-models:
     driver: local
   caddy-data:
     driver: local

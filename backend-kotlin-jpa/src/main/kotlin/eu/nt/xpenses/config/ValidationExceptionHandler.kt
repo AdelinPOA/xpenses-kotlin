@@ -60,7 +60,7 @@ class ValidationExceptionHandler {
 
     @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException::class)
     fun handleNoResourceFoundException(ex: org.springframework.web.servlet.resource.NoResourceFoundException): ResponseEntity<Map<String, String>> {
-        return ResponseEntity.status(404).body(mapOf("detail" to ex.message))
+        return ResponseEntity.status(404).body(mapOf("detail" to (ex.message ?: "Resource not found")))
     }
 
     @ExceptionHandler(Exception::class)

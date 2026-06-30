@@ -3,9 +3,9 @@ services:
     image: postgres:16-alpine@sha256:16bc17c64a573ef34162af9298258d1aec548232985b33ed7b1eac33ba35c229
     container_name: xpenses-db
     environment:
-      POSTGRES_USER: xpenses
-      POSTGRES_PASSWORD: xpenses
-      POSTGRES_DB: xpenses
+      POSTGRES_USER: ${DB_USER:-xpenses}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-xpenses}
+      POSTGRES_DB: ${DB_NAME:-xpenses}
     volumes:
       - pgdata:/var/lib/postgresql/data
     networks:
@@ -16,7 +16,7 @@ services:
           cpus: '4.0'
           memory: 1024M
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U xpenses"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-xpenses}"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -35,10 +35,11 @@ services:
       - 8.8.8.8
       - 1.1.1.1
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/xpenses
-      - SPRING_DATASOURCE_USERNAME=xpenses
-      - SPRING_DATASOURCE_PASSWORD=xpenses
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/${DB_NAME:-xpenses}
+      - SPRING_DATASOURCE_USERNAME=${DB_USER:-xpenses}
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD:-xpenses}
       - SEED_DEMO_USERS=${SEED_DEMO_USERS:-true}
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-dev}
     depends_on:
       db:
         condition: service_healthy

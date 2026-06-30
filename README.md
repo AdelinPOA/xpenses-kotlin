@@ -220,6 +220,11 @@ make test-login  # curl POST /api/auth/login (tech1)
 | `COOKIE_SECURE` | `false` | Set `true` in production (HTTPS-only cookies) |
 | `SEED_DEMO_USERS` | `false` | Seeding of demo accounts (`tech1`, `manager1`, etc.). Defaults to `false`. |
 | `COMPANY_NAME` | `Newtech Automation` | Company name in PDF exports |
+| `DB_USER` | `xpenses` | Database connection username (Docker Compose templated) |
+| `DB_PASSWORD` | `xpenses` | Database connection password (Docker Compose templated) |
+| `DB_NAME` | `xpenses` | Database name (Docker Compose templated) |
+| `SPRING_PROFILES_ACTIVE` | `dev` | Set `prod` in production to enable JSON logging |
+| `SWAGGER_ENABLED` | `true` | Set `false` in production to disable public Swagger UI exposure |
 
 ## Testing
 

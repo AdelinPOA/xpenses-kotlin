@@ -1,6 +1,29 @@
 # HANDOFF.md — xpenses-kotlin
 
-## Current Session (2026-06-30, session 101) — bug-hunting-fixes
+## Current Session (2026-06-30, session 102) — prod-readiness-hardening
+
+### What Was Done
+- **Docker Compose Credentials Parameterization**: Templated hardcoded database values in `docker-compose.yml` (`POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` and matching backend datasource configuration) using environment variables (`DB_USER`, `DB_PASSWORD`, `DB_NAME`) with backward-compatible defaults (`xpenses`).
+- **Profile Injection configuration**: Mapped `SPRING_PROFILES_ACTIVE` environment variable to backend container to allow running the backend under `prod` logging profile.
+- **Conditional Swagger/OpenAPI exposure**: Added `springdoc.api-docs.enabled` and `springdoc.swagger-ui.enabled` configuration properties to `application.yml` mapped to the `SWAGGER_ENABLED` environment variable, enabling API documentation endpoints to be disabled in production.
+- **Environment Reference Update**: Documented the new database configuration, logging profile, and Swagger configuration environment variables in `.env.example`.
+- **OpenSpec workflow**: Used the OpenSpec workflow to propose, specify, plan, implement, and archive the `prod-readiness-hardening` change.
+- **Verification**: Verified correct Docker Compose configuration parsing via `docker compose config` and successfully ran the backend integration/unit test suite (`make test`).
+
+### Files Changed
+- `docker-compose.yml`
+- `backend-kotlin-jpa/src/main/resources/application.yml`
+- `.env.example`
+- `openspec/specs/deployment-hardening/spec.md`
+- `openspec/changes/archive/2026-06-30-prod-readiness-hardening/`
+
+### Next Steps
+- Push the `feat/prod-readiness-hardening` branch to origin.
+- Open a PR to merge `feat/prod-readiness-hardening` into `main`.
+
+---
+
+## Previous Session (2026-06-30, session 101) — bug-hunting-fixes
 
 ### What Was Done
 - **Locked Non-Draft Expense Receipt Modifications**: Added check constraints to `ExpenseController.kt` so receipt uploads and deletions throw `400 Bad Request` on non-draft expenses.

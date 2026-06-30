@@ -85,3 +85,10 @@ bucket4j:
 
 imap:
   poll-interval: ${IMAP_POLL_INTERVAL:300000}
+
+springdoc:
+  api-docs:
+    enabled: ${SWAGGER_ENABLED:true}
+  swagger-ui:
+    enabled: ${SWAGGER_ENABLED:true}
+

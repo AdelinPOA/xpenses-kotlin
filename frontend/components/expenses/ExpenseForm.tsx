@@ -667,15 +667,15 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
                 </div>
               ) : activeItem.isPdf ? (
                 <div className="flex-1 flex flex-col min-h-[350px] gap-3">
-                  <div className="block lg:hidden bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/50 rounded-lg p-3 text-center">
+                  <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/50 rounded-lg p-3 text-center">
                     <p className="text-xs text-blue-800 dark:text-blue-200 mb-2">
-                      PDF previews may not display inline on mobile browsers.
+                      PDF preview not loading? You can view or download it directly.
                     </p>
                     <a
                       href={activeItem.url}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-md transition-colors"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-md transition-colors cursor-pointer"
                     >
                       Open PDF in New Tab
                     </a>

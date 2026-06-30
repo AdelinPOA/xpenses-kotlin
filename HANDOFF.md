@@ -1,6 +1,20 @@
 # HANDOFF.md — xpenses-kotlin
 
-## Current Session (2026-06-30, session 102) — prod-readiness-hardening
+## Current Session (2026-06-30, session 103) — fix-pdf-preview-fallback
+
+### What Was Done
+- **PDF Preview Fallback on All Screens**: Modified `ExpenseForm.tsx` to display the "Open PDF in New Tab" fallback banner on all screen sizes (removing the `block lg:hidden` CSS classes). This provides a reliable link to view/download PDF receipts when browser security policies block inline rendering of local `blob:` URLs in iframes (specifically in Chrome/Chromium browsers).
+- **TypeScript & Lint Verification**: Successfully ran `npm run lint` on the frontend.
+
+### Files Changed
+- `frontend/components/expenses/ExpenseForm.tsx`
+
+### Next Steps
+- Merge `fix/pdf-preview-fallback` branch.
+
+---
+
+## Previous Session (2026-06-30, session 102) — prod-readiness-hardening
 
 ### What Was Done
 - **Docker Compose Credentials Parameterization**: Templated hardcoded database values in `docker-compose.yml` (`POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` and matching backend datasource configuration) using environment variables (`DB_USER`, `DB_PASSWORD`, `DB_NAME`) with backward-compatible defaults (`xpenses`).

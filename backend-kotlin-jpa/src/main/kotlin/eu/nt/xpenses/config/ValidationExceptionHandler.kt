@@ -58,6 +58,11 @@ class ValidationExceptionHandler {
         return ResponseEntity.status(ex.statusCode).body(mapOf("detail" to (ex.reason ?: ex.message ?: "Error")))
     }
 
+    @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException::class)
+    fun handleNoResourceFoundException(ex: org.springframework.web.servlet.resource.NoResourceFoundException): ResponseEntity<Map<String, String>> {
+        return ResponseEntity.status(404).body(mapOf("detail" to ex.message))
+    }
+
     @ExceptionHandler(Exception::class)
     fun handleUnhandledException(ex: Exception): ResponseEntity<Map<String, String>> {
         log.error("Unhandled exception: ${ex.message}", ex)

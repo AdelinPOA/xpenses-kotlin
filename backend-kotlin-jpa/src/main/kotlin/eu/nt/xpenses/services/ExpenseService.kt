@@ -39,9 +39,13 @@ class ExpenseService(
         val taxAmountEur = body.taxAmount.multiply(fxRate).setScale(2, RoundingMode.HALF_UP)
 
         val category = body.categoryId?.let {
-            categoryRepository.findById(it).orElseThrow {
+            val cat = categoryRepository.findById(it).orElseThrow {
                 ResponseStatusException(HttpStatus.NOT_FOUND, "Category not found")
             }
+            if (!cat.isActive) {
+                throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Category is deactivated")
+            }
+            cat
         }
 
         val report = body.reportId?.let {
@@ -133,9 +137,13 @@ class ExpenseService(
         if (body.rawOcrText != null) expense.rawOcrText = body.rawOcrText
 
         if (body.categoryId != null) {
-            expense.category = categoryRepository.findById(body.categoryId).orElseThrow {
+            val cat = categoryRepository.findById(body.categoryId).orElseThrow {
                 ResponseStatusException(HttpStatus.NOT_FOUND, "Category not found")
             }
+            if (!cat.isActive) {
+                throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Category is deactivated")
+            }
+            expense.category = cat
         }
 
         if (body.reportId != null) {

@@ -9,6 +9,7 @@ import eu.nt.xpenses.repositories.InventoryRequestRepository
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.validation.Valid
 import jakarta.validation.constraints.Min
+import jakarta.validation.constraints.Max
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.PositiveOrZero
 import org.springframework.http.HttpStatus
@@ -376,7 +377,7 @@ data class InventoryRequestOut(
 data class InventoryRequestCreate(
     @JsonProperty("item_name") @field:NotBlank val itemName: String,
     val description: String? = null,
-    @field:Min(1) val quantity: Int = 1
+    @field:Min(1) @field:Max(100) val quantity: Int = 1
 )
 
 data class InventoryRejectBody(

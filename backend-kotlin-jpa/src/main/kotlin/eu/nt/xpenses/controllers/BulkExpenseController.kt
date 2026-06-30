@@ -73,6 +73,12 @@ class BulkExpenseController(
                 errors.add(BulkUploadError(filename, "File exceeds 10 MB limit"))
                 continue
             }
+            try {
+                validateMagicBytes(file.bytes, ext)
+            } catch (e: Exception) {
+                errors.add(BulkUploadError(filename, e.message ?: "Invalid file format"))
+                continue
+            }
 
             // Run OCR synchronously — never let a single OCR failure abort the batch
             val ocrResult: Map<String, Any?> = try {
@@ -147,5 +153,26 @@ class BulkExpenseController(
         val relativePath = "$subdir/$safeName"
         storageService.uploadFile(relativePath, content)
         return relativePath
+    }
+
+    private fun validateMagicBytes(content: ByteArray, ext: String) {
+        val signatures = mapOf(
+            "jpg" to byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte()),
+            "jpeg" to byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte()),
+            "png" to byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A),
+            "gif" to byteArrayOf(0x47, 0x49, 0x46, 0x38),
+            "pdf" to byteArrayOf(0x25, 0x50, 0x44, 0x46),
+            "webp" to byteArrayOf(0x52, 0x49, 0x46, 0x46)
+        )
+        val expected = signatures[ext] ?: return
+        if (content.size < expected.size || !content.copyOfRange(0, expected.size).contentEquals(expected)) {
+            throw IllegalArgumentException("File content does not match .$ext format")
+        }
+        if (ext == "webp") {
+            val webpSignature = byteArrayOf(0x57, 0x45, 0x42, 0x50) // "WEBP"
+            if (content.size < 12 || !content.copyOfRange(8, 12).contentEquals(webpSignature)) {
+                throw IllegalArgumentException("File content does not match .webp format")
+            }
+        }
     }
 }

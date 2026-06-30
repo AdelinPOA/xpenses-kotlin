@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.*
 import org.springframework.web.multipart.MultipartFile
 import org.springframework.web.server.ResponseStatusException
 import org.slf4j.LoggerFactory
+import java.io.File
 import java.time.Instant
 
 @RestController
@@ -87,7 +88,8 @@ class InsuranceController(
         if (upload.size > 10 * 1024 * 1024) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "File exceeds 10MB limit")
         }
-        val originalName = upload.originalFilename ?: "document"
+        val rawOriginalName = upload.originalFilename ?: "document"
+        val originalName = File(rawOriginalName).name
         val ext = originalName.substringAfterLast('.', "").lowercase()
         if (ext.isEmpty() || ext == originalName.lowercase()) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "File must have an extension. Accepted: pdf, jpg, jpeg, png, doc, docx, xls, xlsx, txt, csv")

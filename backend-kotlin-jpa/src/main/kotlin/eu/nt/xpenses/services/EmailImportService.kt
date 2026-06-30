@@ -544,7 +544,6 @@ class EmailImportService(
     }
 
     @Async
-    @Transactional
     @Scheduled(fixedDelayString = "\${imap.poll-interval:300000}")
     fun pollAndProcessEmails() {
         val config = emailSettingsService.getImapConfig()

@@ -83,4 +83,37 @@ class ExpenseServiceTest {
         expenseService.deleteExpense(1, techUser)
         verify(expenseRepository).delete(expense)
     }
+
+    @Test
+    fun `createExpense should reject deactivated category`() {
+        val createBody = ExpenseCreate(
+            categoryId = 10,
+            amount = BigDecimal("100.00"),
+            currency = "USD",
+            date = "2024-01-01"
+        )
+        val deactivatedCategory = eu.nt.xpenses.models.Category(id = 10, name = "Deactivated Cat", isActive = false)
+        `when`(fxService.getRate("USD", "2024-01-01")).thenReturn(BigDecimal("0.85"))
+        `when`(categoryRepository.findById(10)).thenReturn(Optional.of(deactivatedCategory))
+
+        val ex = assertThrows<ResponseStatusException> {
+            expenseService.createExpense(createBody, techUser)
+        }
+        assertEquals(HttpStatus.BAD_REQUEST, ex.statusCode)
+        assertTrue(ex.reason?.contains("deactivated") == true)
+    }
+
+    @Test
+    fun `updateExpense should reject deactivated category`() {
+        val expense = Expense(id = 1, user = techUser, status = "draft", amountOriginal = BigDecimal("10.00"), amountEur = BigDecimal("10.00"), currencyOriginal = "EUR", date = "2024-01-01")
+        val deactivatedCategory = eu.nt.xpenses.models.Category(id = 10, name = "Deactivated Cat", isActive = false)
+        `when`(expenseRepository.findById(1)).thenReturn(Optional.of(expense))
+        `when`(categoryRepository.findById(10)).thenReturn(Optional.of(deactivatedCategory))
+
+        val ex = assertThrows<ResponseStatusException> {
+            expenseService.updateExpense(1, ExpenseUpdate(categoryId = 10), techUser)
+        }
+        assertEquals(HttpStatus.BAD_REQUEST, ex.statusCode)
+        assertTrue(ex.reason?.contains("deactivated") == true)
+    }
 }

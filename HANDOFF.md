@@ -1,6 +1,37 @@
 # HANDOFF.md — xpenses-kotlin
 
-## Current Session (2026-06-29, session 100) — remove-easyocr
+## Current Session (2026-06-30, session 101) — bug-hunting-fixes
+
+### What Was Done
+- **Locked Non-Draft Expense Receipt Modifications**: Added check constraints to `ExpenseController.kt` so receipt uploads and deletions throw `400 Bad Request` on non-draft expenses.
+- **Magic Bytes Validation in Bulk Uploads**: Ported `validateMagicBytes` to `BulkExpenseController.kt` and integrated it in bulk receipt upload processing.
+- **Isolated IMAP Polling Transaction Scope**: Removed `@Transactional` from `EmailImportService.pollAndProcessEmails()` to prevent email parsing failures from rolling back other successfully processed emails.
+- **Mileage Record Distance Validation Mismatch**: Updated `MileageRecordUpdate` DTO `distanceKm` validation from `@field:Min(0)` to `@field:DecimalMin("0.01")` to match creation validation.
+- **Deactivated Category Association Protection**: Added active category verification in `ExpenseService.kt` (`createExpense` and `updateExpense`) to reject deactivated categories.
+- **Fixed LDAP DirContext & NamingEnumeration Socket Leaks**: Wrapped LDAP directory context queries in nested `try-finally` blocks inside `LdapService.kt` to ensure sockets are closed.
+- **DoS Protection in Inventory Quantity**: Added `@field:Max(100)` constraint on `InventoryRequestCreate` quantity field.
+- **Sanitized Insurance Upload Filenames**: Sanitized uploaded filename via `File(originalName).name` in `InsuranceController.kt` before building target relative paths.
+- **Tests**: Added coverage for receipt modifications on submitted/approved/paid expenses in `ExpenseControllerTest.kt` and deactivated categories in `ExpenseServiceTest.kt`. All 67 tests successfully pass.
+
+### Files Changed
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/ExpenseController.kt`
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/BulkExpenseController.kt`
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/MileageController.kt`
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/InventoryController.kt`
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/InsuranceController.kt`
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/EmailImportService.kt`
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/ExpenseService.kt`
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/LdapService.kt`
+- `backend-kotlin-jpa/src/test/kotlin/eu/nt/xpenses/controllers/ExpenseControllerTest.kt`
+- `backend-kotlin-jpa/src/test/kotlin/eu/nt/xpenses/services/ExpenseServiceTest.kt`
+
+### Next Steps
+- Push the `fix/bug-hunting-remediations` branch to origin.
+- Open a PR to merge `fix/bug-hunting-remediations` into `main`.
+
+---
+
+## Previous Session (2026-06-29, session 100) — remove-easyocr
 
 ### What Was Done
 - **Removed EasyOCR entirely** per explicit user request — the admin OCR comparison dashboard showed EasyOCR badly underperforming Gemini (66.67%/0%/0%/33.33% vs ~100% accuracy on amount/date/merchant/category), and it required a dedicated Python sidecar microservice (`ocr-sidecar/`) just for a fallback path nobody wanted to keep.

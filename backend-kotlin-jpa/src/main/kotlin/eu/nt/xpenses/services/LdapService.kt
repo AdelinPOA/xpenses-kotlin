@@ -89,8 +89,13 @@ class LdapService(
         if (config.host.isEmpty()) {
             return mapOf("ok" to false, "preview" to emptyList<Any>(), "error" to "No host configured")
         }
-        return try {
-            val ctx = bindServiceAccount(config)
+        val ctx = try {
+            bindServiceAccount(config)
+        } catch (e: Exception) {
+            return mapOf("ok" to false, "preview" to emptyList<Any>(), "error" to e.message)
+        }
+
+        try {
             val searchControls = SearchControls().apply {
                 searchScope = SearchControls.SUBTREE_SCOPE
                 returningAttributes = arrayOf(config.attrUsername, config.attrEmail, config.attrDisplayName, config.attrRole)
@@ -99,31 +104,35 @@ class LdapService(
             
             val results = ctx.search(config.baseDn, config.userFilter, searchControls)
             val preview = mutableListOf<Map<String, String>>()
-            
-            while (results.hasMore()) {
-                val entry = results.next()
-                val username = getAttributeValue(entry.attributes.get(config.attrUsername))
-                val email = getAttributeValue(entry.attributes.get(config.attrEmail))
-                val displayName = getAttributeValue(entry.attributes.get(config.attrDisplayName))
-                val rolesAttr = entry.attributes.get(config.attrRole)
-                val groups = mutableListOf<String>()
-                if (rolesAttr != null) {
-                    for (i in 0 until rolesAttr.size()) {
-                        groups.add(rolesAttr.get(i).toString())
+            try {
+                while (results.hasMore()) {
+                    val entry = results.next()
+                    val username = getAttributeValue(entry.attributes.get(config.attrUsername))
+                    val email = getAttributeValue(entry.attributes.get(config.attrEmail))
+                    val displayName = getAttributeValue(entry.attributes.get(config.attrDisplayName))
+                    val rolesAttr = entry.attributes.get(config.attrRole)
+                    val groups = mutableListOf<String>()
+                    if (rolesAttr != null) {
+                        for (i in 0 until rolesAttr.size()) {
+                            groups.add(rolesAttr.get(i).toString())
+                        }
                     }
+                    val mappedRole = mapRole(groups, config.roleMap, config.defaultRole)
+                    preview.add(mapOf(
+                        "username" to username,
+                        "email" to email,
+                        "display_name" to displayName,
+                        "mapped_role" to mappedRole
+                    ))
                 }
-                val mappedRole = mapRole(groups, config.roleMap, config.defaultRole)
-                preview.add(mapOf(
-                    "username" to username,
-                    "email" to email,
-                    "display_name" to displayName,
-                    "mapped_role" to mappedRole
-                ))
+            } finally {
+                try { results.close() } catch (_: Exception) {}
             }
-            ctx.close()
-            mapOf("ok" to true, "preview" to preview, "error" to null)
+            return mapOf("ok" to true, "preview" to preview, "error" to null)
         } catch (e: Exception) {
-            mapOf("ok" to false, "preview" to emptyList<Any>(), "error" to e.message)
+            return mapOf("ok" to false, "preview" to emptyList<Any>(), "error" to e.message)
+        } finally {
+            try { ctx.close() } catch (_: Exception) {}
         }
     }
 
@@ -133,93 +142,100 @@ class LdapService(
             throw IllegalArgumentException("LDAP is not enabled")
         }
         val ctx = bindServiceAccount(config)
-        val searchControls = SearchControls().apply {
-            searchScope = SearchControls.SUBTREE_SCOPE
-            returningAttributes = arrayOf(config.attrUsername, config.attrEmail, config.attrDisplayName, config.attrRole)
-        }
-        
-        val results = ctx.search(config.baseDn, config.userFilter, searchControls)
-        val stats = mutableMapOf(
-            "created" to 0,
-            "updated" to 0,
-            "deactivated" to 0,
-            "skipped" to 0,
-            "default_role_assigned" to 0
-        )
-        val directoryUsernames = mutableSetOf<String>()
-        val now = Instant.now()
-        
-        while (results.hasMore()) {
-            val entry = results.next()
-            val username = getAttributeValue(entry.attributes.get(config.attrUsername))
-            if (username.isEmpty()) continue
+        try {
+            val searchControls = SearchControls().apply {
+                searchScope = SearchControls.SUBTREE_SCOPE
+                returningAttributes = arrayOf(config.attrUsername, config.attrEmail, config.attrDisplayName, config.attrRole)
+            }
             
-            directoryUsernames.add(username)
-            val email = getAttributeValue(entry.attributes.get(config.attrEmail))
-            val displayName = getAttributeValue(entry.attributes.get(config.attrDisplayName))
+            val results = ctx.search(config.baseDn, config.userFilter, searchControls)
+            val stats = mutableMapOf(
+                "created" to 0,
+                "updated" to 0,
+                "deactivated" to 0,
+                "skipped" to 0,
+                "default_role_assigned" to 0
+            )
+            val directoryUsernames = mutableSetOf<String>()
+            val now = Instant.now()
             
-            val rolesAttr = entry.attributes.get(config.attrRole)
-            val groups = mutableListOf<String>()
-            if (rolesAttr != null) {
-                for (i in 0 until rolesAttr.size()) {
-                    groups.add(rolesAttr.get(i).toString())
+            try {
+                while (results.hasMore()) {
+                    val entry = results.next()
+                    val username = getAttributeValue(entry.attributes.get(config.attrUsername))
+                    if (username.isEmpty()) continue
+                    
+                    directoryUsernames.add(username)
+                    val email = getAttributeValue(entry.attributes.get(config.attrEmail))
+                    val displayName = getAttributeValue(entry.attributes.get(config.attrDisplayName))
+                    
+                    val rolesAttr = entry.attributes.get(config.attrRole)
+                    val groups = mutableListOf<String>()
+                    if (rolesAttr != null) {
+                        for (i in 0 until rolesAttr.size()) {
+                            groups.add(rolesAttr.get(i).toString())
+                        }
+                    }
+                    val role = mapRole(groups, config.roleMap, config.defaultRole)
+                    val usedDefault = role == config.defaultRole
+                    
+                    val user = userRepository.findByUsername(username)
+                    if (user == null) {
+                        val newUser = User(
+                            username = username,
+                            displayName = displayName.ifEmpty { username },
+                            email = email.ifEmpty { null },
+                            passwordHash = null,
+                            authSource = "ldap",
+                            role = role,
+                            isActive = true,
+                            createdAt = now,
+                            updatedAt = now
+                        )
+                        userRepository.save(newUser)
+                        stats["created"] = stats["created"]!! + 1
+                        if (usedDefault) {
+                            stats["default_role_assigned"] = stats["default_role_assigned"]!! + 1
+                        }
+                    } else if (user.authSource == "local") {
+                        stats["skipped"] = stats["skipped"]!! + 1
+                    } else {
+                        val changed = user.displayName != displayName ||
+                                user.email != email ||
+                                user.role != role ||
+                                !user.isActive
+                        
+                        if (changed) {
+                            user.displayName = displayName.ifEmpty { user.displayName }
+                            user.email = email.ifEmpty { user.email }
+                            user.role = role
+                            user.isActive = true
+                            user.updatedAt = now
+                            userRepository.save(user)
+                            stats["updated"] = stats["updated"]!! + 1
+                        }
+                    }
+                }
+            } finally {
+                try { results.close() } catch (_: Exception) {}
+            }
+            
+            // Deactivate LDAP users no longer in the directory
+            val ldapUsers = userRepository.findAllByAuthSourceAndIsActive("ldap", true)
+            for (ldapUser in ldapUsers) {
+                if (!directoryUsernames.contains(ldapUser.username)) {
+                    ldapUser.isActive = false
+                    ldapUser.updatedAt = now
+                    userRepository.save(ldapUser)
+                    refreshTokenRepository.deleteByUserId(ldapUser.id!!)
+                    stats["deactivated"] = stats["deactivated"]!! + 1
                 }
             }
-            val role = mapRole(groups, config.roleMap, config.defaultRole)
-            val usedDefault = role == config.defaultRole
             
-            val user = userRepository.findByUsername(username)
-            if (user == null) {
-                val newUser = User(
-                    username = username,
-                    displayName = displayName.ifEmpty { username },
-                    email = email.ifEmpty { null },
-                    passwordHash = null,
-                    authSource = "ldap",
-                    role = role,
-                    isActive = true,
-                    createdAt = now,
-                    updatedAt = now
-                )
-                userRepository.save(newUser)
-                stats["created"] = stats["created"]!! + 1
-                if (usedDefault) {
-                    stats["default_role_assigned"] = stats["default_role_assigned"]!! + 1
-                }
-            } else if (user.authSource == "local") {
-                stats["skipped"] = stats["skipped"]!! + 1
-            } else {
-                val changed = user.displayName != displayName ||
-                        user.email != email ||
-                        user.role != role ||
-                        !user.isActive
-                
-                if (changed) {
-                    user.displayName = displayName.ifEmpty { user.displayName }
-                    user.email = email.ifEmpty { user.email }
-                    user.role = role
-                    user.isActive = true
-                    user.updatedAt = now
-                    userRepository.save(user)
-                    stats["updated"] = stats["updated"]!! + 1
-                }
-            }
+            return stats
+        } finally {
+            try { ctx.close() } catch (_: Exception) {}
         }
-        ctx.close()
-        
-        // Deactivate LDAP users no longer in the directory
-        val ldapUsers = userRepository.findAllByAuthSourceAndIsActive("ldap", true)
-        for (ldapUser in ldapUsers) {
-            if (!directoryUsernames.contains(ldapUser.username)) {
-                ldapUser.isActive = false
-                ldapUser.updatedAt = now
-                userRepository.save(ldapUser)
-                refreshTokenRepository.deleteByUserId(ldapUser.id!!)
-                stats["deactivated"] = stats["deactivated"]!! + 1
-            }
-        }
-        
-        return stats
     }
 
     fun authenticateLdap(username: String, password: String, config: LdapConfig): Boolean {

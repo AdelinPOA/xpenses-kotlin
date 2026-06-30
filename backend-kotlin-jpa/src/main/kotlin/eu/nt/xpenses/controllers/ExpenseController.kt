@@ -166,6 +166,10 @@ class ExpenseController(
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Only the owner can perform this action")
         }
 
+        if (expense.status != "draft") {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Only draft expenses can have receipts uploaded")
+        }
+
         val saved = transactionTemplate.execute {
             val txExpense = expenseRepository.findById(expenseId).orElseThrow {
                 ResponseStatusException(HttpStatus.NOT_FOUND, "Expense not found")
@@ -228,6 +232,10 @@ class ExpenseController(
 
             if (expense.user?.id != currentUser.id) {
                 throw ResponseStatusException(HttpStatus.FORBIDDEN, "Only the owner can delete receipts")
+            }
+
+            if (expense.status != "draft") {
+                throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Only draft expenses can have receipts deleted")
             }
 
             val receipt = receiptRepository.findById(receiptId).orElseThrow {

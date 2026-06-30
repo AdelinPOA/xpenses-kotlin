@@ -82,6 +82,42 @@ class ExpenseControllerTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `POST upload receipts on non-draft expense returns 400`() {
+        val expense = saveTechExpense()
+        expense.status = "submitted"
+        expenseRepository.save(expense)
+        entityManager.flush()
+        entityManager.clear()
+        val cookie = authHelper.loginAs("tech1", "tech1")
+
+        val file = org.springframework.mock.web.MockMultipartFile("files", "receipt.png", "image/png", byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A))
+        mockMvc.perform(
+            multipart("/api/expenses/${expense.id}/receipts")
+                .file(file)
+                .cookie(cookie)
+        )
+            .andExpect(status().isBadRequest)
+    }
+
+    @Test
+    fun `DELETE receipt on non-draft expense returns 400`() {
+        val expense = saveTechExpense()
+        expense.status = "submitted"
+        val receipt = eu.nt.xpenses.models.Receipt(expense = expense, filePath = "2026/06/test.png", originalName = "test.png")
+        expense.receipts.add(receipt)
+        expenseRepository.save(expense)
+        entityManager.flush()
+        entityManager.clear()
+        val cookie = authHelper.loginAs("tech1", "tech1")
+
+        mockMvc.perform(
+            delete("/api/expenses/${expense.id}/receipts/${expense.receipts.first().id}")
+                .cookie(cookie)
+        )
+            .andExpect(status().isBadRequest)
+    }
+
+    @Test
     fun `GET expenses without cookie returns 403 (Spring Security default for unauthenticated)`() {
         mockMvc.perform(get("/api/expenses"))
             .andExpect(status().isForbidden)

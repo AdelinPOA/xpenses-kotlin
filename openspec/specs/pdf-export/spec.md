@@ -34,6 +34,7 @@ The system SHALL display a Report Summary block at the bottom of the generated P
 The system SHALL display the delegation email details in the generated PDF report if available.
 - The details SHALL be positioned below the Report Title and above the "Submitted By" details in the left metadata cell.
 - The details SHALL include: Customer (with Customer Code), Address, Order (Kundenauftrag, with Order Type), Operation (Vorgang), Work Center (Arbeitsplatz), Technical Location, and Technician.
+- The metadata table SHALL use column widths of 70% for the left cell and 30% for the right cell to ensure delegation details are readable and not truncated/squished.
 
 #### Scenario: Delegation details available
 - **WHEN** a report is generated containing kundenauftrag "0007038319" and kundeName "PJSC CARLSBERG UKRAINE"

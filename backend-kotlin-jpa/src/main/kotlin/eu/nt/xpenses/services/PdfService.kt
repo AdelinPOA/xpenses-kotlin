@@ -152,7 +152,7 @@ class PdfService(
         // --- Report metadata ---
         val metaTable = PdfPTable(2)
         metaTable.widthPercentage = 100f
-        metaTable.setWidths(floatArrayOf(50f, 50f))
+        metaTable.setWidths(floatArrayOf(70f, 30f))
 
         val metaLeft = PdfPCell()
         metaLeft.border = Rectangle.NO_BORDER

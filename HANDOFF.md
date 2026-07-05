@@ -1,6 +1,25 @@
 # HANDOFF.md — xpenses-kotlin
 
-## Current Session (2026-06-30, session 103) — fix-pdf-preview-fallback
+## Current Session (2026-07-05, session 104) — add-pdf-table-totals
+
+### What Was Done
+- **Table Totals in PDF Export**: Modified `PdfService.kt` to calculate and append total amount rows to the bottom of the Expense Summary and Advance Payments tables in the generated PDF report. The totals display the sum of all item values converted to EUR, maintaining visual consistency with the existing Mileage table total row.
+- **Specifications & Design**: Created proposal, design, tasks, and main specifications for the PDF export capability using the required OpenSpec workflow, and archived the change under `openspec/changes/archive/2026-07-05-add-pdf-table-totals/`.
+- **Unit Testing**: Added `PdfServiceTest.kt` to verify that `PdfService.generateReportPdf` correctly generates a valid PDF containing the calculated totals for both tables.
+- **Verification**: Verified that the new unit test passes and ran the entire backend test suite (`make test`), with all 68 tests passing successfully.
+
+### Files Changed
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/PdfService.kt`
+- `backend-kotlin-jpa/src/test/kotlin/eu/nt/xpenses/services/PdfServiceTest.kt`
+- `openspec/specs/pdf-export/spec.md`
+- `openspec/changes/archive/2026-07-05-add-pdf-table-totals/`
+
+### Next Steps
+- Merge `feat/add-pdf-table-totals` branch.
+
+---
+
+## Previous Session (2026-06-30, session 103) — fix-pdf-preview-fallback
 
 ### What Was Done
 - **PDF Preview Fallback on All Screens**: Modified `ExpenseForm.tsx` to display the "Open PDF in New Tab" fallback banner on all screen sizes (removing the `block lg:hidden` CSS classes). This provides a reliable link to view/download PDF receipts when browser security policies block inline rendering of local `blob:` URLs in iframes (specifically in Chrome/Chromium browsers).

@@ -228,6 +228,29 @@ class PdfService(
             cellAmtEur.horizontalAlignment = Element.ALIGN_RIGHT
             expTable.addCell(cellAmtEur)
         }
+
+        // Add total row to Expense Summary table
+        val cellExpBlank1 = PdfPCell()
+        cellExpBlank1.setPadding(5f)
+        expTable.addCell(cellExpBlank1)
+
+        val cellExpTotalLabel = PdfPCell(Phrase("TOTAL", fontBold))
+        cellExpTotalLabel.setPadding(5f)
+        expTable.addCell(cellExpTotalLabel)
+
+        val cellExpBlank2 = PdfPCell()
+        cellExpBlank2.setPadding(5f)
+        expTable.addCell(cellExpBlank2)
+
+        val cellExpBlank3 = PdfPCell()
+        cellExpBlank3.setPadding(5f)
+        expTable.addCell(cellExpBlank3)
+
+        val cellExpTotalAmtEur = PdfPCell(Phrase("€${formatBigDecimal(totalEur)}", fontBold))
+        cellExpTotalAmtEur.setPadding(5f)
+        cellExpTotalAmtEur.horizontalAlignment = Element.ALIGN_RIGHT
+        expTable.addCell(cellExpTotalAmtEur)
+
         document.add(expTable)
         document.add(Paragraph(" ", fontBody))
 
@@ -274,6 +297,32 @@ class PdfService(
                 cellAmtEur.horizontalAlignment = Element.ALIGN_RIGHT
                 advTable.addCell(cellAmtEur)
             }
+
+            // Calculate paid advances total
+            val totalAdvTable = paidAdvances.map { it.amountEur }.fold(BigDecimal.ZERO) { acc, v -> acc.add(v) }
+
+            // Add total row to Advance Payments table
+            val cellAdvBlank1 = PdfPCell()
+            cellAdvBlank1.setPadding(5f)
+            advTable.addCell(cellAdvBlank1)
+
+            val cellAdvTotalLabel = PdfPCell(Phrase("TOTAL", fontBold))
+            cellAdvTotalLabel.setPadding(5f)
+            advTable.addCell(cellAdvTotalLabel)
+
+            val cellAdvBlank2 = PdfPCell()
+            cellAdvBlank2.setPadding(5f)
+            advTable.addCell(cellAdvBlank2)
+
+            val cellAdvBlank3 = PdfPCell()
+            cellAdvBlank3.setPadding(5f)
+            advTable.addCell(cellAdvBlank3)
+
+            val cellAdvTotalAmtEur = PdfPCell(Phrase("€${formatBigDecimal(totalAdvTable)}", fontBold))
+            cellAdvTotalAmtEur.setPadding(5f)
+            cellAdvTotalAmtEur.horizontalAlignment = Element.ALIGN_RIGHT
+            advTable.addCell(cellAdvTotalAmtEur)
+
             document.add(advTable)
             document.add(Paragraph(" ", fontBody))
         }

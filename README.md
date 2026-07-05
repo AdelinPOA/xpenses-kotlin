@@ -10,7 +10,7 @@ Self-hosted expense management application for internal company use. Built with 
 - **Expense reports** — group expenses into reports with date range; full state machine workflow
 - **Approval workflow** — managers and CFOs approve/reject submitted reports; rejection reason captured; cannot approve your own report
 - **Report recall** — retract a submitted or rejected report back to draft
-- **PDF export** — Zoho-style PDF with company branding, FX rates per expense, currency summary, reimbursable summary, digital signature area, and 2-per-row receipt grid with merged PDF receipts
+- **PDF export** — Zoho-style PDF with company branding, FX rates per expense, currency summary, reimbursable summary, table-level totals (for expenses, advances, and mileage), digital signature area, and 2-per-row receipt grid with merged PDF receipts
 - **Excel/CSV export** — export expense data via Apache POI
 - **Receipts ZIP download** — download all report receipts as a single ZIP
 - **Advance payments** — full workflow for requesting, approving, and attaching cash advances to reports; manager direct-pay support

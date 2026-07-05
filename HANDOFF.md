@@ -6,8 +6,9 @@
 - **Table Totals in PDF Export**: Modified `PdfService.kt` to calculate and append total amount rows to the bottom of the Expense Summary and Advance Payments tables in the generated PDF report. The totals display the sum of all item values converted to EUR, maintaining visual consistency with the existing Mileage table total row.
 - **PDF Report Summary Redesign**: Redesigned the layout of the PDF Report Summary block from a wrapping 6-column grid to a single-row 9-column format. 
 - **Reimbursable Formula alignment**: Updated the PDF formula to `Total Expense + Daily Allowance + Mileage - Total Advances = Reimbursable` to match the website's accounting format, formatting negative reimbursable values with a `-€` prefix.
-- **Specifications & Design**: Created OpenSpec proposals, designs, tasks, and main specifications for all three changes and archived them under `openspec/changes/archive/2026-07-05-add-pdf-table-totals/`, `openspec/changes/archive/2026-07-05-refactor-pdf-summary/`, and `openspec/changes/archive/2026-07-05-revert-to-reimbursable-formula/`.
-- **Unit Testing**: Updated `PdfServiceTest.kt` to cover both positive and negative reimbursable amount calculations, ensuring all labels, operators, and formatting are correctly generated in the PDF.
+- **Delegation Details**: Added a new "Delegation Details" block in the left metadata cell of the PDF header below the Report Title. This block conditionally displays imported delegation email fields (Customer name/code, Address, Kundenauftrag order/type, Vorgang operation, Arbeitsplatz work center, Technical location, and Technician) when present.
+- **Specifications & Design**: Created OpenSpec proposals, designs, tasks, and main specifications for all four changes and archived them under `openspec/changes/archive/2026-07-05-add-pdf-table-totals/`, `openspec/changes/archive/2026-07-05-refactor-pdf-summary/`, `openspec/changes/archive/2026-07-05-revert-to-reimbursable-formula/`, and `openspec/changes/archive/2026-07-05-add-pdf-delegation-details/`.
+- **Unit Testing**: Updated `PdfServiceTest.kt` to cover both positive and negative reimbursable amount calculations, and verified that delegation details are correctly printed in the PDF report header.
 - **Verification**: Verified that all new unit tests pass and ran the entire backend test suite (`make test`), with all **69 tests** passing successfully.
 
 ### Files Changed
@@ -17,6 +18,7 @@
 - `openspec/changes/archive/2026-07-05-add-pdf-table-totals/`
 - `openspec/changes/archive/2026-07-05-refactor-pdf-summary/`
 - `openspec/changes/archive/2026-07-05-revert-to-reimbursable-formula/`
+- `openspec/changes/archive/2026-07-05-add-pdf-delegation-details/`
 
 ### Next Steps
 - Merge `feat/add-pdf-table-totals` branch.

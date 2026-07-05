@@ -38,7 +38,11 @@ class PdfServiceTest {
             description = "Project meeting",
             status = "submitted",
             dateFrom = "2026-06-01",
-            dateTo = "2026-06-02"
+            dateTo = "2026-06-02",
+            kundenauftrag = "0007038319",
+            kundeName = "PJSC CARLSBERG UKRAINE",
+            vorgang = "0240 DEJR-N-INB",
+            arbeitsplatz = "ER_MT 1049"
         )
 
         val expenses = listOf(
@@ -120,6 +124,13 @@ class PdfServiceTest {
 
         // Verify both tables have "TOTAL" text in them
         assertTrue(text.contains("TOTAL"), "PDF text should contain TOTAL labels")
+
+        // Verify Delegation Details are printed
+        assertTrue(text.contains("Delegation Details"), "PDF text should contain Delegation Details section")
+        assertTrue(text.contains("Customer: PJSC CARLSBERG UKRAINE"), "PDF text should contain Customer name")
+        assertTrue(text.contains("Order (Kundenauftrag): 0007038319"), "PDF text should contain order number")
+        assertTrue(text.contains("Operation (Vorgang): 0240 DEJR-N-INB"), "PDF text should contain operation")
+        assertTrue(text.contains("Work Center (Arbeitsplatz): ER_MT 1049"), "PDF text should contain work center")
 
         // Verify Report Summary labels are updated
         assertTrue(text.contains("Total Advances"), "PDF text should contain 'Total Advances' label")

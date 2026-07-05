@@ -161,6 +161,35 @@ class PdfService(
         if (!report.description.isNullOrEmpty()) {
             metaLeft.addElement(Paragraph(report.description, fontSmall))
         }
+        val hasDelegationDetails = !report.kundenauftrag.isNullOrEmpty() || !report.kundeName.isNullOrEmpty()
+        if (hasDelegationDetails) {
+            metaLeft.addElement(Paragraph(" ", fontSmall))
+            metaLeft.addElement(Paragraph("Delegation Details", fontCaption))
+            if (!report.kundeName.isNullOrEmpty()) {
+                val codeSuffix = if (!report.kundeCode.isNullOrEmpty()) " (${report.kundeCode})" else ""
+                metaLeft.addElement(Paragraph("Customer: ${report.kundeName}$codeSuffix", fontSmall))
+            }
+            if (!report.adresse.isNullOrEmpty()) {
+                metaLeft.addElement(Paragraph("Address: ${report.adresse}", fontSmall))
+            }
+            if (!report.kundenauftrag.isNullOrEmpty()) {
+                val artSuffix = if (!report.auftragsart.isNullOrEmpty()) " (${report.auftragsart})" else ""
+                metaLeft.addElement(Paragraph("Order (Kundenauftrag): ${report.kundenauftrag}$artSuffix", fontSmall))
+            }
+            if (!report.vorgang.isNullOrEmpty()) {
+                metaLeft.addElement(Paragraph("Operation (Vorgang): ${report.vorgang}", fontSmall))
+            }
+            if (!report.arbeitsplatz.isNullOrEmpty()) {
+                metaLeft.addElement(Paragraph("Work Center (Arbeitsplatz): ${report.arbeitsplatz}", fontSmall))
+            }
+            if (!report.technplatzRaw.isNullOrEmpty()) {
+                metaLeft.addElement(Paragraph("Technical Location: ${report.technplatzRaw}", fontSmall))
+            }
+            if (!report.techniker.isNullOrEmpty()) {
+                metaLeft.addElement(Paragraph("Technician: ${report.techniker}", fontSmall))
+            }
+        }
+
         metaLeft.addElement(Paragraph(" ", fontSmall))
         metaLeft.addElement(Paragraph("Submitted By", fontCaption))
         metaLeft.addElement(Paragraph(report.user?.displayName ?: "Unknown", fontBold))

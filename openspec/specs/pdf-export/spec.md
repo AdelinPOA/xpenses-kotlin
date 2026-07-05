@@ -29,3 +29,12 @@ The system SHALL display a Report Summary block at the bottom of the generated P
 #### Scenario: Negative remaining balance
 - **WHEN** a report is generated with 1000 EUR advance, 200 EUR expenses, 50 EUR allowance, 50 EUR mileage
 - **THEN** the Report Summary displays: "Total Expense €200.00 + Daily Allowance €50.00 + Mileage €50.00 - Total Advances €1,000.00 = Reimbursable -€700.00"
+
+### Requirement: Report Delegation Details
+The system SHALL display the delegation email details in the generated PDF report if available.
+- The details SHALL be positioned below the Report Title and above the "Submitted By" details in the left metadata cell.
+- The details SHALL include: Customer (with Customer Code), Address, Order (Kundenauftrag, with Order Type), Operation (Vorgang), Work Center (Arbeitsplatz), Technical Location, and Technician.
+
+#### Scenario: Delegation details available
+- **WHEN** a report is generated containing kundenauftrag "0007038319" and kundeName "PJSC CARLSBERG UKRAINE"
+- **THEN** the PDF report header displays: "Customer: PJSC CARLSBERG UKRAINE" and "Order (Kundenauftrag): 0007038319"

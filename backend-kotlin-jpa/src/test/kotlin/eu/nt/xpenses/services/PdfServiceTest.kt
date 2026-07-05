@@ -123,14 +123,14 @@ class PdfServiceTest {
 
         // Verify Report Summary labels are updated
         assertTrue(text.contains("Total Advances"), "PDF text should contain 'Total Advances' label")
-        assertTrue(text.contains("Remaining Balance"), "PDF text should contain 'Remaining Balance' label")
+        assertTrue(text.contains("Reimbursable"), "PDF text should contain 'Reimbursable' label")
 
-        // Verify positive balance value (150.00 - 35.50 - 100.00 - 0.00 = 14.50)
-        assertTrue(text.contains("14.50"), "PDF text should contain positive remaining balance: 14.50")
+        // Verify negative reimbursable value (35.50 + 100.00 + 0.00 - 150.00 = -14.50)
+        assertTrue(text.contains("-14.50") || text.contains("-€14.50"), "PDF text should contain negative reimbursable: -14.50")
     }
 
     @Test
-    fun `generateReportPdf should contain negative remaining balance when expenses exceed advances`() {
+    fun `generateReportPdf should contain positive reimbursable amount when expenses exceed advances`() {
         val user = User(
             id = 1,
             username = "tech",
@@ -191,8 +191,7 @@ class PdfServiceTest {
         val text = stripper.getText(doc)
         doc.close()
 
-        // Verify negative balance value (50.00 - 200.00 - 100.00 - 0.00 = -250.00)
-        // Check for "-250.00"
-        assertTrue(text.contains("-250.00") || text.contains("-€250.00"), "PDF text should contain negative balance: -250.00")
+        // Verify positive reimbursable value (200.00 + 100.00 + 0.00 - 50.00 = 250.00)
+        assertTrue(text.contains("250.00"), "PDF text should contain positive reimbursable: 250.00")
     }
 }

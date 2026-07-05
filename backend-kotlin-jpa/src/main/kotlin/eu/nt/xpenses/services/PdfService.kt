@@ -509,12 +509,12 @@ class PdfService(
         val totalAdv = advances.filter { it.status == "paid" }.map { it.amountEur }.fold(BigDecimal.ZERO) { acc, v -> acc.add(v) }
         val allowance = calculateDailyAllowance(report.dateFrom, report.dateTo)
         val totalMil = mileage.map { it.amountEur }.fold(BigDecimal.ZERO) { acc, v -> acc.add(v) }
-        val balance = totalAdv.subtract(totalEur).subtract(allowance).subtract(totalMil)
+        val totalReimbursable = totalEur.add(allowance).add(totalMil).subtract(totalAdv)
 
-        val balanceStr = if (balance < BigDecimal.ZERO) {
-            "-€${formatBigDecimal(balance.abs())}"
+        val reimbursableStr = if (totalReimbursable < BigDecimal.ZERO) {
+            "-€${formatBigDecimal(totalReimbursable.abs())}"
         } else {
-            "€${formatBigDecimal(balance)}"
+            "€${formatBigDecimal(totalReimbursable)}"
         }
 
         val summaryTable = PdfPTable(9)
@@ -522,11 +522,11 @@ class PdfService(
         summaryTable.setWidths(floatArrayOf(18f, 2.5f, 18f, 2.5f, 18f, 2.5f, 18f, 2.5f, 18f))
 
         val sumCells = listOf(
-            Pair("Total Advances", "€${formatBigDecimal(totalAdv)}"),
             Pair("Total Expense", "€${formatBigDecimal(totalEur)}"),
             Pair("Daily Allowance", "€${formatBigDecimal(allowance)}"),
             Pair("Mileage", "€${formatBigDecimal(totalMil)}"),
-            Pair("Remaining Balance", balanceStr)
+            Pair("Total Advances", "€${formatBigDecimal(totalAdv)}"),
+            Pair("Reimbursable", reimbursableStr)
         )
 
         for ((idx, p) in sumCells.withIndex()) {
@@ -539,8 +539,10 @@ class PdfService(
 
             if (idx < sumCells.size - 1) {
                 val op = when(idx) {
-                    3 -> "="
-                    else -> "-"
+                    0 -> "+"
+                    1 -> "+"
+                    2 -> "-"
+                    else -> "="
                 }
                 val cellOp = PdfPCell()
                 cellOp.border = Rectangle.NO_BORDER

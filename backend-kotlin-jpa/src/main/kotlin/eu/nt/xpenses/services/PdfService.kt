@@ -509,19 +509,24 @@ class PdfService(
         val totalAdv = advances.filter { it.status == "paid" }.map { it.amountEur }.fold(BigDecimal.ZERO) { acc, v -> acc.add(v) }
         val allowance = calculateDailyAllowance(report.dateFrom, report.dateTo)
         val totalMil = mileage.map { it.amountEur }.fold(BigDecimal.ZERO) { acc, v -> acc.add(v) }
-        val totalReimbursable = totalEur.add(allowance).add(totalMil).subtract(totalAdv)
+        val balance = totalAdv.subtract(totalEur).subtract(allowance).subtract(totalMil)
 
-        val summaryTable = PdfPTable(6)
+        val balanceStr = if (balance < BigDecimal.ZERO) {
+            "-€${formatBigDecimal(balance.abs())}"
+        } else {
+            "€${formatBigDecimal(balance)}"
+        }
+
+        val summaryTable = PdfPTable(9)
         summaryTable.widthPercentage = 100f
-        summaryTable.setWidths(floatArrayOf(20f, 5f, 20f, 20f, 15f, 20f))
+        summaryTable.setWidths(floatArrayOf(18f, 2.5f, 18f, 2.5f, 18f, 2.5f, 18f, 2.5f, 18f))
 
         val sumCells = listOf(
+            Pair("Total Advances", "€${formatBigDecimal(totalAdv)}"),
             Pair("Total Expense", "€${formatBigDecimal(totalEur)}"),
             Pair("Daily Allowance", "€${formatBigDecimal(allowance)}"),
             Pair("Mileage", "€${formatBigDecimal(totalMil)}"),
-            Pair("Non Reimbursable", "€0.00"),
-            Pair("Advance Received", "€${formatBigDecimal(totalAdv)}"),
-            Pair("Total Reimbursable", "€${formatBigDecimal(totalReimbursable)}")
+            Pair("Remaining Balance", balanceStr)
         )
 
         for ((idx, p) in sumCells.withIndex()) {
@@ -534,11 +539,8 @@ class PdfService(
 
             if (idx < sumCells.size - 1) {
                 val op = when(idx) {
-                    0 -> "+"
-                    1 -> "+"
-                    2 -> "-"
-                    3 -> "-"
-                    else -> "="
+                    3 -> "="
+                    else -> "-"
                 }
                 val cellOp = PdfPCell()
                 cellOp.border = Rectangle.NO_BORDER

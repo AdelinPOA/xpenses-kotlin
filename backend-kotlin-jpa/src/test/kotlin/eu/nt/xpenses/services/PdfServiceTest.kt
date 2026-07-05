@@ -120,5 +120,79 @@ class PdfServiceTest {
 
         // Verify both tables have "TOTAL" text in them
         assertTrue(text.contains("TOTAL"), "PDF text should contain TOTAL labels")
+
+        // Verify Report Summary labels are updated
+        assertTrue(text.contains("Total Advances"), "PDF text should contain 'Total Advances' label")
+        assertTrue(text.contains("Remaining Balance"), "PDF text should contain 'Remaining Balance' label")
+
+        // Verify positive balance value (150.00 - 35.50 - 100.00 - 0.00 = 14.50)
+        assertTrue(text.contains("14.50"), "PDF text should contain positive remaining balance: 14.50")
+    }
+
+    @Test
+    fun `generateReportPdf should contain negative remaining balance when expenses exceed advances`() {
+        val user = User(
+            id = 1,
+            username = "tech",
+            displayName = "John Doe",
+            email = "john@example.com",
+            role = "technician",
+            passwordHash = "hash"
+        )
+        val report = ExpenseReport(
+            id = 124,
+            user = user,
+            title = "Trip",
+            status = "submitted",
+            dateFrom = "2026-06-01",
+            dateTo = "2026-06-02"
+        )
+
+        val expenses = listOf(
+            Expense(
+                id = 1,
+                user = user,
+                amountOriginal = BigDecimal("200.00"),
+                currencyOriginal = "EUR",
+                amountEur = BigDecimal("200.00"),
+                fxRate = BigDecimal.ONE,
+                date = "01.06.2026",
+                category = Category(id = 1, name = "Hotel")
+            )
+        )
+
+        val advances = listOf(
+            AdvancePayment(
+                id = 1,
+                user = user,
+                report = report,
+                amountOriginal = BigDecimal("50.00"),
+                currencyOriginal = "EUR",
+                amountEur = BigDecimal("50.00"),
+                date = "31.05.2026",
+                status = "paid"
+            )
+        )
+
+        `when`(appSettingRepository.findById("daily_allowance_rate")).thenReturn(Optional.empty())
+
+        // Act
+        val pdfBytes = pdfService.generateReportPdf(
+            report = report,
+            expenses = expenses,
+            advances = advances,
+            mileage = emptyList(),
+            signer = null
+        )
+
+        // Assert
+        val doc = Loader.loadPDF(pdfBytes)
+        val stripper = PDFTextStripper()
+        val text = stripper.getText(doc)
+        doc.close()
+
+        // Verify negative balance value (50.00 - 200.00 - 100.00 - 0.00 = -250.00)
+        // Check for "-250.00"
+        assertTrue(text.contains("-250.00") || text.contains("-€250.00"), "PDF text should contain negative balance: -250.00")
     }
 }

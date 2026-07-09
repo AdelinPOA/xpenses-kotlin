@@ -51,3 +51,9 @@ Thumbs.db
 /.claude/skills/cavecrew
 /.claude/skills/caveman*
 /skills-lock.json
+
+# Graphify temporary caches
+/graphify-out/cache/
+/graphify-out/.graphify_*
+/.claude/
+

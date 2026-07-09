@@ -93,6 +93,9 @@ class PdfService(
         val leftCell = PdfPCell()
         leftCell.border = Rectangle.NO_BORDER
         
+        leftCell.addElement(Paragraph(companyName, Font(Font.HELVETICA, 12f, Font.BOLD, java.awt.Color(30, 41, 59))))
+        leftCell.addElement(Paragraph(" ", fontSmall))
+        
         // Try to draw logo from classpath resource
         val logoStream = this::class.java.getResourceAsStream("/company_logo.png")
         if (logoStream != null) {
@@ -102,13 +105,11 @@ class PdfService(
                     val logoImg = Image.getInstance(logoBytes)
                     logoImg.scaleToFit(80f, 80f)
                     leftCell.addElement(logoImg)
-                    leftCell.addElement(Paragraph(" ", fontSmall))
                 } catch (e: Exception) {
                     log.warn("Failed to load company logo: {}", e.message)
                 }
             }
         }
-        leftCell.addElement(Paragraph(companyName, Font(Font.HELVETICA, 12f, Font.BOLD, java.awt.Color(30, 41, 59))))
         headerTable.addCell(leftCell)
 
         // Right side: Report Title & Total
@@ -209,12 +210,17 @@ class PdfService(
         document.add(Paragraph(" ", fontBody))
 
         // --- Expense Summary table ---
-        document.add(Paragraph("EXPENSE SUMMARY", fontBold))
-        document.add(Paragraph(" ", fontSmall))
-
         val expTable = PdfPTable(5)
         expTable.widthPercentage = 100f
         expTable.setWidths(floatArrayOf(8f, 37f, 20f, 15f, 20f))
+        expTable.keepTogether = true
+
+        // Title row embedded in table so it stays with the table on page breaks
+        val expTitleCell = PdfPCell(Phrase("EXPENSE SUMMARY", fontBold))
+        expTitleCell.colspan = 5
+        expTitleCell.border = Rectangle.NO_BORDER
+        expTitleCell.paddingBottom = 8f
+        expTable.addCell(expTitleCell)
 
         val headers = listOf("S.No", "Expense Details", "Category", "Amount", "Amount (EUR)")
         for (h in headers) {
@@ -280,18 +286,22 @@ class PdfService(
         cellExpTotalAmtEur.horizontalAlignment = Element.ALIGN_RIGHT
         expTable.addCell(cellExpTotalAmtEur)
 
-        document.add(expTable)
+        addTableKeepTogether(document, writer, expTable)
         document.add(Paragraph(" ", fontBody))
 
         // --- Advance Payments table ---
         val paidAdvances = advances.filter { it.status == "paid" }
         if (paidAdvances.isNotEmpty()) {
-            document.add(Paragraph("ADVANCE PAYMENTS", fontBold))
-            document.add(Paragraph(" ", fontSmall))
-
             val advTable = PdfPTable(5)
             advTable.widthPercentage = 100f
             advTable.setWidths(floatArrayOf(8f, 22f, 35f, 15f, 20f))
+            advTable.keepTogether = true
+
+            val advTitleCell = PdfPCell(Phrase("ADVANCE PAYMENTS", fontBold))
+            advTitleCell.colspan = 5
+            advTitleCell.border = Rectangle.NO_BORDER
+            advTitleCell.paddingBottom = 8f
+            advTable.addCell(advTitleCell)
 
             val advHeaders = listOf("S.No", "Date", "Description", "Amount", "Amount (EUR)")
             for (h in advHeaders) {
@@ -352,18 +362,22 @@ class PdfService(
             cellAdvTotalAmtEur.horizontalAlignment = Element.ALIGN_RIGHT
             advTable.addCell(cellAdvTotalAmtEur)
 
-            document.add(advTable)
+            addTableKeepTogether(document, writer, advTable)
             document.add(Paragraph(" ", fontBody))
         }
 
         // --- Mileage Records table ---
         if (mileage.isNotEmpty()) {
-            document.add(Paragraph("MILEAGE", fontBold))
-            document.add(Paragraph(" ", fontSmall))
-
             val milTable = PdfPTable(9)
             milTable.widthPercentage = 100f
             milTable.setWidths(floatArrayOf(6f, 16f, 10f, 22f, 8f, 9f, 10f, 9f, 10f))
+            milTable.keepTogether = true
+
+            val milTitleCell = PdfPCell(Phrase("MILEAGE", fontBold))
+            milTitleCell.colspan = 9
+            milTitleCell.border = Rectangle.NO_BORDER
+            milTitleCell.paddingBottom = 8f
+            milTable.addCell(milTitleCell)
 
             val milHeaders = listOf("S.No", "Date/Time", "Duration", "Route", "km", "Rate BT", "Gross (€)", "Rate AT", "Net (€)")
             for (h in milHeaders) {
@@ -472,22 +486,27 @@ class PdfService(
             cellTotalNet.horizontalAlignment = Element.ALIGN_RIGHT
             milTable.addCell(cellTotalNet)
 
-            document.add(milTable)
+            addTableKeepTogether(document, writer, milTable)
             document.add(Paragraph(" ", fontBody))
         }
 
         // --- Currency summary ---
         val byCurrency = expenses.groupBy { it.currencyOriginal }
         if (byCurrency.keys.size > 1 || (byCurrency.keys.size == 1 && byCurrency.keys.first() != "EUR")) {
-            document.add(Paragraph("REPORT SUMMARY BY CURRENCY", fontBold))
-            document.add(Paragraph(" ", fontSmall))
-
-            val curTable = PdfPTable(byCurrency.keys.size + 1)
+            val numCurCols = byCurrency.keys.size + 1
+            val curTable = PdfPTable(numCurCols)
             curTable.widthPercentage = 100f
-            val widths = FloatArray(byCurrency.keys.size + 1)
+            val widths = FloatArray(numCurCols)
             widths[0] = 30f
-            for (i in 1..byCurrency.keys.size) widths[i] = 70f / byCurrency.keys.size
+            for (i in 1 until numCurCols) widths[i] = 70f / byCurrency.keys.size
             curTable.setWidths(widths)
+            curTable.keepTogether = true
+
+            val curTitleCell = PdfPCell(Phrase("REPORT SUMMARY BY CURRENCY", fontBold))
+            curTitleCell.colspan = numCurCols
+            curTitleCell.border = Rectangle.NO_BORDER
+            curTitleCell.paddingBottom = 8f
+            curTable.addCell(curTitleCell)
 
             val cellHeader = PdfPCell(Phrase("TOTAL", fontHeader))
             cellHeader.backgroundColor = java.awt.Color(30, 41, 59)
@@ -527,18 +546,15 @@ class PdfService(
                 curTable.addCell(cell)
             }
 
-            document.add(curTable)
+            addTableKeepTogether(document, writer, curTable)
             document.add(Paragraph(" ", fontBody))
         }
 
         // --- Report Summary block ---
-        document.add(Paragraph("REPORT SUMMARY", fontBold))
-        document.add(Paragraph(" ", fontSmall))
-
         val totalAdv = advances.filter { it.status == "paid" }.map { it.amountEur }.fold(BigDecimal.ZERO) { acc, v -> acc.add(v) }
         val allowance = calculateDailyAllowance(report.dateFrom, report.dateTo)
         val totalMil = mileage.map { it.amountEur }.fold(BigDecimal.ZERO) { acc, v -> acc.add(v) }
-        val totalReimbursable = totalEur.add(allowance).add(totalMil).subtract(totalAdv)
+        val totalReimbursable = totalEur.add(allowance).subtract(totalAdv)
 
         val reimbursableStr = if (totalReimbursable < BigDecimal.ZERO) {
             "-€${formatBigDecimal(totalReimbursable.abs())}"
@@ -546,14 +562,20 @@ class PdfService(
             "€${formatBigDecimal(totalReimbursable)}"
         }
 
-        val summaryTable = PdfPTable(9)
+        val summaryTable = PdfPTable(7)
         summaryTable.widthPercentage = 100f
-        summaryTable.setWidths(floatArrayOf(18f, 2.5f, 18f, 2.5f, 18f, 2.5f, 18f, 2.5f, 18f))
+        summaryTable.setWidths(floatArrayOf(22f, 4f, 22f, 4f, 22f, 4f, 22f))
+        summaryTable.keepTogether = true
+
+        val sumTitleCell = PdfPCell(Phrase("REPORT SUMMARY", fontBold))
+        sumTitleCell.colspan = 7
+        sumTitleCell.border = Rectangle.NO_BORDER
+        sumTitleCell.paddingBottom = 8f
+        summaryTable.addCell(sumTitleCell)
 
         val sumCells = listOf(
             Pair("Total Expense", "€${formatBigDecimal(totalEur)}"),
             Pair("Daily Allowance", "€${formatBigDecimal(allowance)}"),
-            Pair("Mileage", "€${formatBigDecimal(totalMil)}"),
             Pair("Total Advances", "€${formatBigDecimal(totalAdv)}"),
             Pair("Reimbursable", reimbursableStr)
         )
@@ -569,8 +591,7 @@ class PdfService(
             if (idx < sumCells.size - 1) {
                 val op = when(idx) {
                     0 -> "+"
-                    1 -> "+"
-                    2 -> "-"
+                    1 -> "-"
                     else -> "="
                 }
                 val cellOp = PdfPCell()
@@ -581,7 +602,7 @@ class PdfService(
                 summaryTable.addCell(cellOp)
             }
         }
-        document.add(summaryTable)
+        addTableKeepTogether(document, writer, summaryTable)
         document.add(Paragraph(" ", fontBody))
 
         // --- Signature ---
@@ -696,6 +717,27 @@ class PdfService(
 
     private fun formatAmount(amount: Double): String {
         return decimalFormat.get().format(amount)
+    }
+
+    /**
+     * Add a table to the document, ensuring it doesn't get split across pages
+     * unless it's too large to fit on a single page.
+     * Calculates the table's rendered height and compares with remaining page space.
+     */
+    private fun addTableKeepTogether(document: Document, writer: PdfWriter, table: PdfPTable) {
+        // Calculate the table's actual rendered height
+        table.totalWidth = document.right() - document.left()
+        val tableHeight = table.calculateHeights(true)
+        val remainingSpace = writer.getVerticalPosition(true) - document.bottomMargin()
+        val fullPageHeight = document.top() - document.bottom()
+        log.info("PDF Table Layout Check - Height: {}, Remaining: {}, Y-Pos: {}, FullPage: {}", tableHeight, remainingSpace, writer.getVerticalPosition(true), fullPageHeight)
+
+        if (tableHeight > remainingSpace && tableHeight <= fullPageHeight) {
+            log.info("PDF Table Layout Check - Table does not fit, forcing new page")
+            document.newPage()
+        }
+        // Otherwise: either it fits here, or it's too large for any page (let it span)
+        document.add(table)
     }
 
     private fun formatCurrencySymbol(currency: String): String {

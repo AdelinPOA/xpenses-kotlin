@@ -1,6 +1,26 @@
 # HANDOFF.md — xpenses-kotlin
 
-## Current Session (2026-07-05, session 104) — add-pdf-table-totals
+## Current Session (2026-07-09, session 105) — pdf-layout-fixes
+
+### What Was Done
+- **Installed Graphify & MCP**: Installed Graphify tool, registered the skill with Antigravity (`graphify antigravity install`), and configured the MCP server under `~/.gemini/antigravity/mcp_config.json` for native knowledge-graph-driven architecture navigation.
+- **Excluded Mileage from Reimbursable**: Modified `PdfService.kt` to exclude mileage from the final `Total Reimbursable` calculation block at the bottom of the PDF report layout. Resized the summary table from 9 columns to 7 columns to cleanly show the formula `Total Expense + Daily Allowance - Total Advances = Reimbursable`.
+- **Prevented Orphaned Section Titles**: Replaced custom `getVerticalPosition` check with a robust table-height and page-limit comparison using `table.calculateHeights(true)`. Embedded each section title (Expense Summary, Advance Payments, Mileage, Currency Summary, Report Summary) directly as the first spanning row cell in its respective `PdfPTable`, and applied `keepTogether = true`. This forces OpenPDF to move the entire table (and title) to the next page if it doesn't fit on the current one, preventing orphaned section titles.
+- **Embedded Company Logo**: Copied the frontend company logo (`frontend/public/logo.png`) to backend resources (`backend-kotlin-jpa/src/main/resources/company_logo.png`), and reordered the layout on the first page of the PDF so the company logo is rendered directly below the company name.
+- **Rebuilt & Redeployed**: Recompiled host classes and restarted the backend container so all new code changes and resources are fully active and serving. Verified PDF layout output using PyMuPDF checks.
+
+### Files Changed
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/PdfService.kt`
+- `backend-kotlin-jpa/src/main/resources/company_logo.png`
+- `~/.gemini/antigravity/mcp_config.json` (created user-scoped)
+
+### Next Steps
+- Merge `feat/pdf-layout-fixes` into `main`.
+- Open a PR on GitHub for review.
+
+---
+
+## Previous Session (2026-07-05, session 104) — add-pdf-table-totals
 
 ### What Was Done
 - **Table Totals in PDF Export**: Modified `PdfService.kt` to calculate and append total amount rows to the bottom of the Expense Summary and Advance Payments tables in the generated PDF report. The totals display the sum of all item values converted to EUR, maintaining visual consistency with the existing Mileage table total row.

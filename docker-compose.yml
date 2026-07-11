@@ -39,7 +39,7 @@ services:
       - SPRING_DATASOURCE_USERNAME=${DB_USER:-xpenses}
       - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD:-xpenses}
       - SEED_DEMO_USERS=${SEED_DEMO_USERS:-true}
-      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-dev}
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-prod}
     depends_on:
       db:
         condition: service_healthy

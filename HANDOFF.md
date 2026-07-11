@@ -1,20 +1,30 @@
 # HANDOFF.md — xpenses-kotlin
 
-## Current Session (2026-07-11, session 107) — domain-migration
+## Current Session (2026-07-11, session 108) — prod-readiness-fixes
 
 ### What Was Done
-- **Migrated domain to `xpenses.nt-automation.cc`**: Changed DNS to point through Cloudflare Zero Trust to `http://192.168.100.48:3001`. Updated all runtime config to use the new domain with HTTPS (Cloudflare terminates TLS at the edge).
-- **`.env` updates**: Set `COOKIE_SECURE=true`, added `https://xpenses.nt-automation.cc` to `CORS_ALLOWED_ORIGINS`, updated `NEXT_PUBLIC_API_URL` to `https://xpenses.nt-automation.cc/api`, removed `http://xpenses.nt-automation.eu:3001` from CORS.
-- **Removed Caddy**: Deleted `Caddyfile` and removed the `caddy` service block + `caddy-data` volume from `docker-compose.yml`. Caddy was not in the request path (frontend on port 3001 handles traffic directly with Next.js rewrites proxying `/api/*` to backend).
-- **Restarted containers**: Backend and frontend containers recreated with new env vars. Caddy orphan container cleaned up via `--remove-orphans`.
+- **Prod readiness checkup**: Analyzed app against 20 readiness criteria. Found 5 🔴 critical, 7 🟡 should-fix, 8 🟢 nice-to-have items.
+- **`SPRING_PROFILES_ACTIVE` defaults to `prod`**: Changed `docker-compose.yml` from `${SPRING_PROFILES_ACTIVE:-dev}` to `${SPRING_PROFILES_ACTIVE:-prod}` — JSON structured logging now active by default.
+- **Daily DB backup at 02:00**: Installed cron job running `scripts/backup-db.sh`. Changed retention from 30→90 days.
+- **Swagger disabled by default**: Changed `application.yml` `SWAGGER_ENABLED` default from `true` to `false`. API docs off unless explicitly enabled via env var.
+- **Test coverage for 5 uncovered controllers**: Added 37 new tests across Mileage (8), Inventory (9), Insurance (6), Category (8), and Signature (6) controllers. Total test suite: **108 tests** (was 71).
+- **Fixed `@PreAuthorize` 500 bug**: Moved CategoryController role enforcement from `@PreAuthorize` to `SecurityConfig.kt` path-based rules — the global `@ExceptionHandler(Exception::class)` was catching `AuthorizationDeniedException` and returning 500 instead of 403. UserController already used this pattern.
 
 ### Files Changed
-- `.env` — `COOKIE_SECURE`, `CORS_ALLOWED_ORIGINS`, `NEXT_PUBLIC_API_URL`
-- `docker-compose.yml` — frontend `NEXT_PUBLIC_API_URL` updated, Caddy service + volume removed
-- `Caddyfile` — deleted
+- `docker-compose.yml` — `SPRING_PROFILES_ACTIVE` default → `prod`
+- `scripts/backup-db.sh` — retention 30→90 days
+- `backend-kotlin-jpa/src/main/resources/application.yml` — `SWAGGER_ENABLED` default → `false`
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/config/SecurityConfig.kt` — category role paths added
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/CategoryController.kt` — removed `@PreAuthorize`
+- `backend-kotlin-jpa/src/test/kotlin/eu/nt/xpenses/controllers/MileageControllerTest.kt` — new (8 tests)
+- `backend-kotlin-jpa/src/test/kotlin/eu/nt/xpenses/controllers/InventoryControllerTest.kt` — new (9 tests)
+- `backend-kotlin-jpa/src/test/kotlin/eu/nt/xpenses/controllers/InsuranceControllerTest.kt` — new (6 tests)
+- `backend-kotlin-jpa/src/test/kotlin/eu/nt/xpenses/controllers/CategoryControllerTest.kt` — new (8 tests)
+- `backend-kotlin-jpa/src/test/kotlin/eu/nt/xpenses/controllers/SignatureControllerTest.kt` — new (6 tests)
 
 ### Next Steps
-- Verify app works on `https://xpenses.nt-automation.cc`
+- Remaining 🔴 items from the prod checkup: `SEED_DEMO_USERS=true` in live `.env`, `docker-compose.override.yml` on server, default Postgres password, `encryption.secret` fallback to `JWT_SECRET`.
+- Consider off-box backup destination (rclone/S3) and uptime monitoring.
 
 ---
 

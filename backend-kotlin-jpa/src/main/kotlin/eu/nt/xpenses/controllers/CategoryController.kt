@@ -6,7 +6,6 @@ import eu.nt.xpenses.repositories.CategoryRepository
 import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
 import org.springframework.http.ResponseEntity
-import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.bind.annotation.*
 import java.math.BigDecimal
@@ -30,7 +29,6 @@ class CategoryController(
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('mod')")
     @Transactional
     fun createCategory(@Valid @RequestBody body: CategoryCreateRequest): ResponseEntity<*> {
         val existing = categoryRepository.findByName(body.name)
@@ -46,7 +44,6 @@ class CategoryController(
     }
 
     @PatchMapping("/{categoryId}")
-    @PreAuthorize("hasRole('mod')")
     @Transactional
     fun updateCategory(
         @PathVariable categoryId: Int,
@@ -74,7 +71,6 @@ class CategoryController(
     }
 
     @DeleteMapping("/{categoryId}")
-    @PreAuthorize("hasRole('mod')")
     @Transactional
     fun deactivateCategory(@PathVariable categoryId: Int): ResponseEntity<Void> {
         val category = categoryRepository.findById(categoryId).orElse(null)

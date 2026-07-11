@@ -1,0 +1,62 @@
+const CACHE_NAME = "xpenses-v1";
+const SHELL_URLS = ["/", "/login", "/dashboard", "/expenses", "/reports"];
+
+self.addEventListener("install", (event) => {
+  event.waitUntil(
+    (async () => {
+      const cache = await caches.open(CACHE_NAME);
+      await cache.addAll(SHELL_URLS);
+    })(),
+  );
+  self.skipWaiting();
+});
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    (async () => {
+      const keys = await caches.keys();
+      await Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)));
+    })(),
+  );
+  self.clients.claim();
+});
+
+self.addEventListener("fetch", (event) => {
+  const { request } = event;
+  const url = new URL(request.url);
+
+  if (url.origin !== self.location.origin) return;
+
+  if (request.mode === "navigate" || request.destination === "style" || request.destination === "script" || request.destination === "font") {
+    event.respondWith(networkFirst(request));
+  } else if (request.destination === "image") {
+    event.respondWith(cacheFirst(request));
+  } else {
+    event.respondWith(networkFirst(request));
+  }
+});
+
+async function networkFirst(request) {
+  try {
+    const response = await fetch(request);
+    const cache = await caches.open(CACHE_NAME);
+    cache.put(request, response.clone());
+    return response;
+  } catch {
+    const cached = await caches.match(request);
+    return cached || new Response("Offline", { status: 503 });
+  }
+}
+
+async function cacheFirst(request) {
+  const cached = await caches.match(request);
+  if (cached) return cached;
+  try {
+    const response = await fetch(request);
+    const cache = await caches.open(CACHE_NAME);
+    cache.put(request, response.clone());
+    return response;
+  } catch {
+    return new Response("Offline", { status: 503 });
+  }
+}

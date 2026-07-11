@@ -1,6 +1,41 @@
 # HANDOFF.md — xpenses-kotlin
 
-## Current Session (2026-07-09, session 105) — pdf-layout-fixes
+## Current Session (2026-07-11, session 106) — ios-pwa-metadata
+
+### What Was Done
+- **Added full iOS PWA support to frontend**: Added manifest, apple meta tags, touch icons, service worker, favicon, and dual theme-color support.
+- **Web App Manifest**: Created `public/manifest.json` with standalone display, 192x192/512x512 icons (standard + maskable), `#0f172a` theme_color, and `#f8fafc` background_color.
+- **iOS Meta Tags**: Added `apple-mobile-web-app-capable`, `apple-mobile-web-app-status-bar-style` (black-translucent), and `apple-mobile-web-app-title` via Next.js Metadata API `other` field.
+- **Apple Touch Icons**: Added 4 sizes (180x180, 152x152, 120x120, 167x167) via Metadata API `icons.apple` — generated from `logo.png` using sharp.
+- **Dual Theme Color**: Added two `theme-color` meta tags with `prefers-color-scheme` media queries (light: `#f8fafc`, dark: `#0f172a`) via Next.js `Viewport` export.
+- **Viewport Export**: Added explicit `export const viewport` with `width: device-width`, `initialScale: 1`, and dual `themeColor`.
+- **Service Worker**: Created `public/sw.js` with versioned cache, app shell precaching (`/`, `/login`, `/dashboard`, `/expenses`, `/reports`), network-first for API/navigation, cache-first for assets, and old-cache cleanup on activate.
+- **PWA Registration Component**: Created `components/PwaRegistration.tsx` — client component using `useToast` to notify on SW updates, auto-reloads on controller change.
+- **Favicon**: Generated `public/favicon.ico` (32x32 ICO, was missing — fixing middleware 404) + `public/favicon-32x32.png`.
+- **Icon Set**: Generated 8 icon files in `public/icons/` at standard PWA/apple-touch sizes using a one-time sharp script.
+- **Middleware Fix**: Updated `frontend/middleware.ts` to bypass auth check for `/manifest.json`, `/sw.js`, `/icons/`, and favicon paths — without this, unauthenticated static requests were redirected to `/login`.
+- **Layout Update**: Wired `PwaRegistration` into root layout inside `Providers` (for toast context access). Manifest linked via `<link rel="manifest">` (set via `metadata.manifest`).
+- **No new npm dependencies**: Everything uses vanilla JS (SW) + Next.js Metadata API + sharp (already present via Next.js).
+- **Deployed live**: Rebuilt and restarted the frontend Docker container on the production server. Verified `/manifest.json`, `/sw.js`, `/favicon.ico`, and apple touch icons all return 200 without auth redirect.
+
+### Files Changed
+- `frontend/public/manifest.json` — new
+- `frontend/public/sw.js` — new
+- `frontend/public/favicon.ico` — new
+- `frontend/public/favicon-32x32.png` — new
+- `frontend/public/icons/` — 8 generated PNGs (new)
+- `frontend/components/PwaRegistration.tsx` — new
+- `frontend/app/layout.tsx` — viewport, metadata (apple icons, manifest, iOS meta tags), PwaRegistration
+- `frontend/middleware.ts` — bypass for manifest.json, sw.js, icons/, favicon
+- `openspec/changes/ios-pwa-metadata/` — proposal, design, 4 specs, tasks
+
+### Next Steps
+- Test on iPhone: open Safari → `https://xpenses.nt-automation.eu:3001` → Share → Add to Home Screen
+- Verify standalone mode, icon, status bar, and offline shell loading
+
+---
+
+## Previous Session (2026-07-09, session 105) — pdf-layout-fixes
 
 ### What Was Done
 - **Installed Graphify & MCP**: Installed Graphify tool, registered the skill with Antigravity (`graphify antigravity install`), and configured the MCP server under `~/.gemini/antigravity/mcp_config.json` for native knowledge-graph-driven architecture navigation.

@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (pathname === "/login" || pathname.startsWith("/_next") || pathname.startsWith("/api") || pathname === "/favicon.ico" || pathname.endsWith(".png")) {
+  if (pathname === "/login" || pathname.startsWith("/_next") || pathname.startsWith("/api") || pathname === "/favicon.ico" || pathname === "/manifest.json" || pathname === "/sw.js" || pathname.startsWith("/icons/") || pathname.endsWith(".png")) {
     return NextResponse.next();
   }
 
@@ -18,5 +18,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|favicon-32x32.png|manifest.json|sw.js|icons/).*)"],
 };

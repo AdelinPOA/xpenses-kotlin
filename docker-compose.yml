@@ -70,7 +70,7 @@ services:
       - "3001:3000"
     environment:
       - NODE_ENV=production
-      - NEXT_PUBLIC_API_URL=http://xpenses.nt-automation.eu:8001/api
+      - NEXT_PUBLIC_API_URL=https://xpenses.nt-automation.cc/api
       - INTERNAL_API_URL=http://backend:8080/api
     deploy:
       resources:
@@ -87,21 +87,6 @@ services:
     networks:
       - xpenses-net
 
-  caddy:
-    image: caddy:2-alpine
-    container_name: xpenses-caddy
-    ports:
-      - "80:80"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile
-      - caddy-data:/data
-    depends_on:
-      - backend
-      - frontend
-    networks:
-      - xpenses-net
-    restart: unless-stopped
-
 networks:
   xpenses-net:
     driver: bridge
@@ -111,5 +96,4 @@ volumes:
     driver: local
   pgdata:
     driver: local
-  caddy-data:
-    driver: local
+

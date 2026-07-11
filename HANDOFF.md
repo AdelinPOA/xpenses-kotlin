@@ -1,6 +1,24 @@
 # HANDOFF.md — xpenses-kotlin
 
-## Current Session (2026-07-11, session 106) — ios-pwa-metadata
+## Current Session (2026-07-11, session 107) — domain-migration
+
+### What Was Done
+- **Migrated domain to `xpenses.nt-automation.cc`**: Changed DNS to point through Cloudflare Zero Trust to `http://192.168.100.48:3001`. Updated all runtime config to use the new domain with HTTPS (Cloudflare terminates TLS at the edge).
+- **`.env` updates**: Set `COOKIE_SECURE=true`, added `https://xpenses.nt-automation.cc` to `CORS_ALLOWED_ORIGINS`, updated `NEXT_PUBLIC_API_URL` to `https://xpenses.nt-automation.cc/api`, removed `http://xpenses.nt-automation.eu:3001` from CORS.
+- **Removed Caddy**: Deleted `Caddyfile` and removed the `caddy` service block + `caddy-data` volume from `docker-compose.yml`. Caddy was not in the request path (frontend on port 3001 handles traffic directly with Next.js rewrites proxying `/api/*` to backend).
+- **Restarted containers**: Backend and frontend containers recreated with new env vars. Caddy orphan container cleaned up via `--remove-orphans`.
+
+### Files Changed
+- `.env` — `COOKIE_SECURE`, `CORS_ALLOWED_ORIGINS`, `NEXT_PUBLIC_API_URL`
+- `docker-compose.yml` — frontend `NEXT_PUBLIC_API_URL` updated, Caddy service + volume removed
+- `Caddyfile` — deleted
+
+### Next Steps
+- Verify app works on `https://xpenses.nt-automation.cc`
+
+---
+
+## Previous Session (2026-07-11, session 106) — ios-pwa-metadata
 
 ### What Was Done
 - **Added full iOS PWA support to frontend**: Added manifest, apple meta tags, touch icons, service worker, favicon, and dual theme-color support.

@@ -35,6 +35,7 @@ class ExpenseMapper {
             currencyOriginal = expense.currencyOriginal,
             amountEur = expense.amountEur,
             fxRate = expense.fxRate,
+            fxRateManual = expense.fxRateManual,
             taxAmount = expense.taxAmount,
             taxRate = expense.taxRate,
             taxAmountEur = expense.taxAmountEur,

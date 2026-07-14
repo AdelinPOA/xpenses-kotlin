@@ -9,6 +9,9 @@ data/
 .env.local
 .env.*.local
 
+# Docker Compose overrides (auto-applied if present — use .example instead)
+docker-compose.override.yml
+
 # Python
 __pycache__/
 *.pyc

@@ -33,7 +33,10 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
     tax_amount: expense?.tax_amount?.toString() ?? "0",
     tax_rate: expense?.tax_rate?.toString() ?? "",
     raw_ocr_text: expense?.raw_ocr_text ?? "",
+    fx_rate: expense?.fx_rate?.toString() ?? "",
+    fx_rate_manual: expense?.fx_rate_manual ?? false,
   });
+  const [fxRateEditMode, setFxRateEditMode] = useState(false);
   const [receiptFiles, setReceiptFiles] = useState<File[]>([]);
   const [deletedReceiptIds, setDeletedReceiptIds] = useState<Set<number>>(new Set());
   const [error, setError] = useState("");
@@ -114,6 +117,7 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
 
   const save = useMutation({
     mutationFn: async () => {
+      const manualRate = fxRateEditMode && form.fx_rate ? parseFloat(form.fx_rate) : null;
       const payload = {
         amount: parseFloat(form.amount),
         currency: form.currency,
@@ -125,6 +129,7 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
         tax_rate: form.tax_rate ? parseFloat(form.tax_rate) : null,
         raw_ocr_text: form.raw_ocr_text || null,
         comparison_id: scanResult?.comparison_id || null,
+        ...(manualRate !== null ? { fx_rate: manualRate, fx_rate_manual: true } : {}),
         ...(reportId && !isEdit ? { report_id: reportId } : {}),
       };
       let result: Expense;
@@ -369,7 +374,7 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
 
           {savedExpense && savedExpense.currency_original !== "EUR" && (
             <div className="bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 rounded-lg p-3 text-sm text-emerald-800 dark:text-emerald-400">
-              {savedExpense.amount_original} {savedExpense.currency_original} → {formatEur(savedExpense.amount_eur)} (rate: {savedExpense.fx_rate.toFixed(4)})
+              {savedExpense.amount_original} {savedExpense.currency_original} → {formatEur(savedExpense.amount_eur)} (rate: {savedExpense.fx_rate.toFixed(4)}{savedExpense.fx_rate_manual ? " manual" : ""})
             </div>
           )}
 
@@ -440,6 +445,62 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
               </select>
             </div>
           </div>
+
+          {form.currency !== "EUR" && (
+            <div className="flex items-center gap-2">
+              <div className="flex-1">
+                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
+                  FX Rate{" "}
+                  <span className={clsx(
+                    "inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold",
+                    fxRateEditMode
+                      ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400"
+                      : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400"
+                  )}>
+                    {fxRateEditMode ? "Manual" : "Auto"}
+                  </span>
+                </label>
+                <div className="flex items-center gap-1">
+                  {fxRateEditMode ? (
+                    <input
+                      type="number"
+                      step="0.0001"
+                      min="0.0001"
+                      value={form.fx_rate}
+                      onChange={set("fx_rate")}
+                      className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:text-slate-100"
+                    />
+                  ) : (
+                    <span className="text-sm text-slate-600 dark:text-slate-400 py-2">
+                      {isEdit && expense?.fx_rate ? `1 ${form.currency} = ${expense.fx_rate.toFixed(4)} EUR` : "Will be fetched on save"}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (fxRateEditMode) {
+                        setFxRateEditMode(false);
+                        setForm((f) => ({ ...f, fx_rate: expense?.fx_rate?.toString() ?? "", fx_rate_manual: expense?.fx_rate_manual ?? false }));
+                      } else {
+                        setFxRateEditMode(true);
+                        if (!form.fx_rate && isEdit && expense?.fx_rate) {
+                          setForm((f) => ({ ...f, fx_rate: expense.fx_rate.toString() }));
+                        }
+                      }
+                    }}
+                    className="text-slate-400 hover:text-blue-600 dark:hover:text-blue-400"
+                    title={fxRateEditMode ? "Revert to auto" : "Edit rate manually"}
+                  >
+                    {fxRateEditMode ? (
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                    ) : (
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div>
             <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Date *</label>

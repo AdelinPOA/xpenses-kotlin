@@ -215,6 +215,9 @@ class Expense(
     @Column(name = "fx_rate", nullable = false)
     var fxRate: BigDecimal = BigDecimal.ONE,
 
+    @Column(name = "fx_rate_manual", nullable = false)
+    var fxRateManual: Boolean = false,
+
     @Column(name = "tax_amount", nullable = false)
     var taxAmount: BigDecimal = BigDecimal.ZERO,
 

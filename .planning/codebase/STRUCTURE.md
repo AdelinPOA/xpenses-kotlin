@@ -161,7 +161,7 @@ xpenses-kotlin/
 │   └── Dockerfile                     # Runtime: node:22-alpine
 
 ├── docker-compose.yml                 # Local dev: frontend + backend + postgres + caddy
-├── docker-compose.override.yml        # Local dev overrides (opt-in)
+├── docker-compose.override.yml.example    # Local dev overrides — rename to .yml to enable
 ├── Dockerfile.native                  # (GraalVM native image, not used)
 ├── Makefile                           # Top-level commands (build, test, test-health)
 ├── .env                               # Local dev secrets (not committed)

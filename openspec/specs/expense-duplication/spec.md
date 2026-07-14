@@ -15,12 +15,14 @@ The system SHALL expose a `POST /api/expenses/{expense_id}/duplicate` endpoint t
 - `merchant`
 - `description`
 - `date`
+- `fx_rate`
+- `fx_rate_manual`
 
 The system MUST enforce that:
 - The duplicated expense's `status` is set to `draft`.
 - The duplicated expense's `report_id` is set to `NULL` (unattached to any report).
 - The original expense's receipts are **not** copied to the duplicate.
-- The FX rate and EUR equivalent amounts (`amount_eur`, `fx_rate`, `tax_amount_eur`) are re-evaluated based on the expense date using the exchange rate cache.
+- The FX rate and EUR equivalent amounts (`amount_eur`, `fx_rate`, `fx_rate_manual`, `tax_amount_eur`) are **preserved from the original expense** — no re-fetch from external API.
 - Only the user who owns the original expense is permitted to duplicate it (non-owners receive a 403 Forbidden response).
 
 #### Scenario: Owner duplicates an expense successfully

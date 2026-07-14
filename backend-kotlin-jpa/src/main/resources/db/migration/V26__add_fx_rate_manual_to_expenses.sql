@@ -1,0 +1,1 @@
+ALTER TABLE expenses ADD COLUMN fx_rate_manual BOOLEAN NOT NULL DEFAULT false;

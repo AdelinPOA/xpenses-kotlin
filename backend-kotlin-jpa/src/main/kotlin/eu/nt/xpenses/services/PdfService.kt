@@ -251,7 +251,8 @@ class PdfService(
 
             val amtText = "${formatCurrencySymbol(e.currencyOriginal)}${formatBigDecimal(e.amountOriginal)}"
             val fxRateText = if (e.currencyOriginal != "EUR" && e.fxRate != BigDecimal.ONE) {
-                "\n1 ${e.currencyOriginal} = ${e.fxRate} EUR"
+                val manualSuffix = if (e.fxRateManual) " (manual)" else ""
+                "\n1 ${e.currencyOriginal} = ${e.fxRate} EUR$manualSuffix"
             } else ""
             val cellAmt = PdfPCell(Phrase("$amtText$fxRateText", fontSmall))
             cellAmt.setPadding(5f)

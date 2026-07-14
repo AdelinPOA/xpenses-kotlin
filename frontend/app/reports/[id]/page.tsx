@@ -578,7 +578,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
                       <td className="px-4 py-3 text-slate-500 dark:text-slate-400 hidden md:table-cell">{e.description || "—"}</td>
                       <td className="px-4 py-3 text-right text-slate-500 dark:text-slate-400 hidden sm:table-cell">
                         {e.currency_original !== "EUR"
-                          ? formatAmount(e.amount_original, e.currency_original)
+                          ? <>{formatAmount(e.amount_original, e.currency_original)}{e.fx_rate_manual && <span className="ml-1 text-[10px] text-amber-600 dark:text-amber-400 font-medium">manual</span>}</>
                           : "—"}
                       </td>
                       <td className="px-4 py-3 text-right font-semibold text-slate-900 dark:text-slate-100">

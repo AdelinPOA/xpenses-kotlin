@@ -472,6 +472,7 @@ data class ExpenseOut(
     @JsonProperty("currency_original") val currencyOriginal: String,
     @JsonProperty("amount_eur") val amountEur: BigDecimal,
     @JsonProperty("fx_rate") val fxRate: BigDecimal,
+    @JsonProperty("fx_rate_manual") val fxRateManual: Boolean,
     @JsonProperty("tax_amount") val taxAmount: BigDecimal,
     @JsonProperty("tax_rate") val taxRate: BigDecimal?,
     @JsonProperty("tax_amount_eur") val taxAmountEur: BigDecimal,
@@ -497,7 +498,9 @@ data class ExpenseCreate(
     val description: String? = null,
     val merchant: String? = null,
     @JsonProperty("raw_ocr_text") val rawOcrText: String? = null,
-    @JsonProperty("comparison_id") val comparisonId: Int? = null
+    @JsonProperty("comparison_id") val comparisonId: Int? = null,
+    @JsonProperty("fx_rate") val fxRate: BigDecimal? = null,
+    @JsonProperty("fx_rate_manual") val fxRateManual: Boolean? = null
 )
 
 data class ExpenseUpdate(
@@ -511,7 +514,9 @@ data class ExpenseUpdate(
     val description: String? = null,
     val merchant: String? = null,
     @JsonProperty("raw_ocr_text") val rawOcrText: String? = null,
-    @JsonProperty("comparison_id") val comparisonId: Int? = null
+    @JsonProperty("comparison_id") val comparisonId: Int? = null,
+    @JsonProperty("fx_rate") val fxRate: BigDecimal? = null,
+    @JsonProperty("fx_rate_manual") val fxRateManual: Boolean? = null
 )
 
 data class BulkUploadError(

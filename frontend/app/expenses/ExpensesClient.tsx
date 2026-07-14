@@ -219,7 +219,12 @@ function ExpensesPageContent() {
                     <div className="text-right shrink-0">
                       <p className="font-semibold text-slate-900 dark:text-slate-100">{formatAmount(e.amount_eur, "EUR")}</p>
                       {e.currency_original !== "EUR" && (
-                        <p className="text-xs text-slate-400 dark:text-slate-500">{formatAmount(e.amount_original, e.currency_original)}</p>
+                        <p className="text-xs text-slate-400 dark:text-slate-500">
+                          {formatAmount(e.amount_original, e.currency_original)}
+                          {e.fx_rate_manual && (
+                            <span className="ml-1 text-[10px] text-amber-600 dark:text-amber-400 font-medium">manual</span>
+                          )}
+                        </p>
                       )}
                     </div>
                   </div>
@@ -295,6 +300,9 @@ function ExpensesPageContent() {
                         {e.currency_original !== "EUR" && (
                           <span className="block text-xs text-slate-400 dark:text-slate-500 font-normal">
                             {formatAmount(e.amount_original, e.currency_original)}
+                            {e.fx_rate_manual && (
+                              <span className="ml-1 text-[10px] text-amber-600 dark:text-amber-400 font-medium">manual</span>
+                            )}
                           </span>
                         )}
                       </td>

@@ -260,7 +260,7 @@ docker compose up -d --build   # works regardless of host JDK
 
 ### Backend Hot-Swapping (Local Development)
 
-The local environment is configured for fast JVM hot-swapping using `spring-boot-devtools` and `PropertiesLauncher` (via `docker-compose.override.yml`).
+The local environment is configured for fast JVM hot-swapping using `spring-boot-devtools` and `PropertiesLauncher` (via `docker-compose.override.yml.example` — rename to `docker-compose.override.yml` to enable).
 
 To hot-swap Kotlin class files and resources into the running backend container in under 1s without rebuilding or restarting Docker:
 1. Ensure the services are running: `docker compose up -d`

@@ -108,6 +108,7 @@ export interface Expense {
   currency_original: string;
   amount_eur: number;
   fx_rate: number;
+  fx_rate_manual: boolean;
   tax_amount: number;
   tax_rate: number | null;
   tax_amount_eur: number;

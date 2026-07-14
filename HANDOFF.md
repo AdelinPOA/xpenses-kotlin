@@ -1,30 +1,38 @@
 # HANDOFF.md — xpenses-kotlin
 
-## Current Session (2026-07-11, session 108) — prod-readiness-fixes
+## Current Session (2026-07-14, session 109) — manual-fx-rate-override
 
 ### What Was Done
-- **Prod readiness checkup**: Analyzed app against 20 readiness criteria. Found 5 🔴 critical, 7 🟡 should-fix, 8 🟢 nice-to-have items.
-- **`SPRING_PROFILES_ACTIVE` defaults to `prod`**: Changed `docker-compose.yml` from `${SPRING_PROFILES_ACTIVE:-dev}` to `${SPRING_PROFILES_ACTIVE:-prod}` — JSON structured logging now active by default.
-- **Daily DB backup at 02:00**: Installed cron job running `scripts/backup-db.sh`. Changed retention from 30→90 days.
-- **Swagger disabled by default**: Changed `application.yml` `SWAGGER_ENABLED` default from `true` to `false`. API docs off unless explicitly enabled via env var.
-- **Test coverage for 5 uncovered controllers**: Added 37 new tests across Mileage (8), Inventory (9), Insurance (6), Category (8), and Signature (6) controllers. Total test suite: **108 tests** (was 71).
-- **Fixed `@PreAuthorize` 500 bug**: Moved CategoryController role enforcement from `@PreAuthorize` to `SecurityConfig.kt` path-based rules — the global `@ExceptionHandler(Exception::class)` was catching `AuthorizationDeniedException` and returning 500 instead of 403. UserController already used this pattern.
+- **Manual FX rate override on expenses**: Users can now view and manually override the FX rate on individual expense entries when the currency is not EUR. New Flyway migration (`V26__add_fx_rate_manual_to_expenses.sql`) adds `fx_rate_manual BOOLEAN` column to `expenses` table.
+- **Backend**: `Expense` entity gains `fxRateManual` field. `ExpenseCreate`/`ExpenseUpdate` DTOs accept optional `fxRate` and `fxRateManual`. When `fxRate` is provided, `ExpenseService` uses it directly (skips API call) and sets `fxRateManual=true`. `duplicateExpense` preserves original rate and manual flag instead of re-fetching from API.
+- **Frontend form** (`ExpenseForm.tsx`): Non-EUR expenses now show an inline FX rate display with a pencil toggle to switch from "Auto" to "Manual" mode, allowing users to enter a custom rate.
+- **Frontend display**: "manual" badge shown on expense list (desktop + mobile), report detail, and PDF export for manually overridden rates.
+- **PDF export**: Rates annotated with "(manual)" suffix when `fxRateManual` is true.
+- **Tests**: Added 4 new `ExpenseServiceTest` cases covering manual rate on create, update, auto-fetch, and duplicate preservation. All **109 backend tests pass**. Frontend `tsc --noEmit` and `npm run lint` clean.
+- **OpenSpec workflow**: Used `openspec-propose` → `openspec-apply-change` → `openspec-sync-specs` → `openspec-archive-change`. Change archived at `openspec/changes/archive/2026-07-14-edit-fx-rate-manually/`.
+- **Decision record**: Expenses only (not advances). Manual rate persists on field changes. Inline edit with Auto/Manual toggle.
 
 ### Files Changed
-- `docker-compose.yml` — `SPRING_PROFILES_ACTIVE` default → `prod`
-- `scripts/backup-db.sh` — retention 30→90 days
-- `backend-kotlin-jpa/src/main/resources/application.yml` — `SWAGGER_ENABLED` default → `false`
-- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/config/SecurityConfig.kt` — category role paths added
-- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/CategoryController.kt` — removed `@PreAuthorize`
-- `backend-kotlin-jpa/src/test/kotlin/eu/nt/xpenses/controllers/MileageControllerTest.kt` — new (8 tests)
-- `backend-kotlin-jpa/src/test/kotlin/eu/nt/xpenses/controllers/InventoryControllerTest.kt` — new (9 tests)
-- `backend-kotlin-jpa/src/test/kotlin/eu/nt/xpenses/controllers/InsuranceControllerTest.kt` — new (6 tests)
-- `backend-kotlin-jpa/src/test/kotlin/eu/nt/xpenses/controllers/CategoryControllerTest.kt` — new (8 tests)
-- `backend-kotlin-jpa/src/test/kotlin/eu/nt/xpenses/controllers/SignatureControllerTest.kt` — new (6 tests)
+- `backend-kotlin-jpa/src/main/resources/db/migration/V26__add_fx_rate_manual_to_expenses.sql` — new migration
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/models/Models.kt` — added `fxRateManual` field
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/ExpenseController.kt` — updated DTOs
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/ExpenseService.kt` — manual rate handling
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/ExpenseMapper.kt` — map `fxRateManual`
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/PdfService.kt` — "(manual)" suffix
+- `backend-kotlin-jpa/src/test/kotlin/eu/nt/xpenses/services/ExpenseServiceTest.kt` — 4 new tests
+- `frontend/lib/api.ts` — added `fx_rate_manual` to `Expense` type
+- `frontend/components/expenses/ExpenseForm.tsx` — inline editable FX rate field
+- `frontend/app/expenses/ExpensesClient.tsx` — manual badge on list
+- `frontend/app/reports/[id]/page.tsx` — manual badge on report detail
+- `openspec/specs/manual-fx-rate/spec.md` — new main spec
+- `openspec/specs/expense-duplication/spec.md` — updated for manual rate preservation
+- `openspec/specs/pdf-export/spec.md` — added manual FX annotation requirement
+- `openspec/changes/archive/2026-07-14-edit-fx-rate-manually/` — archived change
 
 ### Next Steps
-- Remaining 🔴 items from the prod checkup: `SEED_DEMO_USERS=true` in live `.env`, `docker-compose.override.yml` on server, default Postgres password, `encryption.secret` fallback to `JWT_SECRET`.
-- Consider off-box backup destination (rclone/S3) and uptime monitoring.
+- Deploy: rebuild + restart backend and frontend (`docker compose up -d --build`) to make live
+- Verify on `xpenses.nt-automation.eu:3001` or `localhost:8001`
+- Commit and push to GitHub
 
 ---
 

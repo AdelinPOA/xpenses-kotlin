@@ -116,4 +116,82 @@ class ExpenseServiceTest {
         assertEquals(HttpStatus.BAD_REQUEST, ex.statusCode)
         assertTrue(ex.reason?.contains("deactivated") == true)
     }
+
+    @Test
+    fun `createExpense with manual fxRate should skip API call and set fxRateManual`() {
+        val createBody = ExpenseCreate(
+            amount = BigDecimal("100.00"),
+            currency = "USD",
+            date = "2024-01-01",
+            taxAmount = BigDecimal("10.00"),
+            fxRate = BigDecimal("0.90")
+        )
+        `when`(expenseRepository.save(any(Expense::class.java))).thenAnswer { it.arguments[0] }
+
+        val result = expenseService.createExpense(createBody, techUser)
+
+        assertEquals(BigDecimal("100.00"), result.amountOriginal)
+        assertEquals(BigDecimal("0.90"), result.fxRate)
+        assertEquals(BigDecimal("90.00"), result.amountEur)
+        assertTrue(result.fxRateManual)
+        verify(fxService, times(0)).getRate(anyString(), anyString())
+    }
+
+    @Test
+    fun `createExpense without fxRate should fetch from API and set fxRateManual false`() {
+        val createBody = ExpenseCreate(
+            amount = BigDecimal("100.00"),
+            currency = "GBP",
+            date = "2024-01-01",
+            taxAmount = BigDecimal("10.00")
+        )
+        `when`(fxService.getRate("GBP", "2024-01-01")).thenReturn(BigDecimal("1.15"))
+        `when`(expenseRepository.save(any(Expense::class.java))).thenAnswer { it.arguments[0] }
+
+        val result = expenseService.createExpense(createBody, techUser)
+
+        assertEquals(BigDecimal("115.00"), result.amountEur)
+        assertEquals(BigDecimal("1.15"), result.fxRate)
+        assertFalse(result.fxRateManual)
+        verify(fxService).getRate("GBP", "2024-01-01")
+    }
+
+    @Test
+    fun `updateExpense with manual fxRate should use provided rate and set fxRateManual`() {
+        val expense = Expense(id = 1, user = techUser, status = "draft", amountOriginal = BigDecimal("50.00"), amountEur = BigDecimal("50.00"), currencyOriginal = "EUR", date = "2024-01-01")
+        `when`(expenseRepository.findById(1)).thenReturn(Optional.of(expense))
+        `when`(expenseRepository.save(any(Expense::class.java))).thenAnswer { it.arguments[0] }
+
+        val result = expenseService.updateExpense(1, ExpenseUpdate(amount = BigDecimal("100.00"), currency = "USD", fxRate = BigDecimal("0.88")), techUser)
+
+        assertEquals(BigDecimal("100.00"), result.amountOriginal)
+        assertEquals("USD", result.currencyOriginal)
+        assertEquals(BigDecimal("0.88"), result.fxRate)
+        assertEquals(BigDecimal("88.00"), result.amountEur)
+        assertTrue(result.fxRateManual)
+        verify(fxService, times(0)).getRate(anyString(), anyString())
+    }
+
+    @Test
+    fun `duplicateExpense should preserve fxRate and fxRateManual from source`() {
+        val sourceExpense = Expense(
+            id = 1, user = techUser, status = "draft",
+            amountOriginal = BigDecimal("100.00"), currencyOriginal = "USD",
+            amountEur = BigDecimal("90.00"), fxRate = BigDecimal("0.90"), fxRateManual = true,
+            taxAmount = BigDecimal("10.00"), taxAmountEur = BigDecimal("9.00"),
+            date = "2024-01-01"
+        )
+        `when`(expenseRepository.findById(1)).thenReturn(Optional.of(sourceExpense))
+        `when`(expenseRepository.save(any(Expense::class.java))).thenAnswer { it.arguments[0] }
+
+        val result = expenseService.duplicateExpense(1, techUser)
+
+        assertEquals(BigDecimal("0.90"), result.fxRate)
+        assertTrue(result.fxRateManual)
+        assertEquals(BigDecimal("90.00"), result.amountEur)
+        assertEquals(BigDecimal("9.00"), result.taxAmountEur)
+        assertEquals("draft", result.status)
+        assertNull(result.report)
+        verify(fxService, times(0)).getRate(anyString(), anyString())
+    }
 }

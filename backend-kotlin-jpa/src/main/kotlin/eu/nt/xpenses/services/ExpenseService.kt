@@ -29,11 +29,16 @@ class ExpenseService(
 
     @Transactional
     fun createExpense(body: ExpenseCreate, currentUser: User): Expense {
-        val fxRate = try {
-            fxService.getRate(body.currency, body.date)
-        } catch (e: Exception) {
-            throw ResponseStatusException(HttpStatus.BAD_GATEWAY, "Failed to fetch exchange rate: ${e.message}")
+        val fxRate = if (body.fxRate != null) {
+            body.fxRate
+        } else {
+            try {
+                fxService.getRate(body.currency, body.date)
+            } catch (e: Exception) {
+                throw ResponseStatusException(HttpStatus.BAD_GATEWAY, "Failed to fetch exchange rate: ${e.message}")
+            }
         }
+        val fxRateManual = body.fxRate != null
 
         val amountEur = body.amount.multiply(fxRate).setScale(2, RoundingMode.HALF_UP)
         val taxAmountEur = body.taxAmount.multiply(fxRate).setScale(2, RoundingMode.HALF_UP)
@@ -69,6 +74,7 @@ class ExpenseService(
             currencyOriginal = body.currency.uppercase(),
             amountEur = amountEur,
             fxRate = fxRate,
+            fxRateManual = fxRateManual,
             taxAmount = body.taxAmount,
             taxRate = body.taxRate,
             taxAmountEur = taxAmountEur,
@@ -107,7 +113,9 @@ class ExpenseService(
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Only draft expenses can be edited")
         }
 
-        val needFxRecalc = body.amount != null || body.currency != null || body.date != null || body.taxAmount != null || body.taxRate != null
+        val hasManualRate = body.fxRate != null
+
+        val needFxRecalc = hasManualRate || body.amount != null || body.currency != null || body.date != null || body.taxAmount != null || body.taxRate != null
 
         if (needFxRecalc) {
             val effAmount = body.amount ?: expense.amountOriginal
@@ -116,12 +124,17 @@ class ExpenseService(
             val effTaxAmount = body.taxAmount ?: expense.taxAmount
             val effTaxRate = body.taxRate ?: expense.taxRate
 
-            val fxRate = try {
-                fxService.getRate(effCurrency, effDate)
-            } catch (e: Exception) {
-                throw ResponseStatusException(HttpStatus.BAD_GATEWAY, "Failed to fetch exchange rate: ${e.message}")
+            val fxRate = if (hasManualRate) {
+                body.fxRate
+            } else {
+                try {
+                    fxService.getRate(effCurrency, effDate)
+                } catch (e: Exception) {
+                    throw ResponseStatusException(HttpStatus.BAD_GATEWAY, "Failed to fetch exchange rate: ${e.message}")
+                }
             }
 
+            expense.fxRateManual = hasManualRate
             expense.amountOriginal = effAmount
             expense.currencyOriginal = effCurrency
             expense.fxRate = fxRate
@@ -188,26 +201,18 @@ class ExpenseService(
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Only the owner can perform this action")
         }
 
-        val fxRate = try {
-            fxService.getRate(expense.currencyOriginal, expense.date)
-        } catch (e: Exception) {
-            throw ResponseStatusException(HttpStatus.BAD_GATEWAY, "Failed to fetch exchange rate: ${e.message}")
-        }
-
-        val amountEur = expense.amountOriginal.multiply(fxRate).setScale(2, RoundingMode.HALF_UP)
-        val taxAmountEur = expense.taxAmount.multiply(fxRate).setScale(2, RoundingMode.HALF_UP)
-
         val newExpense = Expense(
             user = currentUser,
             category = expense.category,
             report = null,
             amountOriginal = expense.amountOriginal,
             currencyOriginal = expense.currencyOriginal,
-            amountEur = amountEur,
-            fxRate = fxRate,
+            amountEur = expense.amountEur,
+            fxRate = expense.fxRate,
+            fxRateManual = expense.fxRateManual,
             taxAmount = expense.taxAmount,
             taxRate = expense.taxRate,
-            taxAmountEur = taxAmountEur,
+            taxAmountEur = expense.taxAmountEur,
             date = expense.date,
             description = expense.description,
             merchant = expense.merchant,

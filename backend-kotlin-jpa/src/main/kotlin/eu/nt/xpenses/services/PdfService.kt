@@ -236,10 +236,14 @@ class PdfService(
             cellNo.setPadding(5f)
             expTable.addCell(cellNo)
 
-            val detailsText = if (!e.merchant.isNullOrEmpty()) {
-                "${e.date}\nMerchant: ${e.merchant}"
-            } else {
-                e.date
+            val detailsText = buildString {
+                append(e.date)
+                if (!e.merchant.isNullOrEmpty()) {
+                    append("\nMerchant: ${e.merchant}")
+                }
+                if (!e.description.isNullOrEmpty()) {
+                    append("\nDescription: ${e.description}")
+                }
             }
             val cellDetails = PdfPCell(Phrase(detailsText, fontBody))
             cellDetails.setPadding(5f)

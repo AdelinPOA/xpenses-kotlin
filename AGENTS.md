@@ -3,7 +3,7 @@
 ## Before you start
 
 - Read `HANDOFF.md` (session history) and `README.md` (up-to-date overview) at session start.
-- Update both at session end and push to GitHub.
+- **At session end**: Update HANDOFF.md, stage/commit only relevant files, push to GitHub, then deploy (`docker compose up -d --build backend` or full stack as needed).
 
 ## Workflow
 

@@ -40,6 +40,13 @@ The system SHALL display the delegation email details in the generated PDF repor
 - **WHEN** a report is generated containing kundenauftrag "0007038319" and kundeName "PJSC CARLSBERG UKRAINE"
 - **THEN** the PDF report header displays: "Customer: PJSC CARLSBERG UKRAINE" and "Order (Kundenauftrag): 0007038319"
 
+### Requirement: Expense Description in Details Column
+The system SHALL display the expense description in the "Expense Details" column of the Expense Summary table if available.
+
+#### Scenario: Description shown in PDF
+- **WHEN** a PDF report is generated containing an expense with description "Client lunch meeting"
+- **THEN** the Expense Details column displays the date, merchant (if present), and the description text on a separate line as "Description: Client lunch meeting"
+
 ### Requirement: Manual FX Rate Annotation
 The system SHALL annotate FX rates with a "(manual)" suffix in the PDF expense summary when `fx_rate_manual` is true for the given expense.
 

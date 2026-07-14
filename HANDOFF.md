@@ -1,6 +1,24 @@
 # HANDOFF.md — xpenses-kotlin
 
-## Current Session (2026-07-14, session 109) — manual-fx-rate-override
+## Current Session (2026-07-14, session 110) — pdf-expense-description
+
+### What Was Done
+- **PDF export now shows expense description**: The "Expense Details" column in the PDF Expense Summary table now includes the expense description text when available. Previously only date and merchant were shown.
+- **Backend** (`PdfService.kt`): Replaced the simple `if/else` for details text with `buildString` that appends date, merchant (if present), and description (if present) on separate lines.
+- **Spec update** (`openspec/specs/pdf-export/spec.md`): Added requirement + scenario for expense description in the details column.
+- **Tests**: `PdfServiceTest` (2/2) passes.
+
+### Files Changed
+- `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/PdfService.kt` — added description to expense details cell
+- `openspec/specs/pdf-export/spec.md` — added description requirement
+
+### Next Steps
+- Deploy: rebuild backend (`docker compose up -d --build backend`)
+- Verify on `xpenses.nt-automation.eu:3001` or `localhost:8001`
+
+---
+
+## Previous Session (2026-07-14, session 109) — manual-fx-rate-override
 
 ### What Was Done
 - **Manual FX rate override on expenses**: Users can now view and manually override the FX rate on individual expense entries when the currency is not EUR. New Flyway migration (`V26__add_fx_rate_manual_to_expenses.sql`) adds `fx_rate_manual BOOLEAN` column to `expenses` table.

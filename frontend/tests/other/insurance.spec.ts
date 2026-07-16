@@ -8,7 +8,7 @@ test.describe("/insurance page", () => {
 
   test("loads insurance files and upload button", async ({ page }) => {
     await setupAuthMocks(page, "mod");
-    await page.route("**/api/insurance", (route, req) => {
+    await page.route("**/api/insurance**", (route, req) => {
       if (req.method() === "GET") route.fulfill({ json: [{ id: 1, filename: "policy_2026.pdf", title: "Health Insurance 2026", uploaded_by: "mod1", uploaded_at: "2026-01-15T10:00:00Z" }] });
       else route.fulfill({ status: 201, json: { id: 99 } });
     });
@@ -21,7 +21,7 @@ test.describe("/insurance page", () => {
   test("no horizontal overflow", async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 });
     await setupAuthMocks(page, "mod");
-    await page.route("**/api/insurance", (route) => route.fulfill({ json: [] }));
+    await page.route("**/api/insurance**", (route) => route.fulfill({ json: [] }));
     await page.goto("/insurance", { waitUntil: "load" });
     await page.waitForTimeout(2000);
     await page.waitForTimeout(2000);

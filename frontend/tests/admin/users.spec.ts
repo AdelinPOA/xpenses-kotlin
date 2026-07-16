@@ -11,8 +11,13 @@ test.describe("Admin Users", () => {
     await setupAdminMocks(page);
     await page.goto("/admin/users", { waitUntil: "load" });
     await page.waitForTimeout(2000);
-    await expect(page.getByRole("cell", { name: /^mod1$/ })).toBeVisible({ timeout: 15000 });
-    await expect(page.getByRole("cell", { name: /^manager1$/ })).toBeVisible();
+    if ((page.viewportSize()?.width ?? 1280) >= 768) {
+      await expect(page.getByRole("cell", { name: /^mod1$/ })).toBeVisible({ timeout: 15000 });
+      await expect(page.getByRole("cell", { name: /^manager1$/ })).toBeVisible();
+    } else {
+      await expect(page.getByText("mod1").first()).toBeVisible({ timeout: 15000 });
+      await expect(page.getByText("manager1").first()).toBeVisible();
+    }
   });
 
   test("Create User button is visible", async ({ page }) => {

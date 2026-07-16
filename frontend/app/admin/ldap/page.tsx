@@ -411,9 +411,9 @@ export default function LdapAdminPage() {
         <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-sm space-y-4">
           <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Role Map</h2>
           {roleEntries.map((entry, i) => (
-            <div key={i} className="flex items-center gap-3">
+            <div key={i} className="flex items-center gap-3 min-w-0">
               <input
-                className="flex-1 border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200"
+                className="flex-1 min-w-0 border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200"
                 placeholder="Directory group value"
                 value={entry.dir}
                 onChange={(e) => {
@@ -423,9 +423,9 @@ export default function LdapAdminPage() {
                   setRoleEntriesDirty(true);
                 }}
               />
-              <span className="text-slate-400 font-semibold">→</span>
+              <span className="text-slate-400 font-semibold shrink-0">→</span>
               <select
-                className="border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200"
+                className="flex-1 min-w-0 border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200"
                 value={entry.role}
                 onChange={(e) => {
                   const n = [...roleEntries];
@@ -438,7 +438,7 @@ export default function LdapAdminPage() {
               </select>
               <button
                 type="button"
-                className="text-rose-500 hover:text-rose-700 text-sm px-2 py-1 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg transition-all duration-200 font-semibold"
+                className="shrink-0 text-rose-500 hover:text-rose-700 text-sm px-2 py-1 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg transition-all duration-200 font-semibold"
                 onClick={() => {
                   setRoleEntries(roleEntries.filter((_, j) => j !== i));
                   setRoleEntriesDirty(true);

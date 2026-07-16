@@ -21,9 +21,7 @@ for (const pg of ADMIN_PAGES) {
       }
       await setupAdminMocks(page);
       await page.goto(pg, { waitUntil: "load" });
-      await page.waitForTimeout(2000);
-      const hasOverflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
-      expect(hasOverflow).toBe(false);
+      await page.waitForFunction(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth, { timeout: 15000 });
 
       // Check Test Connection buttons are visible and in viewport
       const testBtns = page.getByRole("button", { name: /test connection/i });
@@ -49,17 +47,14 @@ for (const pg of OTHER_PAGES) {
         await setupAuthMocks(page, "user");
       }
       // Mock common APIs
-      await page.route("**/api/dashboard", (route) => route.fulfill({ json: { month_spend: 0, draft_reports: 0, submitted_reports: 0, paid_reports: 0, recent_expenses: [], spend_by_category: [] } }));
-      await page.route("**/api/expenses", (route) => route.fulfill({ json: [] }));
-      await page.route("**/api/reports", (route) => route.fulfill({ json: [] }));
-      await page.route("**/api/categories", (route) => route.fulfill({ json: [] }));
-      await page.route("**/api/inventory", (route) => route.fulfill({ json: [] }));
-      await page.route("**/api/inventory/requests", (route) => route.fulfill({ json: [] }));
-      await page.route("**/api/insurance", (route) => route.fulfill({ json: [] }));
+      await page.route("**/api/dashboard**", (route) => route.fulfill({ json: { expense_count_total: 0, expense_count_month: 0, total_month_eur: 0, draft_count: 0, submitted_count: 0, paid_count: 0, pending_approval_count: 0, pending_payment_count: 0, recent_expenses: [], spend_by_category: [] } }));
+      await page.route("**/api/expenses**", (route) => route.fulfill({ json: [] }));
+      await page.route("**/api/reports**", (route) => route.fulfill({ json: [] }));
+      await page.route("**/api/categories**", (route) => route.fulfill({ json: [] }));
+      await page.route("**/api/inventory**", (route) => route.fulfill({ json: [] }));
+      await page.route("**/api/insurance**", (route) => route.fulfill({ json: [] }));
       await page.goto(pg, { waitUntil: "load" });
-      await page.waitForTimeout(2000);
-      const hasOverflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
-      expect(hasOverflow).toBe(false);
+      await page.waitForFunction(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth, { timeout: 15000 });
     });
   }
 }

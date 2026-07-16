@@ -13,10 +13,14 @@ test.describe("Auth guard", () => {
     await page.route("**/api/dashboard", (route) =>
       route.fulfill({
         json: {
-          month_spend: 1000,
-          draft_reports: 1,
-          submitted_reports: 2,
-          paid_reports: 5,
+          total_month_eur: 1000,
+          draft_count: 1,
+          submitted_count: 2,
+          paid_count: 5,
+          expense_count_total: 42,
+          expense_count_month: 15,
+          pending_approval_count: 0,
+          pending_payment_count: 0,
           recent_expenses: [],
           spend_by_category: [],
         },

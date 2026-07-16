@@ -25,9 +25,8 @@ test.describe("Report detail page", () => {
     await setupReportMocks(page);
     await page.goto("/reports/1", { waitUntil: "load" });
     await page.waitForTimeout(2000);
-    await expect(page.getByText("July Business Trip")).toBeVisible({ timeout: 15000 });
-    // Stat cards should show totals
-    await expect(page.getByText(/1250|€|total/i)).toBeVisible();
+    await expect(page.getByRole("heading", { name: "July Business Trip" })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText("Total Expenses")).toBeVisible();
   });
 
   test("action buttons visible for submitted report with manager role", async ({ page }) => {
@@ -45,7 +44,7 @@ test.describe("Report detail page", () => {
     await page.goto("/reports/1", { waitUntil: "load" });
     await page.waitForTimeout(2000);
 // Delegation fields should be visible
-    await expect(page.getByText(/delegation|kundenauftrag|techniker/i)).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText("Kundenauftrag")).toBeVisible({ timeout: 15000 });
   });
 
   test("back navigation present", async ({ page }) => {

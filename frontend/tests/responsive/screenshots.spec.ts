@@ -21,10 +21,7 @@ test.describe("Visual regression screenshots", () => {
       await setupAuthMocks(page, role);
       await setupAdminMocks(page);
       await page.goto(path, { waitUntil: "load" });
-      await page.waitForTimeout(2000);
-      // Skip full-page screenshots - just check no overflow
-      const hasOverflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
-      expect(hasOverflow).toBe(false);
+      await page.waitForFunction(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth, { timeout: 15000 });
     });
   }
 });

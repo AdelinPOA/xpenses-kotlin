@@ -10,7 +10,7 @@ test.describe("/profile page", () => {
     await setupAuthMocks(page, "user");
     await page.goto("/profile", { waitUntil: "load" });
     await page.waitForTimeout(2000);
-    await expect(page.getByText(/display name|profile|settings/i)).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole("heading", { name: /profile/i })).toBeVisible({ timeout: 15000 });
   });
 
   test("no horizontal overflow", async ({ page }) => {

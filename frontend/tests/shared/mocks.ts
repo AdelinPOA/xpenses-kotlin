@@ -8,53 +8,55 @@ export const USERS = {
 };
 
 export const DASHBOARD_DATA = {
-  month_spend: 12500.5, draft_reports: 3, submitted_reports: 5, paid_reports: 12,
+  expense_count_total: 42, expense_count_month: 15, total_month_eur: 12500.5,
+  draft_count: 3, submitted_count: 5, paid_count: 12,
+  pending_approval_count: 2, pending_payment_count: 4,
   recent_expenses: [
-    { id: 1, merchant: "Lidl", amount: 85.5, currency: "EUR", status: "paid", date: "2026-07-14" },
-    { id: 2, merchant: "OMV Petrom", amount: 120.0, currency: "RON", status: "submitted", date: "2026-07-13" },
-    { id: 3, merchant: "Restaurant Vienna", amount: 45.0, currency: "EUR", status: "draft", date: "2026-07-12" },
+    { id: 1, merchant: "Lidl", amount_original: 85.5, currency_original: "EUR", amount_eur: 85.5, fx_rate: 1, fx_rate_manual: false, tax_amount: 0, tax_rate: null, tax_amount_eur: 0, category_id: 3, category_name: "Meals", status: "paid", date: "2026-07-14", description: "Team lunch supplies", receipt_path: null, receipts: [], report_id: null, raw_ocr_text: null, user_display_name: null, created_at: "2026-07-14T00:00:00Z", updated_at: "2026-07-14T00:00:00Z" },
+    { id: 2, merchant: "OMV Petrom", amount_original: 120.0, currency_original: "RON", amount_eur: 24.0, fx_rate: 0.2, fx_rate_manual: false, tax_amount: 0, tax_rate: null, tax_amount_eur: 0, category_id: 1, category_name: "Transport", status: "submitted", date: "2026-07-13", description: "Car fuel", receipt_path: null, receipts: [], report_id: null, raw_ocr_text: null, user_display_name: null, created_at: "2026-07-13T00:00:00Z", updated_at: "2026-07-13T00:00:00Z" },
+    { id: 3, merchant: "Restaurant Vienna", amount_original: 45.0, currency_original: "EUR", amount_eur: 45.0, fx_rate: 1, fx_rate_manual: false, tax_amount: 0, tax_rate: null, tax_amount_eur: 0, category_id: 2, category_name: "Accommodation", status: "draft", date: "2026-07-12", description: null, receipt_path: null, receipts: [], report_id: null, raw_ocr_text: null, user_display_name: null, created_at: "2026-07-12T00:00:00Z", updated_at: "2026-07-12T00:00:00Z" },
   ],
   spend_by_category: [
-    { category: "Transport", amount: 3450.0, percentage: 28 },
-    { category: "Accommodation", amount: 4200.0, percentage: 34 },
-    { category: "Meals", amount: 2100.0, percentage: 17 },
-    { category: "Supplies", amount: 1850.5, percentage: 15 },
-    { category: "Other", amount: 900.0, percentage: 7 },
+    { category_id: 1, category_name: "Transport", total: 3450.0, count: 8 },
+    { category_id: 2, category_name: "Accommodation", total: 4200.0, count: 5 },
+    { category_id: 3, category_name: "Meals", total: 2100.0, count: 12 },
+    { category_id: 4, category_name: "Supplies", total: 1850.5, count: 6 },
+    { category_id: 5, category_name: "Other", total: 900.0, count: 3 },
   ],
 };
 
 export const CATEGORIES = [
-  { id: 1, name: "Transport", spending_limit: 5000.0, active: true },
-  { id: 2, name: "Accommodation", spending_limit: 8000.0, active: true },
-  { id: 3, name: "Meals", spending_limit: 3000.0, active: true },
-  { id: 4, name: "Supplies", spending_limit: 2000.0, active: true },
-  { id: 5, name: "Other", spending_limit: 1000.0, active: true },
-  { id: 6, name: "Fuel", spending_limit: 1500.0, active: false },
+  { id: 1, name: "Transport", limit_amount: 5000.0, is_active: true, created_at: "2026-01-01T00:00:00Z" },
+  { id: 2, name: "Accommodation", limit_amount: 8000.0, is_active: true, created_at: "2026-01-01T00:00:00Z" },
+  { id: 3, name: "Meals", limit_amount: 3000.0, is_active: true, created_at: "2026-01-01T00:00:00Z" },
+  { id: 4, name: "Supplies", limit_amount: 2000.0, is_active: true, created_at: "2026-01-01T00:00:00Z" },
+  { id: 5, name: "Other", limit_amount: 1000.0, is_active: true, created_at: "2026-01-01T00:00:00Z" },
+  { id: 6, name: "Fuel", limit_amount: 1500.0, is_active: false, created_at: "2026-01-01T00:00:00Z" },
 ];
 
-export const EXPENSES = [
-  { id: 1, merchant: "Lidl", amount: 85.5, currency: "EUR", category_id: 3, category_name: "Meals", status: "paid", date: "2026-07-14", description: "Team lunch supplies", receipt_count: 1, report_id: null, reimbursable: true },
-  { id: 2, merchant: "OMV Petrom", amount: 120.0, currency: "RON", category_id: 1, category_name: "Transport", status: "draft", date: "2026-07-13", description: "Car fuel", receipt_count: 0, report_id: null, reimbursable: true },
-  { id: 3, merchant: "Hotel Ibis", amount: 350.0, currency: "EUR", category_id: 2, category_name: "Accommodation", status: "submitted", date: "2026-07-10", description: "3 nights business trip", receipt_count: 1, report_id: 1, reimbursable: true },
+export const EXPENSES: Array<Record<string, unknown>> = [
+  { id: 1, merchant: "Lidl", amount_original: 85.5, currency_original: "EUR", amount_eur: 85.5, fx_rate: 1, fx_rate_manual: false, tax_amount: 0, tax_rate: null, tax_amount_eur: 0, category_id: 3, category_name: "Meals", status: "paid", date: "2026-07-14", description: "Team lunch supplies", receipt_path: null, receipts: [], receipt_count: 1, report_id: null, raw_ocr_text: null, user_display_name: null, created_at: "2026-07-14T00:00:00Z", updated_at: "2026-07-14T00:00:00Z" },
+  { id: 2, merchant: "OMV Petrom", amount_original: 120.0, currency_original: "RON", amount_eur: 24.0, fx_rate: 0.2, fx_rate_manual: false, tax_amount: 0, tax_rate: null, tax_amount_eur: 0, category_id: 1, category_name: "Transport", status: "draft", date: "2026-07-13", description: "Car fuel", receipt_path: null, receipts: [], receipt_count: 0, report_id: null, raw_ocr_text: null, user_display_name: null, created_at: "2026-07-13T00:00:00Z", updated_at: "2026-07-13T00:00:00Z" },
+  { id: 3, merchant: "Hotel Ibis", amount_original: 350.0, currency_original: "EUR", amount_eur: 350.0, fx_rate: 1, fx_rate_manual: false, tax_amount: 0, tax_rate: null, tax_amount_eur: 0, category_id: 2, category_name: "Accommodation", status: "submitted", date: "2026-07-10", description: "3 nights business trip", receipt_path: null, receipts: [], receipt_count: 1, report_id: 1, raw_ocr_text: null, user_display_name: null, created_at: "2026-07-10T00:00:00Z", updated_at: "2026-07-10T00:00:00Z" },
 ];
 
 export const REPORTS = [
-  { id: 1, title: "July Business Trip", status: "submitted", total: 1250.0, currency: "EUR", date_from: "2026-07-01", date_to: "2026-07-15", created_by: "tech1", submitted_at: "2026-07-16T10:00:00Z", expense_count: 5 },
-  { id: 2, title: "Office Supplies June", status: "draft", total: 430.5, currency: "EUR", date_from: "2026-06-01", date_to: "2026-06-30", created_by: "tech1", submitted_at: null, expense_count: 3 },
-  { id: 3, title: "Client Visit Berlin", status: "approved", total: 3200.0, currency: "EUR", date_from: "2026-05-10", date_to: "2026-05-14", created_by: "manager1", submitted_at: "2026-05-15T08:00:00Z", expense_count: 8 },
+  { id: 1, title: "July Business Trip", status: "submitted", total_amount: 1250.0, currency: "EUR", date_from: "2026-07-01", date_to: "2026-07-15", user_id: 4, user_display_name: "Technician One", submitted_at: "2026-07-16T10:00:00Z", expenses: [EXPENSES[2]], advances: [], mileage_records: [], total_advances: 0, total_mileage_eur: 0, daily_allowance: 0, total_reimbursable: 1250.0, description: null, paid_at: null, approved_by: null, approved_at: null, rejected_reason: null, signer_id: null, signed_at: null, created_at: "2026-07-01T00:00:00Z", updated_at: "2026-07-16T10:00:00Z" },
+  { id: 2, title: "Office Supplies June", status: "draft", total_amount: 430.5, currency: "EUR", date_from: "2026-06-01", date_to: "2026-06-30", user_id: 4, user_display_name: "Technician One", submitted_at: null, expenses: [], advances: [], mileage_records: [], total_advances: 0, total_mileage_eur: 0, daily_allowance: 0, total_reimbursable: 0, description: null, paid_at: null, approved_by: null, approved_at: null, rejected_reason: null, signer_id: null, signed_at: null, created_at: "2026-06-01T00:00:00Z", updated_at: "2026-06-01T00:00:00Z" },
+  { id: 3, title: "Client Visit Berlin", status: "approved", total_amount: 3200.0, currency: "EUR", date_from: "2026-05-10", date_to: "2026-05-14", user_id: 2, user_display_name: "Manager One", submitted_at: "2026-05-15T08:00:00Z", expenses: [EXPENSES[0], EXPENSES[2]], advances: [], mileage_records: [], total_advances: 0, total_mileage_eur: 0, daily_allowance: 180.0, total_reimbursable: 3200.0, description: null, paid_at: null, approved_by: null, approved_at: null, rejected_reason: null, signer_id: null, signed_at: null, created_at: "2026-05-10T00:00:00Z", updated_at: "2026-05-15T08:00:00Z" },
 ];
 
 export const REPORT_DETAIL = {
-  id: 1, title: "July Business Trip", status: "submitted", total: 1250.0, currency: "EUR", reimbursable: 1250.0, daily_allowance: 180.0,
+  id: 1, title: "July Business Trip", status: "submitted", total_amount: 1250.0, currency: "EUR", total_reimbursable: 1250.0, daily_allowance: 180.0,
   date_from: "2026-07-01", date_to: "2026-07-15", description: "Business trip to Vienna for client meetings",
-  created_by: { username: "tech1", display_name: "Technician One" },
-  submitted_at: "2026-07-16T10:00:00Z", approved_at: null, paid_at: null, rejection_reason: null,
-  delegation: {
-    delegation_kundenauftrag: "0007038319", delegation_auftragsart: "KR20", delegation_positionstyp: "Mechanical installation",
-    delegation_start: "2026-07-01", delegation_end: "2026-07-15", delegation_vorgang: "0545",
-    delegation_arbeitsplatz: "ER_MT", delegation_techniker: "Popescu Adelin", delegation_technplatz: "C374981",
-  },
-  expenses: EXPENSES, advances: [], mileage: [],
+  user_id: 4, user_display_name: "Technician One",
+  submitted_at: "2026-07-16T10:00:00Z", approved_at: null, paid_at: null, approved_by: null, rejected_reason: null, rejected_at: null, rejected_by: null, signer_id: null, signed_at: null,
+  kundenauftrag: "0007038319", auftragsart: "KR20", positionstyp: "Mechanical installation",
+  technplatz_raw: "C374981", technplatz_line: false,
+  vorgang: "0545", arbeitsplatz: "ER_MT", techniker: "Popescu Adelin",
+  kunde_code: null, kunde_name: null, adresse: null,
+  expenses: EXPENSES, advances: [], mileage_records: [], total_advances: 0, total_mileage_eur: 0,
+  created_at: "2026-07-01T00:00:00Z", updated_at: "2026-07-16T10:00:00Z",
 };
 
 export const EMAIL_SETTINGS = { emails_enabled: true, smtp_host: "smtp.example.com", smtp_port: 587, smtp_user: "noreply@example.com", smtp_from: "noreply@example.com", password_set: true };
@@ -73,12 +75,19 @@ export const DAILY_ALLOWANCE_RATE = { daily_allowance_rate: 45.0 };
 
 export const USERS_LIST = Object.values(USERS);
 
-export async function setupCommonMocks(page: Page) {
-  await page.route("**/api/auth/me", (route) => route.fulfill({ json: USERS.mod }));
-  await page.route("**/api/categories", (route) => route.fulfill({ json: CATEGORIES }));
-  await page.route("**/api/expenses", (route) => route.fulfill({ json: EXPENSES }));
-  await page.route("**/api/reports", (route) => route.fulfill({ json: REPORTS }));
-  await page.route("**/api/dashboard", (route) => route.fulfill({ json: DASHBOARD_DATA }));
+export async function setupCommonMocks(page: Page, opts?: { role?: keyof typeof USERS }) {
+  const role = opts?.role ?? "mod";
+  const user = USERS[role];
+  await page.context().addCookies([
+    { name: "access_token", value: "mock-jwt-token", url: "http://localhost:3001" },
+    { name: "refresh_token", value: "mock-refresh-token", url: "http://localhost:3001" },
+  ]);
+  await page.route("**/api/auth/me", (route) => route.fulfill({ json: user }));
+  await page.route("**/api/auth/refresh", (route) => route.fulfill({ json: { access_token: "new-mock-token" } }));
+  await page.route("**/api/categories**", (route) => route.fulfill({ json: CATEGORIES }));
+  await page.route("**/api/expenses**", (route) => route.fulfill({ json: EXPENSES }));
+  await page.route("**/api/reports**", (route) => route.fulfill({ json: REPORTS }));
+  await page.route("**/api/dashboard**", (route) => route.fulfill({ json: DASHBOARD_DATA }));
   await setupAdminMocks(page);
 }
 
@@ -114,8 +123,8 @@ export async function setupAdminMocks(page: Page) {
   await page.route("**/api/settings/daily-allowance-rate*", (route) => route.fulfill({ json: DAILY_ALLOWANCE_RATE }));
   await page.route("**/api/settings/mileage-rates*", (route) => route.fulfill({ json: MILEAGE_RATES }));
   await page.route("**/api/ocr/comparison", (route) => route.fulfill({ json: { history: [], stats: { total_scanned: 0, gemini_amount_accuracy: 0, gemini_date_accuracy: 0, gemini_merchant_accuracy: 0, gemini_category_accuracy: 0 } } }));
-  await page.route("**/api/categories", (route) => route.fulfill({ json: CATEGORIES }));
-  await page.route("**/api/users", (route, req) => {
+  await page.route("**/api/categories**", (route) => route.fulfill({ json: CATEGORIES }));
+  await page.route("**/api/users**", (route, req) => {
     if (req.method() === "GET") route.fulfill({ json: USERS_LIST });
     else route.fulfill({ status: 201, json: { id: 99 } });
   });
@@ -124,15 +133,15 @@ export async function setupAdminMocks(page: Page) {
 export async function setupAuthMocks(page: Page, role: keyof typeof USERS = "mod") {
   const user = USERS[role];
   await page.context().addCookies([
-    { name: "access_token", value: "mock-jwt-token", domain: "localhost", path: "/" },
-    { name: "refresh_token", value: "mock-refresh-token", domain: "localhost", path: "/" },
+    { name: "access_token", value: "mock-jwt-token", url: "http://localhost:3001" },
+    { name: "refresh_token", value: "mock-refresh-token", url: "http://localhost:3001" },
   ]);
   await page.route("**/api/auth/me", (route) => route.fulfill({ json: user }));
   await page.route("**/api/auth/refresh", (route) => route.fulfill({ json: { access_token: "new-mock-token" } }));
 }
 
 export async function setupInventoryMocks(page: Page) {
-  await page.route("**/api/inventory", (route, req) => {
+  await page.route("**/api/inventory**", (route, req) => {
     const url = new URL(req.url());
     if (url.pathname.includes("/requests")) {
       route.fulfill({ json: [] });
@@ -140,11 +149,10 @@ export async function setupInventoryMocks(page: Page) {
       route.fulfill({ json: [{ id: 1, name: "Laptop Dell", serial_number: "SN-001", category: "Electronics", status: "active", assigned_to: "tech1" }] });
     }
   });
-  await page.route("**/api/inventory/requests", (route) => route.fulfill({ json: [] }));
 }
 
 export async function setupInsuranceMocks(page: Page) {
-  await page.route("**/api/insurance", (route, req) => {
+  await page.route("**/api/insurance**", (route, req) => {
     if (req.method() === "GET") route.fulfill({ json: [{ id: 1, filename: "policy_2026.pdf", title: "Health Insurance 2026", uploaded_by: "mod1", uploaded_at: "2026-01-15T10:00:00Z" }] });
     else route.fulfill({ status: 201, json: { id: 99 } });
   });

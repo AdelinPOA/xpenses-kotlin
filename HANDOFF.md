@@ -1,27 +1,35 @@
 # HANDOFF.md — xpenses-kotlin
 
-## Current Session (2026-07-16, session 111) — fix-e2e-admin-tests
+## Current Session (2026-07-16, session 112) — fix-all-e2e-tests
 
 ### What Was Done
-- **Fixed 12 failing Playwright E2E admin tests** — root causes were mock data field names mismatching backend API (LDAP, OCR, settings pages crashed with "Something went wrong") and strict mode violations (locator matched multiple elements).
-- **Mock data corrections** in `tests/shared/mocks.ts`: fixed `LDAP_SETTINGS` (removed `ldap_` prefix), `OCR_SETTINGS` (`gemini_api_key_set` → `gemini_api_key`), `EMAIL_SETTINGS`/`IMAP_SETTINGS` (`smtp_pass_set` → `password_set`), `STORAGE_SETTINGS` (`provider` → `provider_type`, `base_path` → `path`), `MILEAGE_RATES` (`before_tax_rate` → `mileage_rate_before_tax`), `DAILY_ALLOWANCE_RATE` (`rate` → `daily_allowance_rate`), OCR comparison response (`comparisons` → `history` with correct stats fields).
-- **Added `/api/categories` to `setupAdminMocks`** — OCR page needs it.
-- **Locator fixes** across 6 test files: switched from `getByText` to `getByRole` with specific name patterns to avoid strict mode violations (email, receipts, storage, users, settings, OCR).
+- **Fixed all 405 Playwright E2E tests across desktop/mobile/tablet** (was 24 failed desktop + 16 failed mobile + 4 failed tablet = 44 total failures → 0).
+- **Mock data field names corrected** in `tests/shared/mocks.ts`: `CATEGORIES` (`spending_limit`→`limit_amount`, `active`→`is_active`), `DASHBOARD_DATA` (full `DashboardStats` interface fields), `EXPENSES` (`amount`/`currency`→`amount_original`/`currency_original`), `REPORTS`/`REPORT_DETAIL` (`total`→`total_amount`, nested `created_by`→flat `user_display_name`, flat delegation fields).
+- **Route patterns fixed** for query-param compatibility across ALL test files: `**/api/reports` → `**/api/reports**` (and same for categories, expenses, dashboard, inventory, insurance, users).
+- **Service Worker interception fixed**: Added `serviceWorkers: "block"` to Playwright config (desktop/mobile/tablet projects) — `page.route()` cannot intercept requests handled by a Service Worker, which was why WebKit alone showed `"currency must be a string"` (route handler never ran, real backend returned 403).
+- **Strict mode violations fixed** across 4 test files: sidebar "xpenses" logo (`{ exact: true }`), "Admin" nav link (`{ exact: true }`), scoped all sidebar queries to `<aside>`, used specific role/label selectors for filter pills and expense rows.
+- **Mobile/tablet responsive layout fixes**: expenses/reports/categories/users list pages now use viewport-aware locators (table scoping on desktop ≥768px, card `.first()` on mobile <768px). Sidebar navigation tests open hamburger menu on mobile/tablet before clicking nav links. Dashboard toggle uses `element.click()` via JavaScript to avoid fixed mobile header interception on tablet. OCR overflow flakiness fixed with `waitForFunction` polling instead of fixed timeout.
+- **LDAP page CSS fix**: Role Map flex rows overflowed at 375px — added `min-w-0` to input/select, `shrink-0` to arrow/delete button. All 24 overflow tests pass across all viewports.
 
 ### Files Changed
-- `frontend/tests/shared/mocks.ts` — all mock data field name corrections + categories route
-- `frontend/tests/admin/email.spec.ts` — locator fix (Send Test strict mode)
-- `frontend/tests/admin/ocr.spec.ts` — locator fix (provider dropdown strict mode)
-- `frontend/tests/admin/receipts.spec.ts` — locator fix (cleanup section strict mode)
-- `frontend/tests/admin/settings.spec.ts` — locator fix (mileage/allowance strict mode)
-- `frontend/tests/admin/storage.spec.ts` — locator fix (provider selection strict mode)
-- `frontend/tests/admin/users.spec.ts` — locator fix (mod1 strict mode)
+- `frontend/playwright.config.ts` — added `serviceWorkers: "block"` in `use`
+- `frontend/tests/shared/mocks.ts` — all mock data + route patterns + LDAP/OCR mocks refined
+- `frontend/tests/admin/ocr.spec.ts` — overflow check uses `waitForFunction`
+- `frontend/tests/admin/users.spec.ts` — viewport-aware user locators
+- `frontend/tests/dashboard/dashboard.spec.ts` — toggle text corrected (mod defaults to "Switch to My View"), force-scrolled click via JS for tablet
+- `frontend/tests/expenses/list.spec.ts` — viewport-aware table/card locators, viewport-aware category filter
+- `frontend/tests/navigation/sidebar.spec.ts` — hamburger menu opener for mobile/tablet, `{ exact: true }` on xpenses/Admin logos, scoped to `aside`
+- `frontend/tests/other/categories.spec.ts` — viewport-aware card/table locators
+- `frontend/tests/reports/list.spec.ts` — viewport-aware card/table locators
+- `frontend/tests/responsive/overflow.spec.ts` — replaced `waitForTimeout` + `expect` with `waitForFunction` polling
+- `frontend/tests/responsive/screenshots.spec.ts` — same overflow fix
+- `frontend/app/admin/ldap/page.tsx` — Role Map flex row overflow fix (`min-w-0`, `shrink-0`)
 - `frontend/.gitignore` — added `playwright-report/` and `test-results/`
 
 ### Next Steps
-- Fix mobile/tablet viewport test failures (pre-existing, unrelated)
 - Add GitHub Actions CI job for E2E tests
 - Generate visual baseline screenshots
+- Commit and push to GitHub
 
 ---
 

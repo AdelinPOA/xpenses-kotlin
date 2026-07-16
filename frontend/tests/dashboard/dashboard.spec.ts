@@ -10,15 +10,15 @@ test.describe("Dashboard", () => {
     await setupCommonMocks(page);
     await page.goto("/dashboard", { waitUntil: "load" });
     await page.waitForTimeout(2000);
-    await expect(page.getByText(/month/i)).toBeVisible({ timeout: 15000 });
-    await expect(page.getByText(/draft/i)).toBeVisible();
+    await expect(page.getByText("Total spent this month")).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText("Draft reports")).toBeVisible();
   });
 
   test("greeting shows user display name", async ({ page }) => {
     await setupCommonMocks(page);
     await page.goto("/dashboard", { waitUntil: "load" });
     await page.waitForTimeout(2000);
-    await expect(page.getByText(/moderator/i)).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText("Moderator One").first()).toBeVisible({ timeout: 15000 });
   });
 
   test("recent expenses list renders", async ({ page }) => {
@@ -30,30 +30,31 @@ test.describe("Dashboard", () => {
 
   test("company overview toggle is not visible for technician role", async ({ page }) => {
     await setupAuthMocks(page, "user");
-    await page.route("**/api/dashboard", (route) => route.fulfill({ json: DASHBOARD_DATA }));
-    await page.route("**/api/categories", (route) => route.fulfill({ json: [] }));
-    await page.route("**/api/expenses", (route) => route.fulfill({ json: [] }));
-    await page.route("**/api/reports", (route) => route.fulfill({ json: [] }));
+    await page.route("**/api/dashboard**", (route) => route.fulfill({ json: DASHBOARD_DATA }));
+    await page.route("**/api/categories**", (route) => route.fulfill({ json: [] }));
+    await page.route("**/api/expenses**", (route) => route.fulfill({ json: [] }));
+    await page.route("**/api/reports**", (route) => route.fulfill({ json: [] }));
     await page.goto("/dashboard", { waitUntil: "load" });
     await page.waitForTimeout(2000);
     await expect(page.getByText(/company overview/i)).not.toBeVisible({ timeout: 15000 });
   });
 
-  test("company overview toggle is visible for mod role", async ({ page }) => {
+  test("company overview toggle shows Switch to My View for mod", async ({ page }) => {
     await setupCommonMocks(page);
     await page.goto("/dashboard", { waitUntil: "load" });
     await page.waitForTimeout(2000);
-    await expect(page.getByText(/company overview/i)).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText("Switch to My View")).toBeVisible({ timeout: 15000 });
   });
 
   test("my view / company overview toggle works for mod", async ({ page }) => {
     await setupCommonMocks(page);
     await page.goto("/dashboard", { waitUntil: "load" });
     await page.waitForTimeout(2000);
-    const toggle = page.getByText(/company overview/i);
+    // mod defaults to org-wide view, button says "Switch to My View"
+    const toggle = page.getByText("Switch to My View");
     await expect(toggle).toBeVisible({ timeout: 15000 });
-    await toggle.click();
-    await expect(page.getByText(/my view/i)).toBeVisible({ timeout: 10000 });
+    await toggle.evaluate((el) => (el as HTMLElement).click());
+    await expect(page.getByText("View Company Overview")).toBeVisible({ timeout: 10000 });
   });
 
   test("mobile FAB button visible at 375px", async ({ page }) => {
@@ -61,7 +62,7 @@ test.describe("Dashboard", () => {
     await setupCommonMocks(page);
     await page.goto("/dashboard", { waitUntil: "load" });
     await page.waitForTimeout(2000);
-    await expect(page.getByRole("button", { name: /add|create|new|\+/i })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole("link", { name: "Add expense" })).toBeVisible({ timeout: 15000 });
   });
 
   test("no horizontal overflow at any viewport", async ({ page }) => {

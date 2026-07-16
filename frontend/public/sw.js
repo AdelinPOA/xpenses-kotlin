@@ -5,10 +5,9 @@ self.addEventListener("install", (event) => {
   event.waitUntil(
     (async () => {
       const cache = await caches.open(CACHE_NAME);
-      await cache.addAll(SHELL_URLS);
+      await Promise.allSettled(SHELL_URLS.map((url) => cache.add(url).catch(() => {})));
     })(),
   );
-  self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
@@ -39,8 +38,10 @@ self.addEventListener("fetch", (event) => {
 async function networkFirst(request) {
   try {
     const response = await fetch(request);
-    const cache = await caches.open(CACHE_NAME);
-    cache.put(request, response.clone());
+    if (request.method === "GET") {
+      const cache = await caches.open(CACHE_NAME);
+      cache.put(request, response.clone()).catch(() => {});
+    }
     return response;
   } catch {
     const cached = await caches.match(request);
@@ -53,8 +54,10 @@ async function cacheFirst(request) {
   if (cached) return cached;
   try {
     const response = await fetch(request);
-    const cache = await caches.open(CACHE_NAME);
-    cache.put(request, response.clone());
+    if (request.method === "GET") {
+      const cache = await caches.open(CACHE_NAME);
+      cache.put(request, response.clone()).catch(() => {});
+    }
     return response;
   } catch {
     return new Response("Offline", { status: 503 });

@@ -37,9 +37,6 @@ test.describe("Admin OCR Settings", () => {
     await setupAuthMocks(page, "mod");
     await setupAdminMocks(page);
     await page.goto("/admin/ocr", { waitUntil: "load" });
-    await page.waitForTimeout(2000);
-    await page.waitForTimeout(2000);
-    const hasOverflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
-    expect(hasOverflow).toBe(false);
+    await page.waitForFunction(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth, { timeout: 15000 });
   });
 });

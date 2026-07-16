@@ -7,13 +7,13 @@ test.describe("Visual regression screenshots", () => {
   });
 
   const pages = [
-    { path: "/admin/email", role: "mod" },
-    { path: "/admin/imap", role: "mod" },
-    { path: "/admin/ldap", role: "mod" },
-    { path: "/admin/ocr", role: "mod" },
-    { path: "/admin/storage", role: "mod" },
-    { path: "/admin/users", role: "mod" },
-    { path: "/admin/settings", role: "cfo" },
+    { path: "/admin/email", role: "mod" as const },
+    { path: "/admin/imap", role: "mod" as const },
+    { path: "/admin/ldap", role: "mod" as const },
+    { path: "/admin/ocr", role: "mod" as const },
+    { path: "/admin/storage", role: "mod" as const },
+    { path: "/admin/users", role: "mod" as const },
+    { path: "/admin/settings", role: "cfo" as const },
   ];
 
   for (const { path, role } of pages) {

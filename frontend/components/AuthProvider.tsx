@@ -1,7 +1,7 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useCallback, useRef } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { User } from "@/lib/api";
 import { getMe, logout as apiLogout } from "@/lib/auth";
 
@@ -23,31 +23,51 @@ export function useAuth() {
   return useContext(AuthContext);
 }
 
+const CHECK_INTERVAL_MS = 5 * 60 * 1000;
+
 export default function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
-  const pathname = usePathname();
-  const initialMount = useRef(true);
 
   useEffect(() => {
-    // Only fetch auth on initial mount, not on every route change
-    if (!initialMount.current) return;
-    initialMount.current = false;
+    let mounted = true;
+    let interval: ReturnType<typeof setInterval>;
 
-    getMe()
-      .then(setUser)
-      .catch(() => {
-        setUser(null);
-        // Redirect to login if not already on the login page.
-        // The axios interceptor already tries token refresh on 401;
-        // if we still fail, the session is truly expired.
-        if (pathname !== "/login") {
-          router.replace("/login");
-        }
-      })
-      .finally(() => setLoading(false));
-  }, [pathname, router]);
+    const checkAuth = () => {
+      getMe()
+        .then((u) => {
+          if (mounted) setUser(u);
+        })
+        .catch(() => {
+          if (!mounted) return;
+          setUser(null);
+          if (window.location.pathname !== "/login") {
+            router.replace("/login");
+          }
+        })
+        .finally(() => {
+          if (mounted) setLoading(false);
+        });
+    };
+
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        checkAuth();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    checkAuth();
+    interval = setInterval(checkAuth, CHECK_INTERVAL_MS);
+
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [router]);
 
   const logout = useCallback(async () => {
     await apiLogout();

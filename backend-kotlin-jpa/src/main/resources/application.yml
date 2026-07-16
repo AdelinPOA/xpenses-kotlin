@@ -30,7 +30,7 @@ spring:
 
 jwt:
   secret: ${JWT_SECRET:}
-  access-expires-minutes: 15
+  access-expires-minutes: 60
 
 encryption:
   secret: ${ENCRYPTION_SECRET:${JWT_SECRET:}}
@@ -79,7 +79,7 @@ bucket4j:
       rate-limits:
         - cache-key: getRemoteAddr()
           bandwidths:
-            - capacity: 5
+            - capacity: 20
               time: 1
               unit: minutes
 

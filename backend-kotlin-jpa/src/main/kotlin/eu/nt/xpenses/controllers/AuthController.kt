@@ -204,7 +204,6 @@ class AuthController(
             .httpOnly(true)
             .secure(cookieSecure)
             .path("/")
-            .maxAge(15 * 60)
             .sameSite("Lax")
             .build()
 

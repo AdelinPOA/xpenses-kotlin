@@ -175,7 +175,7 @@ function ExpensesPageContent() {
       </div>
 
       <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm">
-        <div className="p-4 border-b border-slate-100 dark:border-slate-700 flex flex-wrap gap-2">
+        <div className="p-4 border-b border-slate-100 dark:border-slate-700 flex flex-wrap gap-2 sticky top-0 z-10 bg-white dark:bg-slate-900 rounded-t-xl">
           {["", "draft", "submitted", "paid"].map((s) => (
             <button
               key={s}

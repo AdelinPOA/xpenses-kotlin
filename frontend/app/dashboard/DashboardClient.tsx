@@ -60,7 +60,6 @@ export default function DashboardClient() {
 
   return (
     <AppShell>
-      <div className="pb-16 md:pb-0">
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-8">
         <div>
           <DashboardGreeting name={user?.display_name || "Guest"} />
@@ -90,7 +89,7 @@ export default function DashboardClient() {
       )}
 
       {!showAll && user && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 mb-6">
           <DashboardActionCard
             title="Draft Reports"
             description="You have reports that haven't been submitted yet."
@@ -122,7 +121,7 @@ export default function DashboardClient() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 pb-2">
         <StatCard
           label={showAll ? "Total spent this month" : "Spent this month"}
           value={formatEur(data?.total_month_eur ?? 0)}
@@ -244,7 +243,6 @@ export default function DashboardClient() {
       >
         <Plus className="w-6 h-6" />
       </Link>
-      </div>
     </AppShell>
   );
 }

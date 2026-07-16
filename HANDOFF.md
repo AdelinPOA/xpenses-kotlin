@@ -1,6 +1,31 @@
 # HANDOFF.md — xpenses-kotlin
 
-## Current Session (2026-07-14, session 110) — pdf-expense-description
+## Current Session (2026-07-16, session 111) — fix-e2e-admin-tests
+
+### What Was Done
+- **Fixed 12 failing Playwright E2E admin tests** — root causes were mock data field names mismatching backend API (LDAP, OCR, settings pages crashed with "Something went wrong") and strict mode violations (locator matched multiple elements).
+- **Mock data corrections** in `tests/shared/mocks.ts`: fixed `LDAP_SETTINGS` (removed `ldap_` prefix), `OCR_SETTINGS` (`gemini_api_key_set` → `gemini_api_key`), `EMAIL_SETTINGS`/`IMAP_SETTINGS` (`smtp_pass_set` → `password_set`), `STORAGE_SETTINGS` (`provider` → `provider_type`, `base_path` → `path`), `MILEAGE_RATES` (`before_tax_rate` → `mileage_rate_before_tax`), `DAILY_ALLOWANCE_RATE` (`rate` → `daily_allowance_rate`), OCR comparison response (`comparisons` → `history` with correct stats fields).
+- **Added `/api/categories` to `setupAdminMocks`** — OCR page needs it.
+- **Locator fixes** across 6 test files: switched from `getByText` to `getByRole` with specific name patterns to avoid strict mode violations (email, receipts, storage, users, settings, OCR).
+
+### Files Changed
+- `frontend/tests/shared/mocks.ts` — all mock data field name corrections + categories route
+- `frontend/tests/admin/email.spec.ts` — locator fix (Send Test strict mode)
+- `frontend/tests/admin/ocr.spec.ts` — locator fix (provider dropdown strict mode)
+- `frontend/tests/admin/receipts.spec.ts` — locator fix (cleanup section strict mode)
+- `frontend/tests/admin/settings.spec.ts` — locator fix (mileage/allowance strict mode)
+- `frontend/tests/admin/storage.spec.ts` — locator fix (provider selection strict mode)
+- `frontend/tests/admin/users.spec.ts` — locator fix (mod1 strict mode)
+- `frontend/.gitignore` — added `playwright-report/` and `test-results/`
+
+### Next Steps
+- Fix mobile/tablet viewport test failures (pre-existing, unrelated)
+- Add GitHub Actions CI job for E2E tests
+- Generate visual baseline screenshots
+
+---
+
+## Previous Session (2026-07-14, session 110) — pdf-expense-description
 
 ### What Was Done
 - **PDF export now shows expense description**: The "Expense Details" column in the PDF Expense Summary table now includes the expense description text when available. Previously only date and merchant were shown.

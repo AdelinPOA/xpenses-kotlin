@@ -167,12 +167,12 @@ export default function CategoriesPage() {
                     </div>
                     <p className="text-sm text-slate-500 dark:text-slate-400 shrink-0">{formatLimit(cat.limit_amount)}</p>
                   </div>
-                  <div className="flex items-center justify-end gap-3 mt-3">
-                    <button onClick={() => startEdit(cat)}>
+                  <div className="flex items-center gap-2 mt-3">
+                    <button onClick={() => startEdit(cat)} className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
                       <Pencil className="w-4 h-4 text-slate-400 dark:text-slate-500 hover:text-blue-600" />
                     </button>
                     {cat.is_active && (
-                      <button onClick={() => deactivate.mutate(cat.id)} disabled={deactivate.isPending}>
+                      <button onClick={() => deactivate.mutate(cat.id)} disabled={deactivate.isPending} className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
                         <X className="w-4 h-4 text-slate-400 dark:text-slate-500 hover:text-red-500" />
                       </button>
                     )}

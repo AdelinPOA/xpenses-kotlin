@@ -60,6 +60,7 @@ export default function DashboardClient() {
 
   return (
     <AppShell>
+      <div className="pb-16 md:pb-0">
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-8">
         <div>
           <DashboardGreeting name={user?.display_name || "Guest"} />
@@ -243,6 +244,7 @@ export default function DashboardClient() {
       >
         <Plus className="w-6 h-6" />
       </Link>
+      </div>
     </AppShell>
   );
 }

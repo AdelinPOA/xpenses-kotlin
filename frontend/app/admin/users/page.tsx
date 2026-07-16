@@ -279,7 +279,7 @@ export default function AdminUsersPage() {
                               role: e.target.value as User["role"],
                             })
                           }
-                          className="text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-2 py-1 bg-white dark:bg-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-300 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {ROLE_OPTIONS.map((opt) => (
                             <option key={opt.value} value={opt.value}>
@@ -301,7 +301,7 @@ export default function AdminUsersPage() {
                               ? "Deactivate user"
                               : "Activate user"
                           }
-                          className="inline-flex items-center justify-center p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                          className="inline-flex items-center justify-center p-2.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                           {u.is_active ? (
                             <ShieldOff className="w-4 h-4 text-slate-500 dark:text-slate-400 hover:text-red-500" />

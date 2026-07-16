@@ -411,41 +411,45 @@ export default function LdapAdminPage() {
         <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-sm space-y-4">
           <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Role Map</h2>
           {roleEntries.map((entry, i) => (
-            <div key={i} className="flex items-center gap-3 min-w-0">
-              <input
-                className="flex-1 min-w-0 border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200"
-                placeholder="Directory group value"
-                value={entry.dir}
-                onChange={(e) => {
-                  const n = [...roleEntries];
-                  n[i] = { ...n[i], dir: e.target.value };
-                  setRoleEntries(n);
-                  setRoleEntriesDirty(true);
-                }}
-              />
-              <span className="text-slate-400 font-semibold shrink-0">→</span>
-              <select
-                className="flex-1 min-w-0 border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200"
-                value={entry.role}
-                onChange={(e) => {
-                  const n = [...roleEntries];
-                  n[i] = { ...n[i], role: e.target.value };
-                  setRoleEntries(n);
-                  setRoleEntriesDirty(true);
-                }}
-              >
-                {ROLE_OPTIONS.map((r) => <option key={r} value={r}>{r}</option>)}
-              </select>
-              <button
-                type="button"
-                className="shrink-0 text-rose-500 hover:text-rose-700 text-sm px-2 py-1 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg transition-all duration-200 font-semibold"
-                onClick={() => {
-                  setRoleEntries(roleEntries.filter((_, j) => j !== i));
-                  setRoleEntriesDirty(true);
-                }}
-              >
-                ✕
-              </button>
+            <div key={i} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 min-w-0">
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <input
+                  className="flex-1 min-w-0 border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200"
+                  placeholder="Directory group value"
+                  value={entry.dir}
+                  onChange={(e) => {
+                    const n = [...roleEntries];
+                    n[i] = { ...n[i], dir: e.target.value };
+                    setRoleEntries(n);
+                    setRoleEntriesDirty(true);
+                  }}
+                />
+                <span className="text-slate-400 font-semibold shrink-0">→</span>
+              </div>
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <select
+                  className="flex-1 min-w-0 border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200"
+                  value={entry.role}
+                  onChange={(e) => {
+                    const n = [...roleEntries];
+                    n[i] = { ...n[i], role: e.target.value };
+                    setRoleEntries(n);
+                    setRoleEntriesDirty(true);
+                  }}
+                >
+                  {ROLE_OPTIONS.map((r) => <option key={r} value={r}>{r}</option>)}
+                </select>
+                <button
+                  type="button"
+                  className="shrink-0 text-rose-500 hover:text-rose-700 text-sm p-2 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg transition-all duration-200 font-semibold"
+                  onClick={() => {
+                    setRoleEntries(roleEntries.filter((_, j) => j !== i));
+                    setRoleEntriesDirty(true);
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
             </div>
           ))}
           <button

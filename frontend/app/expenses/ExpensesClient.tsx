@@ -139,8 +139,9 @@ function ExpensesPageContent() {
 
   return (
     <AppShell>
-      <div
-        onDragEnter={handleDragEnter}
+      <div className="page-transition">
+        <div
+          onDragEnter={handleDragEnter}
         onDragLeave={handleDragLeave}
         onDragOver={handleDragOver}
         onDrop={handleDrop}
@@ -212,8 +213,8 @@ function ExpensesPageContent() {
         </div>
       </div>
 
-      <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm">
-        <div className="p-4 border-b border-slate-100 dark:border-slate-700 flex flex-wrap gap-2 sticky top-0 z-10 bg-white dark:bg-slate-900 rounded-t-xl">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800/80 overflow-hidden">
+        <div className="p-4 border-b border-slate-100 dark:border-slate-700 flex flex-wrap gap-2 sticky top-0 z-10 bg-white dark:bg-slate-900 rounded-t-2xl">
           {["", "draft", "submitted", "paid"].map((s) => (
             <button
               key={s}
@@ -250,7 +251,7 @@ function ExpensesPageContent() {
               {expenses.map((e) => (
                 <div
                   key={e.id}
-                  className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200/60 dark:border-slate-800/80 p-4 transition-all duration-200 hover:shadow-md hover:border-slate-300 dark:hover:border-slate-700"
+                  className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200/60 dark:border-slate-800/80 p-4 transition-all duration-300 hover:shadow-md hover:border-slate-300 dark:hover:border-slate-700 hover:-translate-y-0.5 hover:scale-[1.005]"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div>
@@ -423,6 +424,7 @@ function ExpensesPageContent() {
         )}
       </div>
       </div>  {/* end drag wrapper */}
+      </div>
     </AppShell>
   );
 }

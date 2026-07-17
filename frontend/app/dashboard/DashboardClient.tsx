@@ -61,7 +61,8 @@ export default function DashboardClient() {
 
   return (
     <AppShell>
-      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-8">
+      <div className="page-transition">
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-8">
         <div>
           <DashboardGreeting name={user?.display_name || "Guest"} />
           <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
@@ -146,7 +147,7 @@ export default function DashboardClient() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white/70 dark:bg-slate-900/75 backdrop-blur-md rounded-2xl shadow-xl border border-white/20 dark:border-slate-800/50 p-6 transition-all duration-300 hover:shadow-2xl">
+        <div className="bg-white/70 dark:bg-slate-900/75 backdrop-blur-md rounded-2xl shadow-xl border border-white/20 dark:border-slate-800/50 p-6 transition-all duration-300 hover:shadow-2xl hover:scale-[1.005] hover:-translate-y-0.5">
           <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-6 uppercase tracking-wider">Spend by Category (this month)</h2>
           {!data?.spend_by_category.length ? (
             <EmptyState message="No expenses this month" />
@@ -158,11 +159,11 @@ export default function DashboardClient() {
                 
                 // Color cycle for category progress bars
                 const colors = [
-                  "from-blue-500 to-indigo-500 shadow-blue-500/10",
-                  "from-emerald-500 to-teal-500 shadow-emerald-500/10",
-                  "from-violet-500 to-purple-500 shadow-violet-500/10",
-                  "from-amber-500 to-orange-500 shadow-amber-500/10",
-                  "from-rose-500 to-pink-500 shadow-rose-500/10",
+                  "from-blue-500 to-indigo-500 shadow-[0_0_8px_rgba(59,130,246,0.4)]",
+                  "from-emerald-500 to-teal-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]",
+                  "from-violet-500 to-purple-500 shadow-[0_0_8px_rgba(139,92,246,0.4)]",
+                  "from-amber-500 to-orange-500 shadow-[0_0_8px_rgba(245,158,11,0.4)]",
+                  "from-rose-500 to-pink-500 shadow-[0_0_8px_rgba(244,63,94,0.4)]",
                 ];
                 const gradient = colors[i % colors.length];
 
@@ -181,7 +182,7 @@ export default function DashboardClient() {
                     </div>
                     
                     <div className="flex items-center gap-4">
-                      <div className="flex-1 bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden">
+                      <div className="flex-1 bg-slate-100 dark:bg-slate-800 rounded-full h-2">
                         <div
                           className={`h-full rounded-full bg-gradient-to-r ${gradient} transition-all duration-1000 ease-out`}
                           style={{ width: `${percent}%` }}
@@ -198,7 +199,7 @@ export default function DashboardClient() {
           )}
         </div>
 
-        <div className="bg-white/70 dark:bg-slate-900/75 backdrop-blur-md rounded-2xl shadow-xl border border-white/20 dark:border-slate-800/50 p-6 transition-all duration-300 hover:shadow-2xl">
+        <div className="bg-white/70 dark:bg-slate-900/75 backdrop-blur-md rounded-2xl shadow-xl border border-white/20 dark:border-slate-800/50 p-6 transition-all duration-300 hover:shadow-2xl hover:scale-[1.005] hover:-translate-y-0.5">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Recent Expenses</h2>
             <Link href="/expenses" className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline hover:text-blue-700 transition-colors">
@@ -210,7 +211,7 @@ export default function DashboardClient() {
           ) : (
             <div className="space-y-3">
               {data.recent_expenses.slice(0, 5).map((e) => (
-                <Link key={e.id} href={`/expenses/${e.id}`} className="group flex items-center justify-between p-3 border border-slate-100/50 dark:border-slate-800/40 hover:border-slate-200 dark:hover:border-slate-700/50 hover:bg-white/90 dark:hover:bg-slate-800/50 rounded-2xl transition-all duration-300 shadow-sm hover:shadow-md">
+                <Link key={e.id} href={`/expenses/${e.id}`} className="group flex items-center justify-between p-3 border border-slate-100/50 dark:border-slate-800/40 hover:border-slate-200 dark:hover:border-slate-700/50 hover:bg-white/90 dark:hover:bg-slate-800/50 rounded-2xl transition-all duration-300 shadow-sm hover:shadow-md hover:scale-[1.01] hover:-translate-y-0.5">
                   <div className="min-w-0 flex-1 pr-2">
                     <p className="text-sm font-bold text-slate-800 dark:text-slate-200 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                       {e.merchant || e.description || "—"}
@@ -243,6 +244,7 @@ export default function DashboardClient() {
       >
         <Plus className="w-6 h-6" />
       </Link>
+      </div>
     </AppShell>
   );
 }

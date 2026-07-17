@@ -146,7 +146,8 @@ function ReportsPageContent() {
 
   return (
     <AppShell>
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+      <div className="page-transition">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
             {showAll ? "Company Reports" : "My Reports"}
@@ -211,8 +212,8 @@ function ReportsPageContent() {
         </div>
       )}
 
-      <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm">
-        <div className="p-4 border-b border-slate-100 dark:border-slate-700 flex flex-wrap gap-2 items-center sticky top-0 z-10 bg-white dark:bg-slate-900 rounded-t-xl">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800/80 overflow-hidden">
+        <div className="p-4 border-b border-slate-100 dark:border-slate-700 flex flex-wrap gap-2 items-center sticky top-0 z-10 bg-white dark:bg-slate-900 rounded-t-2xl">
           {["", "draft", "submitted", "approved", "rejected", "paid"].map((s) => (
             <button
               key={s}
@@ -302,7 +303,7 @@ function ReportsPageContent() {
               {sorted.map((r) => (
                 <div
                   key={r.id}
-                  className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200/60 dark:border-slate-800/80 p-4 transition-all duration-200 hover:shadow-md hover:border-slate-300 dark:hover:border-slate-700"
+                  className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200/60 dark:border-slate-800/80 p-4 transition-all duration-300 hover:shadow-md hover:border-slate-300 dark:hover:border-slate-700 hover:-translate-y-0.5 hover:scale-[1.005]"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div>
@@ -473,6 +474,7 @@ function ReportsPageContent() {
           </div>
         </div>
       )}
+      </div>
     </AppShell>
   );
 }

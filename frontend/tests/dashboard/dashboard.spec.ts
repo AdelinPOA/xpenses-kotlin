@@ -39,22 +39,22 @@ test.describe("Dashboard", () => {
     await expect(page.getByText(/company overview/i)).not.toBeVisible({ timeout: 15000 });
   });
 
-  test("company overview toggle shows Switch to My View for mod", async ({ page }) => {
+  test("company overview toggle shows My View option for mod", async ({ page }) => {
     await setupCommonMocks(page);
     await page.goto("/dashboard", { waitUntil: "load" });
     await page.waitForTimeout(2000);
-    await expect(page.getByText("Switch to My View")).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole("button", { name: "My View", exact: true })).toBeVisible({ timeout: 15000 });
   });
 
   test("my view / company overview toggle works for mod", async ({ page }) => {
     await setupCommonMocks(page);
     await page.goto("/dashboard", { waitUntil: "load" });
     await page.waitForTimeout(2000);
-    // mod defaults to org-wide view, button says "Switch to My View"
-    const toggle = page.getByText("Switch to My View");
-    await expect(toggle).toBeVisible({ timeout: 15000 });
-    await toggle.evaluate((el) => (el as HTMLElement).click());
-    await expect(page.getByText("View Company Overview")).toBeVisible({ timeout: 10000 });
+    const myViewBtn = page.getByRole("button", { name: "My View", exact: true });
+    const companyViewBtn = page.getByRole("button", { name: "Company View", exact: true });
+    await expect(companyViewBtn).toHaveClass(/bg-white/);
+    await myViewBtn.evaluate((el) => (el as HTMLElement).click());
+    await expect(myViewBtn).toHaveClass(/bg-white/);
   });
 
   test("mobile FAB button visible at 375px", async ({ page }) => {

@@ -1,6 +1,61 @@
 # HANDOFF.md — xpenses-kotlin
 
-## Current Session (2026-07-16, session 112) — fix-all-e2e-tests
+## Current Session (2026-07-17, session 114) — mobile-ui-ux-improvements
+
+### What Was Done
+- **SegmentedControl Component**: Created a reusable `SegmentedControl` component (`frontend/components/ui/SegmentedControl.tsx`) with modern iOS-inspired pills, smooth transition animations, and dark mode support.
+- **Scoping & Layout Enhancements**:
+  - **Expenses Page**: Integrated `SegmentedControl` to toggle between standard and company expenses (`all=true` parameter via client-side query) for privileged roles (moderator, manager, CFO) in `frontend/app/expenses/ExpensesClient.tsx`. Refactored mobile cards to display the owner's display name when company view is active.
+  - **Dashboard Page**: Replaced text buttons with `SegmentedControl` for scoping standard vs. company dashboard views.
+  - **Reports Page**: Integrated `SegmentedControl` and refactored mobile lists to premium card styles showing owner names.
+  - **Inventory & Insurance Pages**: Integrated `SegmentedControl` for standard vs. company scoping view toggles.
+- **Playwright E2E Tests**:
+  - Created `frontend/tests/responsive/mobile-ui-ux.spec.ts` E2E test suite.
+  - Verified SegmentedControl visibility, interaction, viewport-aware card layouts, and lack of pointer interception on mobile, tablet, and desktop viewports. All **15 tests passed successfully**.
+  - Updated `frontend/tests/dashboard/dashboard.spec.ts` to align with the new SegmentedControl labels and classes.
+- **OpenSpec Workflow**: Completed all tasks and archived the change at `openspec/changes/archive/2026-07-17-mobile-ui-ux-improvements` and synced the spec changes to the main spec (`openspec/specs/user-profiles-reports-view/spec.md`).
+- **Graphify Update**: Re-ran graphify update to reflect all AST changes.
+
+### Files Changed
+- `frontend/components/ui/SegmentedControl.tsx` — new component
+- `frontend/app/expenses/ExpensesClient.tsx` — added SegmentedControl, query parameter scoping, mobile card tweaks
+- `frontend/app/dashboard/DashboardClient.tsx` — replaced toggle button with SegmentedControl
+- `frontend/app/reports/page.tsx` — replaced toggle button with SegmentedControl, refactored mobile cards to show owner names
+- `frontend/app/inventory/page.tsx` — replaced toggle button with SegmentedControl
+- `frontend/app/insurance/page.tsx` — replaced toggle button with SegmentedControl
+- `frontend/tests/responsive/mobile-ui-ux.spec.ts` — new responsive spec
+- `frontend/tests/dashboard/dashboard.spec.ts` — updated button text selectors to SegmentedControl elements
+- `openspec/specs/user-profiles-reports-view/spec.md` — main spec updated
+- `openspec/changes/archive/2026-07-17-mobile-ui-ux-improvements/` — archived planning and task details
+
+### Next Steps
+- Verify visual styling on iOS devices.
+- Commit to GitHub and deploy to production.
+
+---
+
+## Previous Session (2026-07-16, session 113) — auth-session-fix
+
+### What Was Done
+- **Extended access token TTL** from 15 → 60 minutes (`application.yml`).
+- **Increased refresh rate limit** from 5 → 20 per minute per IP (`application.yml`).
+- **Removed `maxAge` from access_token cookie** → session cookie now (JWT `exp` still enforced server-side at 60 min). Prevents browser deleting the cookie before the token actually expires (`AuthController.kt`).
+- **Fixed stale React auth state**: `AuthProvider` no longer checks `/api/auth/me` only once on mount. Now re-validates on tab visibility change (user returns to tab after idle) and every 5 minutes via heartbeat. If either check fails, `setUser(null)` + redirect to `/login` (`AuthProvider.tsx`).
+- **Pushed to GitHub** (`6e926f3` on `main`).
+- **Deployed**: `docker compose up -d --build` (both backend + frontend rebuilt and restarted). Health check OK.
+
+### Files Changed
+- `backend-kotlin-jpa/src/main/resources/application.yml` — access TTL 15→60, refresh rate 5→20
+- `backend-kotlin-jpa/src/main/kotlin/.../controllers/AuthController.kt` — removed access_token maxAge
+- `frontend/components/AuthProvider.tsx` — visibility listener + 5-min heartbeat
+- `.planning/phases/01-auth-session-fix/PLAN.md` — new
+
+### Next Steps
+- Monitor for the stale-state issue. With the fix, the UI should now accurately reflect auth state within 5 min (or instantly on tab re-focus).
+
+---
+
+## Previous Session (2026-07-16, session 112) — fix-all-e2e-tests
 
 ### What Was Done
 - **Fixed all 405 Playwright E2E tests across desktop/mobile/tablet** (was 24 failed desktop + 16 failed mobile + 4 failed tablet = 44 total failures → 0).

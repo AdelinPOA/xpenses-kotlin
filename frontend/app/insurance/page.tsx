@@ -9,6 +9,7 @@ import EmptyState from "@/components/ui/EmptyState";
 import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/ToastProvider";
 import { Plus, Download, Trash2, Shield, FileText, Upload } from "lucide-react";
+import SegmentedControl from "@/components/ui/SegmentedControl";
 
 export default function InsurancePage() {
   const { user } = useAuth();
@@ -106,16 +107,14 @@ export default function InsurancePage() {
         <div className="flex items-center gap-3">
           {isManager && (
             <>
-              <button
-                onClick={() => setShowAll(!showAll)}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors ${
-                  showAll
-                    ? "bg-slate-900 border-slate-900 text-white dark:bg-slate-700 dark:border-slate-600"
-                    : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-300"
-                }`}
-              >
-                {showAll ? "My Files" : "All Files"}
-              </button>
+              <SegmentedControl
+                options={[
+                  { label: "My Files", value: false },
+                  { label: "Company Files", value: true },
+                ]}
+                value={showAll}
+                onChange={setShowAll}
+              />
               <button
                 onClick={() => setShowUpload(true)}
                 className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700"

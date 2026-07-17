@@ -14,6 +14,7 @@ import Link from "next/link";
 import { useAuth } from "@/components/AuthProvider";
 import clsx from "clsx";
 import { CheckSquare, Banknote, FileText, Plus } from "lucide-react";
+import SegmentedControl from "@/components/ui/SegmentedControl";
 
 function formatEur(amount: number) {
   return new Intl.NumberFormat("en-GB", { style: "currency", currency: "EUR" }).format(amount);
@@ -68,17 +69,16 @@ export default function DashboardClient() {
           </p>
         </div>
         {canToggle && (
-          <button
-            onClick={() => setShowAll(!showAll)}
-            className={clsx(
-              "px-4 py-2 text-sm font-semibold rounded-lg transition-colors border shadow-sm",
-              showAll
-                ? "bg-slate-900 border-slate-900 text-white dark:bg-slate-700 dark:border-slate-600"
-                : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-300"
-            )}
-          >
-            {showAll ? "Switch to My View" : "View Company Overview"}
-          </button>
+          <div className="flex justify-start sm:justify-center w-full sm:w-auto">
+            <SegmentedControl
+              options={[
+                { label: "My View", value: false },
+                { label: "Company View", value: true },
+              ]}
+              value={showAll}
+              onChange={setShowAll}
+            />
+          </div>
         )}
       </div>
       {showAll && (

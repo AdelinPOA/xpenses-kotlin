@@ -10,6 +10,7 @@ import Badge from "@/components/ui/Badge";
 import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/ToastProvider";
 import { Plus, Pencil, Trash2, Wrench, Package, Send, Check, X, HelpCircle, ClipboardList } from "lucide-react";
+import SegmentedControl from "@/components/ui/SegmentedControl";
 
 const statusColors: Record<string, string> = {
   active: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
@@ -214,16 +215,14 @@ export default function InventoryPage() {
         </div>
         <div className="flex items-center gap-3 flex-wrap">
           {isPrivileged && (
-            <button
-              onClick={() => setShowAll(!showAll)}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors ${
-                showAll
-                  ? "bg-slate-900 border-slate-900 text-white dark:bg-slate-700 dark:border-slate-600"
-                  : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-300"
-              }`}
-            >
-              {showAll ? "My Items" : "All Items"}
-            </button>
+            <SegmentedControl
+              options={[
+                { label: "My Items", value: false },
+                { label: "Company Items", value: true },
+              ]}
+              value={showAll}
+              onChange={setShowAll}
+            />
           )}
           <button
             onClick={() => setShowRequestForm(true)}

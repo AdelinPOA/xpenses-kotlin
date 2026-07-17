@@ -13,6 +13,7 @@ import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/ToastProvider";
 import clsx from "clsx";
 import { useRouter, useSearchParams } from "next/navigation";
+import SegmentedControl from "@/components/ui/SegmentedControl";
 
 function formatEur(amount: number) {
   return new Intl.NumberFormat("en-GB", { style: "currency", currency: "EUR" }).format(amount);
@@ -152,19 +153,16 @@ function ReportsPageContent() {
           </h1>
           <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">{reports?.length ?? 0} total</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {isPrivileged && (
-            <button
-              onClick={() => setShowAll(!showAll)}
-              className={clsx(
-                "px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors border",
-                showAll
-                  ? "bg-slate-900 border-slate-900 text-white dark:bg-slate-700 dark:border-slate-600"
-                  : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-300"
-              )}
-            >
-              {showAll ? "Show My Reports" : "Show All Reports"}
-            </button>
+            <SegmentedControl
+              options={[
+                { label: "My Reports", value: false },
+                { label: "Company Reports", value: true },
+              ]}
+              value={showAll}
+              onChange={setShowAll}
+            />
           )}
           <div className="relative">
             <button
@@ -300,41 +298,60 @@ function ReportsPageContent() {
         ) : (
           <>
             {/* Mobile: stacked cards */}
-            <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-700">
+            <div className="md:hidden space-y-4">
               {sorted.map((r) => (
-                <div key={r.id} className="p-4">
+                <div
+                  key={r.id}
+                  className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200/60 dark:border-slate-800/80 p-4 transition-all duration-200 hover:shadow-md hover:border-slate-300 dark:hover:border-slate-700"
+                >
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <Link href={`/reports/${r.id}`} className="font-medium text-slate-800 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400">
+                      <Link href={`/reports/${r.id}`} className="font-semibold text-slate-900 dark:text-slate-100 text-sm sm:text-base hover:text-blue-600 dark:hover:text-blue-400">
                         {r.title}
                       </Link>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                        {showAll && r.user_display_name ? `${r.user_display_name} · ` : ""}
-                        {r.date_from && r.date_to ? `${r.date_from} — ${r.date_to}` : "—"}
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                        {showAll && r.user_display_name && (
+                          <span className="block text-blue-600 dark:text-blue-400 font-medium mb-0.5">
+                            {r.user_display_name}
+                          </span>
+                        )}
+                        {r.date_from && r.date_to ? `${r.date_from} — ${r.date_to}` : "No date range set"}
                       </p>
                     </div>
-                    <p className="font-semibold text-slate-900 dark:text-slate-100 shrink-0">
+                    <p className="font-bold text-slate-900 dark:text-slate-100 shrink-0 text-sm sm:text-base">
                       {formatEur(r.expenses.reduce((s, e) => s + e.amount_eur, 0) || r.total_amount)}
                     </p>
                   </div>
-                  <div className="flex items-center justify-between mt-3">
+                  <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/60">
                     <div className="flex items-center gap-2">
                       <Badge status={r.status} />
-                      <span className="text-xs text-slate-400 dark:text-slate-500">
+                      <span className="text-xs text-slate-400 dark:text-slate-500 font-medium">
                         {r.expenses.length} expense{r.expenses.length === 1 ? "" : "s"}
                       </span>
                     </div>
                     <div className="flex items-center gap-3">
-                      <Link href={`/reports/${r.id}`}>
-                        <Eye className="w-4 h-4 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400" />
+                      <Link
+                        href={`/reports/${r.id}`}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                      >
+                        <Eye className="w-4 h-4" />
                       </Link>
                       {r.status === "draft" && r.user_id === user?.id && (
                         <>
-                          <button title="Submit report" onClick={() => quickSubmit.mutate(r.id)} disabled={quickSubmit.isPending}>
-                            <Send className="w-4 h-4 text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400" />
+                          <button
+                            title="Submit report"
+                            onClick={() => quickSubmit.mutate(r.id)}
+                            disabled={quickSubmit.isPending}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors disabled:opacity-50"
+                          >
+                            <Send className="w-4 h-4" />
                           </button>
-                          <button onClick={() => setConfirmDeleteId(r.id)} disabled={del.isPending}>
-                            <Trash2 className="w-4 h-4 text-slate-400 hover:text-red-500" />
+                          <button
+                            onClick={() => setConfirmDeleteId(r.id)}
+                            disabled={del.isPending}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors disabled:opacity-50"
+                          >
+                            <Trash2 className="w-4 h-4" />
                           </button>
                         </>
                       )}

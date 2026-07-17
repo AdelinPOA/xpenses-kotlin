@@ -13,6 +13,8 @@ import { useToast } from "@/components/ToastProvider";
 import BulkUploadZone from "@/components/expenses/BulkUploadZone";
 import BulkReviewDrawer from "@/components/expenses/BulkReviewDrawer";
 import { Plus, Trash2, Pencil, Copy, Download } from "lucide-react";
+import { useAuth } from "@/components/AuthProvider";
+import SegmentedControl from "@/components/ui/SegmentedControl";
 
 function formatAmount(amount: number, currency: string) {
   return new Intl.NumberFormat("en-GB", { style: "currency", currency }).format(amount);
@@ -23,6 +25,9 @@ function ExpensesPageContent() {
   const router = useRouter();
   const toast = useToast();
   const searchParams = useSearchParams();
+  const { user } = useAuth();
+  const isPrivileged = user?.role === "chef_finance" || user?.role === "mod" || user?.role === "manager";
+  const [showAll, setShowAll] = useState(false);
   const [statusFilter, setStatusFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [exporting, setExporting] = useState(false);
@@ -31,6 +36,12 @@ function ExpensesPageContent() {
   const [bulkFiles, setBulkFiles] = useState<File[]>([]);
   const [showBulkDrawer, setShowBulkDrawer] = useState(false);
   const dragCounterRef = useRef(0); // track nested drag-enter/leave pairs
+
+  useEffect(() => {
+    if (user) {
+      setShowAll(user.role === "chef_finance" || user.role === "mod");
+    }
+  }, [user]);
 
   useEffect(() => {
     const catId = searchParams.get("category_id");
@@ -72,7 +83,12 @@ function ExpensesPageContent() {
       const today = new Date().toISOString().slice(0, 10);
       await downloadBlob(
         "/expenses/export",
-        { format, ...(statusFilter ? { status: statusFilter } : {}), ...(categoryFilter ? { category_id: categoryFilter } : {}) },
+        {
+          format,
+          ...(statusFilter ? { status: statusFilter } : {}),
+          ...(categoryFilter ? { category_id: categoryFilter } : {}),
+          all: showAll,
+        },
         `expenses_${today}.${format}`
       );
     } catch {
@@ -83,12 +99,20 @@ function ExpensesPageContent() {
   }
 
   const { data: expenses, isLoading } = useQuery<Expense[]>({
-    queryKey: expenseKeys.list({ status: statusFilter, category_id: categoryFilter }),
+    queryKey: expenseKeys.list({ status: statusFilter, category_id: categoryFilter, all: showAll }),
     queryFn: () =>
-      api.get("/expenses", { params: { ...(statusFilter ? { status: statusFilter } : {}), ...(categoryFilter ? { category_id: categoryFilter } : {}) } }).then((r) => {
-        const payload = r.data as Expense[] | PagedResponse<Expense>;
-        return isPagedResponse(payload) ? payload.data : payload;
-      }),
+      api
+        .get("/expenses", {
+          params: {
+            ...(statusFilter ? { status: statusFilter } : {}),
+            ...(categoryFilter ? { category_id: categoryFilter } : {}),
+            all: showAll,
+          },
+        })
+        .then((r) => {
+          const payload = r.data as Expense[] | PagedResponse<Expense>;
+          return isPagedResponse(payload) ? payload.data : payload;
+        }),
   });
 
   const { data: categories } = useQuery<Category[]>({
@@ -129,9 +153,23 @@ function ExpensesPageContent() {
 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Expenses</h1>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+            {showAll ? "Company Expenses" : "My Expenses"}
+          </h1>
           <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">{expenses?.length ?? 0} total</p>
         </div>
+        {isPrivileged && (
+          <div className="flex justify-start sm:justify-center w-full sm:w-auto">
+            <SegmentedControl
+              options={[
+                { label: "My Expenses", value: false },
+                { label: "Company Expenses", value: true },
+              ]}
+              value={showAll}
+              onChange={setShowAll}
+            />
+          </div>
+        )}
         <div className="flex items-center gap-2">
           <BulkUploadZone isDragging={isDragging} onFilesDropped={handleFilesDropped} />
           <div className="relative">
@@ -208,18 +246,28 @@ function ExpensesPageContent() {
         ) : (
           <>
             {/* Mobile: stacked cards */}
-            <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-700">
+            <div className="md:hidden space-y-4">
               {expenses.map((e) => (
-                <div key={e.id} className="p-4">
+                <div
+                  key={e.id}
+                  className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200/60 dark:border-slate-800/80 p-4 transition-all duration-200 hover:shadow-md hover:border-slate-300 dark:hover:border-slate-700"
+                >
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <p className="font-medium text-slate-800 dark:text-slate-200">{e.merchant || "—"}</p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{e.date} · {e.category_name || "—"}</p>
+                      <p className="font-semibold text-slate-900 dark:text-slate-100 text-sm sm:text-base">{e.merchant || "—"}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                        {e.date} · {e.category_name || "—"}
+                        {showAll && e.user_display_name && (
+                          <span className="block sm:inline sm:before:content-['·_'] sm:before:mx-0.5 text-blue-600 dark:text-blue-400 font-medium">
+                            {e.user_display_name}
+                          </span>
+                        )}
+                      </p>
                     </div>
                     <div className="text-right shrink-0">
-                      <p className="font-semibold text-slate-900 dark:text-slate-100">{formatAmount(e.amount_eur, "EUR")}</p>
+                      <p className="font-bold text-slate-900 dark:text-slate-100">{formatAmount(e.amount_eur, "EUR")}</p>
                       {e.currency_original !== "EUR" && (
-                        <p className="text-xs text-slate-400 dark:text-slate-500">
+                        <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
                           {formatAmount(e.amount_original, e.currency_original)}
                           {e.fx_rate_manual && (
                             <span className="ml-1 text-[10px] text-amber-600 dark:text-amber-400 font-medium">manual</span>
@@ -229,9 +277,11 @@ function ExpensesPageContent() {
                     </div>
                   </div>
                   {e.description && (
-                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">{e.description}</p>
+                    <p className="text-sm text-slate-600 dark:text-slate-300 mt-2 bg-slate-50 dark:bg-slate-800 p-2 rounded-lg border border-slate-100 dark:border-slate-800/60">
+                      {e.description}
+                    </p>
                   )}
-                  <div className="flex items-center justify-between mt-3">
+                  <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/60">
                     <Badge status={e.status} />
                     <div className="flex items-center gap-3">
                       {e.receipts?.length > 0 && (
@@ -240,9 +290,9 @@ function ExpensesPageContent() {
                             <button
                               key={r.id}
                               onClick={() => downloadBlob(`/expenses/${e.id}/receipts/${r.id}`, {}, r.original_name || `receipt_${r.id}`)}
-                              className="text-blue-600 dark:text-blue-400 hover:underline text-xs cursor-pointer"
+                              className="text-blue-600 dark:text-blue-400 hover:underline text-xs font-semibold cursor-pointer"
                             >
-                              {e.receipts.length === 1 ? "View" : (r.original_name?.split(".").pop()?.toUpperCase() || "View")}
+                              {e.receipts.length === 1 ? "View Receipt" : (r.original_name?.split(".").pop()?.toUpperCase() || "View")}
                             </button>
                           ))}
                         </div>
@@ -251,17 +301,24 @@ function ExpensesPageContent() {
                         onClick={() => duplicate.mutate(e.id)}
                         disabled={duplicate.isPending}
                         title="Duplicate Expense"
-                        className="text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 disabled:opacity-50"
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50 transition-colors"
                       >
                         <Copy className="w-4 h-4" />
                       </button>
                       {e.status === "draft" && (
                         <>
-                          <Link href={`/expenses/${e.id}/edit`}>
-                            <Pencil className="w-4 h-4 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400" />
+                          <Link
+                            href={`/expenses/${e.id}/edit`}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                          >
+                            <Pencil className="w-4 h-4" />
                           </Link>
-                          <button onClick={() => del.mutate(e.id)} disabled={del.isPending}>
-                            <Trash2 className="w-4 h-4 text-slate-400 hover:text-red-500" />
+                          <button
+                            onClick={() => del.mutate(e.id)}
+                            disabled={del.isPending}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
                           </button>
                         </>
                       )}
@@ -278,6 +335,7 @@ function ExpensesPageContent() {
                   <tr>
                     <th className="text-left px-4 py-3">Date</th>
                     <th className="text-left px-4 py-3">Merchant</th>
+                    {showAll && <th className="text-left px-4 py-3">Owner</th>}
                     <th className="text-left px-4 py-3">Category</th>
                     <th className="text-left px-4 py-3">Description</th>
                     <th className="text-right px-4 py-3">EUR</th>
@@ -291,6 +349,11 @@ function ExpensesPageContent() {
                     <tr key={e.id} className="border-t border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/50">
                       <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{e.date}</td>
                       <td className="px-4 py-3 font-medium text-slate-800 dark:text-slate-200">{e.merchant || "—"}</td>
+                      {showAll && (
+                        <td className="px-4 py-3 text-slate-600 dark:text-slate-400">
+                          {e.user_display_name || "—"}
+                        </td>
+                      )}
                       <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{e.category_name || "—"}</td>
                       <td className="px-4 py-3 text-slate-500 dark:text-slate-400 max-w-[180px] truncate">{e.description || "—"}</td>
                       <td className="px-4 py-3 text-right">

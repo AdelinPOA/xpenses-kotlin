@@ -11,6 +11,7 @@ interface DashboardActionCardProps {
   href: string;
   icon: LucideIcon;
   role: string;
+  className?: string;
 }
 
 export default function DashboardActionCard({
@@ -19,7 +20,8 @@ export default function DashboardActionCard({
   count,
   href,
   icon: Icon,
-  role
+  role,
+  className
 }: DashboardActionCardProps) {
   if (count === 0) return null;
 
@@ -27,7 +29,8 @@ export default function DashboardActionCard({
     <Link
       href={href}
       className={clsx(
-        "group relative flex items-center gap-4 p-5 backdrop-blur-md bg-white/70 dark:bg-slate-900/75 rounded-2xl shadow-lg border-l-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl bg-gradient-to-br border-blue-500 from-blue-50/40 to-sky-50/20 dark:from-blue-950/10 dark:to-slate-900/5 shadow-blue-500/5 hover:shadow-blue-500/10"
+        "group relative flex items-center gap-4 p-5 backdrop-blur-md bg-white/70 dark:bg-slate-900/75 rounded-2xl shadow-lg border-l-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl bg-gradient-to-br border-blue-500 from-blue-50/40 to-sky-50/20 dark:from-blue-950/10 dark:to-slate-900/5 shadow-blue-500/5 hover:shadow-blue-500/10",
+        className
       )}
     >
       <div className={clsx(

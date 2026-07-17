@@ -98,6 +98,7 @@ export default function DashboardClient() {
             href="/reports?status=draft"
             icon={FileText}
             role="technician"
+            className="col-span-2 md:col-span-1"
           />
           {(user.role === "manager" || user.role === "chef_finance") && (
             <DashboardActionCard
@@ -107,6 +108,7 @@ export default function DashboardClient() {
               href="/approvals"
               icon={CheckSquare}
               role="manager"
+              className="col-span-2 md:col-span-1"
             />
           )}
           {user.role === "chef_finance" && (
@@ -117,6 +119,7 @@ export default function DashboardClient() {
               href="/payments"
               icon={Banknote}
               role="chef_finance"
+              className="col-span-2 md:col-span-1"
             />
           )}
         </div>

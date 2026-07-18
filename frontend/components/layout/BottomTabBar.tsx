@@ -159,6 +159,7 @@ export default function BottomTabBar() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
               className="fixed inset-0 bg-black/60 z-40 md:hidden"
               onClick={() => setMoreOpen(false)}
             />
@@ -166,8 +167,8 @@ export default function BottomTabBar() {
               initial={{ y: "100%" }}
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
-              transition={{ type: "spring", damping: 30, stiffness: 300 }}
-              className="fixed bottom-0 left-0 right-0 z-50 bg-[var(--ios-grouped-bg)] rounded-t-2xl max-h-[70vh] overflow-y-auto pb-[env(safe-area-inset-bottom)] md:hidden"
+              transition={{ type: "tween", duration: 0.25, ease: [0.32, 0.72, 0, 1] }}
+              className="fixed bottom-0 left-0 right-0 z-50 bg-[var(--ios-grouped-bg)] rounded-t-2xl max-h-[70vh] overflow-y-auto pb-[env(safe-area-inset-bottom)] md:hidden will-change-transform"
             >
               <div className="flex items-center justify-between px-5 py-4 sticky top-0 ios-frosted rounded-t-2xl">
                 <h2 className="text-[17px] font-semibold text-[var(--ios-label)]">More</h2>

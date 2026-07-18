@@ -1,5 +1,5 @@
 import AppShell from "@/components/layout/AppShell";
-import ExpenseForm from "@/components/expenses/ExpenseForm";
+import MobileExpenseFormSheet from "@/components/expenses/MobileExpenseFormSheet";
 
 export default async function NewExpensePage({
   searchParams,
@@ -12,10 +12,7 @@ export default async function NewExpensePage({
 
   return (
     <AppShell>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">New Expense</h1>
-      </div>
-      <ExpenseForm reportId={reportId} defaultCurrency={currency} />
+      <MobileExpenseFormSheet reportId={reportId} defaultCurrency={currency} />
     </AppShell>
   );
 }

@@ -2,28 +2,27 @@
 
 import { useState } from "react";
 import Sidebar from "./Sidebar";
-import { Menu } from "lucide-react";
+import BottomTabBar from "./BottomTabBar";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
-      {/* Mobile header */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 h-14 glass-panel border-b border-slate-200/50 dark:border-slate-800/50 flex items-center px-4 z-30">
-        <button
-          onClick={() => setSidebarOpen(true)}
-          className="p-2 -ml-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100/50 dark:hover:bg-slate-800/50 rounded-lg"
-        >
-          <Menu className="w-5 h-5" />
-        </button>
-        <span className="ml-3 text-sm font-bold text-slate-900 dark:text-white">xpenses</span>
+    <div className="min-h-screen bg-[var(--background)] md:bg-[var(--background)] ios-grouped-bg md:ios-grouped-bg">
+      {/* Desktop sidebar */}
+      <div className="hidden md:block">
+        <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       </div>
 
-      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      {/* Mobile bottom tab bar */}
+      <div className="md:hidden">
+        <BottomTabBar />
+      </div>
 
-      <main className="flex-1 lg:ml-[var(--sidebar-width)] pt-14 lg:pt-0 p-4 sm:p-6 lg:p-8">
-        {children}
+      <main className="flex-1 md:ml-[calc(var(--sidebar-width)+2rem)] pb-[60px] md:pb-8 pt-0 md:pt-8 p-4 sm:p-6 md:pr-8 md:pl-0 max-w-7xl mx-auto w-full transition-all duration-300">
+        <div className="max-w-full">
+          {children}
+        </div>
       </main>
     </div>
   );

@@ -1,26 +1,49 @@
 # HANDOFF.md — xpenses-kotlin
 
-## Current Session (2026-07-18, session 116) — web-ui-ux-refactoring
+## Current Session (2026-07-18, session 118) — mobile-audit-perf
 
 ### What Was Done
-- **Design Tokens & Dark Mode**: Refactored `globals.css` with a CSS-first Tailwind v4 approach, establishing a robust set of design tokens including semantic color palettes (`--color-brand-*`, `--color-surface-*`), standard spacing, and glassmorphic utility classes. Enhanced the dark mode palette for higher contrast and premium aesthetic.
-- **Component System**: Extracted common UI elements into reusable, highly styled React components (`Button.tsx`, `Card.tsx`, `Input.tsx`) to enforce consistency and apply smooth interactive micro-animations (e.g., hover lifts, focus rings).
-- **Mobile-First Layouts**: Updated `AppShell.tsx` and `Sidebar.tsx` to handle responsiveness gracefully. The navigation sidebar now collapses into an accessible overlay drawer on mobile viewports (<768px).
-- **Dashboard & Forms**: Re-architected the `DashboardClient` to stack horizontally-aligned widgets into a vertical column on mobile, maintaining multi-column grids for desktop. Updated `ExpenseForm` to display form inputs and the receipt preview seamlessly stacked vertically on mobile, removing the old tab-switcher approach for a better user flow.
-- **OpenSpec Workflow**: Proposed, planned, implemented, and archived the entire refactoring under the `web-ui-ux-refactoring` change in the `openspec/` directory. Added a new main capability spec `modern-responsive-ui` capturing the premium visual and responsive requirements.
-- **Validation**: Successfully ran TypeScript checks and ESLint across the frontend, then verified the full Next.js production build (`npm run build`) completed without errors.
+- **Created Playwright mobile performance test suite** (`frontend/tests/performance/mobile-perf.spec.ts`): 17 tests covering page load, scroll FPS (expenses + dashboard), long tasks, tab switches, More drawer open/close, backdrop-filter bounding, DOM node counts, CSS animation counts, memory leaks, and `will-change` usage.
+- **Debugged `data-testid` stripping**: Next.js 15 strips `data-testid` attributes during compilation. Switched tests to CSS class selector `nav.ios-frosted` instead.
+- **Fixed dashboard scroll FPS measurement**: Added 1.5s settle delay before FPS measurement to let React finish initial render (was measuring React hydration contention, not scroll performance). Actual dashboard scroll FPS with fix: 22 FPS.
+- **Removed `backdrop-blur-md` from StatCards**: Was causing 4 stat cards × 12px backdrop-filter compositor pressure on iOS. Also narrowed `transition-all` → `transition-[transform,box-shadow]` to avoid unnecessary property transitions.
+- **Removed `glass-panel` backdrop-filter on mobile** (`globals.css`): Sets `backdrop-filter: none` on `.glass-panel` at ≤767px (iOS Safari compositor chokes on blur during scroll).
+- **Added rAF-throttled scroll handler to LargeHeader**: Uses refs + direct DOM manipulation instead of setState on scroll. No React re-renders during scroll (`components/ui/LargeHeader.tsx`).
+- **Gated hover effects with `@media (hover: hover)`** in `globals.css` (`.neon-glow`) and `DashboardClient.tsx` — touch devices don't waste GPU on hover state prep.
+- **Reduced `page-transition` animation** from 0.5s to 0.25s.
 
-### Files Changed
-- `frontend/app/globals.css` — design tokens and base styles
-- `frontend/components/ui/Button.tsx`, `Card.tsx`, `Input.tsx` — new core components
-- `frontend/components/layout/AppShell.tsx`, `Sidebar.tsx` — layout responsiveness
-- `frontend/app/dashboard/DashboardClient.tsx` — mobile stacking
-- `frontend/components/expenses/ExpenseForm.tsx` — mobile vertical stacking
-- `openspec/changes/archive/2026-07-18-web-ui-ux-refactoring/` — archived planning and task details
-- `openspec/specs/modern-responsive-ui/spec.md` — new main capability spec
+### Test Results (17/17 pass)
+```
+Dashboard load: 419ms ✓
+Expenses load: 579ms ✓
+Reports load: 503ms ✓
+No excessive long tasks ✓
+Expenses scroll: 46 FPS ✓
+Dashboard scroll: 22 FPS ✓
+Tab switch: 923ms ✓
+Drawer open: 34.2 FPS ✓
+Drawer close: 36.1 FPS ✓
+backdrop-filter ≤ 8 ✓
+No nested backdrop-filter ✓
+Expenses DOM ≤ 1500 (381) ✓
+Dashboard DOM ≤ 1500 (318) ✓
+CSS animations ≤ 8 (1) ✓
+Memory growth ≤ 30MB (0MB) ✓
+will-change ≤ 5 (0) ✓
+Layout nav: 957ms ✓
+```
+
+### Files Created
+- `frontend/tests/performance/mobile-perf.spec.ts` — 17 mobile perf tests
+
+### Files Modified
+- `frontend/components/dashboard/StatCard.tsx` — removed `backdrop-blur-md`, narrowed `transition-all`
+- `frontend/app/globals.css` — removed `glass-panel` backdrop-filter on mobile, gated `neon-glow` with `@media (hover: hover)`
+- `frontend/components/ui/LargeHeader.tsx` — rAF-throttled scroll handler (no setState)
 
 ### Next Steps
-- Commit the changes to a new branch, push to GitHub, and deploy to production (`docker compose up -d --build frontend`).
+- Run full E2E regression suite to ensure perf fixes don't break existing tests
+- Consider adding a CI job for perf tests with baseline comparisons
 
 ---
 

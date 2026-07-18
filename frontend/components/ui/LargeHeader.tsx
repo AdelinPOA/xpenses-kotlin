@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
-import { motion, useScroll, useTransform, useSpring } from "framer-motion";
+import { useEffect, useRef, useCallback } from "react";
 
 interface Props {
   title: string;
@@ -9,53 +8,81 @@ interface Props {
   children?: React.ReactNode;
 }
 
+/**
+ * iOS-style large title header that collapses on scroll.
+ *
+ * Perf-optimized: uses refs + direct DOM manipulation instead of
+ * setState on scroll. No React re-renders during scroll.
+ */
 export default function LargeHeader({ title, subtitle, children }: Props) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [scrollY, setScrollY] = useState(0);
-  const [offsetTop, setOffsetTop] = useState(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  const subtitleRef = useRef<HTMLParagraphElement>(null);
+  const rafRef = useRef<number>(0);
+  const offsetTopRef = useRef(0);
 
+  // Measure offset once after mount
   useEffect(() => {
-    const el = ref.current;
+    const el = containerRef.current;
     if (!el) return;
-    const top = el.getBoundingClientRect().top + window.scrollY;
-    setOffsetTop(top);
+    offsetTopRef.current = el.getBoundingClientRect().top + window.scrollY;
+  }, []);
+
+  // rAF-throttled scroll handler — NO setState, direct style mutation
+  const updateTransforms = useCallback(() => {
+    const scrollY = window.scrollY;
+    const progress = Math.min(
+      Math.max((scrollY - offsetTopRef.current + 20) / 60, 0),
+      1
+    );
+
+    const scale = 1 - progress * 0.25;
+    const opacity = 1 - progress;
+    const translateY = progress * -8;
+
+    if (titleRef.current) {
+      titleRef.current.style.transform = `scale(${scale}) translateY(${translateY}px)`;
+      titleRef.current.style.opacity = String(opacity);
+    }
+    if (subtitleRef.current) {
+      subtitleRef.current.style.transform = `translateY(${translateY}px)`;
+      subtitleRef.current.style.opacity = String(opacity);
+    }
   }, []);
 
   useEffect(() => {
     const onScroll = () => {
-      setScrollY(window.scrollY);
+      if (rafRef.current) return; // Already scheduled
+      rafRef.current = requestAnimationFrame(() => {
+        updateTransforms();
+        rafRef.current = 0;
+      });
     };
     window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-
-  const progress = Math.min(Math.max((scrollY - offsetTop + 20) / 60, 0), 1);
-
-  const titleScale = 1 - progress * 0.25;
-  const titleOpacity = 1 - progress;
-  const subtitleOpacity = 1 - progress;
-  const translateY = progress * -8;
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, [updateTransforms]);
 
   return (
-    <div ref={ref} className="pt-12 px-4 pb-2 md:pt-0 md:px-0">
+    <div ref={containerRef} className="pt-12 px-4 pb-2 md:pt-0 md:px-0">
       <div className="md:hidden" style={{ height: subtitle ? 88 : 64 }}>
-        <motion.h1
-          className="ios-large-title text-[var(--ios-label)] origin-bottom-left"
-          style={{
-            scale: titleScale,
-            opacity: titleOpacity,
-            y: translateY,
-          }}
+        <h1
+          ref={titleRef}
+          className="ios-large-title text-[var(--ios-label)] origin-bottom-left will-change-[transform,opacity]"
+          style={{ transform: "scale(1) translateY(0px)", opacity: 1 }}
         >
           {title}
-        </motion.h1>
+        </h1>
         {subtitle && (
-          <motion.p
-            className="text-[15px] text-[var(--ios-secondary-label)] mt-0.5"
-            style={{ opacity: subtitleOpacity, y: translateY }}
+          <p
+            ref={subtitleRef}
+            className="text-[15px] text-[var(--ios-secondary-label)] mt-0.5 will-change-[transform,opacity]"
+            style={{ transform: "translateY(0px)", opacity: 1 }}
           >
             {subtitle}
-          </motion.p>
+          </p>
         )}
       </div>
       <div className="hidden md:block">

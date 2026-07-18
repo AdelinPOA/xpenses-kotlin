@@ -81,7 +81,7 @@ export default function BottomTabBar() {
 
   return (
     <>
-      <nav className="fixed bottom-0 left-0 right-0 z-50 ios-frosted safe-area-bottom px-2 pb-[env(safe-area-inset-bottom)] md:hidden">
+      <nav data-testid="bottom-tab-bar" className="fixed bottom-0 left-0 right-0 z-50 ios-frosted safe-area-bottom px-2 pb-[env(safe-area-inset-bottom)] md:hidden">
         <div className="flex items-center justify-around h-[50px]">
           {visibleTabs.map(({ href, label, icon: Icon }) => {
             const active = pathname.startsWith(href);

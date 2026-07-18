@@ -119,30 +119,55 @@
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
   }
 
-  /* Refined Glow Effects for Cards */
+  /* Remove backdrop-filter on mobile — iOS Safari compositor can't handle it during scroll */
+  @media (max-width: 767px) {
+    .glass-panel {
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+    }
+    .dark .glass-panel {
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+    }
+  }
+
+  /* Refined Glow Effects for Cards — hover-only (no touch devices) */
   .neon-glow {
     position: relative;
   }
-  .neon-glow::before {
-    content: "";
-    position: absolute;
-    inset: -1px;
-    border-radius: inherit;
-    background: linear-gradient(135deg, rgba(99,102,241,0.5) 0%, transparent 50%, rgba(236,72,153,0.5) 100%);
-    z-index: -1;
-    opacity: 0;
-    transition: opacity 0.4s ease;
-  }
-  .neon-glow:hover::before {
-    opacity: 1;
+  @media (hover: hover) {
+    .neon-glow::before {
+      content: "";
+      position: absolute;
+      inset: -1px;
+      border-radius: inherit;
+      background: linear-gradient(135deg, rgba(99,102,241,0.5) 0%, transparent 50%, rgba(236,72,153,0.5) 100%);
+      z-index: -1;
+      opacity: 0;
+      transition: opacity 0.4s ease;
+    }
+    .neon-glow:hover::before {
+      opacity: 1;
+    }
   }
 
   .page-transition {
-    animation: slide-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    animation: slide-up 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .page-transition {
+      animation: none;
+    }
   }
 
   .interactive-element {
-    @apply transition-all duration-300 ease-out active:scale-[0.97];
+    @apply transition-colors duration-200 ease-out;
+  }
+  @media (hover: hover) {
+    .interactive-element {
+      @apply active:scale-[0.97];
+    }
   }
 
   * {
@@ -192,13 +217,13 @@
 }
 
 @utility ios-frosted {
-  background: rgba(255, 255, 255, 0.75);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px) saturate(150%);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
   border-bottom: 0.5px solid rgba(0, 0, 0, 0.12);
 }
 .dark .ios-frosted {
-  background: rgba(0, 0, 0, 0.78);
+  background: rgba(0, 0, 0, 0.85);
   border-bottom: 0.5px solid rgba(255, 255, 255, 0.08);
 }
 

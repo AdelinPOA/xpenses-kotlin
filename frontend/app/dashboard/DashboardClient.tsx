@@ -90,7 +90,7 @@ export default function DashboardClient() {
       )}
 
       {!showAll && user && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mb-8">
           <DashboardActionCard
             title="Draft Reports"
             description="You have reports that haven't been submitted yet."
@@ -98,7 +98,6 @@ export default function DashboardClient() {
             href="/reports?status=draft"
             icon={FileText}
             role="technician"
-            className="col-span-2 md:col-span-1"
           />
           {(user.role === "manager" || user.role === "chef_finance") && (
             <DashboardActionCard
@@ -108,7 +107,6 @@ export default function DashboardClient() {
               href="/approvals"
               icon={CheckSquare}
               role="manager"
-              className="col-span-2 md:col-span-1"
             />
           )}
           {user.role === "chef_finance" && (
@@ -119,13 +117,12 @@ export default function DashboardClient() {
               href="/payments"
               icon={Banknote}
               role="chef_finance"
-              className="col-span-2 md:col-span-1"
             />
           )}
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 pb-2">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8">
         <StatCard
           label={showAll ? "Total spent this month" : "Spent this month"}
           value={formatEur(data?.total_month_eur ?? 0)}
@@ -150,8 +147,8 @@ export default function DashboardClient() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white/70 dark:bg-slate-900/75 backdrop-blur-md rounded-2xl shadow-xl border border-white/20 dark:border-slate-800/50 p-6 transition-all duration-300 hover:shadow-2xl hover:scale-[1.005] hover:-translate-y-0.5">
-          <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-6 uppercase tracking-wider">Spend by Category (this month)</h2>
+        <div className="glass-panel rounded-3xl p-7">
+          <h2 className="text-xs font-bold text-zinc-500 dark:text-zinc-400 mb-6 uppercase tracking-[0.2em]">Spend by Category</h2>
           {!data?.spend_by_category.length ? (
             <EmptyState message="No expenses this month" />
           ) : (
@@ -171,28 +168,28 @@ export default function DashboardClient() {
                 const gradient = colors[i % colors.length];
 
                 return (
-                  <div key={i} className="group relative p-1 rounded-xl hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-all duration-300">
-                    <div className="flex items-center justify-between mb-2">
+                  <div key={i} className="group relative p-2 rounded-2xl hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-all duration-300">
+                    <div className="flex items-center justify-between mb-3">
                       <Link
                         href={s.category_id ? `/expenses?category_id=${s.category_id}` : "/expenses"}
-                        className="text-sm font-semibold text-slate-800 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                        className="text-sm font-bold text-zinc-800 dark:text-zinc-200 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
                       >
                         {s.category_name}
                       </Link>
-                      <span className="text-sm font-extrabold text-slate-950 dark:text-slate-50 tracking-tight">
+                      <span className="text-sm font-black text-zinc-950 dark:text-zinc-50 tracking-tight">
                         {formatEur(s.total)}
                       </span>
                     </div>
                     
                     <div className="flex items-center gap-4">
-                      <div className="flex-1 bg-slate-100 dark:bg-slate-800 rounded-full h-2">
+                      <div className="flex-1 bg-zinc-100 dark:bg-zinc-800/50 rounded-full h-2 overflow-hidden shadow-inner">
                         <div
                           className={`h-full rounded-full bg-gradient-to-r ${gradient} transition-all duration-1000 ease-out`}
                           style={{ width: `${percent}%` }}
                         />
                       </div>
-                      <span className="text-xs font-semibold text-slate-400 dark:text-slate-500 shrink-0 w-20 text-right">
-                        {s.count} {s.count === 1 ? "expense" : "expenses"}
+                      <span className="text-[11px] font-bold uppercase tracking-widest text-zinc-400 dark:text-zinc-500 shrink-0 w-20 text-right">
+                        {s.count} {s.count === 1 ? "exp" : "exps"}
                       </span>
                     </div>
                   </div>
@@ -202,10 +199,10 @@ export default function DashboardClient() {
           )}
         </div>
 
-        <div className="bg-white/70 dark:bg-slate-900/75 backdrop-blur-md rounded-2xl shadow-xl border border-white/20 dark:border-slate-800/50 p-6 transition-all duration-300 hover:shadow-2xl hover:scale-[1.005] hover:-translate-y-0.5">
+        <div className="glass-panel rounded-3xl p-7">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Recent Expenses</h2>
-            <Link href="/expenses" className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline hover:text-blue-700 transition-colors">
+            <h2 className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-[0.2em]">Recent Expenses</h2>
+            <Link href="/expenses" className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 transition-colors">
               View all
             </Link>
           </div>
@@ -214,21 +211,21 @@ export default function DashboardClient() {
           ) : (
             <div className="space-y-3">
               {data.recent_expenses.slice(0, 5).map((e) => (
-                <Link key={e.id} href={`/expenses/${e.id}`} className="group flex items-center justify-between p-3 border border-slate-100/50 dark:border-slate-800/40 hover:border-slate-200 dark:hover:border-slate-700/50 hover:bg-white/90 dark:hover:bg-slate-800/50 rounded-2xl transition-all duration-300 shadow-sm hover:shadow-md hover:scale-[1.01] hover:-translate-y-0.5">
-                  <div className="min-w-0 flex-1 pr-2">
-                    <p className="text-sm font-bold text-slate-800 dark:text-slate-200 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                <Link key={e.id} href={`/expenses/${e.id}`} className="group flex items-center justify-between p-4 border border-zinc-200/50 dark:border-zinc-800/50 hover:border-indigo-500/30 dark:hover:border-indigo-400/30 hover:bg-white/60 dark:hover:bg-zinc-800/40 rounded-2xl transition-colors duration-200 shadow-sm">
+                  <div className="min-w-0 flex-1 pr-3">
+                    <p className="text-[15px] font-bold text-zinc-900 dark:text-zinc-100 truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                       {e.merchant || e.description || "—"}
                     </p>
-                    <p className="text-xs font-medium text-slate-400 dark:text-slate-500 truncate mt-0.5">
-                      {e.date} · {e.category_name || "Uncategorized"}
-                      {showAll && e.user_display_name && ` · ${e.user_display_name}`}
+                    <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400 truncate mt-1">
+                      {e.date} <span className="mx-1.5 opacity-50">•</span> {e.category_name || "Uncategorized"}
+                      {showAll && e.user_display_name && <><span className="mx-1.5 opacity-50">•</span> {e.user_display_name}</>}
                     </p>
                   </div>
-                  <div className="text-right shrink-0 ml-4">
-                    <p className="text-sm font-black text-slate-950 dark:text-slate-50 tracking-tight">
+                  <div className="text-right shrink-0 ml-4 flex flex-col items-end">
+                    <p className="text-lg font-black text-zinc-900 dark:text-zinc-50 tracking-tighter">
                       {formatEur(e.amount_eur)}
                     </p>
-                    <div className="mt-1">
+                    <div className="mt-1.5 scale-90 origin-right">
                       <Badge status={e.status} />
                     </div>
                   </div>

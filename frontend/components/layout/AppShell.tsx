@@ -19,7 +19,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <BottomTabBar />
       </div>
 
-      <main className="flex-1 md:ml-[calc(var(--sidebar-width)+2rem)] pb-[60px] md:pb-8 pt-0 md:pt-8 p-4 sm:p-6 md:pr-8 md:pl-0 max-w-7xl mx-auto w-full transition-all duration-300">
+      <main className="flex-1 md:ml-[calc(var(--sidebar-width)+2rem)] pb-[60px] md:pb-8 pt-0 md:pt-8 p-4 sm:p-6 md:pr-8 md:pl-0 max-w-7xl mx-auto w-full transition-[margin-left] duration-300">
         <div className="max-w-full">
           {children}
         </div>

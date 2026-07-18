@@ -64,39 +64,39 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
       {/* Mobile backdrop */}
       {open && (
         <div
-          className="fixed inset-0 bg-black/50 z-30 lg:hidden"
+          className="fixed inset-0 bg-black/80 z-30 lg:hidden backdrop-blur-sm"
           onClick={onClose}
         />
       )}
 
       <aside
         className={clsx(
-          "fixed top-0 left-0 h-full w-[var(--sidebar-width)] text-slate-600 dark:text-slate-300 flex flex-col z-40",
-          "glass-panel border-r border-slate-200/50 dark:border-slate-800/50",
-          "transition-transform duration-200 ease-in-out",
+          "fixed h-[100dvh] lg:h-[calc(100vh-2rem)] lg:top-4 lg:left-4 w-[var(--sidebar-width)] text-zinc-600 dark:text-zinc-300 flex flex-col z-40",
+          "glass-panel lg:rounded-3xl border-r lg:border border-zinc-200/50 dark:border-zinc-800/50 shadow-2xl",
+          "transition-transform duration-500 cubic-bezier(0.16, 1, 0.3, 1)",
           "lg:translate-x-0",
           open ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        <div className="px-6 py-4 border-b border-slate-200/50 dark:border-slate-800/50 flex items-center justify-between">
-          <div className="flex items-center gap-2">
+        <div className="px-6 py-6 lg:py-8 flex items-center justify-between">
+          <div className="flex items-center gap-3">
             <Image
               src="/logo.png"
               alt="Newtech Automation"
-              width={36}
-              height={36}
+              width={40}
+              height={40}
               className={clsx(
-                "rounded-full border-2",
-                user ? "border-slate-200 dark:border-slate-700" : "border-transparent"
+                "rounded-xl border-2 transition-all duration-300",
+                user ? "border-indigo-500/30" : "border-transparent"
               )}
             />
-            <span className="text-lg font-bold text-slate-900 dark:text-white tracking-tight">xpenses</span>
+            <span className="text-xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-zinc-900 to-zinc-600 dark:from-white dark:to-zinc-400 tracking-tight">xpenses</span>
           </div>
-          <button onClick={onClose} aria-label="Close navigation" className="lg:hidden p-1 text-slate-400 hover:text-slate-600 dark:hover:text-white">
-            <X className="w-5 h-5" />
+          <button onClick={onClose} aria-label="Close navigation" className="lg:hidden p-2 bg-zinc-100 dark:bg-zinc-800 rounded-full text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors">
+            <X className="w-4 h-4" />
           </button>
         </div>
-        <nav className="flex-1 py-4 px-3 overflow-y-auto">
+        <nav className="flex-1 py-2 px-4 overflow-y-auto">
           {visibleNav.filter(({ href }) => href !== "/profile/signature").map(({ href, label, icon: Icon }) => {
             const active = pathname.startsWith(href);
             return (
@@ -105,21 +105,21 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                 href={href}
                 onClick={onClose}
                 className={clsx(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-xl mb-1 text-sm font-semibold transition-all duration-200",
+                  "flex items-center gap-3 px-4 py-3 rounded-2xl mb-1.5 text-[13px] font-bold transition-all duration-300",
                   active
-                    ? "text-white bg-gradient-to-r from-indigo-600 to-violet-600 shadow-[0_4px_12px_rgba(99,102,241,0.15)]"
-                    : "text-slate-500 dark:text-slate-400 hover:bg-slate-100/70 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-white"
+                    ? "text-white bg-gradient-to-r from-indigo-600 to-fuchsia-600 shadow-[0_4px_20px_rgba(99,102,241,0.4)]"
+                    : "text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100/80 dark:hover:bg-zinc-800/80 hover:text-zinc-900 dark:hover:text-white"
                 )}
               >
-                <Icon className="w-4 h-4" />
+                <Icon className={clsx("w-4 h-4", active ? "opacity-100" : "opacity-70")} strokeWidth={active ? 2.5 : 2} />
                 {label}
               </Link>
             );
           })}
           {(user?.role === "mod" || user?.role === "manager" || user?.role === "chef_finance") && (
             <>
-              <hr className="my-2 border-slate-200/50 dark:border-slate-800/50" />
-              <p className="px-3 py-1 text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+              <hr className="my-4 border-zinc-200/50 dark:border-zinc-800/50 mx-4" />
+              <p className="px-4 py-2 text-[10px] font-extrabold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">
                 {user.role === "mod" ? "Admin" : "Directory"}
               </p>
               {[
@@ -138,13 +138,13 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                     href={href}
                     onClick={onClose}
                     className={clsx(
-                      "flex items-center gap-3 px-3 py-2.5 rounded-xl mb-1 text-sm font-semibold transition-all duration-200",
+                      "flex items-center gap-3 px-4 py-3 rounded-2xl mb-1.5 text-[13px] font-bold transition-all duration-300",
                       active
-                        ? "text-white bg-gradient-to-r from-indigo-600 to-violet-600 shadow-[0_4px_12px_rgba(99,102,241,0.15)]"
-                        : "text-slate-500 dark:text-slate-400 hover:bg-slate-100/70 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-white"
+                        ? "text-white bg-gradient-to-r from-indigo-600 to-fuchsia-600 shadow-[0_4px_20px_rgba(99,102,241,0.4)]"
+                        : "text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100/80 dark:hover:bg-zinc-800/80 hover:text-zinc-900 dark:hover:text-white"
                     )}
                   >
-                    <Icon className="w-4 h-4" />
+                    <Icon className={clsx("w-4 h-4", active ? "opacity-100" : "opacity-70")} strokeWidth={active ? 2.5 : 2} />
                     {label}
                   </Link>
                 );
@@ -153,7 +153,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
           )}
           {visibleNav.some(({ href }) => href === "/profile/signature") && (
             <>
-              <hr className="my-2 border-slate-200/50 dark:border-slate-800/50" />
+              <hr className="my-4 border-zinc-200/50 dark:border-zinc-800/50 mx-4" />
               {visibleNav.filter(({ href }) => href === "/profile/signature").map(({ href, label, icon: Icon }) => {
                 const active = pathname.startsWith(href);
                 return (
@@ -162,13 +162,13 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                     href={href}
                     onClick={onClose}
                     className={clsx(
-                      "flex items-center gap-3 px-3 py-2.5 rounded-xl mb-1 text-sm font-semibold transition-all duration-200",
+                      "flex items-center gap-3 px-4 py-3 rounded-2xl mb-1.5 text-[13px] font-bold transition-all duration-300",
                       active
-                        ? "text-white bg-gradient-to-r from-indigo-600 to-violet-600 shadow-[0_4px_12px_rgba(99,102,241,0.15)]"
-                        : "text-slate-500 dark:text-slate-400 hover:bg-slate-100/70 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-white"
+                        ? "text-white bg-gradient-to-r from-indigo-600 to-fuchsia-600 shadow-[0_4px_20px_rgba(99,102,241,0.4)]"
+                        : "text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100/80 dark:hover:bg-zinc-800/80 hover:text-zinc-900 dark:hover:text-white"
                     )}
                   >
-                    <Icon className="w-4 h-4" />
+                    <Icon className={clsx("w-4 h-4", active ? "opacity-100" : "opacity-70")} strokeWidth={active ? 2.5 : 2} />
                     {label}
                   </Link>
                 );
@@ -176,27 +176,27 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
             </>
           )}
         </nav>
-        <div className="px-4 py-4 border-t border-slate-200/50 dark:border-slate-800/50">
+        <div className="p-4 m-4 rounded-2xl bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200/50 dark:border-zinc-800/50">
           {user && (
-            <div className="mb-3 px-2">
-              <p className="text-sm font-semibold text-slate-800 dark:text-white truncate">{user.display_name}</p>
-              <p className="text-xs text-slate-400 dark:text-slate-500">{ROLE_LABELS[user.role] || user.role}</p>
+            <div className="mb-4">
+              <p className="text-[13px] font-bold text-zinc-900 dark:text-white truncate">{user.display_name}</p>
+              <p className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">{ROLE_LABELS[user.role] || user.role}</p>
             </div>
           )}
-          <div className="flex items-center justify-between px-2">
+          <div className="flex items-center justify-between">
             <button
               onClick={logout}
-              className="flex items-center gap-2 text-sm text-slate-400 hover:text-slate-800 dark:hover:text-white transition-colors"
+              className="flex items-center gap-2 text-xs font-bold text-zinc-400 hover:text-red-500 transition-colors"
             >
-              <LogOut className="w-4 h-4" />
+              <LogOut className="w-3.5 h-3.5" />
               Sign out
             </button>
             <button
               onClick={cycleTheme}
               aria-label={`Current theme: ${THEME_LABELS[theme]}. Click to cycle.`}
-              className="flex items-center gap-1 p-1.5 rounded-lg text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100/50 dark:hover:bg-slate-800/50 transition-colors text-xs"
+              className="flex items-center gap-1.5 p-1.5 rounded-xl text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-white dark:hover:bg-zinc-800 shadow-sm transition-all text-[11px] font-bold"
             >
-              <ThemeIcon className="w-4 h-4" />
+              <ThemeIcon className="w-3.5 h-3.5" />
               <span>{THEME_LABELS[theme]}</span>
             </button>
           </div>

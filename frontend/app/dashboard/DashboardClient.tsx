@@ -90,7 +90,7 @@ export default function DashboardClient() {
       )}
 
       {!showAll && user && (
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 mb-6">
           <DashboardActionCard
             title="Draft Reports"
             description="You have reports that haven't been submitted yet."
@@ -125,7 +125,7 @@ export default function DashboardClient() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 pb-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 pb-2">
         <StatCard
           label={showAll ? "Total spent this month" : "Spent this month"}
           value={formatEur(data?.total_month_eur ?? 0)}

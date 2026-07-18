@@ -71,7 +71,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
 
       <aside
         className={clsx(
-          "fixed top-0 left-0 h-full w-[220px] text-slate-600 dark:text-slate-300 flex flex-col z-40",
+          "fixed top-0 left-0 h-full w-[var(--sidebar-width)] text-slate-600 dark:text-slate-300 flex flex-col z-40",
           "glass-panel border-r border-slate-200/50 dark:border-slate-800/50",
           "transition-transform duration-200 ease-in-out",
           "lg:translate-x-0",

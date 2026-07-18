@@ -632,7 +632,7 @@ function DelegationReportDetails({ report }: { report: Report }) {
     ) : null;
 
   return (
-    <div className="mt-6 rounded-xl border border-indigo-100 dark:border-indigo-900/40 bg-indigo-50/50 dark:bg-indigo-950/20 overflow-hidden">
+    <div className="mt-6 mb-6 rounded-xl border border-indigo-100 dark:border-indigo-900/40 bg-indigo-50/50 dark:bg-indigo-950/20 overflow-hidden">
       {/* Header */}
       <div className="flex items-center gap-2 px-4 py-2.5 bg-indigo-100/60 dark:bg-indigo-900/30 border-b border-indigo-100 dark:border-indigo-900/40">
         <svg className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" viewBox="0 0 16 16" fill="currentColor">

@@ -1,16 +1,16 @@
 # Graph Report - xpenses-kotlin  (2026-07-17)
 
 ## Corpus Check
-- 335 files · ~333,226 words
+- 335 files · ~334,197 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 3644 nodes · 4707 edges · 559 communities (317 shown, 242 thin omitted)
+- 3664 nodes · 4727 edges · 558 communities (316 shown, 242 thin omitted)
 - Extraction: 97% EXTRACTED · 3% INFERRED · 0% AMBIGUOUS · INFERRED: 157 edges (avg confidence: 0.79)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `cacd9e6c`
+- Built from commit: `dd76de95`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -402,7 +402,7 @@
 - Previous Session (2026-06-14, session 36)
 - Previous Session (2026-06-14, session 35)
 - Previous Session (2026-06-13, session 34)
-- Previous Session (2026-06-13, session 32)
+- Requirement: Title and description recompose from new structured fields
 - Previous Session (2026-06-13, session 31)
 - Previous Session (2026-06-13, session 30)
 - Previous Session (2026-06-13, session 29)
@@ -412,7 +412,6 @@
 - Requirement: Auftragsart extraction (order_type)
 - Requirement: Frontend simulation display shows new structured fields
 - Requirement: Positionstyp extraction (task_type)
-- Requirement: Title and description recompose from new structured fields
 - playwright.config.ts
 - login.spec.ts
 - README.md
@@ -555,7 +554,7 @@
 - ReportService
 
 ## God Nodes (most connected - your core abstractions)
-1. `HANDOFF.md — xpenses-kotlin` - 98 edges
+1. `HANDOFF.md — xpenses-kotlin` - 100 edges
 2. `useAuth()` - 47 edges
 3. `ExpenseReport` - 36 edges
 4. `api` - 30 edges
@@ -581,23 +580,23 @@
 ## Import Cycles
 - None detected.
 
-## Communities (559 total, 242 thin omitted)
+## Communities (558 total, 242 thin omitted)
 
 ### Community 0 - "Backend: Report APIs"
-Cohesion: 0.18
-Nodes (16): AdvancePayment, Any, BigDecimal, Boolean, ByteArray, HttpServletRequest, Int, ResponseEntity (+8 more)
+Cohesion: 0.15
+Nodes (16): AdvancePayment, Any, BigDecimal, Boolean, ByteArray, HttpServletRequest, Int, MileageRecord (+8 more)
 
 ### Community 1 - "Backend: Bulk Expense APIs"
-Cohesion: 0.21
-Nodes (13): ExpenseController, ExpenseOut, Any, Boolean, ByteArray, HttpServletRequest, HttpServletResponse, Int (+5 more)
+Cohesion: 0.06
+Nodes (35): BulkExpenseController, ByteArray, HttpServletRequest, Int, List, MultipartFile, ResponseEntity, String (+27 more)
 
 ### Community 2 - "Backend: App Settings APIs"
 Cohesion: 0.07
 Nodes (28): AppSettingsController, DailyAllowanceOut, DailyAllowanceUpdate, EmailConfigIn, EmailConfigOut, EmailSimulationIn, ImapConfigIn, ImapConfigOut (+20 more)
 
 ### Community 3 - "Frontend: Admin Receipts Page"
-Cohesion: 0.10
-Nodes (26): formatAmount(), GlobalAdvancesPage(), ApprovalsPage(), formatEur(), formatEur(), PaymentsPage(), AdvancesPage(), formatAmount() (+18 more)
+Cohesion: 0.14
+Nodes (13): formatAmount(), GlobalAdvancesPage(), AdvancesPage(), formatAmount(), formatEur(), NewReportPage(), AppShell(), SignaturePad() (+5 more)
 
 ### Community 4 - "Backend: Mileage APIs"
 Cohesion: 0.12
@@ -612,8 +611,8 @@ Cohesion: 0.07
 Nodes (39): DEFAULT_FORM, FormState, imapConfigSchema, DEFAULT_FORM, FormState, StorageAdminPage(), requestStatusColors, statusColors (+31 more)
 
 ### Community 7 - "Frontend: Expenses Expenses Client"
-Cohesion: 0.10
-Nodes (23): CategoriesPage(), formatLimit(), FormState, ExpensesPageContent(), formatAmount(), ExpensesPage(), formatEur(), ReportsPageContent() (+15 more)
+Cohesion: 0.22
+Nodes (6): formatEur(), ReportsPageContent(), SortDir, SortKey, Option, SegmentedControlProps
 
 ### Community 8 - "Module: Package"
 Cohesion: 0.06
@@ -628,16 +627,16 @@ Cohesion: 0.17
 Nodes (4): EntityManager, Expense, String, ReportStateMachineTest
 
 ### Community 12 - "Frontend: Categories Page"
-Cohesion: 0.13
-Nodes (17): formatAmount(), ReportDetailPage(), BulkExpenseRowProps, BulkReviewDrawer(), BulkReviewDrawerProps, RowState, ExpenseForm(), formatEur() (+9 more)
+Cohesion: 0.10
+Nodes (27): ExpensesPageContent(), formatAmount(), ExpensesPage(), BulkExpenseRowProps, BulkReviewDrawer(), BulkReviewDrawerProps, RowState, ALLOWED_TYPES (+19 more)
 
 ### Community 13 - "Backend: Advance APIs"
-Cohesion: 0.22
-Nodes (13): AdvanceController, AdvancePayBody, AdvancePaymentCreate, AdvancePaymentOut, AdvancePaymentUpdate, AdvanceRejectBody, AdvancePayment, HttpServletRequest (+5 more)
+Cohesion: 0.24
+Nodes (14): AdvanceController, AdvancePayBody, AdvancePaymentCreate, AdvancePaymentOut, AdvancePaymentUpdate, AdvanceRejectBody, AdvancePayment, HttpServletRequest (+6 more)
 
 ### Community 14 - "Backend: Ldap Service"
-Cohesion: 0.19
-Nodes (13): Any, Boolean, Exception, Int, List, Map, String, LDAPBindException (+5 more)
+Cohesion: 0.07
+Nodes (33): DataInitializer, String, ActiveUpdateRequest, HttpServletRequest, Int, ResponseEntity, RoleUpdateRequest, UserController (+25 more)
 
 ### Community 15 - "Frontend: Layout Page"
 Cohesion: 0.15
@@ -652,8 +651,8 @@ Cohesion: 0.26
 Nodes (5): ExpenseRepository, Expense, List, Page, Pageable
 
 ### Community 18 - "Frontend: Admin Email Page Emailadminpage Page"
-Cohesion: 0.09
-Nodes (22): DEFAULT_FORM, EmailAdminPage(), FormState, smtpConfigSchema, ImapAdminPage(), InsurancePage(), InventoryPage(), metadata (+14 more)
+Cohesion: 0.08
+Nodes (26): DEFAULT_FORM, EmailAdminPage(), FormState, smtpConfigSchema, ImapAdminPage(), ApprovalsPage(), formatEur(), InsurancePage() (+18 more)
 
 ### Community 19 - "Module: Tsconfig"
 Cohesion: 0.10
@@ -680,8 +679,8 @@ Cohesion: 0.27
 Nodes (9): Any, ByteArray, eu, Int, List, Map, String, OCRConfig (+1 more)
 
 ### Community 25 - "Backend: Pdf Service"
-Cohesion: 0.15
-Nodes (12): DataInitializer, String, AdvancePayment, Category, InsuranceFile, InventoryItem, InventoryRequest, MileageRecord (+4 more)
+Cohesion: 0.14
+Nodes (17): formatEur(), PaymentsPage(), formatEur(), UserProfileDetailPage(), formatAmount(), formatDateTime(), formatDuration(), MileagePage() (+9 more)
 
 ### Community 26 - "Backend: Ocr APIs"
 Cohesion: 0.15
@@ -696,16 +695,16 @@ Cohesion: 0.26
 Nodes (7): EmailImportService, Any, Boolean, Map, String, Message, Multipart
 
 ### Community 29 - "Frontend: Admin Users Page"
-Cohesion: 0.13
-Nodes (20): ReceiptsCleanupPage(), SettingsPage(), AdminUsersPage(), CreateUserForm, ROLE_OPTIONS, userKeys, LoginPage(), formatEur() (+12 more)
+Cohesion: 0.12
+Nodes (21): ReceiptsCleanupPage(), SettingsPage(), AdminUsersPage(), CreateUserForm, ROLE_OPTIONS, userKeys, CategoriesPage(), formatLimit() (+13 more)
 
 ### Community 30 - "Backend: Auth APIs"
 Cohesion: 0.30
 Nodes (7): AuthController, ChangePasswordRequest, HttpServletRequest, HttpServletResponse, ResponseEntity, String, LoginRequest
 
 ### Community 31 - "Backend: User APIs"
-Cohesion: 0.28
-Nodes (8): ActiveUpdateRequest, HttpServletRequest, Int, ResponseEntity, RoleUpdateRequest, UserController, UserCreateRequest, UserUpdateMeRequest
+Cohesion: 0.50
+Nodes (4): Files Changed, Next Steps, Previous Session (2026-07-17, session 114) — mobile-ui-ux-improvements, What Was Done
 
 ### Community 32 - "Backend: Fx Service"
 Cohesion: 0.25
@@ -805,7 +804,7 @@ Nodes (3): HealthController, Map, String
 
 ### Community 66 - "Module: Advancepaymentrepository"
 Cohesion: 0.04
-Nodes (48): Current State: OPERATIONAL (Phase 7 Partial + Access Control Hardening + Digital Signatures + Mileage + Advance Payments v2 + OCR + UI/UX Redesign + UI/UX Audit Fixes + Test Suite), Files Changed, Files Changed, Files Changed, HANDOFF.md — xpenses-kotlin, Latest Session (2026-06-21, session 78), Modified Files, Modified Files (+40 more)
+Nodes (45): Current State: OPERATIONAL (Phase 7 Partial + Access Control Hardening + Digital Signatures + Mileage + Advance Payments v2 + OCR + UI/UX Redesign + UI/UX Audit Fixes + Test Suite), Files Changed, Files Changed, HANDOFF.md — xpenses-kotlin, Key Decisions, Modified/Deleted Files, Modified Files, Modified Files (+37 more)
 
 ### Community 68 - "Module: Bulkuploadzone"
 Cohesion: 0.05
@@ -892,8 +891,8 @@ Cohesion: 0.20
 Nodes (9): Purpose, Requirement: Client interactivity is preserved via hydration, Requirement: Dashboard and expense pages fetch initial data on the server, Requirements, Scenario: Client mutations still function, Scenario: Initial data present in server HTML, Scenario: No duplicate initial fetch after hydration, Scenario: Server fetch forwards auth cookies (+1 more)
 
 ### Community 188 - "OpenSpec Design & Specs"
-Cohesion: 0.10
-Nodes (19): Purpose, Requirement: Expenses Scoping Toggle for Privileged Roles, Requirement: Get Other User Profile Details, Requirement: Get User Reports Filtered by User ID, Requirement: Mobile Card Layout for Expenses and Reports, Requirement: Mobile Viewport Segmented Toggles, Requirement: Shared Staff Directory, Requirement: User Profile View & Reports History Tab (+11 more)
+Cohesion: 0.07
+Nodes (29): Purpose, Requirement: Card Accent Gradients and Scale Hover Effects, Requirement: Expenses Scoping Toggle for Privileged Roles, Requirement: Get Other User Profile Details, Requirement: Get User Reports Filtered by User ID, Requirement: Glassmorphic Sidebar and Headers, Requirement: Glowing Area Charts and Neon indicators, Requirement: Mobile Card Layout for Expenses and Reports (+21 more)
 
 ### Community 190 - "Phase 4: Authentication & Role-Based Access Control"
 Cohesion: 0.07
@@ -908,12 +907,12 @@ Cohesion: 0.08
 Nodes (23): API Endpoints, Backend Architecture, Backend Hot-Swapping (Local Development), Development (local, hot-reload), Docker Compose Services, Environment Variables, Features, Frontend Architecture (+15 more)
 
 ### Community 193 - "Expense"
-Cohesion: 0.14
-Nodes (7): ExpenseCreate, ExpenseUpdate, Expense, DashboardControllerTest, EntityManager, ExpenseServiceTest, User
+Cohesion: 0.50
+Nodes (4): Files Changed, Next Steps, Previous Session (2026-07-16, session 113) — auth-session-fix, What Was Done
 
 ### Community 194 - ".createMileage"
-Cohesion: 0.19
-Nodes (13): BigDecimal, HttpServletRequest, Int, List, MileageRecord, ResponseEntity, User, MileageController (+5 more)
+Cohesion: 0.22
+Nodes (12): BigDecimal, HttpServletRequest, Int, List, MileageRecord, ResponseEntity, User, MileageController (+4 more)
 
 ### Community 195 - "CLAUDE.md"
 Cohesion: 0.09
@@ -1044,8 +1043,8 @@ Cohesion: 0.15
 Nodes (12): Architecture, Backend patterns, Before you start, Environment, Frontend patterns, Hot-swap (preferred over Docker rebuild), JDK constraint, Key commands (+4 more)
 
 ### Community 227 - ".bulkUploadExpenses"
-Cohesion: 0.21
-Nodes (9): BulkExpenseController, ByteArray, HttpServletRequest, Int, List, MultipartFile, ResponseEntity, String (+1 more)
+Cohesion: 0.67
+Nodes (3): Files Changed, Latest Session (2026-06-21, session 78), What Was Done
 
 ### Community 228 - "ADDED Requirements"
 Cohesion: 0.15
@@ -1156,8 +1155,8 @@ Cohesion: 0.18
 Nodes (10): Common Patterns, Coverage, Fixtures and Factories, Known Test Limitations, Mocking, Test File Organization, Test Framework, Test Structure (+2 more)
 
 ### Community 256 - "ExpenseController.kt"
-Cohesion: 0.22
-Nodes (6): BulkUploadError, BulkUploadResult, ReceiptOut, ExpenseMapper, Expense, Receipt
+Cohesion: 0.67
+Nodes (3): Files Changed, Previous Session (2026-06-21, session 76), What Was Done
 
 ### Community 258 - "Design Spec: Small Business Expense Manager (Zoho Clone)"
 Cohesion: 0.20
@@ -1465,7 +1464,7 @@ Nodes (4): Current Session (2026-06-26, session 93) — bulk-expense-upload, Fil
 
 ### Community 336 - "Current Session (2026-07-16, session 113) — auth-session-fix"
 Cohesion: 0.50
-Nodes (4): Current Session (2026-07-16, session 113) — auth-session-fix, Files Changed, Next Steps, What Was Done
+Nodes (4): Current Session (2026-07-17, session 115) — premium-ui-ux-design-upgrade, Files Changed, Next Steps, What Was Done
 
 ### Community 337 - "Previous Session (2026-06-20, session 66)"
 Cohesion: 0.50
@@ -1637,7 +1636,7 @@ Nodes (3): Spring PostgreSQL Datasource Config, Spring Boot Application properti
 
 ### Community 379 - "Previous Session (2026-06-28, session 98) — production-readiness-review-and-https"
 Cohesion: 0.67
-Nodes (3): Files Changed, Previous Session (2026-06-28, session 98) — production-readiness-review-and-https, What Was Done
+Nodes (3): Files Changed, Previous Session (2026-06-20, session 71), What Was Done
 
 ### Community 380 - "Previous Session (2026-06-24, session 88) — codebase-audit"
 Cohesion: 0.67
@@ -1673,11 +1672,11 @@ Nodes (3): Files Changed, Previous Session (2026-06-20, session 69), What Was Do
 
 ### Community 388 - "Previous Session (2026-06-20, session 67)"
 Cohesion: 0.67
-Nodes (3): Files Changed, Key Decisions, Previous Session (2026-06-20, session 67)
+Nodes (3): Modified Files, Previous Session (2026-06-17, session 57), What Was Done
 
 ### Community 389 - "Previous Session (2026-06-16, session 53)"
 Cohesion: 0.67
-Nodes (3): Modified/Deleted Files, Previous Session (2026-06-16, session 53), What Was Done
+Nodes (3): Modified Files, Previous Session (2026-06-13, session 33), What Was Done
 
 ### Community 390 - "Previous Session (2026-06-18, session 58)"
 Cohesion: 0.67
@@ -1721,11 +1720,11 @@ Nodes (3): Modified Files, Previous Session (2026-06-14, session 35), What Was D
 
 ### Community 400 - "Previous Session (2026-06-13, session 34)"
 Cohesion: 0.67
-Nodes (3): Modified Files, Previous Session (2026-06-13, session 34), What Was Done
+Nodes (3): Notes, Previous Session (2026-06-22, session 82), What Was Done
 
-### Community 401 - "Previous Session (2026-06-13, session 32)"
+### Community 401 - "Requirement: Title and description recompose from new structured fields"
 Cohesion: 0.67
-Nodes (3): Modified Files, Previous Session (2026-06-13, session 32), What Was Done
+Nodes (3): Requirement: Title and description recompose from new structured fields, Scenario: description composed from structured fields, Scenario: title composed from customer and technplatz
 
 ### Community 402 - "Previous Session (2026-06-13, session 31)"
 Cohesion: 0.67
@@ -1763,29 +1762,25 @@ Nodes (3): Requirement: Frontend simulation display shows new structured fields,
 Cohesion: 0.67
 Nodes (3): Requirement: Positionstyp extraction (task_type), Scenario: task type extracted from Positionstyp line, Scenario: task type extracted with multi-word German value
 
-### Community 411 - "Requirement: Title and description recompose from new structured fields"
-Cohesion: 0.67
-Nodes (3): Requirement: Title and description recompose from new structured fields, Scenario: description composed from structured fields, Scenario: title composed from customer and technplatz
-
 ## Knowledge Gaps
-- **1737 isolated node(s):** `XpensesApplication`, `EmailSimulationIn`, `BulkUploadResult`, `InventoryItemCreate`, `InventoryItemUpdate` (+1732 more)
+- **1750 isolated node(s):** `XpensesApplication`, `EmailSimulationIn`, `BulkUploadResult`, `InventoryItemCreate`, `InventoryItemUpdate` (+1745 more)
   These have ≤1 connection - possible missing edges or undocumented components.
 - **242 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `ExpenseReport` connect `Backend: Report Service` to `Backend: Report APIs`, `.createMileage`, `Backend: Mileage APIs`, `MileageControllerTest`, `Unit & Integration Tests`, `Backend: Advance APIs`, `ReportService`, `Backend: Advance APIs`, `Backend: Pdf Service`, `Backend: Emailimport Service`?**
+- **Why does `ExpenseReport` connect `Backend: Report Service` to `Backend: Report APIs`, `.createMileage`, `Backend: Mileage APIs`, `MileageControllerTest`, `Unit & Integration Tests`, `Backend: Advance APIs`, `Backend: Ldap Service`, `ReportService`, `Backend: Advance APIs`, `Backend: Emailimport Service`?**
   _High betweenness centrality (0.031) - this node is a cross-community bridge._
-- **Why does `IntegrationTestBase` connect `Unit & Integration Tests` to `CategoryControllerTest`, `Backend: App Settings APIs`, `SignatureControllerTest`, `Unit & Integration Tests`, `Module: Expenserepository`, `Module: Fxrate`, `Backend: Ocr Service`, `Backend: Report Service`, `Backend: Fx Service`, `Backend: Expense APIs`, `Backend: User APIs`, `Module: Inventoryitemrepository`, `Module: Boolean`, `Backend: Auth APIs`, `Backend: Advance APIs`, `Expense`, `InventoryControllerTest`, `MileageControllerTest`, `InsuranceControllerTest`?**
+- **Why does `IntegrationTestBase` connect `Unit & Integration Tests` to `CategoryControllerTest`, `Backend: Bulk Expense APIs`, `Backend: App Settings APIs`, `SignatureControllerTest`, `Unit & Integration Tests`, `Module: Expenserepository`, `Module: Fxrate`, `Backend: Ocr Service`, `Backend: Report Service`, `Backend: Fx Service`, `Backend: Expense APIs`, `Backend: User APIs`, `Module: Inventoryitemrepository`, `Module: Boolean`, `Backend: Auth APIs`, `Backend: Advance APIs`, `InventoryControllerTest`, `MileageControllerTest`, `InsuranceControllerTest`?**
   _High betweenness centrality (0.012) - this node is a cross-community bridge._
-- **Why does `AppSetting` connect `Backend Service Layer` to `Backend: App Settings APIs`, `Backend: Ldap Service`, `Module: Fxrate`, `Backend: Ocr Service`, `Backend: Pdf Service`?**
+- **Why does `AppSetting` connect `Backend Service Layer` to `Backend: Ocr Service`, `Backend: App Settings APIs`, `Backend: Ldap Service`, `Module: Fxrate`?**
   _High betweenness centrality (0.011) - this node is a cross-community bridge._
 - **Are the 77 inferred relationships involving `ResponseStatusException` (e.g. with `.createAdvance()` and `.deleteAdvance()`) actually correct?**
   _`ResponseStatusException` has 77 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `XpensesApplication`, `EmailSimulationIn`, `BulkUploadResult` to the rest of the system?**
-  _1764 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _1777 weakly-connected nodes found - possible documentation gaps or missing edges._
+- **Should `Backend: Bulk Expense APIs` be split into smaller, more focused modules?**
+  _Cohesion score 0.05555555555555555 - nodes in this community are weakly interconnected._
 - **Should `Backend: App Settings APIs` be split into smaller, more focused modules?**
   _Cohesion score 0.07017543859649122 - nodes in this community are weakly interconnected._
-- **Should `Frontend: Admin Receipts Page` be split into smaller, more focused modules?**
-  _Cohesion score 0.0975609756097561 - nodes in this community are weakly interconnected._

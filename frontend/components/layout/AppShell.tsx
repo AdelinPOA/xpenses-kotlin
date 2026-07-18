@@ -22,7 +22,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <main className="flex-1 lg:ml-[220px] pt-14 lg:pt-0 p-4 sm:p-6 lg:p-8">
+      <main className="flex-1 lg:ml-[var(--sidebar-width)] pt-14 lg:pt-0 p-4 sm:p-6 lg:p-8">
         {children}
       </main>
     </div>

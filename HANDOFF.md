@@ -1,6 +1,30 @@
 # HANDOFF.md — xpenses-kotlin
 
-## Current Session (2026-07-17, session 115) — premium-ui-ux-design-upgrade
+## Current Session (2026-07-18, session 116) — web-ui-ux-refactoring
+
+### What Was Done
+- **Design Tokens & Dark Mode**: Refactored `globals.css` with a CSS-first Tailwind v4 approach, establishing a robust set of design tokens including semantic color palettes (`--color-brand-*`, `--color-surface-*`), standard spacing, and glassmorphic utility classes. Enhanced the dark mode palette for higher contrast and premium aesthetic.
+- **Component System**: Extracted common UI elements into reusable, highly styled React components (`Button.tsx`, `Card.tsx`, `Input.tsx`) to enforce consistency and apply smooth interactive micro-animations (e.g., hover lifts, focus rings).
+- **Mobile-First Layouts**: Updated `AppShell.tsx` and `Sidebar.tsx` to handle responsiveness gracefully. The navigation sidebar now collapses into an accessible overlay drawer on mobile viewports (<768px).
+- **Dashboard & Forms**: Re-architected the `DashboardClient` to stack horizontally-aligned widgets into a vertical column on mobile, maintaining multi-column grids for desktop. Updated `ExpenseForm` to display form inputs and the receipt preview seamlessly stacked vertically on mobile, removing the old tab-switcher approach for a better user flow.
+- **OpenSpec Workflow**: Proposed, planned, implemented, and archived the entire refactoring under the `web-ui-ux-refactoring` change in the `openspec/` directory. Added a new main capability spec `modern-responsive-ui` capturing the premium visual and responsive requirements.
+- **Validation**: Successfully ran TypeScript checks and ESLint across the frontend, then verified the full Next.js production build (`npm run build`) completed without errors.
+
+### Files Changed
+- `frontend/app/globals.css` — design tokens and base styles
+- `frontend/components/ui/Button.tsx`, `Card.tsx`, `Input.tsx` — new core components
+- `frontend/components/layout/AppShell.tsx`, `Sidebar.tsx` — layout responsiveness
+- `frontend/app/dashboard/DashboardClient.tsx` — mobile stacking
+- `frontend/components/expenses/ExpenseForm.tsx` — mobile vertical stacking
+- `openspec/changes/archive/2026-07-18-web-ui-ux-refactoring/` — archived planning and task details
+- `openspec/specs/modern-responsive-ui/spec.md` — new main capability spec
+
+### Next Steps
+- Commit the changes to a new branch, push to GitHub, and deploy to production (`docker compose up -d --build frontend`).
+
+---
+
+## Previous Session (2026-07-17, session 115) — premium-ui-ux-design-upgrade
 
 ### What Was Done
 - **Premium Typography**: Loaded and integrated "Outfit" (headings) and "Inter" (body text) Google Fonts via Next.js metadata and registered them globally.

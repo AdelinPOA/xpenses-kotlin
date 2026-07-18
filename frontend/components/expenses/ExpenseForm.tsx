@@ -333,42 +333,11 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
 
   return (
     <div className="flex flex-col gap-6 max-w-6xl w-full items-start">
-      {/* Mobile Tab Switcher */}
-      <div className="flex lg:hidden w-full border-b border-slate-100 dark:border-slate-800/80 mb-1 bg-white dark:bg-slate-900 rounded-lg p-1">
-        <button
-          type="button"
-          onClick={() => setActiveMobileTab('details')}
-          className={clsx(
-            "flex-1 py-2 text-center text-xs font-semibold rounded-md transition-colors",
-            activeMobileTab === 'details'
-              ? "bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400"
-              : "text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
-          )}
-        >
-          Details
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveMobileTab('receipt')}
-          className={clsx(
-            "flex-1 py-2 text-center text-xs font-semibold rounded-md transition-colors",
-            activeMobileTab === 'receipt'
-              ? "bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400"
-              : "text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
-          )}
-        >
-          Receipt ({items.length})
-        </button>
-      </div>
-
-      <div className="flex flex-col lg:flex-row gap-6 w-full items-start">
+    <div className="flex flex-col lg:flex-row gap-6 w-full items-start">
         {/* Form Details */}
         <form
           onSubmit={(e) => { e.preventDefault(); save.mutate(); }}
-          className={clsx(
-            "bg-white dark:bg-slate-900 rounded-xl shadow-sm p-6 flex-1 w-full max-w-lg space-y-5",
-            activeMobileTab !== 'details' && "hidden lg:block"
-          )}
+          className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-6 flex-1 w-full max-w-lg space-y-5"
         >
           {error && <p className="text-red-600 text-sm">{error}</p>}
 
@@ -620,10 +589,7 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
 
         {/* Preview Panel */}
         <div
-          className={clsx(
-            "w-full lg:flex-1 lg:sticky lg:top-6 bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800/80 p-6 flex flex-col min-h-[450px] self-stretch",
-            activeMobileTab !== 'receipt' && "hidden lg:flex"
-          )}
+          className="w-full lg:flex-1 lg:sticky lg:top-6 bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800/80 p-6 flex flex-col min-h-[450px] self-stretch"
         >
           <div className="border-b border-slate-100 dark:border-slate-800 pb-3 mb-4 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Receipt Preview</h2>

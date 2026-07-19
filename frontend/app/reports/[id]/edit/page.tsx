@@ -101,7 +101,7 @@ export default function EditReportPage({ params }: { params: Promise<{ id: strin
     onError: (e: any) => setError(e.response?.data?.detail ?? "Failed to save"),
   });
 
-  if (isLoading) return <AppShell><p className="text-muted-foreground text-sm mt-8">Loading...</p></AppShell>;
+  if (isLoading) return <AppShell><p className="text-muted-foreground text-base sm:text-sm mt-8">Loading...</p></AppShell>;
   if (!report) return <AppShell><p className="text-red-500 text-sm">Report not found</p></AppShell>;
   if (report.status !== "draft") {
     return (
@@ -169,7 +169,7 @@ export default function EditReportPage({ params }: { params: Promise<{ id: strin
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={2}
-            className="w-full border border-input-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none dark:bg-slate-800 dark:text-slate-100"
+            className="w-full border border-input-border rounded-lg px-3 py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none dark:bg-slate-800 dark:text-slate-100"
           />
         </div>
 

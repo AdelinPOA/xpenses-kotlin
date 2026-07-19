@@ -1,4 +1,4 @@
-const CACHE_NAME = "xpenses-v1";
+const CACHE_NAME = "xpenses-v2";
 const SHELL_URLS = ["/", "/login", "/dashboard", "/expenses", "/reports"];
 
 self.addEventListener("install", (event) => {
@@ -6,6 +6,8 @@ self.addEventListener("install", (event) => {
     (async () => {
       const cache = await caches.open(CACHE_NAME);
       await Promise.allSettled(SHELL_URLS.map((url) => cache.add(url).catch(() => {})));
+      // Activate immediately instead of waiting for all clients to close
+      await self.skipWaiting();
     })(),
   );
 });
@@ -15,9 +17,9 @@ self.addEventListener("activate", (event) => {
     (async () => {
       const keys = await caches.keys();
       await Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)));
+      await self.clients.claim();
     })(),
   );
-  self.clients.claim();
 });
 
 self.addEventListener("fetch", (event) => {
@@ -25,6 +27,10 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
 
   if (url.origin !== self.location.origin) return;
+
+  // Never intercept API traffic: authenticated responses must not be cached
+  // (stale data + PII persistence in Cache Storage).
+  if (url.pathname.startsWith("/api/")) return;
 
   if (request.mode === "navigate" || request.destination === "style" || request.destination === "script" || request.destination === "font") {
     event.respondWith(networkFirst(request));

@@ -224,8 +224,8 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
               </button>
               {exportOpen && (
                 <>
-                  <div className="fixed inset-0 z-10" onClick={() => setExportOpen(false)} />
-                  <div className="absolute right-0 top-full mt-1 w-36 bg-input border border-border rounded-lg shadow-lg z-20">
+                  <div className="fixed inset-0 z-40" onClick={() => setExportOpen(false)} />
+                  <div className="absolute right-0 top-full mt-1 w-36 bg-input border border-border rounded-lg shadow-lg z-50">
                     <button
                       onClick={() => handleExportExpenses("csv")}
                       className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-t-lg"
@@ -467,7 +467,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
                 placeholder="Rejection reason (optional)"
                 value={rejectionReason}
                 onChange={(e) => setRejectionReason(e.target.value)}
-                className="flex-1 px-3 py-2 border border-slate-200 dark:border-slate-600 rounded-lg text-sm bg-input text-slate-700 dark:text-slate-300 outline-none focus:ring-2 focus:ring-red-400"
+                className="flex-1 px-3 py-2 border border-slate-200 dark:border-slate-600 rounded-lg text-base sm:text-sm bg-input text-slate-700 dark:text-slate-300 outline-none focus:ring-2 focus:ring-red-400"
               />
               <button
                 onClick={() => reject.mutate()}

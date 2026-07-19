@@ -201,7 +201,7 @@ export default function AdvancesPage({ params }: { params: Promise<{ id: string 
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                className="px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground"
+                className="px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground"
               />
             )}
             <input
@@ -211,12 +211,12 @@ export default function AdvancesPage({ params }: { params: Promise<{ id: string 
               placeholder="Amount"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              className="px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground w-32"
+              className="px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground w-32"
             />
             <select
               value={currency}
               onChange={(e) => setCurrency(e.target.value)}
-              className="px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground"
+              className="px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground"
             >
               {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
@@ -225,7 +225,7 @@ export default function AdvancesPage({ params }: { params: Promise<{ id: string 
               placeholder="Description (optional)"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground flex-1"
+              className="px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground flex-1"
             />
             <button
               onClick={handleAdd}
@@ -411,7 +411,7 @@ export default function AdvancesPage({ params }: { params: Promise<{ id: string 
               type="date"
               value={payDate}
               onChange={(e) => setPayDate(e.target.value)}
-              className="px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground"
+              className="px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground"
             />
             <input
               type="number"
@@ -420,12 +420,12 @@ export default function AdvancesPage({ params }: { params: Promise<{ id: string 
               placeholder="Final amount"
               value={payAmount}
               onChange={(e) => setPayAmount(e.target.value)}
-              className="px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground w-32"
+              className="px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground w-32"
             />
             <select
               value={payCurrency}
               onChange={(e) => setPayCurrency(e.target.value)}
-              className="px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground"
+              className="px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground"
             >
               {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>

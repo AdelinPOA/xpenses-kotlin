@@ -151,14 +151,14 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
               placeholder="Origin (e.g. Bucharest)"
               value={origin}
               onChange={(e) => setOrigin(e.target.value)}
-              className="px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground"
+              className="px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground"
             />
             <input
               type="text"
               placeholder="Destination (e.g. Ploiesti)"
               value={destination}
               onChange={(e) => setDestination(e.target.value)}
-              className="px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground"
+              className="px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground"
             />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
@@ -168,7 +168,7 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
                 type="datetime-local"
                 value={startTime}
                 onChange={(e) => setStartTime(e.target.value)}
-                className="w-full px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground"
+                className="w-full px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground"
               />
             </div>
             <div>
@@ -177,7 +177,7 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
                 type="datetime-local"
                 value={endTime}
                 onChange={(e) => setEndTime(e.target.value)}
-                className="w-full px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground"
+                className="w-full px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground"
               />
             </div>
           </div>
@@ -189,14 +189,14 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
               placeholder="Distance (km)"
               value={distanceKm}
               onChange={(e) => setDistanceKm(e.target.value)}
-              className="px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground w-36"
+              className="px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground w-36"
             />
             <input
               type="text"
               placeholder="Description (optional)"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground flex-1"
+              className="px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground flex-1"
             />
             <button
               onClick={handleAdd}

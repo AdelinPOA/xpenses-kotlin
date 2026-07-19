@@ -147,7 +147,7 @@ export default function InsurancePage() {
                     required
                     value={formUserId}
                     onChange={(e) => setFormUserId(e.target.value)}
-                    className="w-full px-3 py-2 border border-input-border rounded-lg bg-input text-foreground text-sm"
+                    className="w-full px-3 py-2 border border-input-border rounded-lg bg-input text-foreground text-base sm:text-sm"
                   >
                     <option value="">Select technician...</option>
                     {(users ?? []).filter((u) => u.role === "technician").map((u) => (
@@ -162,7 +162,7 @@ export default function InsurancePage() {
                     value={formTitle}
                     onChange={(e) => setFormTitle(e.target.value)}
                     placeholder="e.g. RCA Insurance 2026"
-                    className="w-full px-3 py-2 border border-input-border rounded-lg bg-input text-foreground text-sm"
+                    className="w-full px-3 py-2 border border-input-border rounded-lg bg-input text-foreground text-base sm:text-sm"
                   />
                 </div>
                 <div>
@@ -171,7 +171,7 @@ export default function InsurancePage() {
                     value={formDescription}
                     onChange={(e) => setFormDescription(e.target.value)}
                     rows={2}
-                    className="w-full px-3 py-2 border border-input-border rounded-lg bg-input text-foreground text-sm"
+                    className="w-full px-3 py-2 border border-input-border rounded-lg bg-input text-foreground text-base sm:text-sm"
                   />
                 </div>
                 <div>
@@ -180,7 +180,7 @@ export default function InsurancePage() {
                     type="file"
                     required
                     onChange={(e) => setFormFile(e.target.files?.[0] ?? null)}
-                    className="w-full text-sm text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 dark:file:bg-emerald-900/20 dark:file:text-emerald-400"
+                    className="w-full text-base sm:text-sm text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 dark:file:bg-emerald-900/20 dark:file:text-emerald-400"
                   />
                 </div>
                 <div className="flex justify-end gap-3 pt-2">

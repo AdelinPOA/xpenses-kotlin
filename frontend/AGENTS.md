@@ -18,7 +18,7 @@ Next.js 15 + React 19 + TypeScript 5 + Tailwind CSS v4 (CSS-first config). Expen
 │   ├── layout/              #   AppShell, Sidebar
 │   ├── signature/           #   SignaturePad
 │   └── ui/                  #   Badge, EmptyState
-├── lib/                     # API client, auth, query keys, themes
+├── lib/                     # API client, auth, query keys, themes, useBodyScrollLock
 ├── middleware.ts             # Auth redirect (checks access_token cookie)
 └── next.config.ts
 ```

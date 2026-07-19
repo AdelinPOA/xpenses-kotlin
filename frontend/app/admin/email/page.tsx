@@ -200,7 +200,7 @@ export default function EmailAdminPage() {
             <div>
               <label className="block text-xs font-semibold text-muted mb-1.5">Host</label>
               <input
-                className="w-full border rounded-lg px-3 py-2 text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
+                className="w-full border rounded-lg px-3 py-2 text-base sm:text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
                 {...register("smtp_host")}
                 placeholder="smtp.example.com"
               />
@@ -214,7 +214,7 @@ export default function EmailAdminPage() {
                 type="text"
                 inputMode="numeric"
                 pattern="[0-9]*"
-                className={`w-full max-w-[120px] border rounded-lg px-3 py-2 text-sm bg-input dark:text-slate-100 focus:outline-none transition-all duration-200 ${errors.smtp_port ? "border-rose-500 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500" : "border-border focus:ring-2 focus:ring-primary/20 focus:border-blue-500"}`}
+                className={`w-full max-w-[120px] border rounded-lg px-3 py-2 text-base sm:text-sm bg-input dark:text-slate-100 focus:outline-none transition-all duration-200 ${errors.smtp_port ? "border-rose-500 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500" : "border-border focus:ring-2 focus:ring-primary/20 focus:border-blue-500"}`}
                 {...register("smtp_port")}
               />
               {errors.smtp_port && (
@@ -229,7 +229,7 @@ export default function EmailAdminPage() {
           <div>
             <label className="block text-xs font-semibold text-muted mb-1.5">Username</label>
             <input
-              className="w-full border rounded-lg px-3 py-2 text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
+              className="w-full border rounded-lg px-3 py-2 text-base sm:text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
               {...register("smtp_user")}
               placeholder="smtp-user@example.com"
             />
@@ -239,7 +239,7 @@ export default function EmailAdminPage() {
             <div className="space-y-1.5">
               <input
                 type="password"
-                className="w-full border rounded-lg px-3 py-2 text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
+                className="w-full border rounded-lg px-3 py-2 text-base sm:text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
                 {...register("smtp_pass")}
                 onChange={(e) => {
                   setValue("smtp_pass", e.target.value, { shouldDirty: true });
@@ -256,7 +256,7 @@ export default function EmailAdminPage() {
             <label className="block text-xs font-semibold text-muted mb-1.5">From Address</label>
             <input
               type="text"
-              className="w-full border rounded-lg px-3 py-2 text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
+              className="w-full border rounded-lg px-3 py-2 text-base sm:text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
               {...register("smtp_from")}
               placeholder="noreply@example.com"
             />
@@ -284,7 +284,7 @@ export default function EmailAdminPage() {
             Test the SMTP connection with the current saved settings.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 max-w-md">
-            <input type="email" className="flex-1 border rounded-lg px-3 py-2 text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200" value={testRecipient} onChange={(e) => setTestRecipient(e.target.value)} placeholder="recipient@example.com" />
+            <input type="email" className="flex-1 border rounded-lg px-3 py-2 text-base sm:text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200" value={testRecipient} onChange={(e) => setTestRecipient(e.target.value)} placeholder="recipient@example.com" />
             <button type="button" onClick={handleTest} disabled={testing || !testRecipient} className="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium bg-white hover:bg-slate-50 dark:bg-transparent dark:border-slate-700 dark:hover:bg-slate-800 dark:text-slate-200 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none transition-all duration-200 whitespace-nowrap">
               {testing ? "Sending…" : "Send Test"}
             </button>

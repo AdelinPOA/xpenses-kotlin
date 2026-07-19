@@ -306,7 +306,7 @@ export default function ImapAdminPage() {
               <div>
                 <label className="block text-xs font-semibold text-muted mb-1.5">IMAP Host</label>
                 <input
-                  className="w-full border rounded-lg px-3 py-2 text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
+                  className="w-full border rounded-lg px-3 py-2 text-base sm:text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
                   {...register("imap_host")}
                   placeholder="imap.company.com"
                 />
@@ -320,7 +320,7 @@ export default function ImapAdminPage() {
                   type="text"
                   inputMode="numeric"
                   pattern="[0-9]*"
-                  className={`w-full max-w-[120px] border rounded-lg px-3 py-2 text-sm bg-input dark:text-slate-100 focus:outline-none transition-all duration-200 ${
+                  className={`w-full max-w-[120px] border rounded-lg px-3 py-2 text-base sm:text-sm bg-input dark:text-slate-100 focus:outline-none transition-all duration-200 ${
                     errors.imap_port
                       ? "border-rose-500 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
                       : "border-border focus:ring-2 focus:ring-primary/20 focus:border-blue-500"
@@ -336,7 +336,7 @@ export default function ImapAdminPage() {
             <div>
               <label className="block text-xs font-semibold text-muted mb-1.5">Folder to poll</label>
               <input
-                className="w-full border rounded-lg px-3 py-2 text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
+                className="w-full border rounded-lg px-3 py-2 text-base sm:text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
                 {...register("imap_folder")}
                 placeholder="INBOX"
               />
@@ -353,7 +353,7 @@ export default function ImapAdminPage() {
             <div>
               <label className="block text-xs font-semibold text-muted mb-1.5">Username / Email</label>
               <input
-                className="w-full border rounded-lg px-3 py-2 text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
+                className="w-full border rounded-lg px-3 py-2 text-base sm:text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
                 {...register("imap_user")}
                 placeholder="import-reports@company.com"
               />
@@ -366,7 +366,7 @@ export default function ImapAdminPage() {
               <div className="space-y-1.5">
                 <input
                   type="password"
-                  className="w-full border rounded-lg px-3 py-2 text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
+                  className="w-full border rounded-lg px-3 py-2 text-base sm:text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
                   {...register("imap_pass")}
                   onChange={(e) => {
                     setValue("imap_pass", e.target.value, { shouldDirty: true });
@@ -448,7 +448,7 @@ export default function ImapAdminPage() {
                     setCustomSenderEmail("");
                   }
                 }}
-                className="w-full border rounded-lg px-3 py-2 text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all duration-200 cursor-pointer"
+                className="w-full border rounded-lg px-3 py-2 text-base sm:text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all duration-200 cursor-pointer"
               >
                 <option value="">Select an active user...</option>
                 {usersData?.filter(u => u.is_active && u.email).map((u) => (
@@ -468,7 +468,7 @@ export default function ImapAdminPage() {
                     type="email"
                     value={customSenderEmail}
                     onChange={(e) => setCustomSenderEmail(e.target.value)}
-                    className="w-full border rounded-lg px-3 py-2 text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all duration-200"
+                    className="w-full border rounded-lg px-3 py-2 text-base sm:text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all duration-200"
                     placeholder="technician@nt-automation.eu"
                   />
                 </div>
@@ -483,7 +483,7 @@ export default function ImapAdminPage() {
               <select
                 value={selectedParser}
                 onChange={(e) => setSelectedParser(e.target.value as "local" | "gemini")}
-                className="w-full border rounded-lg px-3 py-2 text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all duration-200 cursor-pointer"
+                className="w-full border rounded-lg px-3 py-2 text-base sm:text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all duration-200 cursor-pointer"
               >
                 <option value="local">Local Parser (Keyword Extraction)</option>
                 <option value="gemini">Gemini Parser (Cloud LLM Extraction)</option>

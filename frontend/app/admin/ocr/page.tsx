@@ -216,7 +216,7 @@ export default function OcrAdminPage() {
                   <label className="block text-xs font-semibold text-muted mb-1.5">OCR engine / provider</label>
                   <div className="relative">
                     <select
-                      className="w-full border rounded-lg px-3 py-2 text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
+                      className="w-full border rounded-lg px-3 py-2 text-base sm:text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
                       {...register("provider")}
                     >
                       <option value="gemini-3.1-flash-lite">Google Gemini 3.1 Flash-Lite (Cloud API - Default)</option>
@@ -244,7 +244,7 @@ export default function OcrAdminPage() {
                     <div className="flex gap-2 flex-wrap">
                       <input
                         type="password"
-                        className={`min-w-0 flex-1 border rounded-lg px-3 py-2 text-sm bg-input dark:text-slate-100 focus:outline-none transition-all duration-200 ${errors.gemini_api_key ? "border-rose-500 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500" : "border-border focus:ring-2 focus:ring-primary/20 focus:border-blue-500"}`}
+                        className={`min-w-0 flex-1 border rounded-lg px-3 py-2 text-base sm:text-sm bg-input dark:text-slate-100 focus:outline-none transition-all duration-200 ${errors.gemini_api_key ? "border-rose-500 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500" : "border-border focus:ring-2 focus:ring-primary/20 focus:border-blue-500"}`}
                         {...register("gemini_api_key")}
                         placeholder={passwordSet ? "••••••••" : "AI Studio API Key"}
                         onChange={(e) => {

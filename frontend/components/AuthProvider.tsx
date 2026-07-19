@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { User } from "@/lib/api";
 import { getMe, logout as apiLogout } from "@/lib/auth";
 
@@ -29,6 +29,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     let mounted = true;
@@ -74,6 +75,16 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     setUser(null);
     router.push("/login");
   }, [router]);
+
+  // Neutral loading state while the initial session check runs — prevents
+  // rendering the shell with user=null (logged-out flash) on PWA cold start.
+  if (loading && pathname !== "/login") {
+    return (
+      <div className="min-h-screen min-h-dvh flex items-center justify-center bg-background">
+        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <AuthContext.Provider value={{ user, loading, logout, setUser }}>

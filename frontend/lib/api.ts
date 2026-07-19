@@ -613,6 +613,16 @@ export async function bulkUploadExpenses(files: File[]): Promise<BulkUploadResul
   return data;
 }
 
+function isIosOrStandalone(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent;
+  const isIos = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const isStandalone =
+    window.matchMedia?.("(display-mode: standalone)").matches ||
+    (navigator as { standalone?: boolean }).standalone === true;
+  return isIos || isStandalone;
+}
+
 export async function downloadBlob(
   url: string,
   params: Record<string, unknown>,
@@ -620,13 +630,22 @@ export async function downloadBlob(
 ): Promise<void> {
   const response = await api.get(url, { params, responseType: "blob" });
   const objectUrl = URL.createObjectURL(response.data);
-  const a = document.createElement("a");
-  a.href = objectUrl;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(objectUrl);
+
+  if (isIosOrStandalone()) {
+    // iOS Safari / home-screen PWA ignores a[download] for blob URLs and often
+    // fails synthetic clicks entirely — open in a new tab instead.
+    window.open(objectUrl, "_blank");
+  } else {
+    const a = document.createElement("a");
+    a.href = objectUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+
+  // Defer revocation — iOS may not have started the navigation yet.
+  setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
 }
 
 

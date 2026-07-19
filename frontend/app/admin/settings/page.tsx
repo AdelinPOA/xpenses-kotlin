@@ -97,7 +97,7 @@ export default function SettingsPage() {
                 min="0.01"
                 value={bt}
                 onChange={(e) => setBt(e.target.value)}
-                className="w-full px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground"
+                className="w-full px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground"
               />
               <p className="text-xs text-slate-400 mt-1">Gross rate for accounting purposes</p>
             </div>
@@ -112,7 +112,7 @@ export default function SettingsPage() {
                 min="0.01"
                 value={at}
                 onChange={(e) => setAt(e.target.value)}
-                className="w-full px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground"
+                className="w-full px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground"
               />
               <p className="text-xs text-slate-400 mt-1">Net rate used for reimbursement</p>
             </div>
@@ -149,7 +149,7 @@ export default function SettingsPage() {
                 min="0"
                 value={dailyRate}
                 onChange={(e) => setDailyRate(e.target.value)}
-                className="w-full px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground"
+                className="w-full px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground"
               />
               <p className="text-xs text-slate-400 mt-1">Set to 0 to disable daily allowance</p>
             </div>

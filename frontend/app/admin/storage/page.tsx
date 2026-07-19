@@ -213,7 +213,7 @@ export default function StorageAdminPage() {
                 </label>
                 <select
                   {...register("provider_type")}
-                  className="w-full max-w-xs px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground"
+                  className="w-full max-w-xs px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground"
                 >
                   <option value="local">Local Directory / Mounted Drive</option>
                   <option value="smb">SMB / CIFS Share</option>
@@ -237,7 +237,7 @@ export default function StorageAdminPage() {
                       type="text"
                       {...register("local.path")}
                       placeholder="/app/data/receipts"
-                      className="w-full px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground"
+                      className="w-full px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground"
                     />
                     <p className="text-xs text-slate-400 mt-1">Must be an absolute path reachable by the backend server.</p>
                   </div>
@@ -251,27 +251,27 @@ export default function StorageAdminPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Server Host / IP</label>
-                      <input type="text" {...register("smb.host")} placeholder="192.168.1.100" className="w-full px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground" />
+                      <input type="text" {...register("smb.host")} placeholder="192.168.1.100" className="w-full px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground" />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Share Name</label>
-                      <input type="text" {...register("smb.share")} placeholder="shared_folder" className="w-full px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground" />
+                      <input type="text" {...register("smb.share")} placeholder="shared_folder" className="w-full px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground" />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Username</label>
-                      <input type="text" {...register("smb.username")} className="w-full px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground" />
+                      <input type="text" {...register("smb.username")} className="w-full px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground" />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Password</label>
-                      <input type="password" {...register("smb.password")} className="w-full px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground" />
+                      <input type="password" {...register("smb.password")} className="w-full px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground" />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Domain (Optional)</label>
-                      <input type="text" {...register("smb.domain")} className="w-full px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground" />
+                      <input type="text" {...register("smb.domain")} className="w-full px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground" />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Subfolder inside share</label>
-                      <input type="text" {...register("smb.folder")} placeholder="receipts" className="w-full px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground" />
+                      <input type="text" {...register("smb.folder")} placeholder="receipts" className="w-full px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground" />
                     </div>
                   </div>
                 </div>
@@ -284,19 +284,19 @@ export default function StorageAdminPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="md:col-span-2">
                       <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">WebDAV URL</label>
-                      <input type="text" {...register("webdav.url")} placeholder="https://nas.local:5006/dav" className="w-full px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground" />
+                      <input type="text" {...register("webdav.url")} placeholder="https://nas.local:5006/dav" className="w-full px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground" />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Username</label>
-                      <input type="text" {...register("webdav.username")} className="w-full px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground" />
+                      <input type="text" {...register("webdav.username")} className="w-full px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground" />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Password</label>
-                      <input type="password" {...register("webdav.password")} className="w-full px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground" />
+                      <input type="password" {...register("webdav.password")} className="w-full px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground" />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Subfolder inside webdav</label>
-                      <input type="text" {...register("webdav.folder")} placeholder="receipts" className="w-full px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground" />
+                      <input type="text" {...register("webdav.folder")} placeholder="receipts" className="w-full px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground" />
                     </div>
                   </div>
                 </div>
@@ -309,23 +309,23 @@ export default function StorageAdminPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Host</label>
-                      <input type="text" {...register("sftp.host")} placeholder="sftp.company.com" className="w-full px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground" />
+                      <input type="text" {...register("sftp.host")} placeholder="sftp.company.com" className="w-full px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground" />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Port</label>
-                      <input type="number" {...register("sftp.port")} placeholder="22" className="w-full px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground" />
+                      <input type="number" {...register("sftp.port")} placeholder="22" className="w-full px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground" />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Username</label>
-                      <input type="text" {...register("sftp.username")} className="w-full px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground" />
+                      <input type="text" {...register("sftp.username")} className="w-full px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground" />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Password</label>
-                      <input type="password" {...register("sftp.password")} className="w-full px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground" />
+                      <input type="password" {...register("sftp.password")} className="w-full px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground" />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Target Folder Path</label>
-                      <input type="text" {...register("sftp.folder")} placeholder="receipts" className="w-full px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground" />
+                      <input type="text" {...register("sftp.folder")} placeholder="receipts" className="w-full px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground" />
                     </div>
                   </div>
                 </div>
@@ -338,23 +338,23 @@ export default function StorageAdminPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="md:col-span-2">
                       <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Endpoint URL (Optional for AWS, Required for MinIO)</label>
-                      <input type="text" {...register("s3.endpoint_url")} placeholder="https://minio.company.com" className="w-full px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground" />
+                      <input type="text" {...register("s3.endpoint_url")} placeholder="https://minio.company.com" className="w-full px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground" />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Access Key</label>
-                      <input type="text" {...register("s3.access_key")} className="w-full px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground" />
+                      <input type="text" {...register("s3.access_key")} className="w-full px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground" />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Secret Key</label>
-                      <input type="password" {...register("s3.secret_key")} className="w-full px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground" />
+                      <input type="password" {...register("s3.secret_key")} className="w-full px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground" />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Bucket Name</label>
-                      <input type="text" {...register("s3.bucket_name")} placeholder="company-receipts" className="w-full px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground" />
+                      <input type="text" {...register("s3.bucket_name")} placeholder="company-receipts" className="w-full px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground" />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Region</label>
-                      <input type="text" {...register("s3.region_name")} placeholder="us-east-1" className="w-full px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground" />
+                      <input type="text" {...register("s3.region_name")} placeholder="us-east-1" className="w-full px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground" />
                     </div>
                   </div>
                 </div>

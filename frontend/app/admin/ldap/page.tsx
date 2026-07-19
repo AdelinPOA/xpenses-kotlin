@@ -268,7 +268,7 @@ export default function LdapAdminPage() {
             <div>
               <label className="block text-xs font-semibold text-muted mb-1.5">Host</label>
               <input
-                className="w-full border rounded-lg px-3 py-2 text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
+                className="w-full border rounded-lg px-3 py-2 text-base sm:text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
                 {...register("host")}
                 placeholder="ldap.example.com"
               />
@@ -282,7 +282,7 @@ export default function LdapAdminPage() {
                 type="text"
                 inputMode="numeric"
                 pattern="[0-9]*"
-                className={`w-full max-w-[120px] border rounded-lg px-3 py-2 text-sm bg-input dark:text-slate-100 focus:outline-none transition-all duration-200 ${errors.port ? "border-rose-500 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500" : "border-border focus:ring-2 focus:ring-primary/20 focus:border-blue-500"}`}
+                className={`w-full max-w-[120px] border rounded-lg px-3 py-2 text-base sm:text-sm bg-input dark:text-slate-100 focus:outline-none transition-all duration-200 ${errors.port ? "border-rose-500 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500" : "border-border focus:ring-2 focus:ring-primary/20 focus:border-blue-500"}`}
                 {...register("port")}
               />
               {errors.port && (
@@ -305,7 +305,7 @@ export default function LdapAdminPage() {
           <div>
             <label className="block text-xs font-semibold text-muted mb-1.5">Bind DN</label>
             <input
-              className="w-full border rounded-lg px-3 py-2 text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
+              className="w-full border rounded-lg px-3 py-2 text-base sm:text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
               {...register("bind_dn")}
               placeholder="cn=admin,dc=example,dc=com"
             />
@@ -317,7 +317,7 @@ export default function LdapAdminPage() {
             <label className="block text-xs font-semibold text-muted mb-1.5">Bind Password</label>
             <input
               type="password"
-              className="w-full border rounded-lg px-3 py-2 text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
+              className="w-full border rounded-lg px-3 py-2 text-base sm:text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
               {...register("bind_password")}
               onChange={(e) => {
                 setValue("bind_password", e.target.value, { shouldDirty: true });
@@ -333,7 +333,7 @@ export default function LdapAdminPage() {
           <div>
             <label className="block text-xs font-semibold text-muted mb-1.5">Base DN</label>
             <input
-              className="w-full border rounded-lg px-3 py-2 text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
+              className="w-full border rounded-lg px-3 py-2 text-base sm:text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
               {...register("base_dn")}
               placeholder="dc=example,dc=com"
             />
@@ -344,7 +344,7 @@ export default function LdapAdminPage() {
           <div>
             <label className="block text-xs font-semibold text-muted mb-1.5">User Filter</label>
             <input
-              className="w-full border rounded-lg px-3 py-2 text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
+              className="w-full border rounded-lg px-3 py-2 text-base sm:text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
               {...register("user_filter")}
             />
             {errors.user_filter && (
@@ -359,7 +359,7 @@ export default function LdapAdminPage() {
             <div>
               <label className="block text-xs font-semibold text-muted mb-1.5">Username attr</label>
               <input
-                className="w-full border rounded-lg px-3 py-2 text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
+                className="w-full border rounded-lg px-3 py-2 text-base sm:text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
                 {...register("attr_username")}
               />
               {errors.attr_username && (
@@ -369,7 +369,7 @@ export default function LdapAdminPage() {
             <div>
               <label className="block text-xs font-semibold text-muted mb-1.5">Email attr</label>
               <input
-                className="w-full border rounded-lg px-3 py-2 text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
+                className="w-full border rounded-lg px-3 py-2 text-base sm:text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
                 {...register("attr_email")}
               />
               {errors.attr_email && (
@@ -379,7 +379,7 @@ export default function LdapAdminPage() {
             <div>
               <label className="block text-xs font-semibold text-muted mb-1.5">Display name attr</label>
               <input
-                className="w-full border rounded-lg px-3 py-2 text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
+                className="w-full border rounded-lg px-3 py-2 text-base sm:text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
                 {...register("attr_display_name")}
               />
               {errors.attr_display_name && (
@@ -389,7 +389,7 @@ export default function LdapAdminPage() {
             <div>
               <label className="block text-xs font-semibold text-muted mb-1.5">Role/group attr</label>
               <input
-                className="w-full border rounded-lg px-3 py-2 text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
+                className="w-full border rounded-lg px-3 py-2 text-base sm:text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
                 {...register("attr_role")}
               />
               {errors.attr_role && (
@@ -400,7 +400,7 @@ export default function LdapAdminPage() {
           <div>
             <label className="block text-xs font-semibold text-muted mb-1.5">Default role for unmapped groups</label>
             <select
-              className="border rounded-lg px-3 py-2 text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
+              className="border rounded-lg px-3 py-2 text-base sm:text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
               {...register("default_role")}
             >
               {ROLE_OPTIONS.map((r) => <option key={r} value={r}>{r}</option>)}
@@ -413,7 +413,7 @@ export default function LdapAdminPage() {
           {roleEntries.map((entry, i) => (
             <div key={i} className="flex items-center gap-3 min-w-0">
               <input
-                className="flex-1 min-w-0 border rounded-lg px-3 py-2 text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
+                className="flex-1 min-w-0 border rounded-lg px-3 py-2 text-base sm:text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
                 placeholder="Directory group value"
                 value={entry.dir}
                 onChange={(e) => {
@@ -425,7 +425,7 @@ export default function LdapAdminPage() {
               />
               <span className="text-slate-400 font-semibold shrink-0">→</span>
               <select
-                className="flex-1 min-w-0 border rounded-lg px-3 py-2 text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
+                className="flex-1 min-w-0 border rounded-lg px-3 py-2 text-base sm:text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
                 value={entry.role}
                 onChange={(e) => {
                   const n = [...roleEntries];

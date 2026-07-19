@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Sidebar from "./Sidebar";
-import { Menu, Bell, LayoutDashboard, ReceiptText, FileText, User } from "lucide-react";
+import { Menu, LayoutDashboard, ReceiptText, FileText, User } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
@@ -21,9 +21,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   ];
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col">
+    <div className="min-h-screen min-h-dvh bg-background text-foreground flex flex-col">
       {/* Mobile header matching mockup */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 h-14 bg-card border-b border-border flex items-center justify-between px-4 z-30 shadow-sm">
+      <div className="lg:hidden fixed top-0 left-0 right-0 h-14 pt-safe box-content bg-card border-b border-border flex items-center justify-between px-4 z-30 shadow-sm">
         <button
           onClick={() => setSidebarOpen(true)}
           className="p-2 -ml-2 text-muted hover:bg-card-hover rounded-lg"
@@ -40,12 +40,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <span className="text-sm font-bold text-foreground tracking-tight">xpenses</span>
         </div>
 
-        {/* Right side notifications and profile */}
+        {/* Right side profile */}
         <div className="flex items-center gap-3">
-          <button className="relative p-1 text-muted hover:text-foreground" aria-label="Notifications">
-            <Bell className="w-5 h-5" />
-            <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 bg-primary rounded-full" />
-          </button>
           <Link 
             href="/profile" 
             className="w-6 h-6 rounded-full bg-primary/20 border border-primary flex items-center justify-center text-primary font-bold text-[10px]"
@@ -59,12 +55,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       {/* Main layout content area - padded at bottom on mobile to clear the tab bar */}
-      <main className="flex-1 lg:ml-[220px] pt-14 lg:pt-0 pb-20 lg:pb-0 p-4 sm:p-6 lg:p-8">
+      <main className="flex-1 lg:ml-[220px] pt-[calc(3.5rem+env(safe-area-inset-top,0px))] lg:pt-0 pb-[calc(5rem+env(safe-area-inset-bottom,0px))] lg:pb-0 p-4 sm:p-6 lg:p-8">
         {children}
       </main>
 
       {/* Mobile bottom navigation tab bar */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 h-16 bg-card border-t border-border flex items-center justify-around z-30 pb-safe shadow-lg">
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 h-16 pb-safe box-content bg-card border-t border-border flex items-center justify-around z-30 shadow-lg">
         {navItems.map(({ href, label, icon: Icon }) => {
           const active = pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
           return (

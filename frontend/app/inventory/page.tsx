@@ -264,7 +264,7 @@ export default function InventoryPage() {
                     value={reqItemName}
                     onChange={(e) => setReqItemName(e.target.value)}
                     placeholder="e.g. Laptop, Safety Helmet"
-                    className="w-full px-3 py-2 border border-input-border rounded-lg bg-input text-foreground text-sm"
+                    className="w-full px-3 py-2 border border-input-border rounded-lg bg-input text-foreground text-base sm:text-sm"
                   />
                 </div>
                 <div>
@@ -274,7 +274,7 @@ export default function InventoryPage() {
                     min="1"
                     value={reqQuantity}
                     onChange={(e) => setReqQuantity(e.target.value)}
-                    className="w-full px-3 py-2 border border-input-border rounded-lg bg-input text-foreground text-sm"
+                    className="w-full px-3 py-2 border border-input-border rounded-lg bg-input text-foreground text-base sm:text-sm"
                   />
                 </div>
                 <div>
@@ -284,7 +284,7 @@ export default function InventoryPage() {
                     onChange={(e) => setReqDescription(e.target.value)}
                     rows={3}
                     placeholder="Why do you need this item?"
-                    className="w-full px-3 py-2 border border-input-border rounded-lg bg-input text-foreground text-sm"
+                    className="w-full px-3 py-2 border border-input-border rounded-lg bg-input text-foreground text-base sm:text-sm"
                   />
                 </div>
                 <div className="flex justify-end gap-3 pt-2">
@@ -320,7 +320,7 @@ export default function InventoryPage() {
                     onChange={(e) => setRejectReason(e.target.value)}
                     rows={3}
                     placeholder="Why is this request being rejected?"
-                    className="w-full px-3 py-2 border border-input-border rounded-lg bg-input text-foreground text-sm"
+                    className="w-full px-3 py-2 border border-input-border rounded-lg bg-input text-foreground text-base sm:text-sm"
                   />
                 </div>
                 <div className="flex justify-end gap-3 pt-2">
@@ -352,35 +352,35 @@ export default function InventoryPage() {
               <form onSubmit={handleItemSubmit} className="p-6 space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Name *</label>
-                  <input required value={formName} onChange={(e) => setFormName(e.target.value)} className="w-full px-3 py-2 border border-input-border rounded-lg bg-input text-foreground text-sm" />
+                  <input required value={formName} onChange={(e) => setFormName(e.target.value)} className="w-full px-3 py-2 border border-input-border rounded-lg bg-input text-foreground text-base sm:text-sm" />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Serial Number</label>
-                    <input value={formSerial} onChange={(e) => setFormSerial(e.target.value)} className="w-full px-3 py-2 border border-input-border rounded-lg bg-input text-foreground text-sm" />
+                    <input value={formSerial} onChange={(e) => setFormSerial(e.target.value)} className="w-full px-3 py-2 border border-input-border rounded-lg bg-input text-foreground text-base sm:text-sm" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Category</label>
-                    <input value={formCategory} onChange={(e) => setFormCategory(e.target.value)} placeholder="e.g. Laptop, Tool" className="w-full px-3 py-2 border border-input-border rounded-lg bg-input text-foreground text-sm" />
+                    <input value={formCategory} onChange={(e) => setFormCategory(e.target.value)} placeholder="e.g. Laptop, Tool" className="w-full px-3 py-2 border border-input-border rounded-lg bg-input text-foreground text-base sm:text-sm" />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Purchase Date</label>
-                    <input type="date" value={formPurchaseDate} onChange={(e) => setFormPurchaseDate(e.target.value)} className="w-full px-3 py-2 border border-input-border rounded-lg bg-input text-foreground text-sm" />
+                    <input type="date" value={formPurchaseDate} onChange={(e) => setFormPurchaseDate(e.target.value)} className="w-full px-3 py-2 border border-input-border rounded-lg bg-input text-foreground text-base sm:text-sm" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Purchase Value (EUR)</label>
-                    <input type="number" min="0" step="0.01" value={formPurchaseValue} onChange={(e) => setFormPurchaseValue(e.target.value)} className="w-full px-3 py-2 border border-input-border rounded-lg bg-input text-foreground text-sm" />
+                    <input type="number" min="0" step="0.01" value={formPurchaseValue} onChange={(e) => setFormPurchaseValue(e.target.value)} className="w-full px-3 py-2 border border-input-border rounded-lg bg-input text-foreground text-base sm:text-sm" />
                   </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Description</label>
-                  <textarea value={formDescription} onChange={(e) => setFormDescription(e.target.value)} rows={2} className="w-full px-3 py-2 border border-input-border rounded-lg bg-input text-foreground text-sm" />
+                  <textarea value={formDescription} onChange={(e) => setFormDescription(e.target.value)} rows={2} className="w-full px-3 py-2 border border-input-border rounded-lg bg-input text-foreground text-base sm:text-sm" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Notes</label>
-                  <textarea value={formNotes} onChange={(e) => setFormNotes(e.target.value)} rows={2} className="w-full px-3 py-2 border border-input-border rounded-lg bg-input text-foreground text-sm" />
+                  <textarea value={formNotes} onChange={(e) => setFormNotes(e.target.value)} rows={2} className="w-full px-3 py-2 border border-input-border rounded-lg bg-input text-foreground text-base sm:text-sm" />
                 </div>
                 <div className="flex justify-end gap-3 pt-2">
                   <button type="button" onClick={resetItemForm} className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700">Cancel</button>

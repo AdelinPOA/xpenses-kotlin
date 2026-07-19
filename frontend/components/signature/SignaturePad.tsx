@@ -149,7 +149,7 @@ export default function SignaturePad({
         ref={canvasRef}
         width={width}
         height={height}
-        className="border border-input-border rounded-lg cursor-crosshair bg-input max-w-full h-auto"
+        className="border border-input-border rounded-lg cursor-crosshair bg-input max-w-full h-auto touch-none"
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}

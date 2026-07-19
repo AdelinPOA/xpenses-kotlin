@@ -37,13 +37,14 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
     fx_rate_manual: expense?.fx_rate_manual ?? false,
   });
   const [fxRateEditMode, setFxRateEditMode] = useState(false);
-  const [receiptFiles, setReceiptFiles] = useState<File[]>([]);
+  const [receiptFiles, setReceiptFiles] = useState<{ id: string; file: File }[]>([]);
   const [deletedReceiptIds, setDeletedReceiptIds] = useState<Set<number>>(new Set());
   const [error, setError] = useState("");
   const [savedExpense, setSavedExpense] = useState<Expense | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [scanResult, setScanResult] = useState<OCRScanResult | null>(null);
   const scanInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const [activeReceiptKey, setActiveReceiptKey] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
@@ -52,18 +53,19 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [activeMobileTab, setActiveMobileTab] = useState<'details' | 'receipt'>('details');
 
-  const handleMouseDown = (e: React.MouseEvent) => {
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (zoom <= 1) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
     setIsDraggingImage(true);
     setDragStart({ x: e.clientX - position.x, y: e.clientY - position.y });
   };
 
-  const handleMouseMove = (e: React.MouseEvent) => {
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!isDraggingImage) return;
     setPosition({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
   };
 
-  const handleMouseUp = () => {
+  const handlePointerUp = () => {
     setIsDraggingImage(false);
   };
 
@@ -104,12 +106,12 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
       isImage: /\.(jpg|jpeg|png|webp)$/i.test(r.file_path || r.original_name || ""),
       isPdf: /\.pdf$/i.test(r.file_path || r.original_name || ""),
     })),
-    ...receiptFiles.map((f, i) => ({
-      key: `new-${i}`,
-      name: f.name,
-      url: getObjectUrl(f),
-      isImage: f.type.startsWith("image/") || /\.(jpg|jpeg|png|webp)$/i.test(f.name),
-      isPdf: f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf"),
+    ...receiptFiles.map((entry) => ({
+      key: `new-${entry.id}`,
+      name: entry.file.name,
+      url: getObjectUrl(entry.file),
+      isImage: entry.file.type.startsWith("image/") || /\.(jpg|jpeg|png|webp)$/i.test(entry.file.name),
+      isPdf: entry.file.type === "application/pdf" || entry.file.name.toLowerCase().endsWith(".pdf"),
     })),
   ];
 
@@ -150,7 +152,7 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
 
         if (receiptFiles.length > 0) {
           const fd = new FormData();
-          for (const file of receiptFiles) {
+          for (const { file } of receiptFiles) {
             fd.append("files", file);
           }
           await api.post(`/expenses/${result.id}/receipts`, fd);
@@ -181,7 +183,7 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
 
   const addFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
-    setReceiptFiles((prev) => [...prev, ...files]);
+    setReceiptFiles((prev) => [...prev, ...files.map((f) => ({ id: crypto.randomUUID(), file: f }))]);
     e.target.value = "";
   };
 
@@ -297,7 +299,7 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
       }));
 
       // Add scanned file to receipt list
-      setReceiptFiles((prev) => [...prev, file]);
+      setReceiptFiles((prev) => [...prev, { id: crypto.randomUUID(), file }]);
     } catch (e: any) {
       setError(e.response?.data?.detail ?? e.message ?? "OCR scan failed");
     } finally {
@@ -399,6 +401,14 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
                 onChange={handleScan}
                 className="hidden"
               />
+              <input
+                ref={cameraInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={handleScan}
+                className="hidden"
+              />
               {isScanning ? (
                 <div className="flex flex-col items-center gap-2">
                   <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
@@ -407,8 +417,11 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
               ) : (
                 <div className="flex flex-col items-center gap-2">
                   <Camera className={clsx("w-8 h-8 transition-colors", isDragging ? "text-blue-500" : "text-slate-400")} />
-                  <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  <p className="hidden lg:block text-sm font-medium text-slate-700 dark:text-slate-300">
                     {isDragging ? "Drop your receipt here!" : "Drag & drop receipt here, or click to browse"}
+                  </p>
+                  <p className="lg:hidden text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Tap to photograph or choose a receipt
                   </p>
                   <p className="text-[10px] text-muted-foreground">
                     Supports JPG, PNG, PDF, WEBP up to 10MB
@@ -416,6 +429,19 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
                 </div>
               )}
             </div>
+          )}
+
+          {/* Mobile: direct camera capture */}
+          {!isEdit && (
+            <button
+              type="button"
+              onClick={() => cameraInputRef.current?.click()}
+              disabled={isScanning}
+              className="lg:hidden flex items-center justify-center gap-2 w-full py-2.5 border border-input-border rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300 bg-input hover:bg-card-hover disabled:opacity-50"
+            >
+              <Camera className="w-4 h-4" />
+              Take photo
+            </button>
           )}
 
           {/* Form Fields */}
@@ -426,10 +452,11 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
                 type="number"
                 step="0.01"
                 min="0"
+                inputMode="decimal"
                 required
                 value={form.amount}
                 onChange={set("amount")}
-                className="w-full border border-input-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100"
+                className="w-full border border-input-border rounded-lg px-3 py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100"
               />
             </div>
             <div>
@@ -437,7 +464,7 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
               <select
                 value={form.currency}
                 onChange={set("currency")}
-                className="w-full border border-input-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100"
+                className="w-full border border-input-border rounded-lg px-3 py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100"
               >
                 {CURRENCIES.map((c) => (
                   <option key={c} value={c}>{c}</option>
@@ -466,9 +493,10 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
                       type="number"
                       step="0.0001"
                       min="0.0001"
+                      inputMode="decimal"
                       value={form.fx_rate}
                       onChange={set("fx_rate")}
-                      className="w-full border border-input-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100"
+                      className="w-full border border-input-border rounded-lg px-3 py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100"
                     />
                   ) : (
                     <span className="text-sm text-slate-600 dark:text-slate-400 py-2">
@@ -509,7 +537,7 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
               required
               value={form.date}
               onChange={set("date")}
-              className="w-full border border-input-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100"
+              className="w-full border border-input-border rounded-lg px-3 py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100"
             />
           </div>
 
@@ -520,7 +548,7 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
               value={form.merchant}
               onChange={set("merchant")}
               placeholder="e.g. McDonald's, Uber"
-              className="w-full border border-input-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100"
+              className="w-full border border-input-border rounded-lg px-3 py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100"
             />
           </div>
 
@@ -529,7 +557,7 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
             <select
               value={form.category_id}
               onChange={set("category_id")}
-              className="w-full border border-input-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100"
+              className="w-full border border-input-border rounded-lg px-3 py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100"
             >
               <option value="">— Select category —</option>
               {categories?.map((c) => (
@@ -545,7 +573,7 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
               onChange={set("description")}
               rows={2}
               placeholder="Brief description..."
-              className="w-full border border-input-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none dark:bg-slate-800 dark:text-slate-100"
+              className="w-full border border-input-border rounded-lg px-3 py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none dark:bg-slate-800 dark:text-slate-100"
             />
           </div>
 
@@ -556,7 +584,7 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
               accept=".jpg,.jpeg,.png,.pdf,.webp"
               multiple
               onChange={addFiles}
-              className="w-full text-sm text-slate-600 dark:text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:border file:border-slate-300 dark:file:border-slate-600 file:rounded-lg file:text-xs file:bg-slate-50 dark:file:bg-slate-800 hover:file:bg-slate-100 dark:hover:file:bg-slate-700"
+              className="w-full text-base sm:text-sm text-slate-600 dark:text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:border file:border-slate-300 dark:file:border-slate-600 file:rounded-lg file:text-xs file:bg-slate-50 dark:file:bg-slate-800 hover:file:bg-slate-100 dark:hover:file:bg-slate-700"
             />
 
             {existingReceipts.length > 0 && (
@@ -583,10 +611,10 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
 
             {receiptFiles.length > 0 && (
               <div className="mt-2 space-y-1">
-                {receiptFiles.map((f, i) => (
-                  <div key={f.name + f.size} className="flex items-center gap-2 text-xs text-muted">
-                    <span className="truncate max-w-[200px]">{f.name}</span>
-                    <span className="text-slate-300 dark:text-slate-600">({(f.size / 1024).toFixed(0)} KB)</span>
+                {receiptFiles.map((entry, i) => (
+                  <div key={entry.id} className="flex items-center gap-2 text-xs text-muted">
+                    <span className="truncate max-w-[200px]">{entry.file.name}</span>
+                    <span className="text-slate-300 dark:text-slate-600">({(entry.file.size / 1024).toFixed(0)} KB)</span>
                     <button
                       type="button"
                       onClick={() => removeNewFile(i)}
@@ -666,7 +694,7 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
                     <button
                       type="button"
                       onClick={() => setZoom((z) => Math.max(0.5, z - 0.25))}
-                      className="p-1 hover:bg-slate-800 dark:hover:bg-slate-700 rounded text-xs font-bold w-6 h-6 flex items-center justify-center"
+                      className="p-1 hover:bg-slate-800 dark:hover:bg-slate-700 rounded text-xs font-bold w-11 h-11 lg:w-7 lg:h-7 flex items-center justify-center"
                       title="Zoom Out"
                     >
                       -
@@ -677,7 +705,7 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
                     <button
                       type="button"
                       onClick={() => setZoom((z) => Math.min(3, z + 0.25))}
-                      className="p-1 hover:bg-slate-800 dark:hover:bg-slate-700 rounded text-xs font-bold w-6 h-6 flex items-center justify-center"
+                      className="p-1 hover:bg-slate-800 dark:hover:bg-slate-700 rounded text-xs font-bold w-11 h-11 lg:w-7 lg:h-7 flex items-center justify-center"
                       title="Zoom In"
                     >
                       +
@@ -685,7 +713,7 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
                     <button
                       type="button"
                       onClick={() => { setZoom(1); setPosition({ x: 0, y: 0 }); }}
-                      className="p-1 hover:bg-slate-800 dark:hover:bg-slate-700 rounded text-[10px] px-1.5 font-medium ml-1"
+                      className="p-1 hover:bg-slate-800 dark:hover:bg-slate-700 rounded text-[10px] px-1.5 font-medium ml-1 h-11 lg:h-7 flex items-center"
                       title="Reset Zoom"
                     >
                       Reset
@@ -694,13 +722,13 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
 
                   <div
                     className={clsx(
-                      "flex-1 w-full flex items-center justify-center p-4 overflow-hidden min-h-[350px]",
+                      "flex-1 w-full flex items-center justify-center p-4 overflow-hidden min-h-[350px] touch-none",
                       zoom > 1 ? "cursor-grab" : ""
                     )}
-                    onMouseDown={handleMouseDown}
-                    onMouseMove={handleMouseMove}
-                    onMouseUp={handleMouseUp}
-                    onMouseLeave={handleMouseUp}
+                    onPointerDown={handlePointerDown}
+                    onPointerMove={handlePointerMove}
+                    onPointerUp={handlePointerUp}
+                    onPointerCancel={handlePointerUp}
                   >
                     <img
                       src={activeItem.url}

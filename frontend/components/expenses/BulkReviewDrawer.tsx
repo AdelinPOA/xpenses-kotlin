@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { X, Trash2, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
 import api, { bulkUploadExpenses, BulkUploadResult, BulkUploadError, Expense, Category } from "@/lib/api";
 import { expenseKeys, categoryKeys } from "@/lib/queryKeys";
+import { useBodyScrollLock } from "@/lib/useBodyScrollLock";
 
 interface BulkReviewDrawerProps {
   files: File[];
@@ -24,6 +25,7 @@ export default function BulkReviewDrawer({ files, isOpen, onClose }: BulkReviewD
   const [uploadErrors, setUploadErrors] = useState<BulkUploadError[]>([]);
   const [dismissedErrors, setDismissedErrors] = useState(false);
   const uploadedRef = useRef(false); // prevent double-fire in Strict Mode
+  useBodyScrollLock(isOpen);
 
   const { data: categories = [] } = useQuery<Category[]>({
     queryKey: categoryKeys.list(),
@@ -103,7 +105,7 @@ export default function BulkReviewDrawer({ files, isOpen, onClose }: BulkReviewD
       {/* Drawer */}
       <div className="fixed right-0 top-0 bottom-0 z-50 w-full max-w-2xl bg-card shadow-2xl flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+        <div className="flex items-center justify-between px-6 py-4 pt-[calc(1rem+env(safe-area-inset-top,0px))] border-b border-border">
           <div>
             <h2 className="text-lg font-bold text-slate-900 dark:text-white">Review bulk upload</h2>
             <p className="text-sm text-muted">
@@ -179,7 +181,7 @@ export default function BulkReviewDrawer({ files, isOpen, onClose }: BulkReviewD
 
         {/* Footer */}
         {!uploading && (
-          <div className="px-6 py-4 border-t border-border flex items-center justify-between gap-4">
+          <div className="px-6 py-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] border-t border-border flex items-center justify-between gap-4">
             <p className="text-xs text-muted">
               All expenses are saved as <span className="font-semibold">draft</span>. Assign to a report when ready.
             </p>
@@ -222,7 +224,6 @@ function BulkExpenseRow({ expense, categories, saving, onPatch, onDelete }: Bulk
       <div className="flex items-start gap-3">
         {/* Receipt thumbnail */}
         {receiptUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
           <img
             src={receiptUrl}
             alt="Receipt"
@@ -244,7 +245,7 @@ function BulkExpenseRow({ expense, categories, saving, onPatch, onDelete }: Bulk
               defaultValue={expense.merchant ?? ""}
               onBlur={(e) => onPatch("merchant", e.target.value || null)}
               placeholder="Merchant name"
-              className="w-full mt-0.5 px-2 py-1.5 text-sm rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full mt-0.5 px-2 py-1.5 text-base sm:text-sm rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
 
@@ -256,16 +257,17 @@ function BulkExpenseRow({ expense, categories, saving, onPatch, onDelete }: Bulk
                 type="number"
                 step="0.01"
                 min="0"
+                inputMode="decimal"
                 defaultValue={expense.amount_original}
                 onBlur={(e) => onPatch("amount", parseFloat(e.target.value) || 0)}
-                className="w-full px-2 py-1.5 text-sm rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full px-2 py-1.5 text-base sm:text-sm rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
               />
               <input
                 type="text"
                 defaultValue={expense.currency_original}
                 onBlur={(e) => onPatch("currency", e.target.value.toUpperCase() || "EUR")}
                 maxLength={3}
-                className="w-16 px-2 py-1.5 text-sm rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary uppercase"
+                className="w-16 px-2 py-1.5 text-base sm:text-sm rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary uppercase"
               />
             </div>
           </div>
@@ -277,7 +279,7 @@ function BulkExpenseRow({ expense, categories, saving, onPatch, onDelete }: Bulk
               type="date"
               defaultValue={expense.date}
               onBlur={(e) => onPatch("date", e.target.value)}
-              className="w-full mt-0.5 px-2 py-1.5 text-sm rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full mt-0.5 px-2 py-1.5 text-base sm:text-sm rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
 
@@ -287,7 +289,7 @@ function BulkExpenseRow({ expense, categories, saving, onPatch, onDelete }: Bulk
             <select
               defaultValue={expense.category_id ?? ""}
               onChange={(e) => onPatch("category_id", e.target.value ? parseInt(e.target.value) : null)}
-              className="w-full mt-0.5 px-2 py-1.5 text-sm rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full mt-0.5 px-2 py-1.5 text-base sm:text-sm rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             >
               <option value="">— No category —</option>
               {categories.map((c) => (
@@ -304,7 +306,7 @@ function BulkExpenseRow({ expense, categories, saving, onPatch, onDelete }: Bulk
               defaultValue={expense.description ?? ""}
               onBlur={(e) => onPatch("description", e.target.value || null)}
               placeholder="Optional description"
-              className="w-full mt-0.5 px-2 py-1.5 text-sm rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full mt-0.5 px-2 py-1.5 text-base sm:text-sm rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
         </div>

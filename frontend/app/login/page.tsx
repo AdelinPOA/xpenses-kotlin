@@ -30,7 +30,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
+    <div className="min-h-screen min-h-dvh flex items-center justify-center bg-background px-4">
       <div className="bg-card p-8 rounded-xl shadow-lg border border-border w-full max-w-sm">
         <div className="flex flex-col items-center mb-6">
           <Image src="/logo.png" alt="Newtech Automation" width={56} height={56} className="rounded-full mb-3" />
@@ -50,6 +50,9 @@ export default function LoginPage() {
               className="w-full px-3 py-2 border border-input-border rounded-lg bg-input text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
               required
               autoFocus
+              autoCapitalize="none"
+              autoCorrect="off"
+              autoComplete="username"
             />
           </div>
           <div>
@@ -60,6 +63,7 @@ export default function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               className="w-full px-3 py-2 border border-input-border rounded-lg bg-input text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
               required
+              autoComplete="current-password"
             />
           </div>
           <button

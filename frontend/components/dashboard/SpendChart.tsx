@@ -14,15 +14,7 @@ interface SpendChartProps {
 export default function SpendChart({ data }: SpendChartProps) {
   const points = useMemo(() => {
     if (!data || data.length === 0) {
-      // Fallback dummy points for premium visualization if no actual data exists
-      return [
-        { x: 0, y: 100 },
-        { x: 20, y: 80 },
-        { x: 40, y: 90 },
-        { x: 60, y: 60 },
-        { x: 80, y: 70 },
-        { x: 100, y: 30 }
-      ];
+      return [];
     }
 
     // Sort by date ascending
@@ -62,6 +54,14 @@ export default function SpendChart({ data }: SpendChartProps) {
 
   // Get coordinates for the last (current) dot
   const lastPoint = points[points.length - 1] || { x: 0, y: 100 };
+
+  if (points.length === 0) {
+    return (
+      <div className="relative w-full h-[120px] mt-4 flex items-center justify-center border border-dashed border-border rounded-lg">
+        <p className="text-xs text-muted-foreground">No spend data yet</p>
+      </div>
+    );
+  }
 
   return (
     <div className="relative w-full h-[120px] mt-4">

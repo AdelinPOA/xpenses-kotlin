@@ -104,6 +104,12 @@ function ExpensesPageContent() {
     },
   });
 
+  const confirmDelete = (id: number) => {
+    if (window.confirm("Delete this expense? This cannot be undone.")) {
+      del.mutate(id);
+    }
+  };
+
   const duplicate = useMutation({
     mutationFn: duplicateExpense,
     onSuccess: (newExpense) => {
@@ -146,8 +152,8 @@ function ExpensesPageContent() {
             </button>
             {exportOpen && (
               <>
-                <div className="fixed inset-0 z-10" onClick={() => setExportOpen(false)} />
-                <div className="absolute right-0 top-full mt-1 w-36 bg-input border border-border rounded-lg shadow-lg z-20">
+                <div className="fixed inset-0 z-40" onClick={() => setExportOpen(false)} />
+                <div className="absolute right-0 top-full mt-1 w-36 bg-input border border-border rounded-lg shadow-lg z-50">
                   <button
                     onClick={() => handleExport("csv")}
                     className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-t-lg"
@@ -260,7 +266,7 @@ function ExpensesPageContent() {
                           <Link href={`/expenses/${e.id}/edit`}>
                             <Pencil className="w-4 h-4 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400" />
                           </Link>
-                          <button onClick={() => del.mutate(e.id)} disabled={del.isPending}>
+                          <button onClick={() => confirmDelete(e.id)} disabled={del.isPending}>
                             <Trash2 className="w-4 h-4 text-slate-400 hover:text-red-500" />
                           </button>
                         </>
@@ -342,7 +348,7 @@ function ExpensesPageContent() {
                                 <Pencil className="w-4 h-4 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400" />
                               </Link>
                               <button
-                                onClick={() => del.mutate(e.id)}
+                                onClick={() => confirmDelete(e.id)}
                                 disabled={del.isPending}
                               >
                                 <Trash2 className="w-4 h-4 text-slate-400 hover:text-red-500" />

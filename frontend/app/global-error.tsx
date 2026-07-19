@@ -12,7 +12,7 @@ export default function GlobalError({
   return (
     <html lang="en">
       <body>
-        <div className="flex items-center justify-center min-h-screen px-4 bg-background">
+        <div className="flex items-center justify-center min-h-screen min-h-dvh px-4 bg-background">
           <div className="bg-card rounded-xl border border-border shadow-sm p-8 max-w-md w-full text-center space-y-4">
             <div className="mx-auto w-12 h-12 rounded-full bg-red-50 dark:bg-red-950/30 flex items-center justify-center">
               <AlertCircle className="w-6 h-6 text-red-500" />

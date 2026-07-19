@@ -213,7 +213,7 @@ export default function GlobalAdvancesPage() {
               type="date"
               value={payDate}
               onChange={(e) => setPayDate(e.target.value)}
-              className="px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground"
+              className="px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground"
             />
             <input
               type="number"
@@ -222,12 +222,12 @@ export default function GlobalAdvancesPage() {
               placeholder="Final amount"
               value={payAmount}
               onChange={(e) => setPayAmount(e.target.value)}
-              className="px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground w-32"
+              className="px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground w-32"
             />
             <select
               value={payCurrency}
               onChange={(e) => setPayCurrency(e.target.value)}
-              className="px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground"
+              className="px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground"
             >
               {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>

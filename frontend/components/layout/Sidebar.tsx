@@ -7,6 +7,7 @@ import { LayoutDashboard, Receipt, FileText, Tag, Users, CheckSquare, Banknote, 
 import clsx from "clsx";
 import { useAuth } from "@/components/AuthProvider";
 import { useTheme } from "@/components/ThemeProvider";
+import { useBodyScrollLock } from "@/lib/useBodyScrollLock";
 
 interface NavItem {
   href: string;
@@ -51,6 +52,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
   const { theme, setTheme } = useTheme();
 
   const visibleNav = NAV.filter((item) => user && item.roles.includes(user.role));
+  useBodyScrollLock(open);
 
   const cycleTheme = () => {
     const idx = THEME_CYCLE.indexOf(theme);
@@ -91,7 +93,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
             />
             <span className="text-lg font-bold text-white tracking-tight">xpenses</span>
           </div>
-          <button onClick={onClose} aria-label="Close navigation" className="lg:hidden p-1 text-slate-400 hover:text-white">
+          <button onClick={onClose} aria-label="Close navigation" className="lg:hidden p-3 -m-2 text-slate-400 hover:text-white">
             <X className="w-5 h-5" />
           </button>
         </div>

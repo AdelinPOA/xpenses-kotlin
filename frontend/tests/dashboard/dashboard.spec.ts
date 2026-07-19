@@ -10,8 +10,9 @@ test.describe("Dashboard", () => {
     await setupCommonMocks(page);
     await page.goto("/dashboard", { waitUntil: "load" });
     await page.waitForTimeout(2000);
-    await expect(page.getByText("Total spent this month")).toBeVisible({ timeout: 15000 });
-    await expect(page.getByText("Draft reports")).toBeVisible();
+    // Dual-view DOM (desktop + mobile markup) — assert on the visible copy
+    await expect(page.getByText("Total spent this month").filter({ visible: true }).first()).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText("Recent Expenses").filter({ visible: true }).first()).toBeVisible();
   });
 
   test("greeting shows user display name", async ({ page }) => {
@@ -25,7 +26,7 @@ test.describe("Dashboard", () => {
     await setupCommonMocks(page);
     await page.goto("/dashboard", { waitUntil: "load" });
     await page.waitForTimeout(2000);
-    await expect(page.getByText("Lidl")).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText("Lidl").filter({ visible: true }).first()).toBeVisible({ timeout: 15000 });
   });
 
   test("company overview toggle is not visible for technician role", async ({ page }) => {
@@ -40,6 +41,7 @@ test.describe("Dashboard", () => {
   });
 
   test("company overview toggle shows Switch to My View for mod", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 }); // toggle lives in the desktop layout
     await setupCommonMocks(page);
     await page.goto("/dashboard", { waitUntil: "load" });
     await page.waitForTimeout(2000);
@@ -47,6 +49,7 @@ test.describe("Dashboard", () => {
   });
 
   test("my view / company overview toggle works for mod", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 }); // toggle lives in the desktop layout
     await setupCommonMocks(page);
     await page.goto("/dashboard", { waitUntil: "load" });
     await page.waitForTimeout(2000);

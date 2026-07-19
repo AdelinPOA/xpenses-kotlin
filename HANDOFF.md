@@ -6,13 +6,15 @@
 - **Cloned & set up repository**: Cloned `https://github.com/AdelinPOA/xpenses-kotlin` into `/home/poa/xpenses-kotlin` and established Brave browser remote debugging connections on port 9222.
 - **Created design tokens system**: Replaced the 2-token system in `globals.css` with a full system of ~12 semantic tokens (`bg-background`, `bg-card`, `border-border`, etc.) including a 3-tier dark mode contrast ladder (bg #0c0f1a, card #151b2b, inputs #0f172a).
 - **Added orange branding accent**: Updated active sidebar navigation borders, button backgrounds, and input focus outlines to use company logo orange (`#f97316`) instead of generic blue.
-- **Bulk refactored frontend files**: Sweep 38 `.tsx` files, replacing hardcoded slate background/border utilities with semantic CSS variable class tokens.
+- **Overhauled desktop dashboard layout**: Redesigned the main dashboard view to match the premium desktop mockup. Added the top navigation header bar (search, profile dropdown, notification indicators), built a custom SVG Area Sparkline Chart for monthly spending, and transitioned list elements (Recent Expenses, Category Breakdown) into clean, high-contrast tables. Added a Report Summary card.
 - **Fixed test type check errors**: Repaired implicit any type parameters in `detail.spec.ts` and parameterized the `pages` array type in `screenshots.spec.ts` to solve compiler issues.
-- **Verifications passed**: Ran frontend `tsc --noEmit`, `eslint`, and production `npm run build` — all compiled successfully with `0 errors`. Committed to `feat/ui-cleanup`.
+- **Verifications passed**: Ran frontend `tsc --noEmit`, `eslint`, and production `npm run build` — all compiled successfully with `0 errors`. Pushed to GitHub `main` branch.
 
 ### Files Changed
 - `frontend/app/globals.css` — added design tokens and colors
 - `frontend/app/login/page.tsx`, `frontend/components/layout/AppShell.tsx`, `frontend/components/layout/Sidebar.tsx` — updated layout styling
+- `frontend/app/dashboard/DashboardClient.tsx` — complete overhaul of the dashboard layout structure
+- `frontend/components/dashboard/SpendChart.tsx` — new custom SVG line chart component
 - 35 other page & component files — converted hardcoded styles to variables
 - `frontend/tests/reports/detail.spec.ts`, `frontend/tests/responsive/screenshots.spec.ts` — fixed TypeScript test errors
 

@@ -6,7 +6,7 @@ test.describe("Visual regression screenshots", () => {
     await page.route("**/sw.js", (route) => route.abort());
   });
 
-  const pages = [
+  const pages: Array<{ path: string; role: "manager" | "mod" | "cfo" | "user" }> = [
     { path: "/admin/email", role: "mod" },
     { path: "/admin/imap", role: "mod" },
     { path: "/admin/ldap", role: "mod" },

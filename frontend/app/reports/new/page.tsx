@@ -68,14 +68,14 @@ export default function NewReportPage() {
   return (
     <AppShell>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">New Report</h1>
-        <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
+        <h1 className="text-2xl font-bold text-foreground">New Report</h1>
+        <p className="text-muted text-sm mt-1">
           Create a report and optionally attach draft expenses to submit them together.
         </p>
       </div>
 
       <div className="max-w-2xl space-y-6">
-        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-6 space-y-4">
+        <div className="bg-card rounded-xl shadow-sm p-6 space-y-4">
           <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Report details</h2>
           {error && <p className="text-red-600 text-sm">{error}</p>}
 
@@ -86,7 +86,7 @@ export default function NewReportPage() {
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g. March 2026 travel expenses"
-              className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:text-slate-100"
+              className="w-full border border-input-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100"
             />
           </div>
 
@@ -98,7 +98,7 @@ export default function NewReportPage() {
                 required
                 value={dateFrom}
                 onChange={(e) => setDateFrom(e.target.value)}
-                className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:text-slate-100"
+                className="w-full border border-input-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100"
               />
             </div>
             <div>
@@ -108,7 +108,7 @@ export default function NewReportPage() {
                 required
                 value={dateTo}
                 onChange={(e) => setDateTo(e.target.value)}
-                className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:text-slate-100"
+                className="w-full border border-input-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100"
               />
             </div>
           </div>
@@ -118,7 +118,7 @@ export default function NewReportPage() {
             <select
               value={currency}
               onChange={(e) => setCurrency(e.target.value)}
-              className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:text-slate-100"
+              className="w-full border border-input-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100"
             >
               {CURRENCIES.map((c) => (
                 <option key={c} value={c}>
@@ -134,25 +134,25 @@ export default function NewReportPage() {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={2}
-              className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none dark:bg-slate-800 dark:text-slate-100"
+              className="w-full border border-input-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none dark:bg-slate-800 dark:text-slate-100"
             />
           </div>
         </div>
 
         {/* Draft expenses to attach */}
-        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-6">
+        <div className="bg-card rounded-xl shadow-sm p-6">
           <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">
             Attach draft expenses{" "}
-            <span className="text-slate-400 dark:text-slate-500 font-normal">(optional — submits them immediately)</span>
+            <span className="text-muted-foreground font-normal">(optional — submits them immediately)</span>
           </h2>
           {!draftExpenses?.length ? (
-            <p className="text-slate-400 dark:text-slate-500 text-sm">No draft expenses available.</p>
+            <p className="text-muted-foreground text-sm">No draft expenses available.</p>
           ) : (
             <div className="space-y-2">
               {draftExpenses.map((e) => (
                 <label
                   key={e.id}
-                  className="flex items-center gap-3 p-3 border border-slate-200 dark:border-slate-700 rounded-lg cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800"
+                  className="flex items-center gap-3 p-3 border border-border rounded-lg cursor-pointer hover:bg-card-hover"
                 >
                   <input
                     type="checkbox"
@@ -161,10 +161,10 @@ export default function NewReportPage() {
                     className="w-4 h-4 accent-blue-600"
                   />
                   <div className="flex-1">
-                    <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{e.merchant || e.description || "—"}</p>
-                    <p className="text-xs text-slate-400 dark:text-slate-500">{e.date} · {e.category_name || "Uncategorized"}</p>
+                    <p className="text-sm font-medium text-foreground">{e.merchant || e.description || "—"}</p>
+                    <p className="text-xs text-muted-foreground">{e.date} · {e.category_name || "Uncategorized"}</p>
                   </div>
-                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                  <p className="text-sm font-semibold text-foreground">
                     {formatEur(e.amount_eur)}
                   </p>
                   <Badge status={e.status} />
@@ -178,13 +178,13 @@ export default function NewReportPage() {
           <button
             onClick={() => { if (title) create.mutate(); else setError("Title is required"); }}
             disabled={create.isPending}
-            className="px-5 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50"
+            className="px-5 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-hover disabled:opacity-50"
           >
             {create.isPending ? "Creating..." : selectedIds.size > 0 ? "Create & attach" : "Create report"}
           </button>
           <button
             onClick={() => router.back()}
-            className="px-5 py-2 border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 text-sm font-medium rounded-lg hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700"
+            className="px-5 py-2 border border-input-border text-slate-600 dark:text-slate-400 text-sm font-medium rounded-lg hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700"
           >
             Cancel
           </button>

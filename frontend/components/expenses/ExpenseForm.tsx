@@ -334,7 +334,7 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
   return (
     <div className="flex flex-col gap-6 max-w-6xl w-full items-start">
       {/* Mobile Tab Switcher */}
-      <div className="flex lg:hidden w-full border-b border-slate-100 dark:border-slate-800/80 mb-1 bg-white dark:bg-slate-900 rounded-lg p-1">
+      <div className="flex lg:hidden w-full border-b border-border-subtle/80 mb-1 bg-card rounded-lg p-1">
         <button
           type="button"
           onClick={() => setActiveMobileTab('details')}
@@ -342,7 +342,7 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
             "flex-1 py-2 text-center text-xs font-semibold rounded-md transition-colors",
             activeMobileTab === 'details'
               ? "bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400"
-              : "text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
+              : "text-muted hover:bg-card-hover"
           )}
         >
           Details
@@ -354,7 +354,7 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
             "flex-1 py-2 text-center text-xs font-semibold rounded-md transition-colors",
             activeMobileTab === 'receipt'
               ? "bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400"
-              : "text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
+              : "text-muted hover:bg-card-hover"
           )}
         >
           Receipt ({items.length})
@@ -366,7 +366,7 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
         <form
           onSubmit={(e) => { e.preventDefault(); save.mutate(); }}
           className={clsx(
-            "bg-white dark:bg-slate-900 rounded-xl shadow-sm p-6 flex-1 w-full max-w-lg space-y-5",
+            "bg-card rounded-xl shadow-sm p-6 flex-1 w-full max-w-lg space-y-5",
             activeMobileTab !== 'details' && "hidden lg:block"
           )}
         >
@@ -388,7 +388,7 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
                 "border border-dashed rounded-lg p-6 text-center transition-all duration-200 cursor-pointer flex flex-col items-center justify-center min-h-[120px]",
                 isDragging
                   ? "border-blue-500 bg-blue-50/50 dark:bg-blue-950/20"
-                  : "border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800/40"
+                  : "border-input-border hover:bg-card-hover/40"
               )}
               onClick={() => scanInputRef.current?.click()}
             >
@@ -410,7 +410,7 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
                   <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
                     {isDragging ? "Drop your receipt here!" : "Drag & drop receipt here, or click to browse"}
                   </p>
-                  <p className="text-[10px] text-slate-400 dark:text-slate-500">
+                  <p className="text-[10px] text-muted-foreground">
                     Supports JPG, PNG, PDF, WEBP up to 10MB
                   </p>
                 </div>
@@ -429,7 +429,7 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
                 required
                 value={form.amount}
                 onChange={set("amount")}
-                className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:text-slate-100"
+                className="w-full border border-input-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100"
               />
             </div>
             <div>
@@ -437,7 +437,7 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
               <select
                 value={form.currency}
                 onChange={set("currency")}
-                className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:text-slate-100"
+                className="w-full border border-input-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100"
               >
                 {CURRENCIES.map((c) => (
                   <option key={c} value={c}>{c}</option>
@@ -468,7 +468,7 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
                       min="0.0001"
                       value={form.fx_rate}
                       onChange={set("fx_rate")}
-                      className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:text-slate-100"
+                      className="w-full border border-input-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100"
                     />
                   ) : (
                     <span className="text-sm text-slate-600 dark:text-slate-400 py-2">
@@ -509,7 +509,7 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
               required
               value={form.date}
               onChange={set("date")}
-              className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:text-slate-100"
+              className="w-full border border-input-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100"
             />
           </div>
 
@@ -520,7 +520,7 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
               value={form.merchant}
               onChange={set("merchant")}
               placeholder="e.g. McDonald's, Uber"
-              className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:text-slate-100"
+              className="w-full border border-input-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100"
             />
           </div>
 
@@ -529,7 +529,7 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
             <select
               value={form.category_id}
               onChange={set("category_id")}
-              className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:text-slate-100"
+              className="w-full border border-input-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100"
             >
               <option value="">— Select category —</option>
               {categories?.map((c) => (
@@ -545,7 +545,7 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
               onChange={set("description")}
               rows={2}
               placeholder="Brief description..."
-              className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none dark:bg-slate-800 dark:text-slate-100"
+              className="w-full border border-input-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none dark:bg-slate-800 dark:text-slate-100"
             />
           </div>
 
@@ -562,7 +562,7 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
             {existingReceipts.length > 0 && (
               <div className="mt-2 space-y-1">
                 {existingReceipts.map((r) => (
-                  <div key={r.id} className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                  <div key={r.id} className="flex items-center gap-2 text-xs text-muted">
                     <button
                       onClick={() => downloadBlob(`/expenses/${expense!.id}/receipts/${r.id}`, {}, r.original_name || r.file_path.split("/").pop() || "Receipt")}
                       className="text-blue-600 dark:text-blue-400 hover:underline truncate max-w-[200px] cursor-pointer"
@@ -572,7 +572,7 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
                     <button
                       type="button"
                       onClick={() => markDeleteReceipt(r.id)}
-                      className="text-slate-400 dark:text-slate-500 hover:text-red-500"
+                      className="text-muted-foreground hover:text-red-500"
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>
@@ -584,13 +584,13 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
             {receiptFiles.length > 0 && (
               <div className="mt-2 space-y-1">
                 {receiptFiles.map((f, i) => (
-                  <div key={f.name + f.size} className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                  <div key={f.name + f.size} className="flex items-center gap-2 text-xs text-muted">
                     <span className="truncate max-w-[200px]">{f.name}</span>
                     <span className="text-slate-300 dark:text-slate-600">({(f.size / 1024).toFixed(0)} KB)</span>
                     <button
                       type="button"
                       onClick={() => removeNewFile(i)}
-                      className="text-slate-400 dark:text-slate-500 hover:text-red-500"
+                      className="text-muted-foreground hover:text-red-500"
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>
@@ -604,14 +604,14 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
             <button
               type="submit"
               disabled={save.isPending}
-              className="px-5 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              className="px-5 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-hover disabled:opacity-50"
             >
               {save.isPending ? "Saving..." : isEdit ? "Save changes" : "Create expense"}
             </button>
             <button
               type="button"
               onClick={() => router.back()}
-              className="px-5 py-2 border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 text-sm font-medium rounded-lg hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700"
+              className="px-5 py-2 border border-input-border text-slate-600 dark:text-slate-400 text-sm font-medium rounded-lg hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700"
             >
               Cancel
             </button>
@@ -621,11 +621,11 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
         {/* Preview Panel */}
         <div
           className={clsx(
-            "w-full lg:flex-1 lg:sticky lg:top-6 bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800/80 p-6 flex flex-col min-h-[450px] self-stretch",
+            "w-full lg:flex-1 lg:sticky lg:top-6 bg-card rounded-xl shadow-sm border border-border-subtle/80 p-6 flex flex-col min-h-[450px] self-stretch",
             activeMobileTab !== 'receipt' && "hidden lg:flex"
           )}
         >
-          <div className="border-b border-slate-100 dark:border-slate-800 pb-3 mb-4 flex items-center justify-between">
+          <div className="border-b border-border-subtle pb-3 mb-4 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Receipt Preview</h2>
             {items.length > 0 && (
               <span className="text-xs bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-full font-medium">
@@ -635,7 +635,7 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
           </div>
 
           {items.length > 1 && (
-            <div className="flex flex-wrap gap-1.5 mb-4 border-b border-slate-100 dark:border-slate-800 pb-3">
+            <div className="flex flex-wrap gap-1.5 mb-4 border-b border-border-subtle pb-3">
               {items.map((it, idx) => (
                 <button
                   key={it.key}
@@ -644,7 +644,7 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
                   className={clsx(
                     "px-2.5 py-1 text-xs font-semibold rounded-md transition-colors",
                     (activeReceiptKey === it.key || (activeReceiptKey === null && idx === 0))
-                      ? "bg-blue-600 text-white shadow-sm"
+                      ? "bg-primary text-white shadow-sm"
                       : "bg-slate-50 dark:bg-slate-850 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400"
                   )}
                 >
@@ -657,10 +657,10 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
           {activeItem ? (
             <div className="flex-1 flex flex-col justify-between h-full">
               <div className="mb-3">
-                <p className="text-xs font-medium text-slate-800 dark:text-slate-200 truncate">{activeItem.name}</p>
+                <p className="text-xs font-medium text-foreground truncate">{activeItem.name}</p>
               </div>
               {activeItem.isImage ? (
-                <div className="relative group flex-1 flex flex-col items-center bg-slate-50 dark:bg-slate-950/40 rounded-lg overflow-hidden border border-slate-100 dark:border-slate-800 min-h-[400px]">
+                <div className="relative group flex-1 flex flex-col items-center bg-background/40 rounded-lg overflow-hidden border border-border-subtle min-h-[400px]">
                   {/* Zoom Controls */}
                   <div className="absolute top-3 right-3 flex items-center gap-1 bg-slate-900/90 dark:bg-slate-800/90 text-white rounded-lg p-1.5 shadow-lg z-10 select-none">
                     <button
@@ -736,14 +736,14 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
                       href={activeItem.url}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-md transition-colors cursor-pointer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary hover:bg-primary-hover text-white text-xs font-semibold rounded-md transition-colors cursor-pointer"
                     >
                       Open PDF in New Tab
                     </a>
                   </div>
                   <iframe
                     src={activeItem.url}
-                    className="hidden lg:block w-full flex-1 rounded-lg border border-slate-200 dark:border-slate-800 min-h-[350px]"
+                    className="hidden lg:block w-full flex-1 rounded-lg border border-border min-h-[350px]"
                     title="PDF Preview"
                   />
                 </div>
@@ -762,10 +762,10 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
               )}
             </div>
           ) : (
-            <div className="flex-1 flex flex-col items-center justify-center border border-dashed border-slate-200 dark:border-slate-800 rounded-xl p-8 text-center min-h-[350px]">
+            <div className="flex-1 flex flex-col items-center justify-center border border-dashed border-border rounded-xl p-8 text-center min-h-[350px]">
               <Camera className="w-10 h-10 text-slate-300 dark:text-slate-700 mb-3 animate-pulse" />
               <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">No Receipt Selected</h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 max-w-[200px]">
+              <p className="text-xs text-muted max-w-[200px]">
                 Upload or scan a receipt to view its preview here.
               </p>
             </div>

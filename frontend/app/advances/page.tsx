@@ -84,25 +84,25 @@ export default function GlobalAdvancesPage() {
   return (
     <AppShell>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Advance Requests</h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Pending advance payment requests from technicians</p>
+        <h1 className="text-2xl font-bold text-foreground">Advance Requests</h1>
+        <p className="text-sm text-muted mt-1">Pending advance payment requests from technicians</p>
       </div>
 
       {isLoading ? (
-        <p className="text-slate-400 dark:text-slate-500 text-sm">Loading...</p>
+        <p className="text-muted-foreground text-sm">Loading...</p>
       ) : pending.length === 0 ? (
-        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-8 text-center">
-          <p className="text-slate-400 dark:text-slate-500 text-sm">No pending advance requests</p>
+        <div className="bg-card rounded-xl shadow-sm p-8 text-center">
+          <p className="text-muted-foreground text-sm">No pending advance requests</p>
         </div>
       ) : (
-        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm">
+        <div className="bg-card rounded-xl shadow-sm">
           {/* Mobile: stacked cards */}
           <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-700">
             {pending.map((a) => (
               <div key={a.id} className="p-4">
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <p className="font-medium text-slate-800 dark:text-slate-200">{a.user_display_name}</p>
+                    <p className="font-medium text-foreground">{a.user_display_name}</p>
                     <Link href={`/reports/${a.report_id}/advances`} className="text-xs text-blue-600 dark:text-blue-400 hover:underline">
                       {a.report_title}
                     </Link>
@@ -112,10 +112,10 @@ export default function GlobalAdvancesPage() {
                   </p>
                 </div>
                 {a.description && (
-                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">{a.description}</p>
+                  <p className="text-sm text-muted mt-2">{a.description}</p>
                 )}
                 <div className="flex items-center justify-between mt-3">
-                  <span className="text-xs text-slate-400 dark:text-slate-500">
+                  <span className="text-xs text-muted-foreground">
                     {new Date(a.created_at).toLocaleDateString()}
                   </span>
                   <div className="flex items-center gap-2">
@@ -146,7 +146,7 @@ export default function GlobalAdvancesPage() {
           {/* Desktop: table */}
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-slate-50 dark:bg-slate-800 text-xs text-slate-500 dark:text-slate-400 uppercase">
+              <thead className="bg-slate-50 dark:bg-slate-800 text-xs text-muted uppercase">
                 <tr>
                   <th className="text-left px-4 py-3">Technician</th>
                   <th className="text-left px-4 py-3">Report</th>
@@ -159,7 +159,7 @@ export default function GlobalAdvancesPage() {
               <tbody>
                 {pending.map((a) => (
                   <tr key={a.id} className="border-t border-slate-100 dark:border-slate-700">
-                    <td className="px-4 py-3 font-medium text-slate-800 dark:text-slate-200">{a.user_display_name}</td>
+                    <td className="px-4 py-3 font-medium text-foreground">{a.user_display_name}</td>
                     <td className="px-4 py-3">
                       <Link href={`/reports/${a.report_id}/advances`} className="text-blue-600 dark:text-blue-400 hover:underline">
                         {a.report_title}
@@ -168,8 +168,8 @@ export default function GlobalAdvancesPage() {
                     <td className="px-4 py-3 text-right font-semibold text-orange-600 dark:text-orange-400">
                       {formatAmount(a.requested_amount || 0, a.requested_currency || "EUR")}
                     </td>
-                    <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{a.description || "—"}</td>
-                    <td className="px-4 py-3 text-slate-500 dark:text-slate-400">
+                    <td className="px-4 py-3 text-muted">{a.description || "—"}</td>
+                    <td className="px-4 py-3 text-muted">
                       {new Date(a.created_at).toLocaleDateString()}
                     </td>
                     <td className="px-4 py-3 text-right">
@@ -213,7 +213,7 @@ export default function GlobalAdvancesPage() {
               type="date"
               value={payDate}
               onChange={(e) => setPayDate(e.target.value)}
-              className="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+              className="px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground"
             />
             <input
               type="number"
@@ -222,12 +222,12 @@ export default function GlobalAdvancesPage() {
               placeholder="Final amount"
               value={payAmount}
               onChange={(e) => setPayAmount(e.target.value)}
-              className="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 w-32"
+              className="px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground w-32"
             />
             <select
               value={payCurrency}
               onChange={(e) => setPayCurrency(e.target.value)}
-              className="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+              className="px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground"
             >
               {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
@@ -241,7 +241,7 @@ export default function GlobalAdvancesPage() {
             </button>
             <button
               onClick={() => { setPayingId(null); setPayReportId(null); }}
-              className="flex items-center gap-2 px-4 py-2 border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 text-sm rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800"
+              className="flex items-center gap-2 px-4 py-2 border border-input-border text-slate-600 dark:text-slate-400 text-sm rounded-lg hover:bg-card-hover"
             >
               <X className="w-4 h-4" /> Cancel
             </button>

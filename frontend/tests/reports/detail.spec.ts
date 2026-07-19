@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, Page } from "@playwright/test";
 import { setupAuthMocks, REPORT_DETAIL } from "../shared/mocks";
 
 test.describe("Report detail page", () => {
@@ -6,7 +6,7 @@ test.describe("Report detail page", () => {
     await page.route("**/sw.js", (route) => route.abort());
   });
 
-  function setupReportMocks(page) {
+  function setupReportMocks(page: Page) {
     return page.route("**/api/reports/**", async (route, request) => {
       const url = request.url();
       if (url.includes("/export") || url.includes("/receipts-zip") || url.includes("/export-csv") || url.includes("/mileage") || url.includes("/advances")) {

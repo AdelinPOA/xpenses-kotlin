@@ -77,7 +77,7 @@ export default function ApprovalsPage() {
         <div className="flex flex-col items-center justify-center mt-24 text-center">
           <XCircle className="w-12 h-12 text-red-400 mb-4" />
           <h2 className="text-xl font-semibold text-slate-700 dark:text-slate-300">Access Denied</h2>
-          <p className="text-slate-500 dark:text-slate-400 text-sm mt-2">
+          <p className="text-muted text-sm mt-2">
             You do not have permission to view this page.
           </p>
         </div>
@@ -88,8 +88,8 @@ export default function ApprovalsPage() {
   return (
     <AppShell>
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Approvals</h1>
-        <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
+        <h1 className="text-2xl font-bold text-foreground">Approvals</h1>
+        <p className="text-muted text-sm mt-1">
           Reports waiting for your approval
         </p>
       </div>
@@ -107,7 +107,7 @@ export default function ApprovalsPage() {
       )}
 
       {isLoading ? (
-        <div className="text-slate-400 dark:text-slate-500 text-sm mt-8">Loading...</div>
+        <div className="text-muted-foreground text-sm mt-8">Loading...</div>
       ) : !reports?.length ? (
         <EmptyState message="No reports pending approval" />
       ) : (
@@ -115,36 +115,36 @@ export default function ApprovalsPage() {
           {reports.map((report) => (
             <div
               key={report.id}
-              className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-6"
+              className="bg-card rounded-xl shadow-sm p-6"
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
-                  <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100 truncate">
+                  <h3 className="text-base font-semibold text-foreground truncate">
                     {report.title}
                   </h3>
                   {report.user_display_name && (
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    <p className="text-xs text-muted mt-1">
                       Submitted by:{" "}
                       <Link href={`/profile/${report.user_id}`} className="font-semibold text-blue-600 dark:text-blue-400 hover:underline">
                         {report.user_display_name}
                       </Link>
                     </p>
                   )}
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                  <p className="text-xs text-muted mt-1">
                     {report.date_from && report.date_to
                       ? `${report.date_from} — ${report.date_to}`
                       : "No date range set"}
                   </p>
-                  <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+                  <p className="text-xs text-muted-foreground mt-0.5">
                     {report.expenses.length} expense{report.expenses.length !== 1 ? "s" : ""}
                   </p>
                 </div>
                 <div className="text-right shrink-0">
-                  <p className="text-lg font-bold text-slate-900 dark:text-slate-100">
+                  <p className="text-lg font-bold text-foreground">
                     {formatEur(report.total_amount)}
                   </p>
                   {report.submitted_at && (
-                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+                    <p className="text-xs text-muted-foreground mt-0.5">
                       Submitted {new Date(report.submitted_at).toLocaleDateString()}
                     </p>
                   )}

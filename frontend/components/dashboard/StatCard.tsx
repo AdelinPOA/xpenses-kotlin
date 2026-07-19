@@ -18,7 +18,7 @@ export default function StatCard({ label, value, sub, color = "slate" }: StatCar
       className={`relative overflow-hidden rounded-2xl border-l-4 p-5 backdrop-blur-md bg-white/70 dark:bg-slate-900/75 shadow-lg transition-all duration-300 hover:-translate-y-1 hover:shadow-xl bg-gradient-to-br ${COLORS[color]}`}
     >
       <div className="relative z-10">
-        <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">{label}</p>
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-1">{label}</p>
         <p className="text-3xl font-extrabold text-slate-900 dark:text-slate-50 tracking-tight">{value}</p>
         {sub && <p className="text-xs font-medium text-slate-400 dark:text-slate-400/70 mt-1">{sub}</p>}
       </div>

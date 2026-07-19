@@ -254,21 +254,21 @@ export default function LdapAdminPage() {
           </div>
         )}
 
-        <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-sm space-y-4">
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Connection</h2>
+        <section className="bg-card border border-border rounded-xl p-6 shadow-sm space-y-4">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted">Connection</h2>
           <label className="flex items-center gap-3 text-sm cursor-pointer select-none">
             <input
               type="checkbox"
-              className="h-4 w-4 rounded border-slate-300 dark:border-slate-600 text-blue-600 focus:ring-blue-500/20 focus:ring-2 focus:ring-offset-0 transition-all duration-200"
+              className="h-4 w-4 rounded border-input-border text-blue-600 focus:ring-primary/20 focus:ring-2 focus:ring-offset-0 transition-all duration-200"
               {...register("enabled")}
             />
             <span className="text-slate-700 dark:text-slate-300 font-medium">Enable LDAP authentication</span>
           </label>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Host</label>
+              <label className="block text-xs font-semibold text-muted mb-1.5">Host</label>
               <input
-                className="w-full border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200"
+                className="w-full border rounded-lg px-3 py-2 text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
                 {...register("host")}
                 placeholder="ldap.example.com"
               />
@@ -277,12 +277,12 @@ export default function LdapAdminPage() {
               )}
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Port</label>
+              <label className="block text-xs font-semibold text-muted mb-1.5">Port</label>
               <input
                 type="text"
                 inputMode="numeric"
                 pattern="[0-9]*"
-                className={`w-full max-w-[120px] border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 dark:text-slate-100 focus:outline-none transition-all duration-200 ${errors.port ? "border-rose-500 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500" : "border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"}`}
+                className={`w-full max-w-[120px] border rounded-lg px-3 py-2 text-sm bg-input dark:text-slate-100 focus:outline-none transition-all duration-200 ${errors.port ? "border-rose-500 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500" : "border-border focus:ring-2 focus:ring-primary/20 focus:border-blue-500"}`}
                 {...register("port")}
               />
               {errors.port && (
@@ -293,19 +293,19 @@ export default function LdapAdminPage() {
           <label className="flex items-center gap-3 text-sm cursor-pointer select-none">
             <input
               type="checkbox"
-              className="h-4 w-4 rounded border-slate-300 dark:border-slate-600 text-blue-600 focus:ring-blue-500/20 focus:ring-2 focus:ring-offset-0 transition-all duration-200"
+              className="h-4 w-4 rounded border-input-border text-blue-600 focus:ring-primary/20 focus:ring-2 focus:ring-offset-0 transition-all duration-200"
               {...register("use_tls")}
             />
             <span className="text-slate-700 dark:text-slate-300 font-medium">Use TLS (LDAPS)</span>
           </label>
         </section>
 
-        <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-sm space-y-4">
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Bind Credentials</h2>
+        <section className="bg-card border border-border rounded-xl p-6 shadow-sm space-y-4">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted">Bind Credentials</h2>
           <div>
-            <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Bind DN</label>
+            <label className="block text-xs font-semibold text-muted mb-1.5">Bind DN</label>
             <input
-              className="w-full border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200"
+              className="w-full border rounded-lg px-3 py-2 text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
               {...register("bind_dn")}
               placeholder="cn=admin,dc=example,dc=com"
             />
@@ -314,10 +314,10 @@ export default function LdapAdminPage() {
             )}
           </div>
           <div>
-            <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Bind Password</label>
+            <label className="block text-xs font-semibold text-muted mb-1.5">Bind Password</label>
             <input
               type="password"
-              className="w-full border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200"
+              className="w-full border rounded-lg px-3 py-2 text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
               {...register("bind_password")}
               onChange={(e) => {
                 setValue("bind_password", e.target.value, { shouldDirty: true });
@@ -328,12 +328,12 @@ export default function LdapAdminPage() {
           </div>
         </section>
 
-        <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-sm space-y-4">
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Directory</h2>
+        <section className="bg-card border border-border rounded-xl p-6 shadow-sm space-y-4">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted">Directory</h2>
           <div>
-            <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Base DN</label>
+            <label className="block text-xs font-semibold text-muted mb-1.5">Base DN</label>
             <input
-              className="w-full border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200"
+              className="w-full border rounded-lg px-3 py-2 text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
               {...register("base_dn")}
               placeholder="dc=example,dc=com"
             />
@@ -342,9 +342,9 @@ export default function LdapAdminPage() {
             )}
           </div>
           <div>
-            <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">User Filter</label>
+            <label className="block text-xs font-semibold text-muted mb-1.5">User Filter</label>
             <input
-              className="w-full border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200"
+              className="w-full border rounded-lg px-3 py-2 text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
               {...register("user_filter")}
             />
             {errors.user_filter && (
@@ -353,13 +353,13 @@ export default function LdapAdminPage() {
           </div>
         </section>
 
-        <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-sm space-y-4">
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Attribute Mapping</h2>
+        <section className="bg-card border border-border rounded-xl p-6 shadow-sm space-y-4">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted">Attribute Mapping</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Username attr</label>
+              <label className="block text-xs font-semibold text-muted mb-1.5">Username attr</label>
               <input
-                className="w-full border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200"
+                className="w-full border rounded-lg px-3 py-2 text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
                 {...register("attr_username")}
               />
               {errors.attr_username && (
@@ -367,9 +367,9 @@ export default function LdapAdminPage() {
               )}
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Email attr</label>
+              <label className="block text-xs font-semibold text-muted mb-1.5">Email attr</label>
               <input
-                className="w-full border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200"
+                className="w-full border rounded-lg px-3 py-2 text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
                 {...register("attr_email")}
               />
               {errors.attr_email && (
@@ -377,9 +377,9 @@ export default function LdapAdminPage() {
               )}
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Display name attr</label>
+              <label className="block text-xs font-semibold text-muted mb-1.5">Display name attr</label>
               <input
-                className="w-full border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200"
+                className="w-full border rounded-lg px-3 py-2 text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
                 {...register("attr_display_name")}
               />
               {errors.attr_display_name && (
@@ -387,9 +387,9 @@ export default function LdapAdminPage() {
               )}
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Role/group attr</label>
+              <label className="block text-xs font-semibold text-muted mb-1.5">Role/group attr</label>
               <input
-                className="w-full border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200"
+                className="w-full border rounded-lg px-3 py-2 text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
                 {...register("attr_role")}
               />
               {errors.attr_role && (
@@ -398,9 +398,9 @@ export default function LdapAdminPage() {
             </div>
           </div>
           <div>
-            <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Default role for unmapped groups</label>
+            <label className="block text-xs font-semibold text-muted mb-1.5">Default role for unmapped groups</label>
             <select
-              className="border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200"
+              className="border rounded-lg px-3 py-2 text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
               {...register("default_role")}
             >
               {ROLE_OPTIONS.map((r) => <option key={r} value={r}>{r}</option>)}
@@ -408,12 +408,12 @@ export default function LdapAdminPage() {
           </div>
         </section>
 
-        <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-sm space-y-4">
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Role Map</h2>
+        <section className="bg-card border border-border rounded-xl p-6 shadow-sm space-y-4">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted">Role Map</h2>
           {roleEntries.map((entry, i) => (
             <div key={i} className="flex items-center gap-3 min-w-0">
               <input
-                className="flex-1 min-w-0 border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200"
+                className="flex-1 min-w-0 border rounded-lg px-3 py-2 text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
                 placeholder="Directory group value"
                 value={entry.dir}
                 onChange={(e) => {
@@ -425,7 +425,7 @@ export default function LdapAdminPage() {
               />
               <span className="text-slate-400 font-semibold shrink-0">→</span>
               <select
-                className="flex-1 min-w-0 border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200"
+                className="flex-1 min-w-0 border rounded-lg px-3 py-2 text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
                 value={entry.role}
                 onChange={(e) => {
                   const n = [...roleEntries];
@@ -464,7 +464,7 @@ export default function LdapAdminPage() {
           <button
             type="submit"
             disabled={saveMutation.isPending}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none transition-all duration-200 shadow-sm shadow-blue-500/10"
+            className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-hover active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none transition-all duration-200 shadow-sm shadow-blue-500/10"
           >
             {saveMutation.isPending ? "Saving…" : "Save"}
           </button>
@@ -507,7 +507,7 @@ export default function LdapAdminPage() {
                     {/* Desktop: table */}
                     <div className="hidden md:block overflow-x-auto">
                       <table className="w-full text-xs">
-                        <thead><tr className="text-left text-slate-500 dark:text-slate-400 font-semibold"><th className="pb-2 pr-3">Username</th><th className="pb-2 pr-3">Email</th><th className="pb-2">Mapped role</th></tr></thead>
+                        <thead><tr className="text-left text-muted font-semibold"><th className="pb-2 pr-3">Username</th><th className="pb-2 pr-3">Email</th><th className="pb-2">Mapped role</th></tr></thead>
                         <tbody className="divide-y divide-emerald-100 dark:divide-emerald-900/10">{testResult.preview.map((u, i) => <tr key={i}><td className="py-2 pr-3 text-slate-700 dark:text-slate-300 font-medium">{u.username}</td><td className="py-2 pr-3 text-slate-600 dark:text-slate-400">{u.email}</td><td className="py-2 text-slate-700 dark:text-slate-300">{u.mapped_role}</td></tr>)}</tbody>
                       </table>
                     </div>
@@ -522,7 +522,7 @@ export default function LdapAdminPage() {
 
         {syncResult && (
           <div className="bg-slate-50 border-l-4 border-slate-500 rounded-r-lg p-4 text-sm dark:bg-slate-900 dark:border-slate-800 shadow-sm flex flex-col gap-1">
-            <span className="font-semibold text-slate-800 dark:text-slate-200">Sync complete</span>
+            <span className="font-semibold text-foreground">Sync complete</span>
             <span className="text-slate-600 dark:text-slate-400 text-xs">Created: {syncResult.created}  |  Updated: {syncResult.updated}  |  Deactivated: {syncResult.deactivated}  |  Skipped: {syncResult.skipped}  |  Default role assigned: {syncResult.default_role_assigned}</span>
           </div>
         )}

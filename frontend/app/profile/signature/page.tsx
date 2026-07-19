@@ -65,12 +65,12 @@ export default function SignaturePage() {
         <div className="mb-6">
           <Link
             href="/dashboard"
-            className="inline-flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-colors mb-4"
+            className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-slate-800 dark:hover:text-slate-200 transition-colors mb-4"
           >
             <ArrowLeft className="w-4 h-4" />
             Back to Dashboard
           </Link>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+          <h1 className="text-2xl font-bold text-foreground">
             My Signature
           </h1>
         </div>
@@ -84,11 +84,11 @@ export default function SignaturePage() {
 
         {/* Current signature */}
         {hasSignature && (
-          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-6 mb-6">
+          <div className="bg-card rounded-xl shadow-sm p-6 mb-6">
             <p className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">
               Current Signature
             </p>
-            <div className="border border-slate-200 dark:border-slate-700 rounded-lg p-4 bg-slate-50 dark:bg-slate-800 inline-block mb-4">
+            <div className="border border-border rounded-lg p-4 bg-slate-50 dark:bg-slate-800 inline-block mb-4">
               <img
                 src={`${API_BASE_URL}/users/me/signature?${cacheBuster}`}
                 alt="Your signature"
@@ -110,7 +110,7 @@ export default function SignaturePage() {
         )}
 
         {/* Draw new signature */}
-        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-6">
+        <div className="bg-card rounded-xl shadow-sm p-6">
           <p className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">
             {hasSignature ? "Draw a New Signature" : "Draw Your Signature"}
           </p>
@@ -118,7 +118,7 @@ export default function SignaturePage() {
             onSave={(dataUrl) => saveMutation.mutate(dataUrl)}
           />
           {saveMutation.isPending && (
-            <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">
+            <p className="mt-3 text-sm text-muted">
               Saving...
             </p>
           )}

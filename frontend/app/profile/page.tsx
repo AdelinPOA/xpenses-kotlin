@@ -50,10 +50,10 @@ export default function ProfilePage() {
   return (
     <AppShell>
       <div className="max-w-xl">
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-6">Profile</h1>
+        <h1 className="text-2xl font-bold text-foreground mb-6">Profile</h1>
 
         {/* Display name section */}
-        <section className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-6 mb-6 border border-slate-200 dark:border-slate-700">
+        <section className="bg-card rounded-xl shadow-sm p-6 mb-6 border border-border">
           <h2 className="text-base font-semibold text-slate-800 dark:text-slate-100 mb-4">Account Info</h2>
           <div className="mb-4">
             <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Username</label>
@@ -65,7 +65,7 @@ export default function ProfilePage() {
               type="text"
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
-              className="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-300"
+              className="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-input dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-300"
             />
           </div>
           <div className="mb-4 flex items-center gap-2">
@@ -74,7 +74,7 @@ export default function ProfilePage() {
               id="notificationsEnabled"
               checked={notificationsEnabled}
               onChange={(e) => setNotificationsEnabled(e.target.checked)}
-              className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 h-4 w-4"
+              className="rounded border-slate-300 text-blue-600 focus:ring-primary h-4 w-4"
             />
             <label htmlFor="notificationsEnabled" className="text-sm font-medium text-slate-700 dark:text-slate-300">
               Enable Email Notifications
@@ -90,17 +90,17 @@ export default function ProfilePage() {
               });
             }}
             disabled={profileMutation.isPending}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors"
+            className="px-4 py-2 bg-primary hover:bg-primary-hover disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors"
           >
             {profileMutation.isPending ? "Saving..." : "Save Changes"}
           </button>
         </section>
 
         {/* Password section */}
-        <section className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-6 border border-slate-200 dark:border-slate-700">
+        <section className="bg-card rounded-xl shadow-sm p-6 border border-border">
           <h2 className="text-base font-semibold text-slate-800 dark:text-slate-100 mb-4">Password</h2>
           {user?.auth_source === "ldap" ? (
-            <p className="text-sm text-slate-500 dark:text-slate-400 italic">
+            <p className="text-sm text-muted italic">
               Your password is managed by your organization&apos;s directory.
             </p>
           ) : (
@@ -123,7 +123,7 @@ export default function ProfilePage() {
                   type="password"
                   value={oldPassword}
                   onChange={(e) => setOldPassword(e.target.value)}
-                  className="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                  className="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-input dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-300"
                 />
               </div>
               <div>
@@ -133,7 +133,7 @@ export default function ProfilePage() {
                   type="password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  className="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                  className="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-input dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-300"
                 />
               </div>
               <div>
@@ -143,7 +143,7 @@ export default function ProfilePage() {
                   type="password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                  className="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-input dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-300"
                 />
               </div>
               {passwordError && <p className="text-sm text-red-600 dark:text-red-400">{passwordError}</p>}
@@ -151,7 +151,7 @@ export default function ProfilePage() {
               <button
                 type="submit"
                 disabled={passwordMutation.isPending}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors"
+                className="px-4 py-2 bg-primary hover:bg-primary-hover disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors"
               >
                 {passwordMutation.isPending ? "Changing..." : "Change Password"}
               </button>

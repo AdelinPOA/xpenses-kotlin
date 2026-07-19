@@ -160,8 +160,8 @@ export default function StorageAdminPage() {
         <div className="flex items-center gap-3">
           <Database className="w-8 h-8 text-blue-600 dark:text-blue-400" />
           <div>
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">Storage Settings</h1>
-            <p className="text-sm text-slate-500 dark:text-slate-400">
+            <h1 className="text-2xl font-bold text-foreground tracking-tight">Storage Settings</h1>
+            <p className="text-sm text-muted">
               Configure dynamic receipt & report storage backends (Local, SMB, WebDAV, SFTP, S3).
             </p>
           </div>
@@ -183,7 +183,7 @@ export default function StorageAdminPage() {
               </div>
               <div className="w-full bg-slate-200 dark:bg-slate-800 rounded-full h-2.5 overflow-hidden">
                 <div
-                  className="bg-blue-600 h-2.5 rounded-full transition-all duration-500"
+                  className="bg-primary h-2.5 rounded-full transition-all duration-500"
                   style={{ width: `${((migrationStatus.migrated_files + migrationStatus.failed_files) / (migrationStatus.total_files || 1)) * 100}%` }}
                 ></div>
               </div>
@@ -206,14 +206,14 @@ export default function StorageAdminPage() {
           </div>
         ) : (
           <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
-            <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6 space-y-6">
+            <div className="bg-card rounded-xl border border-border p-6 space-y-6">
               <div>
-                <label className="block text-sm font-semibold text-slate-800 dark:text-slate-200 mb-2">
+                <label className="block text-sm font-semibold text-foreground mb-2">
                   Active Storage Protocol
                 </label>
                 <select
                   {...register("provider_type")}
-                  className="w-full max-w-xs px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+                  className="w-full max-w-xs px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground"
                 >
                   <option value="local">Local Directory / Mounted Drive</option>
                   <option value="smb">SMB / CIFS Share</option>
@@ -223,12 +223,12 @@ export default function StorageAdminPage() {
                 </select>
               </div>
 
-              <hr className="border-slate-200 dark:border-slate-800" />
+              <hr className="border-border" />
 
               {/* Local Storage form fields */}
               {providerType === "local" && (
                 <div className="space-y-4">
-                  <h3 className="text-md font-semibold text-slate-800 dark:text-slate-200">Local Storage Configuration</h3>
+                  <h3 className="text-md font-semibold text-foreground">Local Storage Configuration</h3>
                   <div>
                     <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">
                       Target Receipts Directory
@@ -237,7 +237,7 @@ export default function StorageAdminPage() {
                       type="text"
                       {...register("local.path")}
                       placeholder="/app/data/receipts"
-                      className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+                      className="w-full px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground"
                     />
                     <p className="text-xs text-slate-400 mt-1">Must be an absolute path reachable by the backend server.</p>
                   </div>
@@ -247,31 +247,31 @@ export default function StorageAdminPage() {
               {/* SMB Storage form fields */}
               {providerType === "smb" && (
                 <div className="space-y-4">
-                  <h3 className="text-md font-semibold text-slate-800 dark:text-slate-200">SMB Configuration</h3>
+                  <h3 className="text-md font-semibold text-foreground">SMB Configuration</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Server Host / IP</label>
-                      <input type="text" {...register("smb.host")} placeholder="192.168.1.100" className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100" />
+                      <input type="text" {...register("smb.host")} placeholder="192.168.1.100" className="w-full px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground" />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Share Name</label>
-                      <input type="text" {...register("smb.share")} placeholder="shared_folder" className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100" />
+                      <input type="text" {...register("smb.share")} placeholder="shared_folder" className="w-full px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground" />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Username</label>
-                      <input type="text" {...register("smb.username")} className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100" />
+                      <input type="text" {...register("smb.username")} className="w-full px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground" />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Password</label>
-                      <input type="password" {...register("smb.password")} className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100" />
+                      <input type="password" {...register("smb.password")} className="w-full px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground" />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Domain (Optional)</label>
-                      <input type="text" {...register("smb.domain")} className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100" />
+                      <input type="text" {...register("smb.domain")} className="w-full px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground" />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Subfolder inside share</label>
-                      <input type="text" {...register("smb.folder")} placeholder="receipts" className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100" />
+                      <input type="text" {...register("smb.folder")} placeholder="receipts" className="w-full px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground" />
                     </div>
                   </div>
                 </div>
@@ -280,23 +280,23 @@ export default function StorageAdminPage() {
               {/* WebDAV Storage form fields */}
               {providerType === "webdav" && (
                 <div className="space-y-4">
-                  <h3 className="text-md font-semibold text-slate-800 dark:text-slate-200">WebDAV Configuration</h3>
+                  <h3 className="text-md font-semibold text-foreground">WebDAV Configuration</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="md:col-span-2">
                       <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">WebDAV URL</label>
-                      <input type="text" {...register("webdav.url")} placeholder="https://nas.local:5006/dav" className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100" />
+                      <input type="text" {...register("webdav.url")} placeholder="https://nas.local:5006/dav" className="w-full px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground" />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Username</label>
-                      <input type="text" {...register("webdav.username")} className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100" />
+                      <input type="text" {...register("webdav.username")} className="w-full px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground" />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Password</label>
-                      <input type="password" {...register("webdav.password")} className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100" />
+                      <input type="password" {...register("webdav.password")} className="w-full px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground" />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Subfolder inside webdav</label>
-                      <input type="text" {...register("webdav.folder")} placeholder="receipts" className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100" />
+                      <input type="text" {...register("webdav.folder")} placeholder="receipts" className="w-full px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground" />
                     </div>
                   </div>
                 </div>
@@ -305,27 +305,27 @@ export default function StorageAdminPage() {
               {/* SFTP Storage form fields */}
               {providerType === "sftp" && (
                 <div className="space-y-4">
-                  <h3 className="text-md font-semibold text-slate-800 dark:text-slate-200">SFTP Configuration</h3>
+                  <h3 className="text-md font-semibold text-foreground">SFTP Configuration</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Host</label>
-                      <input type="text" {...register("sftp.host")} placeholder="sftp.company.com" className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100" />
+                      <input type="text" {...register("sftp.host")} placeholder="sftp.company.com" className="w-full px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground" />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Port</label>
-                      <input type="number" {...register("sftp.port")} placeholder="22" className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100" />
+                      <input type="number" {...register("sftp.port")} placeholder="22" className="w-full px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground" />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Username</label>
-                      <input type="text" {...register("sftp.username")} className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100" />
+                      <input type="text" {...register("sftp.username")} className="w-full px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground" />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Password</label>
-                      <input type="password" {...register("sftp.password")} className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100" />
+                      <input type="password" {...register("sftp.password")} className="w-full px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground" />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Target Folder Path</label>
-                      <input type="text" {...register("sftp.folder")} placeholder="receipts" className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100" />
+                      <input type="text" {...register("sftp.folder")} placeholder="receipts" className="w-full px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground" />
                     </div>
                   </div>
                 </div>
@@ -334,27 +334,27 @@ export default function StorageAdminPage() {
               {/* S3 Storage form fields */}
               {providerType === "s3" && (
                 <div className="space-y-4">
-                  <h3 className="text-md font-semibold text-slate-800 dark:text-slate-200">S3 / MinIO Configuration</h3>
+                  <h3 className="text-md font-semibold text-foreground">S3 / MinIO Configuration</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="md:col-span-2">
                       <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Endpoint URL (Optional for AWS, Required for MinIO)</label>
-                      <input type="text" {...register("s3.endpoint_url")} placeholder="https://minio.company.com" className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100" />
+                      <input type="text" {...register("s3.endpoint_url")} placeholder="https://minio.company.com" className="w-full px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground" />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Access Key</label>
-                      <input type="text" {...register("s3.access_key")} className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100" />
+                      <input type="text" {...register("s3.access_key")} className="w-full px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground" />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Secret Key</label>
-                      <input type="password" {...register("s3.secret_key")} className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100" />
+                      <input type="password" {...register("s3.secret_key")} className="w-full px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground" />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Bucket Name</label>
-                      <input type="text" {...register("s3.bucket_name")} placeholder="company-receipts" className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100" />
+                      <input type="text" {...register("s3.bucket_name")} placeholder="company-receipts" className="w-full px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground" />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Region</label>
-                      <input type="text" {...register("s3.region_name")} placeholder="us-east-1" className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100" />
+                      <input type="text" {...register("s3.region_name")} placeholder="us-east-1" className="w-full px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground" />
                     </div>
                   </div>
                 </div>
@@ -366,14 +366,14 @@ export default function StorageAdminPage() {
                   type="button"
                   onClick={executeTest}
                   disabled={testing}
-                  className="px-4 py-2 border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300 transition-colors disabled:opacity-50 inline-flex items-center gap-2 cursor-pointer"
+                  className="px-4 py-2 border border-slate-300 dark:border-slate-700 hover:bg-card-hover rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300 transition-colors disabled:opacity-50 inline-flex items-center gap-2 cursor-pointer"
                 >
                   <RefreshCw className={`w-4 h-4 ${testing ? "animate-spin" : ""}`} />
                   {testing ? "Testing..." : "Test Connection"}
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold shadow-sm transition-colors inline-flex items-center gap-2 cursor-pointer"
+                  className="px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-sm font-semibold shadow-sm transition-colors inline-flex items-center gap-2 cursor-pointer"
                 >
                   <Save className="w-4 h-4" />
                   Save Settings
@@ -401,14 +401,14 @@ export default function StorageAdminPage() {
       {/* Migration Prompt Modal */}
       {showMigrateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6 max-w-md w-full shadow-xl space-y-4">
+          <div className="bg-card rounded-xl border border-border p-6 max-w-md w-full shadow-xl space-y-4">
             <div className="flex items-start gap-3.5">
               <div className="p-2 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg">
                 <Database className="w-6 h-6 text-blue-600 dark:text-blue-400" />
               </div>
               <div>
                 <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">Migrate Existing Receipts?</h3>
-                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                <p className="text-sm text-muted mt-1">
                   You are changing storage configuration. Would you like to automatically copy all existing files from the old storage to the new location in the background?
                 </p>
               </div>
@@ -418,21 +418,21 @@ export default function StorageAdminPage() {
               <button
                 type="button"
                 onClick={() => setShowMigrateModal(false)}
-                className="px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg text-sm hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                className="px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg text-sm hover:bg-card-hover transition-colors cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={() => handleConfirmMigration(false)}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-lg text-sm transition-colors cursor-pointer"
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-foreground rounded-lg text-sm transition-colors cursor-pointer"
               >
                 No, Keep Files As-Is
               </button>
               <button
                 type="button"
                 onClick={() => handleConfirmMigration(true)}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm transition-colors flex items-center gap-1.5 cursor-pointer"
+                className="px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-sm transition-colors flex items-center gap-1.5 cursor-pointer"
               >
                 <Play className="w-4 h-4" />
                 Yes, Migrate Files

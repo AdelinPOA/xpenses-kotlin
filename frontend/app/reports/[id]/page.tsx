@@ -174,13 +174,13 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
   return (
     <AppShell>
       <div className="mb-6">
-        <Link href="/reports" className="flex items-center gap-1 text-sm text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 mb-4">
+        <Link href="/reports" className="flex items-center gap-1 text-sm text-muted hover:text-slate-800 dark:hover:text-slate-200 mb-4">
           <ArrowLeft className="w-4 h-4" /> Back to reports
         </Link>
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{report.title}</h1>
-            {report.description && <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">{report.description}</p>}
+            <h1 className="text-2xl font-bold text-foreground">{report.title}</h1>
+            {report.description && <p className="text-muted text-sm mt-1">{report.description}</p>}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Badge status={report.status} />
@@ -192,7 +192,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
             {report.status === "draft" && (
               <Link
                 href={`/reports/${id}/edit`}
-                className="flex items-center gap-2 px-3 py-1.5 border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 text-sm font-medium rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800"
+                className="flex items-center gap-2 px-3 py-1.5 border border-input-border text-slate-600 dark:text-slate-400 text-sm font-medium rounded-lg hover:bg-card-hover"
               >
                 <Pencil className="w-4 h-4" />
                 Edit
@@ -200,14 +200,14 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
             )}
             <button
               onClick={() => downloadBlob(`/reports/${id}/export`, {}, `report_${id}.pdf`)}
-              className="flex items-center gap-2 px-3 py-1.5 border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 text-sm font-medium rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
+              className="flex items-center gap-2 px-3 py-1.5 border border-input-border text-slate-600 dark:text-slate-400 text-sm font-medium rounded-lg hover:bg-card-hover cursor-pointer"
             >
               <FileDown className="w-4 h-4" />
               Export PDF
             </button>
             <button
               onClick={() => downloadBlob(`/reports/${id}/receipts-zip`, {}, `receipts_${id}.zip`)}
-              className="flex items-center gap-2 px-3 py-1.5 border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 text-sm font-medium rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
+              className="flex items-center gap-2 px-3 py-1.5 border border-input-border text-slate-600 dark:text-slate-400 text-sm font-medium rounded-lg hover:bg-card-hover cursor-pointer"
             >
               <FolderDown className="w-4 h-4" />
               Download receipts
@@ -217,7 +217,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
                 disabled={exporting}
                 onClick={() => setExportOpen((v) => !v)}
                 aria-expanded={exportOpen}
-                className="flex items-center gap-2 px-3 py-1.5 border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 text-sm font-medium rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50 cursor-pointer"
+                className="flex items-center gap-2 px-3 py-1.5 border border-input-border text-slate-600 dark:text-slate-400 text-sm font-medium rounded-lg hover:bg-card-hover disabled:opacity-50 cursor-pointer"
               >
                 <FileDown className="w-4 h-4" />
                 {exporting ? "Exporting…" : "Export expenses"}
@@ -225,7 +225,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
               {exportOpen && (
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setExportOpen(false)} />
-                  <div className="absolute right-0 top-full mt-1 w-36 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg z-20">
+                  <div className="absolute right-0 top-full mt-1 w-36 bg-input border border-border rounded-lg shadow-lg z-20">
                     <button
                       onClick={() => handleExportExpenses("csv")}
                       className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-t-lg"
@@ -303,42 +303,42 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
       )}
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4">
-          <p className="text-xs text-slate-400 dark:text-slate-500 uppercase mb-1">Total Expenses</p>
-          <p className="text-xl font-bold text-slate-900 dark:text-slate-100">{formatAmount(displayTotal, "EUR")}</p>
+        <div className="bg-card rounded-xl shadow-sm p-4">
+          <p className="text-xs text-muted-foreground uppercase mb-1">Total Expenses</p>
+          <p className="text-xl font-bold text-foreground">{formatAmount(displayTotal, "EUR")}</p>
         </div>
-        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4">
-          <p className="text-xs text-slate-400 dark:text-slate-500 uppercase mb-1">Expenses</p>
-          <p className="text-xl font-bold text-slate-900 dark:text-slate-100">{report.expenses.length}</p>
+        <div className="bg-card rounded-xl shadow-sm p-4">
+          <p className="text-xs text-muted-foreground uppercase mb-1">Expenses</p>
+          <p className="text-xl font-bold text-foreground">{report.expenses.length}</p>
         </div>
-        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4">
+        <div className="bg-card rounded-xl shadow-sm p-4">
           <p className="text-xs text-purple-400 dark:text-purple-500 uppercase mb-1">Daily Allowance</p>
           <p className="text-xl font-bold text-purple-600 dark:text-purple-400">{formatAmount(report.daily_allowance || 0, "EUR")}</p>
         </div>
-        <Link href={`/reports/${id}/advances`} className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4 hover:ring-2 hover:ring-orange-300 dark:hover:ring-orange-700 transition-all">
+        <Link href={`/reports/${id}/advances`} className="bg-card rounded-xl shadow-sm p-4 hover:ring-2 hover:ring-orange-300 dark:hover:ring-orange-700 transition-all">
           <p className="text-xs text-orange-400 dark:text-orange-500 uppercase mb-1">Advances</p>
           <p className="text-xl font-bold text-orange-600 dark:text-orange-400">{formatAmount(report.total_advances, "EUR")}</p>
-          <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">View details →</p>
+          <p className="text-xs text-muted-foreground mt-1">View details →</p>
         </Link>
-        <Link href={`/reports/${id}/mileage`} className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4 hover:ring-2 hover:ring-teal-300 dark:hover:ring-teal-700 transition-all">
+        <Link href={`/reports/${id}/mileage`} className="bg-card rounded-xl shadow-sm p-4 hover:ring-2 hover:ring-teal-300 dark:hover:ring-teal-700 transition-all">
           <p className="text-xs text-teal-400 dark:text-teal-500 uppercase mb-1">Mileage</p>
           <p className="text-xl font-bold text-teal-600 dark:text-teal-400">{formatAmount(report.total_mileage_eur || 0, "EUR")}</p>
-          <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">View details →</p>
+          <p className="text-xs text-muted-foreground mt-1">View details →</p>
         </Link>
-        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4">
+        <div className="bg-card rounded-xl shadow-sm p-4">
           <p className="text-xs text-emerald-400 dark:text-emerald-500 uppercase mb-1">Reimbursable</p>
           <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400">{formatAmount(report.total_reimbursable, "EUR")}</p>
         </div>
-        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4">
-          <p className="text-xs text-slate-400 dark:text-slate-500 uppercase mb-1">Period</p>
+        <div className="bg-card rounded-xl shadow-sm p-4">
+          <p className="text-xs text-muted-foreground uppercase mb-1">Period</p>
           <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
             {report.date_from && report.date_to
               ? `${report.date_from} — ${report.date_to}`
               : "—"}
           </p>
         </div>
-        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4">
-          <p className="text-xs text-slate-400 dark:text-slate-500 uppercase mb-1">Submitted</p>
+        <div className="bg-card rounded-xl shadow-sm p-4">
+          <p className="text-xs text-muted-foreground uppercase mb-1">Submitted</p>
           <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
             {report.submitted_at ? new Date(report.submitted_at).toLocaleDateString() : "—"}
           </p>
@@ -347,7 +347,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
 
       {/* Attach expenses */}
       {report.status === "draft" && (
-        <div className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4 mb-6">
+        <div className="bg-slate-50 dark:bg-slate-800 border border-border rounded-xl p-4 mb-6">
           <div className="flex items-center justify-between mb-3">
             <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
               Attach existing draft expenses or add new:
@@ -363,14 +363,14 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
           {availableDrafts.length > 0 ? (
             <>
               <div className="space-y-1 mb-3">
-                <label className="flex items-center gap-3 cursor-pointer py-1 border-b border-slate-200 dark:border-slate-700 mb-2">
+                <label className="flex items-center gap-3 cursor-pointer py-1 border-b border-border mb-2">
                   <input
                     type="checkbox"
                     checked={selectedIds.size === availableDrafts.length && availableDrafts.length > 0}
                     onChange={toggleSelectAll}
                     className="w-4 h-4 accent-blue-600"
                   />
-                  <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">
+                  <span className="text-xs font-semibold text-muted uppercase">
                     {selectedIds.size === availableDrafts.length ? "Deselect all" : "Select all"}
                   </span>
                 </label>
@@ -391,21 +391,21 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
               <button
                 onClick={() => attach.mutate(Array.from(selectedIds))}
                 disabled={attach.isPending || selectedIds.size === 0}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                className="flex items-center gap-2 px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-hover disabled:opacity-50"
               >
                 <Plus className="w-4 h-4" />
                 {attach.isPending ? "Adding..." : "Add to report"}
               </button>
             </>
           ) : (
-            <p className="text-sm text-slate-500 dark:text-slate-400 italic">No unattached draft expenses available. You can add a new expense directly.</p>
+            <p className="text-sm text-muted italic">No unattached draft expenses available. You can add a new expense directly.</p>
           )}
         </div>
       )}
 
       {/* Submit report */}
       {report.status === "draft" && report.expenses.length > 0 && (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-4 mb-6 flex items-center justify-between">
+        <div className="bg-card border border-border rounded-xl p-4 mb-6 flex items-center justify-between">
           <p className="text-sm text-slate-600 dark:text-slate-400">
             {report.expenses.length} expense{report.expenses.length !== 1 ? "s" : ""} attached — ready to submit?
           </p>
@@ -422,7 +422,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
 
       {/* Submitted: awaiting approval */}
       {report.status === "submitted" && (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-4 mb-6">
+        <div className="bg-card border border-border rounded-xl p-4 mb-6">
           <div className="flex flex-col sm:flex-row sm:items-start gap-4">
             <p className="text-sm text-slate-600 dark:text-slate-400 flex-1">
               This report is awaiting manager approval.
@@ -443,7 +443,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
                   <button
                     onClick={() => approve.mutate()}
                     disabled={approve.isPending}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                    className="flex items-center gap-2 px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-hover disabled:opacity-50"
                   >
                     <Check className="w-4 h-4" />
                     {approve.isPending ? "Approving..." : "Approve"}
@@ -467,7 +467,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
                 placeholder="Rejection reason (optional)"
                 value={rejectionReason}
                 onChange={(e) => setRejectionReason(e.target.value)}
-                className="flex-1 px-3 py-2 border border-slate-200 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 outline-none focus:ring-2 focus:ring-red-400"
+                className="flex-1 px-3 py-2 border border-slate-200 dark:border-slate-600 rounded-lg text-sm bg-input text-slate-700 dark:text-slate-300 outline-none focus:ring-2 focus:ring-red-400"
               />
               <button
                 onClick={() => reject.mutate()}
@@ -483,7 +483,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
 
       {/* Approved: awaiting payment */}
       {report.status === "approved" && (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-4 mb-6 flex items-center justify-between">
+        <div className="bg-card border border-border rounded-xl p-4 mb-6 flex items-center justify-between">
           <p className="text-sm text-slate-600 dark:text-slate-400">
             This report has been approved and is awaiting payment.
           </p>
@@ -502,7 +502,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
 
       {/* Signature */}
       {report.signed_at && (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-4 mb-6">
+        <div className="bg-card border border-border rounded-xl p-4 mb-6">
           <p className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Signed</p>
           <p className="text-sm text-slate-600 dark:text-slate-400">
             Signed on {new Date(report.signed_at).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}
@@ -511,7 +511,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
       )}
 
       {/* Expense list */}
-      <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm">
+      <div className="bg-card rounded-xl shadow-sm">
         <div className="p-4 border-b border-slate-100 dark:border-slate-700">
           <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Expenses ({report.expenses.length})</h2>
         </div>
@@ -525,18 +525,18 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
                 <div key={e.id} className="p-4">
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <p className="font-medium text-slate-800 dark:text-slate-200">{e.merchant || "—"}</p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{e.date} · {e.category_name || "—"}</p>
+                      <p className="font-medium text-foreground">{e.merchant || "—"}</p>
+                      <p className="text-xs text-muted mt-0.5">{e.date} · {e.category_name || "—"}</p>
                     </div>
                     <div className="text-right shrink-0">
-                      <p className="font-semibold text-slate-900 dark:text-slate-100">{formatAmount(e.amount_eur, "EUR")}</p>
+                      <p className="font-semibold text-foreground">{formatAmount(e.amount_eur, "EUR")}</p>
                       {e.currency_original !== "EUR" && (
-                        <p className="text-xs text-slate-400 dark:text-slate-500">{formatAmount(e.amount_original, e.currency_original)}</p>
+                        <p className="text-xs text-muted-foreground">{formatAmount(e.amount_original, e.currency_original)}</p>
                       )}
                     </div>
                   </div>
                   {e.description && (
-                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">{e.description}</p>
+                    <p className="text-sm text-muted mt-2">{e.description}</p>
                   )}
                   {e.receipts?.length > 0 && (
                     <div className="flex items-center gap-2 mt-3">
@@ -558,7 +558,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
             {/* Desktop: table */}
             <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-sm">
-                <thead className="bg-slate-50 dark:bg-slate-800 text-xs text-slate-500 dark:text-slate-400 uppercase">
+                <thead className="bg-slate-50 dark:bg-slate-800 text-xs text-muted uppercase">
                   <tr>
                     <th className="text-left px-4 py-3">Date</th>
                     <th className="text-left px-4 py-3">Merchant</th>
@@ -573,15 +573,15 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
                   {report.expenses.map((e) => (
                     <tr key={e.id} className="border-t border-slate-100 dark:border-slate-700">
                       <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{e.date}</td>
-                      <td className="px-4 py-3 font-medium text-slate-800 dark:text-slate-200">{e.merchant || "—"}</td>
-                      <td className="px-4 py-3 text-slate-500 dark:text-slate-400 hidden sm:table-cell">{e.category_name || "—"}</td>
-                      <td className="px-4 py-3 text-slate-500 dark:text-slate-400 hidden md:table-cell">{e.description || "—"}</td>
-                      <td className="px-4 py-3 text-right text-slate-500 dark:text-slate-400 hidden sm:table-cell">
+                      <td className="px-4 py-3 font-medium text-foreground">{e.merchant || "—"}</td>
+                      <td className="px-4 py-3 text-muted hidden sm:table-cell">{e.category_name || "—"}</td>
+                      <td className="px-4 py-3 text-muted hidden md:table-cell">{e.description || "—"}</td>
+                      <td className="px-4 py-3 text-right text-muted hidden sm:table-cell">
                         {e.currency_original !== "EUR"
                           ? <>{formatAmount(e.amount_original, e.currency_original)}{e.fx_rate_manual && <span className="ml-1 text-[10px] text-amber-600 dark:text-amber-400 font-medium">manual</span>}</>
                           : "—"}
                       </td>
-                      <td className="px-4 py-3 text-right font-semibold text-slate-900 dark:text-slate-100">
+                      <td className="px-4 py-3 text-right font-semibold text-foreground">
                         {formatAmount(e.amount_eur, "EUR")}
                       </td>
                       <td className="px-4 py-3 text-right">
@@ -625,9 +625,9 @@ function DelegationReportDetails({ report }: { report: Report }) {
 
   const Row = ({ label, value }: { label: string; value?: string | null }) =>
     value ? (
-      <div className="flex gap-2 py-1.5 border-b border-slate-100 dark:border-slate-800 last:border-0">
-        <span className="text-[11px] font-medium text-slate-400 dark:text-slate-500 w-28 shrink-0 pt-px">{label}</span>
-        <span className="text-[12px] text-slate-800 dark:text-slate-200 leading-snug">{value}</span>
+      <div className="flex gap-2 py-1.5 border-b border-border-subtle last:border-0">
+        <span className="text-[11px] font-medium text-muted-foreground w-28 shrink-0 pt-px">{label}</span>
+        <span className="text-[12px] text-foreground leading-snug">{value}</span>
       </div>
     ) : null;
 

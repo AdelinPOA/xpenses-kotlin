@@ -101,12 +101,12 @@ export default function BulkReviewDrawer({ files, isOpen, onClose }: BulkReviewD
       <div className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm" onClick={handleClose} />
 
       {/* Drawer */}
-      <div className="fixed right-0 top-0 bottom-0 z-50 w-full max-w-2xl bg-white dark:bg-slate-900 shadow-2xl flex flex-col">
+      <div className="fixed right-0 top-0 bottom-0 z-50 w-full max-w-2xl bg-card shadow-2xl flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <div>
             <h2 className="text-lg font-bold text-slate-900 dark:text-white">Review bulk upload</h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400">
+            <p className="text-sm text-muted">
               {uploading
                 ? `Processing ${files.length} receipt${files.length !== 1 ? "s" : ""}…`
                 : `${visibleRows.length} draft expense${visibleRows.length !== 1 ? "s" : ""} created — edit before saving`}
@@ -179,13 +179,13 @@ export default function BulkReviewDrawer({ files, isOpen, onClose }: BulkReviewD
 
         {/* Footer */}
         {!uploading && (
-          <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between gap-4">
-            <p className="text-xs text-slate-500 dark:text-slate-400">
+          <div className="px-6 py-4 border-t border-border flex items-center justify-between gap-4">
+            <p className="text-xs text-muted">
               All expenses are saved as <span className="font-semibold">draft</span>. Assign to a report when ready.
             </p>
             <button
               onClick={handleClose}
-              className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors shadow-sm"
+              className="px-5 py-2 bg-primary hover:bg-primary-hover text-white text-sm font-semibold rounded-lg transition-colors shadow-sm"
             >
               Done reviewing
             </button>
@@ -212,7 +212,7 @@ function BulkExpenseRow({ expense, categories, saving, onPatch, onDelete }: Bulk
     : null;
 
   return (
-    <div className="relative rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 p-4 space-y-3">
+    <div className="relative rounded-xl border border-border bg-slate-50 dark:bg-slate-800/50 p-4 space-y-3">
       {saving && (
         <div className="absolute inset-0 bg-white/50 dark:bg-slate-900/50 rounded-xl flex items-center justify-center z-10">
           <Loader2 className="w-5 h-5 text-blue-500 animate-spin" />
@@ -226,11 +226,11 @@ function BulkExpenseRow({ expense, categories, saving, onPatch, onDelete }: Bulk
           <img
             src={receiptUrl}
             alt="Receipt"
-            className="w-14 h-14 object-cover rounded-lg border border-slate-200 dark:border-slate-700 shrink-0 bg-white"
+            className="w-14 h-14 object-cover rounded-lg border border-border shrink-0 bg-white"
             onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
           />
         ) : (
-          <div className="w-14 h-14 rounded-lg border border-dashed border-slate-300 dark:border-slate-600 shrink-0 bg-white dark:bg-slate-800 flex items-center justify-center text-slate-300 text-xs">
+          <div className="w-14 h-14 rounded-lg border border-dashed border-input-border shrink-0 bg-input flex items-center justify-center text-slate-300 text-xs">
             No img
           </div>
         )}
@@ -238,19 +238,19 @@ function BulkExpenseRow({ expense, categories, saving, onPatch, onDelete }: Bulk
         <div className="flex-1 grid grid-cols-2 gap-2 min-w-0">
           {/* Merchant */}
           <div className="col-span-2">
-            <label className="text-xs text-slate-500 dark:text-slate-400 font-medium">Merchant</label>
+            <label className="text-xs text-muted font-medium">Merchant</label>
             <input
               type="text"
               defaultValue={expense.merchant ?? ""}
               onBlur={(e) => onPatch("merchant", e.target.value || null)}
               placeholder="Merchant name"
-              className="w-full mt-0.5 px-2 py-1.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full mt-0.5 px-2 py-1.5 text-sm rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
 
           {/* Amount */}
           <div>
-            <label className="text-xs text-slate-500 dark:text-slate-400 font-medium">Amount</label>
+            <label className="text-xs text-muted font-medium">Amount</label>
             <div className="flex gap-1 mt-0.5">
               <input
                 type="number"
@@ -258,36 +258,36 @@ function BulkExpenseRow({ expense, categories, saving, onPatch, onDelete }: Bulk
                 min="0"
                 defaultValue={expense.amount_original}
                 onBlur={(e) => onPatch("amount", parseFloat(e.target.value) || 0)}
-                className="w-full px-2 py-1.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-2 py-1.5 text-sm rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
               />
               <input
                 type="text"
                 defaultValue={expense.currency_original}
                 onBlur={(e) => onPatch("currency", e.target.value.toUpperCase() || "EUR")}
                 maxLength={3}
-                className="w-16 px-2 py-1.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase"
+                className="w-16 px-2 py-1.5 text-sm rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary uppercase"
               />
             </div>
           </div>
 
           {/* Date */}
           <div>
-            <label className="text-xs text-slate-500 dark:text-slate-400 font-medium">Date</label>
+            <label className="text-xs text-muted font-medium">Date</label>
             <input
               type="date"
               defaultValue={expense.date}
               onBlur={(e) => onPatch("date", e.target.value)}
-              className="w-full mt-0.5 px-2 py-1.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full mt-0.5 px-2 py-1.5 text-sm rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
 
           {/* Category */}
           <div className="col-span-2">
-            <label className="text-xs text-slate-500 dark:text-slate-400 font-medium">Category</label>
+            <label className="text-xs text-muted font-medium">Category</label>
             <select
               defaultValue={expense.category_id ?? ""}
               onChange={(e) => onPatch("category_id", e.target.value ? parseInt(e.target.value) : null)}
-              className="w-full mt-0.5 px-2 py-1.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full mt-0.5 px-2 py-1.5 text-sm rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             >
               <option value="">— No category —</option>
               {categories.map((c) => (
@@ -298,13 +298,13 @@ function BulkExpenseRow({ expense, categories, saving, onPatch, onDelete }: Bulk
 
           {/* Description */}
           <div className="col-span-2">
-            <label className="text-xs text-slate-500 dark:text-slate-400 font-medium">Description</label>
+            <label className="text-xs text-muted font-medium">Description</label>
             <input
               type="text"
               defaultValue={expense.description ?? ""}
               onBlur={(e) => onPatch("description", e.target.value || null)}
               placeholder="Optional description"
-              className="w-full mt-0.5 px-2 py-1.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full mt-0.5 px-2 py-1.5 text-sm rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
         </div>

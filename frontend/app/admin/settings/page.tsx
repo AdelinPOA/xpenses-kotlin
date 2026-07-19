@@ -74,15 +74,15 @@ export default function SettingsPage() {
     <AppShell>
       <div className="mb-6">
         <div className="flex items-center gap-3">
-          <Settings className="w-6 h-6 text-slate-500 dark:text-slate-400" />
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Settings</h1>
+          <Settings className="w-6 h-6 text-muted" />
+          <h1 className="text-2xl font-bold text-foreground">Settings</h1>
         </div>
       </div>
 
       <div className="space-y-6 max-w-lg">
-        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-6">
-          <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4">Mileage Rates</h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
+        <div className="bg-card rounded-xl shadow-sm p-6">
+          <h2 className="text-lg font-semibold text-foreground mb-4">Mileage Rates</h2>
+          <p className="text-sm text-muted mb-6">
             These rates apply to new mileage records. Existing records keep their historical rates.
           </p>
 
@@ -97,7 +97,7 @@ export default function SettingsPage() {
                 min="0.01"
                 value={bt}
                 onChange={(e) => setBt(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+                className="w-full px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground"
               />
               <p className="text-xs text-slate-400 mt-1">Gross rate for accounting purposes</p>
             </div>
@@ -112,7 +112,7 @@ export default function SettingsPage() {
                 min="0.01"
                 value={at}
                 onChange={(e) => setAt(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+                className="w-full px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground"
               />
               <p className="text-xs text-slate-400 mt-1">Net rate used for reimbursement</p>
             </div>
@@ -132,9 +132,9 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-6">
-          <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4">Daily Allowance</h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
+        <div className="bg-card rounded-xl shadow-sm p-6">
+          <h2 className="text-lg font-semibold text-foreground mb-4">Daily Allowance</h2>
+          <p className="text-sm text-muted mb-6">
             Per-diem rate added automatically to reports based on the number of travel days.
           </p>
 
@@ -149,7 +149,7 @@ export default function SettingsPage() {
                 min="0"
                 value={dailyRate}
                 onChange={(e) => setDailyRate(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+                className="w-full px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground"
               />
               <p className="text-xs text-slate-400 mt-1">Set to 0 to disable daily allowance</p>
             </div>

@@ -111,7 +111,7 @@ export default function AdminUsersPage() {
         <div className="flex flex-col items-center justify-center mt-24 text-center">
           <XCircle className="w-12 h-12 text-red-400 mb-4" />
           <h2 className="text-xl font-semibold text-slate-700 dark:text-slate-300">Access Denied</h2>
-          <p className="text-slate-500 dark:text-slate-400 text-sm mt-2">
+          <p className="text-muted text-sm mt-2">
             You do not have permission to view this page.
           </p>
         </div>
@@ -123,15 +123,15 @@ export default function AdminUsersPage() {
     <AppShell>
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">User Directory</h1>
-          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
+          <h1 className="text-2xl font-bold text-foreground">User Directory</h1>
+          <p className="text-muted text-sm mt-1">
             {canEdit ? "Manage user roles and access" : "Directory roster of company staff"}
           </p>
         </div>
         {canEdit && (
           <button
             onClick={() => { setShowCreateForm((v) => !v); setCreateError(null); }}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover text-white text-sm font-medium rounded-lg transition-colors"
           >
             <Plus className="w-4 h-4" />
             Create User
@@ -140,7 +140,7 @@ export default function AdminUsersPage() {
       </div>
 
       {showCreateForm && (
-        <div className="mb-6 bg-white dark:bg-slate-900 rounded-xl shadow-sm p-6 border border-slate-200 dark:border-slate-700">
+        <div className="mb-6 bg-card rounded-xl shadow-sm p-6 border border-border">
           <h2 className="text-base font-semibold text-slate-800 dark:text-slate-100 mb-4">New User</h2>
           <form
             onSubmit={(e) => {
@@ -159,7 +159,7 @@ export default function AdminUsersPage() {
                 type="text"
                 value={createForm.username}
                 onChange={(e) => setCreateForm((f) => ({ ...f, username: e.target.value }))}
-                className="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                className="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-input dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-300"
               />
             </div>
             <div>
@@ -171,7 +171,7 @@ export default function AdminUsersPage() {
                 type="text"
                 value={createForm.display_name}
                 onChange={(e) => setCreateForm((f) => ({ ...f, display_name: e.target.value }))}
-                className="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                className="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-input dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-300"
               />
             </div>
             <div>
@@ -183,7 +183,7 @@ export default function AdminUsersPage() {
                 type="password"
                 value={createForm.password}
                 onChange={(e) => setCreateForm((f) => ({ ...f, password: e.target.value }))}
-                className="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                className="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-input dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-300"
               />
             </div>
             <div>
@@ -191,7 +191,7 @@ export default function AdminUsersPage() {
               <select
                 value={createForm.role}
                 onChange={(e) => setCreateForm((f) => ({ ...f, role: e.target.value as User["role"] }))}
-                className="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                className="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-input dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-300"
               >
                 {ROLE_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -204,7 +204,7 @@ export default function AdminUsersPage() {
                 type="email"
                 value={createForm.email}
                 onChange={(e) => setCreateForm((f) => ({ ...f, email: e.target.value }))}
-                className="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                className="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-input dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-300"
               />
             </div>
             {createError && (
@@ -214,7 +214,7 @@ export default function AdminUsersPage() {
               <button
                 type="submit"
                 disabled={createMutation.isPending}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors"
+                className="px-4 py-2 bg-primary hover:bg-primary-hover disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors"
               >
                 {createMutation.isPending ? "Creating..." : "Create User"}
               </button>
@@ -231,11 +231,11 @@ export default function AdminUsersPage() {
       )}
 
       {isLoading ? (
-        <div className="text-slate-400 dark:text-slate-500 text-sm mt-8">Loading...</div>
+        <div className="text-muted-foreground text-sm mt-8">Loading...</div>
       ) : !users?.length ? (
         <EmptyState message="No users found" />
       ) : (
-        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm overflow-hidden">
+        <div className="bg-card rounded-xl shadow-sm overflow-hidden">
           <>
             {/* Mobile: stacked cards */}
             <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-700">
@@ -248,9 +248,9 @@ export default function AdminUsersPage() {
                         <Link href={`/profile/${u.id}`} className="font-semibold text-blue-600 dark:text-blue-400 hover:underline">
                           {u.display_name}
                         </Link>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{u.username}</p>
+                        <p className="text-xs text-muted mt-0.5">{u.username}</p>
                         {u.email && (
-                          <p className="text-xs text-slate-400 dark:text-slate-500">{u.email}</p>
+                          <p className="text-xs text-muted-foreground">{u.email}</p>
                         )}
                       </div>
                       <span
@@ -279,7 +279,7 @@ export default function AdminUsersPage() {
                               role: e.target.value as User["role"],
                             })
                           }
-                          className="text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-2 py-1 bg-white dark:bg-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-2 py-1 bg-input dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-300 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {ROLE_OPTIONS.map((opt) => (
                             <option key={opt.value} value={opt.value}>
@@ -304,9 +304,9 @@ export default function AdminUsersPage() {
                           className="inline-flex items-center justify-center p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                           {u.is_active ? (
-                            <ShieldOff className="w-4 h-4 text-slate-500 dark:text-slate-400 hover:text-red-500" />
+                            <ShieldOff className="w-4 h-4 text-muted hover:text-red-500" />
                           ) : (
-                            <Shield className="w-4 h-4 text-slate-500 dark:text-slate-400 hover:text-green-500" />
+                            <Shield className="w-4 h-4 text-muted hover:text-green-500" />
                           )}
                         </button>
                       ) : (
@@ -321,7 +321,7 @@ export default function AdminUsersPage() {
             {/* Desktop: table */}
             <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-sm">
-                <thead className="bg-slate-50 dark:bg-slate-800 text-xs text-slate-500 dark:text-slate-400 uppercase">
+                <thead className="bg-slate-50 dark:bg-slate-800 text-xs text-muted uppercase">
                   <tr>
                     <th className="text-left px-4 py-3">User</th>
                     <th className="text-left px-4 py-3">Username</th>
@@ -335,19 +335,19 @@ export default function AdminUsersPage() {
                   {users.map((u) => {
                     const isSelf = u.id === currentUser.id;
                     return (
-                      <tr key={u.id} className="border-t border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800">
+                      <tr key={u.id} className="border-t border-slate-100 dark:border-slate-700 hover:bg-card-hover">
                         {/* User */}
                         <td className="px-4 py-3">
                           <Link href={`/profile/${u.id}`} className="font-semibold text-blue-600 dark:text-blue-400 hover:underline">
                             {u.display_name}
                           </Link>
                           {u.email && (
-                            <p className="text-xs text-slate-400 dark:text-slate-500">{u.email}</p>
+                            <p className="text-xs text-muted-foreground">{u.email}</p>
                           )}
                         </td>
 
                         {/* Username */}
-                        <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{u.username}</td>
+                        <td className="px-4 py-3 text-muted">{u.username}</td>
 
                         {/* Role dropdown */}
                         <td className="px-4 py-3">
@@ -360,7 +360,7 @@ export default function AdminUsersPage() {
                                 role: e.target.value as User["role"],
                               })
                             }
-                            className="text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-2 py-1 bg-white dark:bg-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-2 py-1 bg-input dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-300 disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             {ROLE_OPTIONS.map((opt) => (
                               <option key={opt.value} value={opt.value}>
@@ -410,9 +410,9 @@ export default function AdminUsersPage() {
                               className="inline-flex items-center justify-center p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed"
                             >
                               {u.is_active ? (
-                                <ShieldOff className="w-4 h-4 text-slate-500 dark:text-slate-400 hover:text-red-500" />
+                                <ShieldOff className="w-4 h-4 text-muted hover:text-red-500" />
                               ) : (
-                                <Shield className="w-4 h-4 text-slate-500 dark:text-slate-400 hover:text-green-500" />
+                                <Shield className="w-4 h-4 text-muted hover:text-green-500" />
                               )}
                             </button>
                           ) : (

@@ -96,7 +96,7 @@ export default function AdvancesPage({ params }: { params: Promise<{ id: string 
     payAdvance.mutate({ advanceId, amount: amt, currency: payCurrency, date: payDate });
   };
 
-  if (isLoading) return <AppShell><p className="text-slate-400 dark:text-slate-500 text-sm mt-8">Loading...</p></AppShell>;
+  if (isLoading) return <AppShell><p className="text-muted-foreground text-sm mt-8">Loading...</p></AppShell>;
   if (!report) return <AppShell><p className="text-red-500 text-sm">Report not found</p></AppShell>;
 
   const isOwner = user?.id === report.user_id;
@@ -113,30 +113,30 @@ export default function AdvancesPage({ params }: { params: Promise<{ id: string 
     <AppShell>
       {/* Header */}
       <div className="mb-6">
-        <Link href={`/reports/${id}`} className="flex items-center gap-1 text-sm text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 mb-4">
+        <Link href={`/reports/${id}`} className="flex items-center gap-1 text-sm text-muted hover:text-slate-800 dark:hover:text-slate-200 mb-4">
           <ArrowLeft className="w-4 h-4" /> Back to report
         </Link>
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Advance Payments</h1>
+          <h1 className="text-2xl font-bold text-foreground">Advance Payments</h1>
           <Badge status={report.status} />
         </div>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{report.title}</p>
+        <p className="text-sm text-muted mt-1">{report.title}</p>
       </div>
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
-        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4">
+        <div className="bg-card rounded-xl shadow-sm p-4">
           <p className="text-xs text-emerald-500 uppercase mb-1">Total Paid</p>
           <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400">{formatAmount(totalPaid, "EUR")}</p>
         </div>
-        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4">
+        <div className="bg-card rounded-xl shadow-sm p-4">
           <p className="text-xs text-orange-500 uppercase mb-1">Pending Requests</p>
           <p className="text-xl font-bold text-orange-600 dark:text-orange-400">
             {requestedAdvances.length} — {formatAmount(totalRequested, "EUR")}
           </p>
         </div>
         {rejectedAdvances.length > 0 && (
-          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4">
+          <div className="bg-card rounded-xl shadow-sm p-4">
             <p className="text-xs text-red-500 uppercase mb-1">Rejected</p>
             <p className="text-xl font-bold text-red-600 dark:text-red-400">{rejectedAdvances.length}</p>
           </div>
@@ -201,7 +201,7 @@ export default function AdvancesPage({ params }: { params: Promise<{ id: string 
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                className="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+                className="px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground"
               />
             )}
             <input
@@ -211,12 +211,12 @@ export default function AdvancesPage({ params }: { params: Promise<{ id: string 
               placeholder="Amount"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              className="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 w-32"
+              className="px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground w-32"
             />
             <select
               value={currency}
               onChange={(e) => setCurrency(e.target.value)}
-              className="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+              className="px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground"
             >
               {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
@@ -225,7 +225,7 @@ export default function AdvancesPage({ params }: { params: Promise<{ id: string 
               placeholder="Description (optional)"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 flex-1"
+              className="px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground flex-1"
             />
             <button
               onClick={handleAdd}
@@ -242,14 +242,14 @@ export default function AdvancesPage({ params }: { params: Promise<{ id: string 
       )}
 
       {/* Advances table */}
-      <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm">
+      <div className="bg-card rounded-xl shadow-sm">
         <div className="p-4 border-b border-slate-100 dark:border-slate-700">
           <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
             All Advances ({report.advances.length})
           </h2>
         </div>
         {report.advances.length === 0 ? (
-          <p className="p-6 text-sm text-slate-400 dark:text-slate-500 text-center">No advance payments yet</p>
+          <p className="p-6 text-sm text-muted-foreground text-center">No advance payments yet</p>
         ) : (
           <>
             {/* Mobile: stacked cards */}
@@ -265,24 +265,24 @@ export default function AdvancesPage({ params }: { params: Promise<{ id: string 
                       }`}>
                         {a.status}
                       </span>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{a.date || "—"}</p>
+                      <p className="text-xs text-muted mt-1">{a.date || "—"}</p>
                     </div>
                     <div className="text-right shrink-0">
-                      <p className="font-semibold text-slate-900 dark:text-slate-100">
+                      <p className="font-semibold text-foreground">
                         {a.status === "paid" ? formatAmount(a.amount_eur, "EUR") : "—"}
                       </p>
                       {a.requested_amount ? (
-                        <p className="text-xs text-slate-400 dark:text-slate-500">
+                        <p className="text-xs text-muted-foreground">
                           Req: {formatAmount(a.requested_amount, a.requested_currency || "EUR")}
                         </p>
                       ) : null}
                     </div>
                   </div>
                   {a.description && (
-                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">{a.description}</p>
+                    <p className="text-sm text-muted mt-2">{a.description}</p>
                   )}
                   <div className="flex items-center justify-between mt-3">
-                    <span className="text-xs text-slate-400 dark:text-slate-500">Paid by: {a.paid_by_name || "—"}</span>
+                    <span className="text-xs text-muted-foreground">Paid by: {a.paid_by_name || "—"}</span>
                     <div className="flex items-center gap-2">
                       {a.status === "requested" && canManage && payingId !== a.id && (
                         <>
@@ -324,7 +324,7 @@ export default function AdvancesPage({ params }: { params: Promise<{ id: string 
             {/* Desktop: table */}
             <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-sm">
-                <thead className="bg-slate-50 dark:bg-slate-800 text-xs text-slate-500 dark:text-slate-400 uppercase">
+                <thead className="bg-slate-50 dark:bg-slate-800 text-xs text-muted uppercase">
                   <tr>
                     <th className="text-left px-4 py-3">Status</th>
                     <th className="text-left px-4 py-3">Date</th>
@@ -348,14 +348,14 @@ export default function AdvancesPage({ params }: { params: Promise<{ id: string 
                         </span>
                       </td>
                       <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{a.date || "—"}</td>
-                      <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{a.description || "—"}</td>
-                      <td className="px-4 py-3 text-right text-slate-500 dark:text-slate-400">
+                      <td className="px-4 py-3 text-muted">{a.description || "—"}</td>
+                      <td className="px-4 py-3 text-right text-muted">
                         {a.requested_amount ? formatAmount(a.requested_amount, a.requested_currency || "EUR") : "—"}
                       </td>
-                      <td className="px-4 py-3 text-right font-semibold text-slate-900 dark:text-slate-100">
+                      <td className="px-4 py-3 text-right font-semibold text-foreground">
                         {a.status === "paid" ? formatAmount(a.amount_eur, "EUR") : "—"}
                       </td>
-                      <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{a.paid_by_name || "—"}</td>
+                      <td className="px-4 py-3 text-muted">{a.paid_by_name || "—"}</td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-2">
                           {a.status === "requested" && canManage && payingId !== a.id && (
@@ -411,7 +411,7 @@ export default function AdvancesPage({ params }: { params: Promise<{ id: string 
               type="date"
               value={payDate}
               onChange={(e) => setPayDate(e.target.value)}
-              className="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+              className="px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground"
             />
             <input
               type="number"
@@ -420,12 +420,12 @@ export default function AdvancesPage({ params }: { params: Promise<{ id: string 
               placeholder="Final amount"
               value={payAmount}
               onChange={(e) => setPayAmount(e.target.value)}
-              className="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 w-32"
+              className="px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground w-32"
             />
             <select
               value={payCurrency}
               onChange={(e) => setPayCurrency(e.target.value)}
-              className="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+              className="px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground"
             >
               {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
@@ -439,7 +439,7 @@ export default function AdvancesPage({ params }: { params: Promise<{ id: string 
             </button>
             <button
               onClick={() => setPayingId(null)}
-              className="flex items-center gap-2 px-4 py-2 border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 text-sm rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800"
+              className="flex items-center gap-2 px-4 py-2 border border-input-border text-slate-600 dark:text-slate-400 text-sm rounded-lg hover:bg-card-hover"
             >
               <X className="w-4 h-4" /> Cancel
             </button>

@@ -36,8 +36,8 @@ export default function DashboardActionCard({
         <Icon className="w-6 h-6" />
       </div>
       <div className="flex-1 min-w-0">
-        <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">{title}</h3>
-        <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5 line-clamp-2">{description}</p>
+        <h3 className="text-sm font-semibold text-foreground truncate">{title}</h3>
+        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{description}</p>
       </div>
       <div className="text-right shrink-0">
         <span className="text-3xl font-extrabold block leading-none tracking-tight text-blue-600 dark:text-blue-400">

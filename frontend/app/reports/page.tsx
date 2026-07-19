@@ -147,10 +147,10 @@ function ReportsPageContent() {
     <AppShell>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+          <h1 className="text-2xl font-bold text-foreground">
             {showAll ? "Company Reports" : "My Reports"}
           </h1>
-          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">{reports?.length ?? 0} total</p>
+          <p className="text-muted text-sm mt-1">{reports?.length ?? 0} total</p>
         </div>
         <div className="flex items-center gap-3">
           {isPrivileged && (
@@ -179,7 +179,7 @@ function ReportsPageContent() {
             {exportOpen && (
               <>
                 <div className="fixed inset-0 z-10" onClick={() => setExportOpen(false)} />
-                <div className="absolute right-0 top-full mt-1 w-36 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg z-20">
+                <div className="absolute right-0 top-full mt-1 w-36 bg-input border border-border rounded-lg shadow-lg z-20">
                   <button
                     onClick={() => handleExport("csv")}
                     className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-t-lg"
@@ -198,7 +198,7 @@ function ReportsPageContent() {
           </div>
           <Link
             href="/reports/new"
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 w-fit"
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-hover w-fit"
           >
             <Plus className="w-4 h-4" />
             New report
@@ -213,7 +213,7 @@ function ReportsPageContent() {
         </div>
       )}
 
-      <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm">
+      <div className="bg-card rounded-xl shadow-sm">
         <div className="p-4 border-b border-slate-100 dark:border-slate-700 flex flex-wrap gap-2 items-center">
           {["", "draft", "submitted", "approved", "rejected", "paid"].map((s) => (
             <button
@@ -228,7 +228,7 @@ function ReportsPageContent() {
               {s === "" ? "All" : s.charAt(0).toUpperCase() + s.slice(1)}
             </button>
           ))}
-          <div className="ml-auto flex items-center gap-2 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1 text-sm bg-white dark:bg-slate-800">
+          <div className="ml-auto flex items-center gap-2 border border-border rounded-lg px-3 py-1 text-sm bg-input">
             <Search className="w-3.5 h-3.5 text-slate-400" />
             <input
               type="text"
@@ -241,12 +241,12 @@ function ReportsPageContent() {
         </div>
         {showAll && uniqueOwners.length > 1 && (
           <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-700 flex flex-wrap gap-2 items-center">
-            <span className="text-xs text-slate-400 dark:text-slate-500 font-medium mr-1">Employee:</span>
+            <span className="text-xs text-muted-foreground font-medium mr-1">Employee:</span>
             <button
               onClick={() => setOwnerFilter("")}
               className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
                 ownerFilter === ""
-                  ? "bg-blue-600 text-white"
+                  ? "bg-primary text-white"
                   : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700"
               }`}
             >
@@ -258,7 +258,7 @@ function ReportsPageContent() {
                 onClick={() => setOwnerFilter(ownerFilter === name ? "" : name)}
                 className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
                   ownerFilter === name
-                    ? "bg-blue-600 text-white"
+                    ? "bg-primary text-white"
                     : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700"
                 }`}
               >
@@ -305,22 +305,22 @@ function ReportsPageContent() {
                 <div key={r.id} className="p-4">
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <Link href={`/reports/${r.id}`} className="font-medium text-slate-800 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400">
+                      <Link href={`/reports/${r.id}`} className="font-medium text-foreground hover:text-blue-600 dark:hover:text-blue-400">
                         {r.title}
                       </Link>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      <p className="text-xs text-muted mt-0.5">
                         {showAll && r.user_display_name ? `${r.user_display_name} · ` : ""}
                         {r.date_from && r.date_to ? `${r.date_from} — ${r.date_to}` : "—"}
                       </p>
                     </div>
-                    <p className="font-semibold text-slate-900 dark:text-slate-100 shrink-0">
+                    <p className="font-semibold text-foreground shrink-0">
                       {formatEur(r.expenses.reduce((s, e) => s + e.amount_eur, 0) || r.total_amount)}
                     </p>
                   </div>
                   <div className="flex items-center justify-between mt-3">
                     <div className="flex items-center gap-2">
                       <Badge status={r.status} />
-                      <span className="text-xs text-slate-400 dark:text-slate-500">
+                      <span className="text-xs text-muted-foreground">
                         {r.expenses.length} expense{r.expenses.length === 1 ? "" : "s"}
                       </span>
                     </div>
@@ -347,7 +347,7 @@ function ReportsPageContent() {
             {/* Desktop: table */}
             <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-slate-50 dark:bg-slate-800 text-xs text-slate-500 dark:text-slate-400 uppercase">
+              <thead className="bg-slate-50 dark:bg-slate-800 text-xs text-muted uppercase">
                 <tr>
                   <th
                     className="text-left px-4 py-3 cursor-pointer select-none hover:text-slate-700 dark:hover:text-slate-200"
@@ -376,24 +376,24 @@ function ReportsPageContent() {
               </thead>
               <tbody>
                 {sorted.map((r) => (
-                  <tr key={r.id} className="border-t border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                    <td className="px-4 py-3 font-medium text-slate-800 dark:text-slate-200">{r.title}</td>
+                  <tr key={r.id} className="border-t border-slate-100 dark:border-slate-700 hover:bg-card-hover/50">
+                    <td className="px-4 py-3 font-medium text-foreground">{r.title}</td>
                     {showAll && (
                       <td className="px-4 py-3 text-slate-600 dark:text-slate-400 font-medium">
                         {r.user_display_name || "—"}
                       </td>
                     )}
-                    <td className="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs">
+                    <td className="px-4 py-3 text-muted text-xs">
                       {r.date_from && r.date_to ? `${r.date_from} — ${r.date_to}` : "—"}
                     </td>
-                    <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{r.expenses.length}</td>
-                    <td className="px-4 py-3 text-right font-semibold text-slate-900 dark:text-slate-100">
+                    <td className="px-4 py-3 text-muted">{r.expenses.length}</td>
+                    <td className="px-4 py-3 text-right font-semibold text-foreground">
                       {formatEur(r.expenses.reduce((s, e) => s + e.amount_eur, 0) || r.total_amount)}
                     </td>
                     <td className="px-4 py-3 text-center">
                       <Badge status={r.status} />
                     </td>
-                    <td className="px-4 py-3 text-slate-500 dark:text-slate-400">
+                    <td className="px-4 py-3 text-muted">
                       {r.submitted_at ? new Date(r.submitted_at).toLocaleDateString() : "—"}
                     </td>
                     <td className="px-4 py-3 text-right">
@@ -431,9 +431,9 @@ function ReportsPageContent() {
 
       {confirmDeleteId !== null && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xl max-w-sm w-full p-6 space-y-4">
-            <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Delete Report</h3>
-            <p className="text-sm text-slate-500 dark:text-slate-400">
+          <div className="bg-card rounded-xl border border-border shadow-xl max-w-sm w-full p-6 space-y-4">
+            <h3 className="text-lg font-bold text-foreground">Delete Report</h3>
+            <p className="text-sm text-muted">
               Are you sure you want to delete this report? This action is permanent and cannot be undone.
             </p>
             <div className="flex justify-end gap-3 pt-2">

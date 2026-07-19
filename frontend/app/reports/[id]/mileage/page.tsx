@@ -83,7 +83,7 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
     });
   };
 
-  if (isLoading) return <AppShell><p className="text-slate-400 dark:text-slate-500 text-sm mt-8">Loading...</p></AppShell>;
+  if (isLoading) return <AppShell><p className="text-muted-foreground text-sm mt-8">Loading...</p></AppShell>;
   if (!report) return <AppShell><p className="text-red-500 text-sm">Report not found</p></AppShell>;
 
   const records = report.mileage_records || [];
@@ -95,31 +95,31 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
   return (
     <AppShell>
       <div className="mb-6">
-        <Link href={`/reports/${id}`} className="flex items-center gap-1 text-sm text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 mb-4">
+        <Link href={`/reports/${id}`} className="flex items-center gap-1 text-sm text-muted hover:text-slate-800 dark:hover:text-slate-200 mb-4">
           <ArrowLeft className="w-4 h-4" /> Back to report
         </Link>
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Mileage Records</h1>
+          <h1 className="text-2xl font-bold text-foreground">Mileage Records</h1>
           <Badge status={report.status} />
         </div>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{report.title}</p>
+        <p className="text-sm text-muted mt-1">{report.title}</p>
       </div>
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4">
+        <div className="bg-card rounded-xl shadow-sm p-4">
           <p className="text-xs text-teal-500 uppercase mb-1">Total Distance</p>
           <p className="text-xl font-bold text-teal-600 dark:text-teal-400">{totalKm.toFixed(1)} km</p>
         </div>
-        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4">
+        <div className="bg-card rounded-xl shadow-sm p-4">
           <p className="text-xs text-blue-500 uppercase mb-1">Driving Time</p>
           <p className="text-xl font-bold text-blue-600 dark:text-blue-400">{formatDuration(totalDuration)}</p>
         </div>
-        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4">
+        <div className="bg-card rounded-xl shadow-sm p-4">
           <p className="text-xs text-slate-500 uppercase mb-1">Gross (Before Tax)</p>
           <p className="text-xl font-bold text-slate-700 dark:text-slate-300">{formatAmount(totalGross, "EUR")}</p>
         </div>
-        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4">
+        <div className="bg-card rounded-xl shadow-sm p-4">
           <p className="text-xs text-emerald-500 uppercase mb-1">Net (Reimbursable)</p>
           <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400">{formatAmount(totalNet, "EUR")}</p>
         </div>
@@ -151,33 +151,33 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
               placeholder="Origin (e.g. Bucharest)"
               value={origin}
               onChange={(e) => setOrigin(e.target.value)}
-              className="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+              className="px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground"
             />
             <input
               type="text"
               placeholder="Destination (e.g. Ploiesti)"
               value={destination}
               onChange={(e) => setDestination(e.target.value)}
-              className="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+              className="px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground"
             />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
             <div>
-              <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Start Time</label>
+              <label className="block text-xs text-muted mb-1">Start Time</label>
               <input
                 type="datetime-local"
                 value={startTime}
                 onChange={(e) => setStartTime(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+                className="w-full px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground"
               />
             </div>
             <div>
-              <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">End Time</label>
+              <label className="block text-xs text-muted mb-1">End Time</label>
               <input
                 type="datetime-local"
                 value={endTime}
                 onChange={(e) => setEndTime(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+                className="w-full px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground"
               />
             </div>
           </div>
@@ -189,14 +189,14 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
               placeholder="Distance (km)"
               value={distanceKm}
               onChange={(e) => setDistanceKm(e.target.value)}
-              className="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 w-36"
+              className="px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground w-36"
             />
             <input
               type="text"
               placeholder="Description (optional)"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 flex-1"
+              className="px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground flex-1"
             />
             <button
               onClick={handleAdd}
@@ -211,14 +211,14 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
       )}
 
       {/* Mileage table */}
-      <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm">
+      <div className="bg-card rounded-xl shadow-sm">
         <div className="p-4 border-b border-slate-100 dark:border-slate-700">
           <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
             Trips ({records.length})
           </h2>
         </div>
         {records.length === 0 ? (
-          <p className="p-6 text-sm text-slate-400 dark:text-slate-500 text-center">No mileage records yet</p>
+          <p className="p-6 text-sm text-muted-foreground text-center">No mileage records yet</p>
         ) : (
           <>
             {/* Mobile: stacked cards */}
@@ -227,19 +227,19 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
                 <div key={m.id} className="p-4">
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <p className="font-medium text-slate-800 dark:text-slate-200">{m.origin} → {m.destination}</p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{formatDateTime(m.start_time)}</p>
+                      <p className="font-medium text-foreground">{m.origin} → {m.destination}</p>
+                      <p className="text-xs text-muted mt-0.5">{formatDateTime(m.start_time)}</p>
                     </div>
                     <div className="text-right shrink-0">
-                      <p className="font-semibold text-slate-900 dark:text-slate-100">{formatAmount(m.amount_eur, "EUR")}</p>
-                      <p className="text-xs text-slate-400 dark:text-slate-500">{m.distance_km.toFixed(1)} km</p>
+                      <p className="font-semibold text-foreground">{formatAmount(m.amount_eur, "EUR")}</p>
+                      <p className="text-xs text-muted-foreground">{m.distance_km.toFixed(1)} km</p>
                     </div>
                   </div>
                   {m.description && (
-                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">{m.description}</p>
+                    <p className="text-sm text-muted mt-2">{m.description}</p>
                   )}
                   <div className="flex items-center justify-between mt-3">
-                    <div className="flex items-center gap-3 text-xs text-slate-400 dark:text-slate-500">
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
                       <span className="text-blue-600 dark:text-blue-400 font-medium">{formatDuration(m.duration_minutes)}</span>
                       <span>Gross: {formatAmount(m.amount_before_tax, "EUR")}</span>
                     </div>
@@ -256,10 +256,10 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
                   <p className="font-bold text-slate-700 dark:text-slate-300">Total</p>
                   <div className="text-right shrink-0">
                     <p className="font-bold text-emerald-600 dark:text-emerald-400">{formatAmount(totalNet, "EUR")}</p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">{totalKm.toFixed(1)} km</p>
+                    <p className="text-xs text-muted">{totalKm.toFixed(1)} km</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400 mt-2">
+                <div className="flex items-center gap-3 text-xs text-muted mt-2">
                   <span className="text-blue-600 dark:text-blue-400 font-bold">{formatDuration(totalDuration)}</span>
                   <span>Gross: {formatAmount(totalGross, "EUR")}</span>
                 </div>
@@ -269,7 +269,7 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
             {/* Desktop: table */}
             <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-sm">
-                <thead className="bg-slate-50 dark:bg-slate-800 text-xs text-slate-500 dark:text-slate-400 uppercase">
+                <thead className="bg-slate-50 dark:bg-slate-800 text-xs text-muted uppercase">
                   <tr>
                     <th className="text-left px-4 py-3">Start Time</th>
                     <th className="text-left px-4 py-3">Duration</th>
@@ -287,15 +287,15 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
                     <tr key={m.id} className="border-t border-slate-100 dark:border-slate-700">
                       <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{formatDateTime(m.start_time)}</td>
                       <td className="px-4 py-3 text-blue-600 dark:text-blue-400 font-medium">{formatDuration(m.duration_minutes)}</td>
-                      <td className="px-4 py-3 font-medium text-slate-800 dark:text-slate-200">
+                      <td className="px-4 py-3 font-medium text-foreground">
                         {m.origin} → {m.destination}
-                        {m.description && <span className="block text-xs text-slate-400 dark:text-slate-500">{m.description}</span>}
+                        {m.description && <span className="block text-xs text-muted-foreground">{m.description}</span>}
                       </td>
                       <td className="px-4 py-3 text-right text-slate-600 dark:text-slate-400">{m.distance_km.toFixed(1)}</td>
-                      <td className="px-4 py-3 text-right text-slate-400 dark:text-slate-500">€{m.rate_before_tax.toFixed(2)}</td>
+                      <td className="px-4 py-3 text-right text-muted-foreground">€{m.rate_before_tax.toFixed(2)}</td>
                       <td className="px-4 py-3 text-right text-slate-600 dark:text-slate-400">{formatAmount(m.amount_before_tax, "EUR")}</td>
-                      <td className="px-4 py-3 text-right text-slate-400 dark:text-slate-500">€{m.rate_after_tax.toFixed(2)}</td>
-                      <td className="px-4 py-3 text-right font-semibold text-slate-900 dark:text-slate-100">{formatAmount(m.amount_eur, "EUR")}</td>
+                      <td className="px-4 py-3 text-right text-muted-foreground">€{m.rate_after_tax.toFixed(2)}</td>
+                      <td className="px-4 py-3 text-right font-semibold text-foreground">{formatAmount(m.amount_eur, "EUR")}</td>
                       {report.status === "draft" && (
                         <td className="px-4 py-3 text-right">
                           <button onClick={() => deleteMileage.mutate(m.id)} className="text-slate-400 hover:text-red-500">

@@ -184,13 +184,13 @@ export default function EmailAdminPage() {
           </div>
         )}
 
-        <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-sm space-y-4">
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Connection</h2>
+        <section className="bg-card border border-border rounded-xl p-6 shadow-sm space-y-4">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted">Connection</h2>
 
           <label className="flex items-center gap-3 text-sm cursor-pointer select-none">
             <input
               type="checkbox"
-              className="h-4 w-4 rounded border-slate-300 dark:border-slate-600 text-blue-600 focus:ring-blue-500/20 focus:ring-2 focus:ring-offset-0 transition-all duration-200"
+              className="h-4 w-4 rounded border-input-border text-blue-600 focus:ring-primary/20 focus:ring-2 focus:ring-offset-0 transition-all duration-200"
               {...register("emails_enabled")}
             />
             <span className="text-slate-700 dark:text-slate-300 font-medium">Enable email notifications</span>
@@ -198,9 +198,9 @@ export default function EmailAdminPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Host</label>
+              <label className="block text-xs font-semibold text-muted mb-1.5">Host</label>
               <input
-                className="w-full border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200"
+                className="w-full border rounded-lg px-3 py-2 text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
                 {...register("smtp_host")}
                 placeholder="smtp.example.com"
               />
@@ -209,12 +209,12 @@ export default function EmailAdminPage() {
               )}
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Port</label>
+              <label className="block text-xs font-semibold text-muted mb-1.5">Port</label>
               <input
                 type="text"
                 inputMode="numeric"
                 pattern="[0-9]*"
-                className={`w-full max-w-[120px] border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 dark:text-slate-100 focus:outline-none transition-all duration-200 ${errors.smtp_port ? "border-rose-500 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500" : "border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"}`}
+                className={`w-full max-w-[120px] border rounded-lg px-3 py-2 text-sm bg-input dark:text-slate-100 focus:outline-none transition-all duration-200 ${errors.smtp_port ? "border-rose-500 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500" : "border-border focus:ring-2 focus:ring-primary/20 focus:border-blue-500"}`}
                 {...register("smtp_port")}
               />
               {errors.smtp_port && (
@@ -224,22 +224,22 @@ export default function EmailAdminPage() {
           </div>
         </section>
 
-        <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-sm space-y-4">
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Credentials & Sender</h2>
+        <section className="bg-card border border-border rounded-xl p-6 shadow-sm space-y-4">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted">Credentials & Sender</h2>
           <div>
-            <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Username</label>
+            <label className="block text-xs font-semibold text-muted mb-1.5">Username</label>
             <input
-              className="w-full border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200"
+              className="w-full border rounded-lg px-3 py-2 text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
               {...register("smtp_user")}
               placeholder="smtp-user@example.com"
             />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Password</label>
+            <label className="block text-xs font-semibold text-muted mb-1.5">Password</label>
             <div className="space-y-1.5">
               <input
                 type="password"
-                className="w-full border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200"
+                className="w-full border rounded-lg px-3 py-2 text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
                 {...register("smtp_pass")}
                 onChange={(e) => {
                   setValue("smtp_pass", e.target.value, { shouldDirty: true });
@@ -253,10 +253,10 @@ export default function EmailAdminPage() {
             </div>
           </div>
           <div>
-            <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">From Address</label>
+            <label className="block text-xs font-semibold text-muted mb-1.5">From Address</label>
             <input
               type="text"
-              className="w-full border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200"
+              className="w-full border rounded-lg px-3 py-2 text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
               {...register("smtp_from")}
               placeholder="noreply@example.com"
             />
@@ -270,21 +270,21 @@ export default function EmailAdminPage() {
           <button
             type="submit"
             disabled={saveMutation.isPending}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none transition-all duration-200 shadow-sm shadow-blue-500/10"
+            className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-hover active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none transition-all duration-200 shadow-sm shadow-blue-500/10"
           >
             {saveMutation.isPending ? "Saving…" : "Save Configuration"}
           </button>
         </div>
 
-        <hr className="border-slate-200 dark:border-slate-800" />
+        <hr className="border-border" />
 
-        <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-sm space-y-4">
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Send Test Email</h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
+        <section className="bg-card border border-border rounded-xl p-6 shadow-sm space-y-4">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted">Send Test Email</h2>
+          <p className="text-xs text-muted">
             Test the SMTP connection with the current saved settings.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 max-w-md">
-            <input type="email" className="flex-1 border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200" value={testRecipient} onChange={(e) => setTestRecipient(e.target.value)} placeholder="recipient@example.com" />
+            <input type="email" className="flex-1 border rounded-lg px-3 py-2 text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200" value={testRecipient} onChange={(e) => setTestRecipient(e.target.value)} placeholder="recipient@example.com" />
             <button type="button" onClick={handleTest} disabled={testing || !testRecipient} className="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium bg-white hover:bg-slate-50 dark:bg-transparent dark:border-slate-700 dark:hover:bg-slate-800 dark:text-slate-200 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none transition-all duration-200 whitespace-nowrap">
               {testing ? "Sending…" : "Send Test"}
             </button>

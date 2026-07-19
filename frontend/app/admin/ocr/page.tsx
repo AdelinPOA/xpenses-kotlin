@@ -41,7 +41,7 @@ const ocrConfigSchema = z.object({
 
 const getStatusColor = (ocrVal: string | number | null | undefined, finalVal: string | number | null | undefined) => {
   if (ocrVal === null || ocrVal === undefined || ocrVal === "" || ocrVal === "None") {
-    return "text-slate-400 bg-slate-100/50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-800";
+    return "text-slate-400 bg-slate-100/50 dark:bg-slate-800/30 border-border";
   }
   
   let match = false;
@@ -199,13 +199,13 @@ export default function OcrAdminPage() {
               </div>
             )}
 
-            <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-sm space-y-4">
-              <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Core Configuration</h2>
+            <section className="bg-card border border-border rounded-xl p-6 shadow-sm space-y-4">
+              <h2 className="text-sm font-semibold uppercase tracking-wider text-muted">Core Configuration</h2>
 
               <label className="flex items-center gap-3 text-sm cursor-pointer select-none">
                 <input
                   type="checkbox"
-                  className="h-4 w-4 rounded border-slate-300 dark:border-slate-600 text-blue-600 focus:ring-blue-500/20 focus:ring-2 focus:ring-offset-0 transition-all duration-200"
+                  className="h-4 w-4 rounded border-input-border text-blue-600 focus:ring-primary/20 focus:ring-2 focus:ring-offset-0 transition-all duration-200"
                   {...register("ocr_enabled")}
                 />
                 <span className="text-slate-700 dark:text-slate-300 font-medium">Enable automatic receipt OCR scanning</span>
@@ -213,10 +213,10 @@ export default function OcrAdminPage() {
 
               {ocrEnabled && (
                 <div>
-                  <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">OCR engine / provider</label>
+                  <label className="block text-xs font-semibold text-muted mb-1.5">OCR engine / provider</label>
                   <div className="relative">
                     <select
-                      className="w-full border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200"
+                      className="w-full border rounded-lg px-3 py-2 text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
                       {...register("provider")}
                     >
                       <option value="gemini-3.1-flash-lite">Google Gemini 3.1 Flash-Lite (Cloud API - Default)</option>
@@ -232,7 +232,7 @@ export default function OcrAdminPage() {
             </section>
 
             {ocrEnabled && (provider === "gemini" || provider?.startsWith("gemini-")) && (
-              <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-sm space-y-4 animate-fadeIn">
+              <section className="bg-card border border-border rounded-xl p-6 shadow-sm space-y-4 animate-fadeIn">
                 <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 mb-1">
                   <Sparkles className="w-5 h-5" />
                   <h2 className="text-sm font-semibold uppercase tracking-wider">Gemini API Credentials</h2>
@@ -240,11 +240,11 @@ export default function OcrAdminPage() {
                 
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Google AI Studio API key</label>
+                    <label className="block text-xs font-semibold text-muted mb-1.5">Google AI Studio API key</label>
                     <div className="flex gap-2 flex-wrap">
                       <input
                         type="password"
-                        className={`min-w-0 flex-1 border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 dark:text-slate-100 focus:outline-none transition-all duration-200 ${errors.gemini_api_key ? "border-rose-500 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500" : "border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"}`}
+                        className={`min-w-0 flex-1 border rounded-lg px-3 py-2 text-sm bg-input dark:text-slate-100 focus:outline-none transition-all duration-200 ${errors.gemini_api_key ? "border-rose-500 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500" : "border-border focus:ring-2 focus:ring-primary/20 focus:border-blue-500"}`}
                         {...register("gemini_api_key")}
                         placeholder={passwordSet ? "••••••••" : "AI Studio API Key"}
                         onChange={(e) => {
@@ -256,7 +256,7 @@ export default function OcrAdminPage() {
                         type="button"
                         onClick={handleTest}
                         disabled={testing}
-                        className="shrink-0 px-4 py-2 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all duration-200 disabled:opacity-50"
+                        className="shrink-0 px-4 py-2 border border-border text-xs font-semibold text-slate-700 dark:text-slate-300 rounded-lg hover:bg-card-hover focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all duration-200 disabled:opacity-50"
                       >
                         {testing ? "Testing..." : "Test Connection"}
                       </button>
@@ -287,7 +287,7 @@ export default function OcrAdminPage() {
               <button
                 type="submit"
                 disabled={!isDirty || saveMutation.isPending}
-                className="px-5 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 shadow-sm transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-5 py-2.5 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-primary/20 shadow-sm transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {saveMutation.isPending ? "Saving..." : "Save Configuration"}
               </button>
@@ -296,21 +296,21 @@ export default function OcrAdminPage() {
 
           {/* OCR Engine Accuracy Comparison Section */}
           {compData && (
-            <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-sm space-y-6 max-w-6xl mx-auto">
-              <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
+            <section className="bg-card border border-border rounded-xl p-6 shadow-sm space-y-6 max-w-6xl mx-auto">
+              <div className="flex items-center gap-2 border-b border-border-subtle pb-3">
                 <Sparkles className="w-5 h-5 text-indigo-500" />
-                <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                <h2 className="text-sm font-semibold uppercase tracking-wider text-foreground">
                   OCR Engine Accuracy Comparison
                 </h2>
               </div>
 
               {compData.history.length === 0 ? (
-                <div className="bg-slate-50 dark:bg-slate-950/20 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl p-8 text-center space-y-2">
-                  <div className="mx-auto w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800/50 flex items-center justify-center text-slate-500 dark:text-slate-400">
+                <div className="bg-background/20 border border-dashed border-border rounded-xl p-8 text-center space-y-2">
+                  <div className="mx-auto w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800/50 flex items-center justify-center text-muted">
                     <Cpu className="w-5 h-5" />
                   </div>
                   <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300">No comparison data available</h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
+                  <p className="text-xs text-muted max-w-sm mx-auto">
                     No OCR scans recorded yet. Create an expense and upload a receipt to begin tracking accuracy.
                   </p>
                 </div>
@@ -318,27 +318,27 @@ export default function OcrAdminPage() {
                 <>
                   <div className="grid grid-cols-1 gap-4">
                     {/* Google Gemini Card */}
-                    <div className="border border-slate-200 dark:border-slate-800 rounded-lg p-4 bg-slate-50 dark:bg-slate-950/40">
-                      <h3 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3 flex items-center justify-between">
+                    <div className="border border-border rounded-lg p-4 bg-background/40">
+                      <h3 className="text-xs font-semibold text-muted uppercase tracking-wider mb-3 flex items-center justify-between">
                         <span>Google Gemini (Cloud)</span>
                         <span className="text-indigo-600 dark:text-indigo-400 font-bold">Accuracy</span>
                       </h3>
                       <div className="space-y-2.5">
                         <div className="flex justify-between text-sm">
                           <span className="text-slate-600 dark:text-slate-400">Amount extraction:</span>
-                          <span className="font-semibold text-slate-800 dark:text-slate-200">{compData.stats.gemini_amount_accuracy}%</span>
+                          <span className="font-semibold text-foreground">{compData.stats.gemini_amount_accuracy}%</span>
                         </div>
                         <div className="flex justify-between text-sm">
                           <span className="text-slate-600 dark:text-slate-400">Date extraction:</span>
-                          <span className="font-semibold text-slate-800 dark:text-slate-200">{compData.stats.gemini_date_accuracy}%</span>
+                          <span className="font-semibold text-foreground">{compData.stats.gemini_date_accuracy}%</span>
                         </div>
                         <div className="flex justify-between text-sm">
                           <span className="text-slate-600 dark:text-slate-400">Merchant name:</span>
-                          <span className="font-semibold text-slate-800 dark:text-slate-200">{compData.stats.gemini_merchant_accuracy}%</span>
+                          <span className="font-semibold text-foreground">{compData.stats.gemini_merchant_accuracy}%</span>
                         </div>
                         <div className="flex justify-between text-sm">
                           <span className="text-slate-600 dark:text-slate-400">Category classification:</span>
-                          <span className="font-semibold text-slate-800 dark:text-slate-200">{compData.stats.gemini_category_accuracy}%</span>
+                          <span className="font-semibold text-foreground">{compData.stats.gemini_category_accuracy}%</span>
                         </div>
                       </div>
                     </div>
@@ -346,11 +346,11 @@ export default function OcrAdminPage() {
 
                   {/* History list */}
                   <div className="space-y-3">
-                    <h3 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                    <h3 className="text-xs font-semibold text-muted uppercase tracking-wider">
                       Scan History & Comparisons (Last {compData.history.length})
                     </h3>
                     {/* Mobile: stacked cards */}
-                    <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg">
+                    <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-800 border border-border rounded-lg">
                       {compData.history.map((row) => {
                         const formatCat = (id: number | null) => {
                           if (!id) return null;
@@ -395,7 +395,7 @@ export default function OcrAdminPage() {
                                 </div>
                                 <div className="text-[10px] text-slate-400 mt-1 flex items-center gap-1.5">
                                   <span>{new Date(row.created_at).toLocaleDateString()}</span>
-                                  <span className={`px-1.5 py-0.5 rounded text-[9px] font-semibold font-mono uppercase tracking-wider ${isFailed ? "bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400 line-through opacity-70" : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400"}`}>
+                                  <span className={`px-1.5 py-0.5 rounded text-[9px] font-semibold font-mono uppercase tracking-wider ${isFailed ? "bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400 line-through opacity-70" : "bg-slate-100 dark:bg-slate-800 text-muted"}`}>
                                     {row.provider || "gemini"}
                                   </span>
                                 </div>
@@ -419,16 +419,16 @@ export default function OcrAdminPage() {
                             <div className="mt-2 space-y-1.5">
                               {fields.map((f) => (
                                 <div key={f.name} className="flex items-center justify-between text-[11px] gap-2">
-                                  <span className="font-medium text-slate-500 dark:text-slate-400 shrink-0 w-16">{f.name}</span>
+                                  <span className="font-medium text-muted shrink-0 w-16">{f.name}</span>
                                   <div className="flex items-center gap-1.5 flex-wrap justify-end">
                                     {f.gem !== null ? (
-                                      <span className={`px-2 py-0.5 rounded border text-[11px] font-medium ${isLinked ? getStatusColor(f.gem, f.final) : "text-slate-600 bg-slate-100/50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-800"}`}>
+                                      <span className={`px-2 py-0.5 rounded border text-[11px] font-medium ${isLinked ? getStatusColor(f.gem, f.final) : "text-slate-600 bg-slate-100/50 dark:bg-slate-800/30 border-border"}`}>
                                         {f.gem}
                                       </span>
                                     ) : (
                                       <span className="text-slate-400">—</span>
                                     )}
-                                    <span className="px-2 py-0.5 rounded bg-blue-50/30 dark:bg-blue-950/10 font-semibold text-slate-800 dark:text-slate-200 text-[11px]">
+                                    <span className="px-2 py-0.5 rounded bg-blue-50/30 dark:bg-blue-950/10 font-semibold text-foreground text-[11px]">
                                       {f.final !== null ? f.final : <span className="text-[10px] text-amber-600 dark:text-amber-400 italic">Pending…</span>}
                                     </span>
                                   </div>
@@ -441,11 +441,11 @@ export default function OcrAdminPage() {
                     </div>
 
                     {/* Desktop: table */}
-                    <div className="hidden md:block overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-lg">
+                    <div className="hidden md:block overflow-x-auto border border-border rounded-lg">
                       <table className="w-full text-left border-collapse text-xs">
                         <thead>
-                          <tr className="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-semibold">
-                            <th className="p-3 border-r border-slate-200 dark:border-slate-800">Receipt / Date</th>
+                          <tr className="bg-slate-50 dark:bg-slate-900 border-b border-border text-muted font-semibold">
+                            <th className="p-3 border-r border-border">Receipt / Date</th>
                             <th className="p-3">Field</th>
                             <th className="p-3 font-semibold text-indigo-600 dark:text-indigo-400">Gemini (Cloud)</th>
                             <th className="p-3 bg-blue-50/50 dark:bg-blue-950/20 font-bold text-blue-800 dark:text-blue-300">Final (Ground Truth)</th>
@@ -491,14 +491,14 @@ export default function OcrAdminPage() {
                             return fields.map((f, index) => (
                               <tr key={`${row.id}-${f.name}`} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20">
                                 {index === 0 && (
-                                  <td rowSpan={4} className="p-3 font-medium text-slate-700 dark:text-slate-300 align-top border-r border-slate-200 dark:border-slate-800">
+                                  <td rowSpan={4} className="p-3 font-medium text-slate-700 dark:text-slate-300 align-top border-r border-border">
                                     <div className="font-semibold truncate max-w-[150px]" title={row.receipt_filename ?? ""}>
                                       {row.receipt_filename ?? "receipt.jpg"}
                                     </div>
                                     <div className="text-[10px] text-slate-400 mt-1 flex flex-col gap-1">
                                       <div className="flex items-center gap-1.5">
                                         <span>{new Date(row.created_at).toLocaleDateString()}</span>
-                                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-semibold font-mono uppercase tracking-wider ${isFailed ? "bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400 line-through opacity-70" : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400"}`}>
+                                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-semibold font-mono uppercase tracking-wider ${isFailed ? "bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400 line-through opacity-70" : "bg-slate-100 dark:bg-slate-800 text-muted"}`}>
                                           {row.provider || "gemini"}
                                         </span>
                                       </div>
@@ -520,17 +520,17 @@ export default function OcrAdminPage() {
                                     )}
                                   </td>
                                 )}
-                                <td className="p-3 font-medium text-slate-500 dark:text-slate-400">{f.name}</td>
+                                <td className="p-3 font-medium text-muted">{f.name}</td>
                                 <td className="p-3">
                                   {f.gem !== null ? (
-                                    <span className={`px-2 py-0.5 rounded border text-[11px] font-medium ${isLinked ? getStatusColor(f.gem, f.final) : "text-slate-600 bg-slate-100/50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-800"}`}>
+                                    <span className={`px-2 py-0.5 rounded border text-[11px] font-medium ${isLinked ? getStatusColor(f.gem, f.final) : "text-slate-600 bg-slate-100/50 dark:bg-slate-800/30 border-border"}`}>
                                       {f.gem}
                                     </span>
                                   ) : (
                                     <span className="text-slate-400">—</span>
                                   )}
                                 </td>
-                                <td className="p-3 bg-blue-50/10 dark:bg-blue-950/5 font-semibold text-slate-800 dark:text-slate-200 border-l border-slate-200 dark:border-slate-800">
+                                <td className="p-3 bg-blue-50/10 dark:bg-blue-950/5 font-semibold text-foreground border-l border-border">
                                   {f.final !== null ? (
                                     f.final
                                   ) : (

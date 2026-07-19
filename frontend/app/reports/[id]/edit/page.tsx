@@ -10,7 +10,7 @@ import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
 const inputCls =
-  "w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:text-slate-100";
+  "w-full border border-input-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100";
 
 function Field({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   return (
@@ -101,7 +101,7 @@ export default function EditReportPage({ params }: { params: Promise<{ id: strin
     onError: (e: any) => setError(e.response?.data?.detail ?? "Failed to save"),
   });
 
-  if (isLoading) return <AppShell><p className="text-slate-400 dark:text-slate-500 text-sm mt-8">Loading...</p></AppShell>;
+  if (isLoading) return <AppShell><p className="text-muted-foreground text-sm mt-8">Loading...</p></AppShell>;
   if (!report) return <AppShell><p className="text-red-500 text-sm">Report not found</p></AppShell>;
   if (report.status !== "draft") {
     return (
@@ -117,15 +117,15 @@ export default function EditReportPage({ params }: { params: Promise<{ id: strin
   return (
     <AppShell>
       <div className="mb-6">
-        <Link href={`/reports/${id}`} className="flex items-center gap-1 text-sm text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 mb-4">
+        <Link href={`/reports/${id}`} className="flex items-center gap-1 text-sm text-muted hover:text-slate-800 dark:hover:text-slate-200 mb-4">
           <ArrowLeft className="w-4 h-4" /> Back to report
         </Link>
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Edit Report</h1>
+        <h1 className="text-2xl font-bold text-foreground">Edit Report</h1>
       </div>
 
       <form
         onSubmit={(e) => { e.preventDefault(); save.mutate(); }}
-        className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-6 max-w-lg space-y-5"
+        className="bg-card rounded-xl shadow-sm p-6 max-w-lg space-y-5"
       >
         {error && <p className="text-red-600 text-sm">{error}</p>}
 
@@ -169,13 +169,13 @@ export default function EditReportPage({ params }: { params: Promise<{ id: strin
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={2}
-            className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none dark:bg-slate-800 dark:text-slate-100"
+            className="w-full border border-input-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none dark:bg-slate-800 dark:text-slate-100"
           />
         </div>
 
         {hasDelegation && (
-          <div className="border border-slate-200 dark:border-slate-700 rounded-lg p-4 space-y-3">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+          <div className="border border-border rounded-lg p-4 space-y-3">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
               Delegation Details
             </p>
             <div className="grid grid-cols-2 gap-3">
@@ -201,14 +201,14 @@ export default function EditReportPage({ params }: { params: Promise<{ id: strin
           <button
             type="submit"
             disabled={save.isPending}
-            className="px-5 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50"
+            className="px-5 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-hover disabled:opacity-50"
           >
             {save.isPending ? "Saving..." : "Save changes"}
           </button>
           <button
             type="button"
             onClick={() => router.push(`/reports/${id}`)}
-            className="px-5 py-2 border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 text-sm font-medium rounded-lg hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700"
+            className="px-5 py-2 border border-input-border text-slate-600 dark:text-slate-400 text-sm font-medium rounded-lg hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700"
           >
             Cancel
           </button>

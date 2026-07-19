@@ -129,8 +129,8 @@ function ExpensesPageContent() {
 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Expenses</h1>
-          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">{expenses?.length ?? 0} total</p>
+          <h1 className="text-2xl font-bold text-foreground">Expenses</h1>
+          <p className="text-muted text-sm mt-1">{expenses?.length ?? 0} total</p>
         </div>
         <div className="flex items-center gap-2">
           <BulkUploadZone isDragging={isDragging} onFilesDropped={handleFilesDropped} />
@@ -147,7 +147,7 @@ function ExpensesPageContent() {
             {exportOpen && (
               <>
                 <div className="fixed inset-0 z-10" onClick={() => setExportOpen(false)} />
-                <div className="absolute right-0 top-full mt-1 w-36 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg z-20">
+                <div className="absolute right-0 top-full mt-1 w-36 bg-input border border-border rounded-lg shadow-lg z-20">
                   <button
                     onClick={() => handleExport("csv")}
                     className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-t-lg"
@@ -166,7 +166,7 @@ function ExpensesPageContent() {
           </div>
           <Link
             href="/expenses/new"
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 w-fit"
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-hover w-fit"
           >
             <Plus className="w-4 h-4" />
             Add expense
@@ -174,7 +174,7 @@ function ExpensesPageContent() {
         </div>
       </div>
 
-      <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm">
+      <div className="bg-card rounded-xl shadow-sm">
         <div className="p-4 border-b border-slate-100 dark:border-slate-700 flex flex-wrap gap-2">
           {["", "draft", "submitted", "paid"].map((s) => (
             <button
@@ -192,7 +192,7 @@ function ExpensesPageContent() {
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
-            className="ml-auto px-3 py-1 border border-slate-200 dark:border-slate-700 rounded-lg text-xs bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300"
+            className="ml-auto px-3 py-1 border border-border rounded-lg text-xs bg-input text-slate-700 dark:text-slate-300"
           >
             <option value="">All categories</option>
             {categories?.map((c) => (
@@ -202,7 +202,7 @@ function ExpensesPageContent() {
         </div>
 
         {isLoading ? (
-          <div className="p-8 text-center text-slate-400 dark:text-slate-500 text-sm">Loading...</div>
+          <div className="p-8 text-center text-muted-foreground text-sm">Loading...</div>
         ) : !expenses?.length ? (
           <EmptyState message="No expenses found" />
         ) : (
@@ -213,13 +213,13 @@ function ExpensesPageContent() {
                 <div key={e.id} className="p-4">
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <p className="font-medium text-slate-800 dark:text-slate-200">{e.merchant || "—"}</p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{e.date} · {e.category_name || "—"}</p>
+                      <p className="font-medium text-foreground">{e.merchant || "—"}</p>
+                      <p className="text-xs text-muted mt-0.5">{e.date} · {e.category_name || "—"}</p>
                     </div>
                     <div className="text-right shrink-0">
-                      <p className="font-semibold text-slate-900 dark:text-slate-100">{formatAmount(e.amount_eur, "EUR")}</p>
+                      <p className="font-semibold text-foreground">{formatAmount(e.amount_eur, "EUR")}</p>
                       {e.currency_original !== "EUR" && (
-                        <p className="text-xs text-slate-400 dark:text-slate-500">
+                        <p className="text-xs text-muted-foreground">
                           {formatAmount(e.amount_original, e.currency_original)}
                           {e.fx_rate_manual && (
                             <span className="ml-1 text-[10px] text-amber-600 dark:text-amber-400 font-medium">manual</span>
@@ -229,7 +229,7 @@ function ExpensesPageContent() {
                     </div>
                   </div>
                   {e.description && (
-                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">{e.description}</p>
+                    <p className="text-sm text-muted mt-2">{e.description}</p>
                   )}
                   <div className="flex items-center justify-between mt-3">
                     <Badge status={e.status} />
@@ -274,7 +274,7 @@ function ExpensesPageContent() {
             {/* Desktop: table */}
             <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-sm">
-                <thead className="bg-slate-50 dark:bg-slate-800 text-xs text-slate-500 dark:text-slate-400 uppercase">
+                <thead className="bg-slate-50 dark:bg-slate-800 text-xs text-muted uppercase">
                   <tr>
                     <th className="text-left px-4 py-3">Date</th>
                     <th className="text-left px-4 py-3">Merchant</th>
@@ -288,17 +288,17 @@ function ExpensesPageContent() {
                 </thead>
                 <tbody>
                   {expenses.map((e) => (
-                    <tr key={e.id} className="border-t border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                    <tr key={e.id} className="border-t border-slate-100 dark:border-slate-700 hover:bg-card-hover/50">
                       <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{e.date}</td>
-                      <td className="px-4 py-3 font-medium text-slate-800 dark:text-slate-200">{e.merchant || "—"}</td>
-                      <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{e.category_name || "—"}</td>
-                      <td className="px-4 py-3 text-slate-500 dark:text-slate-400 max-w-[180px] truncate">{e.description || "—"}</td>
+                      <td className="px-4 py-3 font-medium text-foreground">{e.merchant || "—"}</td>
+                      <td className="px-4 py-3 text-muted">{e.category_name || "—"}</td>
+                      <td className="px-4 py-3 text-muted max-w-[180px] truncate">{e.description || "—"}</td>
                       <td className="px-4 py-3 text-right">
-                        <span className="font-semibold text-slate-900 dark:text-slate-100">
+                        <span className="font-semibold text-foreground">
                           {formatAmount(e.amount_eur, "EUR")}
                         </span>
                         {e.currency_original !== "EUR" && (
-                          <span className="block text-xs text-slate-400 dark:text-slate-500 font-normal">
+                          <span className="block text-xs text-muted-foreground font-normal">
                             {formatAmount(e.amount_original, e.currency_original)}
                             {e.fx_rate_manual && (
                               <span className="ml-1 text-[10px] text-amber-600 dark:text-amber-400 font-medium">manual</span>

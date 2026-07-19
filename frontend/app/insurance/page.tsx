@@ -96,10 +96,10 @@ export default function InsurancePage() {
     <AppShell>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
             <Shield className="w-6 h-6" /> Insurance
           </h1>
-          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
+          <p className="text-muted text-sm mt-1">
             {files?.length ?? 0} file{files?.length !== 1 ? "s" : ""}
           </p>
         </div>
@@ -133,9 +133,9 @@ export default function InsurancePage() {
         <>
           <div className="fixed inset-0 bg-black/40 z-40" onClick={resetForm} />
           <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-slate-900 rounded-xl shadow-xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-card rounded-xl shadow-xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
               <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
                   <Upload className="w-5 h-5 text-emerald-500" /> Upload Insurance File
                 </h2>
                 <button onClick={resetForm} className="text-slate-400 hover:text-slate-600 text-xl">&times;</button>
@@ -147,7 +147,7 @@ export default function InsurancePage() {
                     required
                     value={formUserId}
                     onChange={(e) => setFormUserId(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm"
+                    className="w-full px-3 py-2 border border-input-border rounded-lg bg-input text-foreground text-sm"
                   >
                     <option value="">Select technician...</option>
                     {(users ?? []).filter((u) => u.role === "technician").map((u) => (
@@ -162,7 +162,7 @@ export default function InsurancePage() {
                     value={formTitle}
                     onChange={(e) => setFormTitle(e.target.value)}
                     placeholder="e.g. RCA Insurance 2026"
-                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm"
+                    className="w-full px-3 py-2 border border-input-border rounded-lg bg-input text-foreground text-sm"
                   />
                 </div>
                 <div>
@@ -171,7 +171,7 @@ export default function InsurancePage() {
                     value={formDescription}
                     onChange={(e) => setFormDescription(e.target.value)}
                     rows={2}
-                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm"
+                    className="w-full px-3 py-2 border border-input-border rounded-lg bg-input text-foreground text-sm"
                   />
                 </div>
                 <div>
@@ -206,15 +206,15 @@ export default function InsurancePage() {
       ) : (
         <div className="grid gap-3">
           {files.map((f) => (
-            <div key={f.id} className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div key={f.id} className="bg-card rounded-xl shadow-sm border border-border p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-start gap-3 min-w-0">
                 <div className="w-10 h-10 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center shrink-0">
                   <FileText className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                 </div>
                 <div className="min-w-0">
-                  <h4 className="font-semibold text-slate-900 dark:text-slate-100 text-sm">{f.title}</h4>
-                  {f.description && <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-1">{f.description}</p>}
-                  <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-slate-400 dark:text-slate-500 mt-1">
+                  <h4 className="font-semibold text-foreground text-sm">{f.title}</h4>
+                  {f.description && <p className="text-xs text-muted mt-0.5 line-clamp-1">{f.description}</p>}
+                  <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground mt-1">
                     <span>{f.file_name}</span>
                     <span>{formatSize(f.file_size)}</span>
                     {f.user_display_name && showAll && <span>Assigned: {f.user_display_name}</span>}

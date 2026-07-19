@@ -286,15 +286,15 @@ export default function ImapAdminPage() {
             </div>
           )}
 
-          <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-sm space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+          <section className="bg-card border border-border rounded-xl p-6 shadow-sm space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted">
               Connection
             </h2>
 
             <label className="flex items-center gap-3 text-sm cursor-pointer select-none">
               <input
                 type="checkbox"
-                className="h-4 w-4 rounded border-slate-300 dark:border-slate-600 text-blue-600 focus:ring-blue-500/20 focus:ring-2 focus:ring-offset-0 transition-all duration-200"
+                className="h-4 w-4 rounded border-input-border text-blue-600 focus:ring-primary/20 focus:ring-2 focus:ring-offset-0 transition-all duration-200"
                 {...register("enabled")}
               />
               <span className="text-slate-700 dark:text-slate-300 font-medium">
@@ -304,9 +304,9 @@ export default function ImapAdminPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">IMAP Host</label>
+                <label className="block text-xs font-semibold text-muted mb-1.5">IMAP Host</label>
                 <input
-                  className="w-full border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200"
+                  className="w-full border rounded-lg px-3 py-2 text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
                   {...register("imap_host")}
                   placeholder="imap.company.com"
                 />
@@ -315,15 +315,15 @@ export default function ImapAdminPage() {
                 )}
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">IMAP Port</label>
+                <label className="block text-xs font-semibold text-muted mb-1.5">IMAP Port</label>
                 <input
                   type="text"
                   inputMode="numeric"
                   pattern="[0-9]*"
-                  className={`w-full max-w-[120px] border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 dark:text-slate-100 focus:outline-none transition-all duration-200 ${
+                  className={`w-full max-w-[120px] border rounded-lg px-3 py-2 text-sm bg-input dark:text-slate-100 focus:outline-none transition-all duration-200 ${
                     errors.imap_port
                       ? "border-rose-500 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-                      : "border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                      : "border-border focus:ring-2 focus:ring-primary/20 focus:border-blue-500"
                   }`}
                   {...register("imap_port")}
                 />
@@ -334,9 +334,9 @@ export default function ImapAdminPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Folder to poll</label>
+              <label className="block text-xs font-semibold text-muted mb-1.5">Folder to poll</label>
               <input
-                className="w-full border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200"
+                className="w-full border rounded-lg px-3 py-2 text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
                 {...register("imap_folder")}
                 placeholder="INBOX"
               />
@@ -346,14 +346,14 @@ export default function ImapAdminPage() {
             </div>
           </section>
 
-          <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-sm space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300 delay-75">
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+          <section className="bg-card border border-border rounded-xl p-6 shadow-sm space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300 delay-75">
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted">
               Credentials
             </h2>
             <div>
-              <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Username / Email</label>
+              <label className="block text-xs font-semibold text-muted mb-1.5">Username / Email</label>
               <input
-                className="w-full border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200"
+                className="w-full border rounded-lg px-3 py-2 text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
                 {...register("imap_user")}
                 placeholder="import-reports@company.com"
               />
@@ -362,11 +362,11 @@ export default function ImapAdminPage() {
               )}
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Password</label>
+              <label className="block text-xs font-semibold text-muted mb-1.5">Password</label>
               <div className="space-y-1.5">
                 <input
                   type="password"
-                  className="w-full border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200"
+                  className="w-full border rounded-lg px-3 py-2 text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
                   {...register("imap_pass")}
                   onChange={(e) => {
                     setValue("imap_pass", e.target.value, { shouldDirty: true });
@@ -385,7 +385,7 @@ export default function ImapAdminPage() {
             <button
               type="submit"
               disabled={saveMutation.isPending}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none transition-all duration-200 shadow-sm shadow-blue-500/10 cursor-pointer"
+              className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-hover active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none transition-all duration-200 shadow-sm shadow-blue-500/10 cursor-pointer"
             >
               {saveMutation.isPending ? "Saving…" : "Save Configuration"}
             </button>
@@ -418,10 +418,10 @@ export default function ImapAdminPage() {
           )}
         </form>
 
-        <hr className="border-slate-200 dark:border-slate-800" />
+        <hr className="border-border" />
 
         {/* Email Forward Simulator (Local Testing) */}
-        <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-sm space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300 delay-150">
+        <section className="bg-card border border-border rounded-xl p-6 shadow-sm space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300 delay-150">
           <div>
             <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 tracking-tight flex items-center gap-2">
               <span className="p-1 rounded bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400">
@@ -429,7 +429,7 @@ export default function ImapAdminPage() {
               </span>
               Email Forward Ingestion Simulator
             </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            <p className="text-xs text-muted mt-1">
               Simulate forwarding a standardized job delegation email from a company mailbox. This tool parses the text and automatically inserts a draft report for the matched active user in the database.
             </p>
           </div>
@@ -437,7 +437,7 @@ export default function ImapAdminPage() {
           <div className="space-y-4">
             {/* Sender selection */}
             <div>
-              <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">
+              <label className="block text-xs font-semibold text-muted mb-1.5">
                 Simulated Sender (User Email)
               </label>
               <select
@@ -448,7 +448,7 @@ export default function ImapAdminPage() {
                     setCustomSenderEmail("");
                   }
                 }}
-                className="w-full border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all duration-200 cursor-pointer"
+                className="w-full border rounded-lg px-3 py-2 text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all duration-200 cursor-pointer"
               >
                 <option value="">Select an active user...</option>
                 {usersData?.filter(u => u.is_active && u.email).map((u) => (
@@ -468,7 +468,7 @@ export default function ImapAdminPage() {
                     type="email"
                     value={customSenderEmail}
                     onChange={(e) => setCustomSenderEmail(e.target.value)}
-                    className="w-full border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all duration-200"
+                    className="w-full border rounded-lg px-3 py-2 text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all duration-200"
                     placeholder="technician@nt-automation.eu"
                   />
                 </div>
@@ -477,13 +477,13 @@ export default function ImapAdminPage() {
 
             {/* Parser selection */}
             <div>
-              <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">
+              <label className="block text-xs font-semibold text-muted mb-1.5">
                 Target Parser (Used to generate report)
               </label>
               <select
                 value={selectedParser}
                 onChange={(e) => setSelectedParser(e.target.value as "local" | "gemini")}
-                className="w-full border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all duration-200 cursor-pointer"
+                className="w-full border rounded-lg px-3 py-2 text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all duration-200 cursor-pointer"
               >
                 <option value="local">Local Parser (Keyword Extraction)</option>
                 <option value="gemini">Gemini Parser (Cloud LLM Extraction)</option>
@@ -492,7 +492,7 @@ export default function ImapAdminPage() {
 
             {/* Email Body text */}
             <div>
-              <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5 flex justify-between">
+              <label className="block text-xs font-semibold text-muted mb-1.5 flex justify-between">
                 <span>Standardized Email Body (Job Delegation Format)</span>
                 <button
                   type="button"
@@ -506,7 +506,7 @@ export default function ImapAdminPage() {
                 value={simulationBody}
                 onChange={(e) => setSimulationBody(e.target.value)}
                 rows={12}
-                className="w-full border rounded-lg px-3 py-2 text-xs font-mono bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all duration-200"
+                className="w-full border rounded-lg px-3 py-2 text-xs font-mono bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all duration-200"
                 placeholder="Paste German job delegation email body here..."
               />
             </div>
@@ -536,7 +536,7 @@ export default function ImapAdminPage() {
 
           {/* Simulation Output Result */}
           {simulationResult && (
-            <div className="mt-6 border-t border-slate-100 dark:border-slate-800 pt-6 animate-in fade-in duration-300 space-y-6">
+            <div className="mt-6 border-t border-border-subtle pt-6 animate-in fade-in duration-300 space-y-6">
               {simulationResult.success ? (
                 <div className="bg-emerald-50 border-l-4 border-emerald-500 text-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-300 rounded-r-lg p-4 text-sm flex items-start gap-3 shadow-sm">
                   <span className="text-xl font-bold">✓</span>
@@ -566,7 +566,7 @@ export default function ImapAdminPage() {
               {/* Side-by-side parsers result */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* 1. Local Parser Card */}
-                <div className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-4">
+                <div className="bg-slate-50 dark:bg-slate-900/50 border border-border rounded-xl p-5 space-y-4">
                   <div className="flex items-center justify-between">
                     <h4 className="text-sm font-bold text-slate-700 dark:text-slate-200 flex items-center gap-2">
                       <span className="h-2.5 w-2.5 rounded-full bg-blue-500" />
@@ -580,38 +580,38 @@ export default function ImapAdminPage() {
                   {simulationResult.local_parsed ? (
                     <div className="space-y-3 text-xs">
                       <div>
-                        <span className="block font-semibold text-slate-500 dark:text-slate-400">Report Title</span>
-                        <span className="text-slate-800 dark:text-slate-200 font-medium">{simulationResult.local_parsed.title}</span>
+                        <span className="block font-semibold text-muted">Report Title</span>
+                        <span className="text-foreground font-medium">{simulationResult.local_parsed.title}</span>
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <span className="block font-semibold text-slate-500 dark:text-slate-400">Start Date</span>
-                          <span className="text-slate-800 dark:text-slate-200 font-medium">{simulationResult.local_parsed.date_from}</span>
+                          <span className="block font-semibold text-muted">Start Date</span>
+                          <span className="text-foreground font-medium">{simulationResult.local_parsed.date_from}</span>
                         </div>
                         <div>
-                          <span className="block font-semibold text-slate-500 dark:text-slate-400">End Date</span>
-                          <span className="text-slate-800 dark:text-slate-200 font-medium">{simulationResult.local_parsed.date_to}</span>
+                          <span className="block font-semibold text-muted">End Date</span>
+                          <span className="text-foreground font-medium">{simulationResult.local_parsed.date_to}</span>
                         </div>
                       </div>
                       <div>
-                        <span className="block font-semibold text-slate-500 dark:text-slate-400 mb-1">
+                        <span className="block font-semibold text-muted mb-1">
                           Description
                         </span>
-                        <pre className="text-[10px] font-mono bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-2.5 rounded-lg text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-normal">
+                        <pre className="text-[10px] font-mono bg-card border border-border p-2.5 rounded-lg text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-normal">
                           {simulationResult.local_parsed.description}
                         </pre>
                       </div>
                       <DelegationFields parsed={simulationResult.local_parsed} />
                     </div>
                   ) : (
-                    <div className="text-xs text-slate-400 dark:text-slate-500 italic py-6 text-center">
+                    <div className="text-xs text-muted-foreground italic py-6 text-center">
                       Failed to parse email locally (no date patterns found).
                     </div>
                   )}
                 </div>
 
                 {/* 2. Gemini Parser Card */}
-                <div className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-4">
+                <div className="bg-slate-50 dark:bg-slate-900/50 border border-border rounded-xl p-5 space-y-4">
                   <div className="flex items-center justify-between">
                     <h4 className="text-sm font-bold text-slate-700 dark:text-slate-200 flex items-center gap-2">
                       <span className="h-2.5 w-2.5 rounded-full bg-violet-500 animate-pulse" />
@@ -625,24 +625,24 @@ export default function ImapAdminPage() {
                   {simulationResult.gemini_parsed ? (
                     <div className="space-y-3 text-xs">
                       <div>
-                        <span className="block font-semibold text-slate-500 dark:text-slate-400">Report Title</span>
-                        <span className="text-slate-800 dark:text-slate-200 font-medium">{simulationResult.gemini_parsed.title}</span>
+                        <span className="block font-semibold text-muted">Report Title</span>
+                        <span className="text-foreground font-medium">{simulationResult.gemini_parsed.title}</span>
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <span className="block font-semibold text-slate-500 dark:text-slate-400">Start Date</span>
-                          <span className="text-slate-800 dark:text-slate-200 font-medium">{simulationResult.gemini_parsed.date_from}</span>
+                          <span className="block font-semibold text-muted">Start Date</span>
+                          <span className="text-foreground font-medium">{simulationResult.gemini_parsed.date_from}</span>
                         </div>
                         <div>
-                          <span className="block font-semibold text-slate-500 dark:text-slate-400">End Date</span>
-                          <span className="text-slate-800 dark:text-slate-200 font-medium">{simulationResult.gemini_parsed.date_to}</span>
+                          <span className="block font-semibold text-muted">End Date</span>
+                          <span className="text-foreground font-medium">{simulationResult.gemini_parsed.date_to}</span>
                         </div>
                       </div>
                       <div>
-                        <span className="block font-semibold text-slate-500 dark:text-slate-400 mb-1">
+                        <span className="block font-semibold text-muted mb-1">
                           Description
                         </span>
-                        <pre className="text-[10px] font-mono bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-2.5 rounded-lg text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-normal">
+                        <pre className="text-[10px] font-mono bg-card border border-border p-2.5 rounded-lg text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-normal">
                           {simulationResult.gemini_parsed.description}
                         </pre>
                       </div>
@@ -701,7 +701,7 @@ function DelegationFields({ parsed }: { parsed: EmailSimulationParsed | null | u
 
   return (
     <div>
-      <span className="block font-semibold text-slate-500 dark:text-slate-400 mb-2 text-xs uppercase tracking-wider">
+      <span className="block font-semibold text-muted mb-2 text-xs uppercase tracking-wider">
         Delegation Details
       </span>
       <div className="grid grid-cols-1 gap-y-1.5 text-[11px]">
@@ -709,11 +709,11 @@ function DelegationFields({ parsed }: { parsed: EmailSimulationParsed | null | u
           .filter((f) => f.value && String(f.value).length > 0)
           .map((f) => (
             <div key={f.label} className="flex items-start gap-2">
-              <span className="text-slate-400 dark:text-slate-500 font-medium shrink-0 w-24">
+              <span className="text-muted-foreground font-medium shrink-0 w-24">
                 {f.label}
               </span>
               <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-                <span className="text-slate-800 dark:text-slate-200 break-words">{String(f.value)}</span>
+                <span className="text-foreground break-words">{String(f.value)}</span>
                 {f.badge && (
                   <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
                     Production Line

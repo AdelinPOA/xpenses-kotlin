@@ -71,8 +71,8 @@ export default function ReceiptsCleanupPage() {
       <div className="max-w-4xl mx-auto py-6">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">Receipts Cleanup</h1>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+            <h1 className="text-2xl font-bold text-foreground tracking-tight">Receipts Cleanup</h1>
+            <p className="text-sm text-muted mt-1">
               Scan the filesystem storage for uploaded files that are no longer linked to any database records.
             </p>
           </div>
@@ -80,7 +80,7 @@ export default function ReceiptsCleanupPage() {
             <button
               onClick={() => scanMutation.mutate()}
               disabled={scanMutation.isPending || cleanMutation.isPending}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors cursor-pointer"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover disabled:opacity-50 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors cursor-pointer"
             >
               <RefreshCw className={`w-4 h-4 ${scanMutation.isPending ? "animate-spin" : ""}`} />
               {scanMutation.isPending ? "Scanning..." : "Scan Storage"}
@@ -112,9 +112,9 @@ export default function ReceiptsCleanupPage() {
           </div>
         )}
 
-        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
-          <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
+        <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
+          <div className="px-6 py-4 border-b border-border bg-slate-50 dark:bg-slate-900/50 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-foreground uppercase tracking-wider">
               {scanned ? `Orphan Files Found (${orphans.length})` : "Unscanned State"}
             </h2>
           </div>
@@ -124,7 +124,7 @@ export default function ReceiptsCleanupPage() {
               <div className="text-center py-12">
                 <Trash2 className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-4" />
                 <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">No scan executed</h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
+                <p className="text-xs text-muted max-w-sm mx-auto">
                   Click the &quot;Scan Storage&quot; button above to find files that can be safely deleted.
                 </p>
               </div>
@@ -132,7 +132,7 @@ export default function ReceiptsCleanupPage() {
               <div className="text-center py-12">
                 <CheckCircle className="w-12 h-12 text-green-400 mx-auto mb-4" />
                 <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Storage is clean!</h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
+                <p className="text-xs text-muted max-w-sm mx-auto">
                   All receipt files in the storage volume are correctly matched with expense records in the database.
                 </p>
               </div>
@@ -151,13 +151,13 @@ export default function ReceiptsCleanupPage() {
                 <div className="hidden md:block overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead>
-                      <tr className="border-b border-slate-200 dark:border-slate-800">
+                      <tr className="border-b border-border">
                         <th className="py-3 text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase">File Path (Relative)</th>
                       </tr>
                     </thead>
                     <tbody>
                       {orphans.map((filePath, index) => (
-                        <tr key={index} className="border-b border-slate-100 dark:border-slate-800/50 hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                        <tr key={index} className="border-b border-border-subtle/50 hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
                           <td className="py-3.5 text-sm text-slate-700 dark:text-slate-300 font-mono break-all">{filePath}</td>
                         </tr>
                       ))}
@@ -172,9 +172,9 @@ export default function ReceiptsCleanupPage() {
 
       {showConfirmClean && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xl max-w-sm w-full p-6 space-y-4">
-            <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Clean Orphan Receipts</h3>
-            <p className="text-sm text-slate-500 dark:text-slate-400">
+          <div className="bg-card rounded-xl border border-border shadow-xl max-w-sm w-full p-6 space-y-4">
+            <h3 className="text-lg font-bold text-foreground">Clean Orphan Receipts</h3>
+            <p className="text-sm text-muted">
               Are you sure you want to permanently delete all {orphans.length} orphan receipt files from disk? This action cannot be undone.
             </p>
             <div className="flex justify-end gap-3 pt-2">

@@ -18,10 +18,10 @@ export default function EditExpensePage({ params }: { params: Promise<{ id: stri
   return (
     <AppShell>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Edit Expense</h1>
+        <h1 className="text-2xl font-bold text-foreground">Edit Expense</h1>
       </div>
       {isLoading ? (
-        <p className="text-slate-400 dark:text-slate-500 text-sm">Loading...</p>
+        <p className="text-muted-foreground text-sm">Loading...</p>
       ) : expense ? (
         <ExpenseForm expense={expense} />
       ) : (

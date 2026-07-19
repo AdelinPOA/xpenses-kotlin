@@ -46,12 +46,12 @@ export default function DashboardClient() {
         <div role="status" aria-live="polite" className="animate-pulse space-y-6 mt-8">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {[...Array(4)].map((_, i) => (
-              <div key={i} className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4 h-20" />
+              <div key={i} className="bg-card rounded-xl shadow-sm p-4 h-20" />
             ))}
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-6 h-48" />
-            <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-6 h-48" />
+            <div className="bg-card rounded-xl shadow-sm p-6 h-48" />
+            <div className="bg-card rounded-xl shadow-sm p-6 h-48" />
           </div>
         </div>
       </AppShell>
@@ -63,7 +63,7 @@ export default function DashboardClient() {
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-8">
         <div>
           <DashboardGreeting name={user?.display_name || "Guest"} />
-          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
+          <p className="text-muted text-sm mt-1">
             {showAll ? "Organization-wide overview" : "Here is what's happening with your expenses."}
           </p>
         </div>
@@ -171,7 +171,7 @@ export default function DashboardClient() {
                     <div className="flex items-center justify-between mb-2">
                       <Link
                         href={s.category_id ? `/expenses?category_id=${s.category_id}` : "/expenses"}
-                        className="text-sm font-semibold text-slate-800 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                        className="text-sm font-semibold text-foreground hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
                       >
                         {s.category_name}
                       </Link>
@@ -187,7 +187,7 @@ export default function DashboardClient() {
                           style={{ width: `${percent}%` }}
                         />
                       </div>
-                      <span className="text-xs font-semibold text-slate-400 dark:text-slate-500 shrink-0 w-20 text-right">
+                      <span className="text-xs font-semibold text-muted-foreground shrink-0 w-20 text-right">
                         {s.count} {s.count === 1 ? "expense" : "expenses"}
                       </span>
                     </div>
@@ -210,12 +210,12 @@ export default function DashboardClient() {
           ) : (
             <div className="space-y-3">
               {data.recent_expenses.slice(0, 5).map((e) => (
-                <Link key={e.id} href={`/expenses/${e.id}`} className="group flex items-center justify-between p-3 border border-slate-100/50 dark:border-slate-800/40 hover:border-slate-200 dark:hover:border-slate-700/50 hover:bg-white/90 dark:hover:bg-slate-800/50 rounded-2xl transition-all duration-300 shadow-sm hover:shadow-md">
+                <Link key={e.id} href={`/expenses/${e.id}`} className="group flex items-center justify-between p-3 border border-border-subtle hover:border-slate-200 dark:hover:border-slate-700/50 hover:bg-white/90 dark:hover:bg-slate-800/50 rounded-2xl transition-all duration-300 shadow-sm hover:shadow-md">
                   <div className="min-w-0 flex-1 pr-2">
-                    <p className="text-sm font-bold text-slate-800 dark:text-slate-200 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                    <p className="text-sm font-bold text-foreground truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                       {e.merchant || e.description || "—"}
                     </p>
-                    <p className="text-xs font-medium text-slate-400 dark:text-slate-500 truncate mt-0.5">
+                    <p className="text-xs font-medium text-muted-foreground truncate mt-0.5">
                       {e.date} · {e.category_name || "Uncategorized"}
                       {showAll && e.user_display_name && ` · ${e.user_display_name}`}
                     </p>
@@ -239,7 +239,7 @@ export default function DashboardClient() {
       <Link
         href="/expenses/new"
         aria-label="Add expense"
-        className="md:hidden fixed bottom-6 right-6 z-20 flex items-center justify-center w-14 h-14 rounded-full bg-blue-600 text-white shadow-lg hover:bg-blue-700 active:scale-95 transition-all"
+        className="md:hidden fixed bottom-6 right-6 z-20 flex items-center justify-center w-14 h-14 rounded-full bg-primary text-white shadow-lg hover:bg-primary-hover active:scale-95 transition-all"
       >
         <Plus className="w-6 h-6" />
       </Link>

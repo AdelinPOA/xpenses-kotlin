@@ -149,7 +149,7 @@ export default function SignaturePad({
         ref={canvasRef}
         width={width}
         height={height}
-        className="border border-slate-300 dark:border-slate-600 rounded-lg cursor-crosshair bg-white dark:bg-slate-800 max-w-full h-auto"
+        className="border border-input-border rounded-lg cursor-crosshair bg-input max-w-full h-auto"
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
@@ -162,7 +162,7 @@ export default function SignaturePad({
         <button
           type="button"
           onClick={handleClear}
-          className="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-sm font-medium"
+          className="px-4 py-2 rounded-lg border border-input-border text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-sm font-medium"
         >
           Clear
         </button>
@@ -170,7 +170,7 @@ export default function SignaturePad({
           type="button"
           onClick={handleSave}
           disabled={isEmpty}
-          className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           Save
         </button>

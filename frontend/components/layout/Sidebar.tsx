@@ -71,13 +71,13 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
 
       <aside
         className={clsx(
-          "fixed top-0 left-0 h-full w-[220px] bg-slate-900 text-slate-200 flex flex-col z-40",
+          "fixed top-0 left-0 h-full w-[220px] bg-sidebar text-slate-200 flex flex-col z-40 border-r border-sidebar-border",
           "transition-transform duration-200 ease-in-out",
           "lg:translate-x-0",
           open ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        <div className="px-6 py-4 border-b border-slate-700 flex items-center justify-between">
+        <div className="px-6 py-4 border-b border-sidebar-border flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Image
               src="/logo.png"
@@ -86,7 +86,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
               height={36}
               className={clsx(
                 "rounded-full border-2",
-                user ? "border-slate-600" : "border-transparent"
+                user ? "border-sidebar-border" : "border-transparent"
               )}
             />
             <span className="text-lg font-bold text-white tracking-tight">xpenses</span>
@@ -106,8 +106,8 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                 className={clsx(
                   "flex items-center gap-3 px-3 py-2.5 rounded-lg mb-1 text-sm font-semibold transition-all duration-200 border-l-4",
                   active
-                    ? "text-white bg-slate-800/80 border-blue-500"
-                    : "text-slate-400 border-transparent hover:bg-slate-800/40 hover:text-white"
+                    ? "text-white bg-sidebar-border border-primary"
+                    : "text-slate-400 border-transparent hover:bg-sidebar-border/40 hover:text-white"
                 )}
               >
                 <Icon className="w-4 h-4" />
@@ -117,7 +117,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
           })}
           {(user?.role === "mod" || user?.role === "manager" || user?.role === "chef_finance") && (
             <>
-              <hr className="my-2 border-slate-700" />
+              <hr className="my-2 border-sidebar-border" />
               <p className="px-3 py-1 text-xs font-semibold text-slate-500 uppercase tracking-wider">
                 {user.role === "mod" ? "Admin" : "Directory"}
               </p>
@@ -139,8 +139,8 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                     className={clsx(
                       "flex items-center gap-3 px-3 py-2.5 rounded-lg mb-1 text-sm font-semibold transition-all duration-200 border-l-4",
                       active
-                        ? "text-white bg-slate-800/80 border-blue-500"
-                        : "text-slate-400 border-transparent hover:bg-slate-800/40 hover:text-white"
+                        ? "text-white bg-sidebar-border border-primary"
+                        : "text-slate-400 border-transparent hover:bg-sidebar-border/40 hover:text-white"
                     )}
                   >
                     <Icon className="w-4 h-4" />
@@ -152,7 +152,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
           )}
           {visibleNav.some(({ href }) => href === "/profile/signature") && (
             <>
-              <hr className="my-2 border-slate-700" />
+              <hr className="my-2 border-sidebar-border" />
               {visibleNav.filter(({ href }) => href === "/profile/signature").map(({ href, label, icon: Icon }) => {
                 const active = pathname.startsWith(href);
                 return (
@@ -163,8 +163,8 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                     className={clsx(
                       "flex items-center gap-3 px-3 py-2.5 rounded-lg mb-1 text-sm font-semibold transition-all duration-200 border-l-4",
                       active
-                        ? "text-white bg-slate-800/80 border-blue-500"
-                        : "text-slate-400 border-transparent hover:bg-slate-800/40 hover:text-white"
+                        ? "text-white bg-sidebar-border border-primary"
+                        : "text-slate-400 border-transparent hover:bg-sidebar-border/40 hover:text-white"
                     )}
                   >
                     <Icon className="w-4 h-4" />
@@ -175,7 +175,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
             </>
           )}
         </nav>
-        <div className="px-4 py-4 border-t border-slate-700">
+        <div className="px-4 py-4 border-t border-sidebar-border">
           {user && (
             <div className="mb-3">
               <p className="text-sm font-medium text-white truncate">{user.display_name}</p>
@@ -193,7 +193,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
             <button
               onClick={cycleTheme}
               aria-label={`Current theme: ${THEME_LABELS[theme]}. Click to cycle.`}
-              className="flex items-center gap-1 p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors text-xs"
+              className="flex items-center gap-1 p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-sidebar-border transition-colors text-xs"
             >
               <ThemeIcon className="w-4 h-4" />
               <span>{THEME_LABELS[theme]}</span>

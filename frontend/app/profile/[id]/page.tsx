@@ -56,7 +56,7 @@ export default function UserProfileDetailPage() {
   if (isLoading) {
     return (
       <AppShell>
-        <div className="text-slate-400 dark:text-slate-500 text-sm mt-8">Loading profile...</div>
+        <div className="text-muted-foreground text-sm mt-8">Loading profile...</div>
       </AppShell>
     );
   }
@@ -79,16 +79,16 @@ export default function UserProfileDetailPage() {
           <ArrowLeft className="w-4 h-4" />
           Back
         </button>
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+        <h1 className="text-2xl font-bold text-foreground">
           {isSelf ? "My Profile" : `${profileUser.display_name}'s Profile`}
         </h1>
-        <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
+        <p className="text-muted text-sm mt-1">
           {isSelf ? "Manage your profile details" : "View staff member profile and reports"}
         </p>
       </div>
 
       {!isSelf && (
-        <div className="flex border-b border-slate-200 dark:border-slate-700 mb-6">
+        <div className="flex border-b border-border mb-6">
           <button
             onClick={() => setActiveTab("info")}
             className={`px-4 py-2 text-sm font-semibold border-b-2 transition-all ${
@@ -113,20 +113,20 @@ export default function UserProfileDetailPage() {
       )}
 
       {(isSelf || activeTab === "info") && (
-        <div className="max-w-xl bg-white dark:bg-slate-900 rounded-xl shadow-sm p-6 border border-slate-200 dark:border-slate-700">
+        <div className="max-w-xl bg-card rounded-xl shadow-sm p-6 border border-border">
           <h2 className="text-base font-semibold text-slate-800 dark:text-slate-100 mb-4">Account Information</h2>
           <div className="space-y-4">
             <div>
               <span className="block text-xs font-semibold text-slate-400 uppercase tracking-wider">Username</span>
-              <p className="text-sm text-slate-800 dark:text-slate-200 mt-0.5">{profileUser.username}</p>
+              <p className="text-sm text-foreground mt-0.5">{profileUser.username}</p>
             </div>
             <div>
               <span className="block text-xs font-semibold text-slate-400 uppercase tracking-wider">Display Name</span>
-              <p className="text-sm text-slate-800 dark:text-slate-200 mt-0.5">{profileUser.display_name}</p>
+              <p className="text-sm text-foreground mt-0.5">{profileUser.display_name}</p>
             </div>
             <div>
               <span className="block text-xs font-semibold text-slate-400 uppercase tracking-wider">Email</span>
-              <p className="text-sm text-slate-800 dark:text-slate-200 mt-0.5">{profileUser.email || "No email provided"}</p>
+              <p className="text-sm text-foreground mt-0.5">{profileUser.email || "No email provided"}</p>
             </div>
             <div>
               <span className="block text-xs font-semibold text-slate-400 uppercase tracking-wider">Role</span>
@@ -155,7 +155,7 @@ export default function UserProfileDetailPage() {
           {!reports?.length ? (
             <EmptyState message="No reports found for this user." />
           ) : (
-            <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm overflow-hidden border border-slate-200 dark:border-slate-700">
+            <div className="bg-card rounded-xl shadow-sm overflow-hidden border border-border">
               <>
                 {/* Mobile: stacked cards */}
                 <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-800">
@@ -163,14 +163,14 @@ export default function UserProfileDetailPage() {
                     <div key={report.id} className="p-4">
                       <div className="flex items-start justify-between gap-2">
                         <div>
-                          <p className="font-semibold text-slate-800 dark:text-slate-200">{report.title}</p>
-                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                          <p className="font-semibold text-foreground">{report.title}</p>
+                          <p className="text-xs text-muted mt-0.5">
                             {report.date_from && report.date_to
                               ? `${report.date_from} — ${report.date_to}`
                               : "-"}
                           </p>
                         </div>
-                        <p className="font-bold text-slate-800 dark:text-slate-200 shrink-0">
+                        <p className="font-bold text-foreground shrink-0">
                           {formatEur(report.total_amount)}
                         </p>
                       </div>
@@ -191,7 +191,7 @@ export default function UserProfileDetailPage() {
                 {/* Desktop: table */}
                 <div className="hidden md:block overflow-x-auto">
                   <table className="w-full text-sm">
-                    <thead className="bg-slate-50 dark:bg-slate-800 text-xs text-slate-500 dark:text-slate-400 uppercase">
+                    <thead className="bg-slate-50 dark:bg-slate-800 text-xs text-muted uppercase">
                       <tr>
                         <th className="text-left px-4 py-3">Report Title</th>
                         <th className="text-left px-4 py-3">Date Range</th>
@@ -202,16 +202,16 @@ export default function UserProfileDetailPage() {
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                       {reports.map((report) => (
-                        <tr key={report.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                          <td className="px-4 py-3 font-semibold text-slate-800 dark:text-slate-200">
+                        <tr key={report.id} className="hover:bg-card-hover/50 transition-colors">
+                          <td className="px-4 py-3 font-semibold text-foreground">
                             {report.title}
                           </td>
-                          <td className="px-4 py-3 text-slate-500 dark:text-slate-400">
+                          <td className="px-4 py-3 text-muted">
                             {report.date_from && report.date_to
                               ? `${report.date_from} — ${report.date_to}`
                               : "-"}
                           </td>
-                          <td className="px-4 py-3 text-right font-bold text-slate-800 dark:text-slate-200">
+                          <td className="px-4 py-3 text-right font-bold text-foreground">
                             {formatEur(report.total_amount)}
                           </td>
                           <td className="px-4 py-3 text-center">
@@ -240,8 +240,8 @@ export default function UserProfileDetailPage() {
       {/* Report Summary Modal */}
       {selectedReportId && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-lg border border-slate-200 dark:border-slate-800 max-w-2xl w-full max-h-[85vh] flex flex-col">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800">
+          <div className="bg-card rounded-xl shadow-lg border border-border max-w-2xl w-full max-h-[85vh] flex flex-col">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border-subtle">
               <h3 className="text-base font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
                 <FileText className="w-5 h-5 text-blue-500" />
                 Report Summary
@@ -259,10 +259,10 @@ export default function UserProfileDetailPage() {
                 <div className="text-sm text-slate-400">Loading summary...</div>
               ) : activeReport ? (
                 <>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 dark:bg-slate-950 p-4 rounded-xl">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-background p-4 rounded-xl">
                     <div>
                       <span className="block text-xxs font-bold uppercase tracking-wider text-slate-400">Title</span>
-                      <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{activeReport.title}</p>
+                      <p className="text-sm font-semibold text-foreground">{activeReport.title}</p>
                     </div>
                     <div>
                       <span className="block text-xxs font-bold uppercase tracking-wider text-slate-400">Status</span>
@@ -294,14 +294,14 @@ export default function UserProfileDetailPage() {
                     {!activeReport.expenses?.length ? (
                       <p className="text-xs text-slate-500 italic">No individual expenses attached.</p>
                     ) : (
-                      <div className="border border-slate-100 dark:border-slate-800 rounded-lg divide-y divide-slate-100 dark:divide-slate-850">
+                      <div className="border border-border-subtle rounded-lg divide-y divide-slate-100 dark:divide-slate-850">
                         {activeReport.expenses.map((exp) => (
                           <div key={exp.id} className="p-3 flex items-center justify-between text-xs hover:bg-slate-50/50">
                             <div>
                               <p className="font-semibold text-slate-700 dark:text-slate-300">{exp.merchant || "Unknown Merchant"}</p>
                               <p className="text-slate-400 text-xxs mt-0.5">{exp.category_name} &bull; {exp.date}</p>
                             </div>
-                            <span className="font-bold text-slate-800 dark:text-slate-200">{formatEur(exp.amount_eur)}</span>
+                            <span className="font-bold text-foreground">{formatEur(exp.amount_eur)}</span>
                           </div>
                         ))}
                       </div>
@@ -313,10 +313,10 @@ export default function UserProfileDetailPage() {
               )}
             </div>
 
-            <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 flex justify-between items-center">
+            <div className="px-6 py-4 border-t border-border-subtle bg-slate-50 dark:bg-slate-900/50 flex justify-between items-center">
               <button
                 onClick={() => setSelectedReportId(null)}
-                className="px-4 py-2 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all"
+                className="px-4 py-2 border border-border text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all"
               >
                 Close
               </button>
@@ -326,7 +326,7 @@ export default function UserProfileDetailPage() {
                     setSelectedReportId(null);
                     router.push(`/reports/${activeReport.id}`);
                   }}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg shadow-sm transition-all"
+                  className="px-4 py-2 bg-primary hover:bg-primary-hover text-white text-xs font-semibold rounded-lg shadow-sm transition-all"
                 >
                   View Full Details
                 </button>

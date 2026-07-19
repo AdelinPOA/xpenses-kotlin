@@ -60,7 +60,7 @@ export default function BulkUploadZone({ isDragging, onFilesDropped }: BulkUploa
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
-        className="inline-flex items-center gap-2 px-3 py-2 text-sm font-semibold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 shadow-sm transition-colors"
+        className="inline-flex items-center gap-2 px-3 py-2 text-sm font-semibold rounded-lg border border-slate-300 dark:border-slate-700 bg-card text-slate-700 dark:text-slate-300 hover:bg-card-hover shadow-sm transition-colors"
       >
         <UploadCloud className="w-4 h-4" />
         Upload receipts
@@ -73,7 +73,7 @@ export default function BulkUploadZone({ isDragging, onFilesDropped }: BulkUploa
           <div
             onDragOver={(e) => e.preventDefault()}
             onDrop={handleDrop}
-            className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-blue-600/20 dark:bg-blue-500/20 backdrop-blur-sm border-4 border-dashed border-blue-500 dark:border-blue-400 pointer-events-auto"
+            className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-primary/20 dark:bg-blue-500/20 backdrop-blur-sm border-4 border-dashed border-blue-500 dark:border-blue-400 pointer-events-auto"
           >
             <UploadCloud className="w-16 h-16 text-blue-500 dark:text-blue-400 mb-4 drop-shadow-lg animate-bounce" />
             <p className="text-2xl font-bold text-blue-700 dark:text-blue-300 drop-shadow">

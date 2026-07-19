@@ -90,13 +90,6 @@ export default function DashboardClient() {
 
   return (
     <AppShell>
-      {/* Visual accessibility helpers for E2E tests */}
-      <div className="sr-only">
-        <h1>Good morning, {user?.display_name}!</h1>
-        <div>Total spent this month</div>
-        <div>Draft reports</div>
-      </div>
-
       {/* ── DESKTOP VIEW ONLY ────────────────────────────────────────────────── */}
       <div className="hidden lg:block space-y-8">
         {/* Top Header Navigation Bar */}
@@ -184,7 +177,7 @@ export default function DashboardClient() {
           <div className="bg-card rounded-2xl border border-border p-6 shadow-sm flex flex-col justify-between min-h-[280px]">
             <div>
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Spent this Month</span>
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total spent this month</span>
                 <button className="text-muted-foreground hover:text-foreground">•••</button>
               </div>
               <p className="text-3xl font-extrabold text-foreground mt-2">{formatEur(data?.total_month_eur ?? 0)}</p>
@@ -321,7 +314,7 @@ export default function DashboardClient() {
                   <tr className="border-b border-border-subtle hover:bg-card-hover transition-colors text-sm cursor-pointer" onClick={() => window.location.href = "/reports?status=draft"}>
                     <td className="py-3.5 pr-2 font-semibold text-foreground flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-slate-400" />
-                      Draft
+                      Draft reports
                     </td>
                     <td className="py-3.5 pr-2 text-center text-foreground font-bold">{data?.draft_count ?? 0}</td>
                     <td className="py-3.5 text-right font-extrabold text-foreground">—</td>
@@ -329,7 +322,7 @@ export default function DashboardClient() {
                   <tr className="border-b border-border-subtle hover:bg-card-hover transition-colors text-sm cursor-pointer" onClick={() => window.location.href = "/reports?status=submitted"}>
                     <td className="py-3.5 pr-2 font-semibold text-foreground flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-amber-500" />
-                      Submitted
+                      Submitted reports
                     </td>
                     <td className="py-3.5 pr-2 text-center text-foreground font-bold">{data?.submitted_count ?? 0}</td>
                     <td className="py-3.5 text-right font-extrabold text-foreground">—</td>
@@ -337,7 +330,7 @@ export default function DashboardClient() {
                   <tr className="border-b border-border-subtle hover:bg-card-hover transition-colors text-sm cursor-pointer" onClick={() => window.location.href = "/reports?status=paid"}>
                     <td className="py-3.5 pr-2 font-semibold text-foreground flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                      Paid
+                      Paid reports
                     </td>
                     <td className="py-3.5 pr-2 text-center text-foreground font-bold">{data?.paid_count ?? 0}</td>
                     <td className="py-3.5 text-right font-extrabold text-foreground">—</td>
@@ -355,7 +348,7 @@ export default function DashboardClient() {
         {/* Greeting & Quick Action Row */}
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-bold text-foreground">
-            Hello, {user?.display_name?.split(" ")[0]}!
+            Hello, {user?.display_name}!
           </h1>
           <Link
             href="/expenses/new"
@@ -370,7 +363,7 @@ export default function DashboardClient() {
           {/* Card 1: Spending */}
           <div className="bg-card border border-border rounded-xl p-4 shadow-sm flex flex-col justify-between min-h-[92px]">
             <div>
-              <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest block">This Month's Spending</span>
+              <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest block">Total spent this month</span>
               <p className="text-lg font-black text-foreground mt-1.5 leading-none">{formatEur(data?.total_month_eur ?? 0)}</p>
             </div>
             <div className="flex items-center justify-between mt-2 pt-2 border-t border-border-subtle">

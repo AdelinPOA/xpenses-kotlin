@@ -747,8 +747,6 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
                   
                   <a
                     href={activeItem.url}
-                    target="_blank"
-                    rel="noreferrer"
                     className="absolute bottom-3 right-3 bg-black/60 hover:bg-black/80 text-white text-xs px-2.5 py-1.5 rounded-md backdrop-blur-sm transition-colors duration-150"
                   >
                     View Fullscreen
@@ -762,11 +760,9 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
                     </p>
                     <a
                       href={activeItem.url}
-                      target="_blank"
-                      rel="noreferrer"
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary hover:bg-primary-hover text-white text-xs font-semibold rounded-md transition-colors cursor-pointer"
                     >
-                      Open PDF in New Tab
+                      Open PDF
                     </a>
                   </div>
                   <iframe
@@ -780,8 +776,6 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
                   <p className="text-sm">No preview available for this file type.</p>
                   <a
                     href={activeItem.url}
-                    target="_blank"
-                    rel="noreferrer"
                     className="mt-2 text-xs text-blue-600 dark:text-blue-400 hover:underline"
                   >
                     Download File

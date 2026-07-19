@@ -1,4 +1,4 @@
-const CACHE_NAME = "xpenses-v2";
+const CACHE_NAME = "xpenses-v3";
 const SHELL_URLS = ["/", "/login", "/dashboard", "/expenses", "/reports"];
 
 self.addEventListener("install", (event) => {
@@ -6,7 +6,6 @@ self.addEventListener("install", (event) => {
     (async () => {
       const cache = await caches.open(CACHE_NAME);
       await Promise.allSettled(SHELL_URLS.map((url) => cache.add(url).catch(() => {})));
-      // Activate immediately instead of waiting for all clients to close
       await self.skipWaiting();
     })(),
   );
@@ -28,15 +27,20 @@ self.addEventListener("fetch", (event) => {
 
   if (url.origin !== self.location.origin) return;
 
-  // Never intercept API traffic: authenticated responses must not be cached
-  // (stale data + PII persistence in Cache Storage).
+  // Never intercept document navigations. On iOS standalone PWAs, responding to
+  // mode=navigate via the SW causes Safari to open the result in the browser
+  // instead of staying inside the home-screen app.
+  if (request.mode === "navigate") return;
+
+  // Never intercept API traffic: authenticated responses must not be cached.
   if (url.pathname.startsWith("/api/")) return;
 
-  if (request.mode === "navigate" || request.destination === "style" || request.destination === "script" || request.destination === "font") {
+  if (request.destination === "style" || request.destination === "script" || request.destination === "font") {
     event.respondWith(networkFirst(request));
   } else if (request.destination === "image") {
     event.respondWith(cacheFirst(request));
   } else {
+    // RSC/data fetches etc. — network first, no navigate handling
     event.respondWith(networkFirst(request));
   }
 });
@@ -44,7 +48,7 @@ self.addEventListener("fetch", (event) => {
 async function networkFirst(request) {
   try {
     const response = await fetch(request);
-    if (request.method === "GET") {
+    if (request.method === "GET" && response.ok) {
       const cache = await caches.open(CACHE_NAME);
       cache.put(request, response.clone()).catch(() => {});
     }
@@ -60,7 +64,7 @@ async function cacheFirst(request) {
   if (cached) return cached;
   try {
     const response = await fetch(request);
-    if (request.method === "GET") {
+    if (request.method === "GET" && response.ok) {
       const cache = await caches.open(CACHE_NAME);
       cache.put(request, response.clone()).catch(() => {});
     }

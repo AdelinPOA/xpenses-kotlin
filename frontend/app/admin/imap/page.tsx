@@ -663,11 +663,9 @@ export default function ImapAdminPage() {
                 <div className="flex justify-center pt-2">
                   <Link
                     href={`/reports/${simulationResult.report_id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
                     className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 active:scale-[0.98] transition-all duration-200 cursor-pointer shadow-md shadow-indigo-500/10"
                   >
-                    View Created Draft Report ↗
+                    View Created Draft Report
                   </Link>
                 </div>
               )}

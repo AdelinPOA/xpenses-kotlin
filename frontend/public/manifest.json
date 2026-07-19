@@ -2,8 +2,12 @@
   "name": "xpenses",
   "short_name": "xpenses",
   "description": "Internal expense management",
-  "start_url": "/",
+  "id": "/",
+  "start_url": "/dashboard",
+  "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone", "browser"],
+  "orientation": "any",
   "background_color": "#f8fafc",
   "theme_color": "#f8fafc",
   "icons": [

@@ -10,6 +10,7 @@ import ExpenseStatusOverview from "@/components/dashboard/ExpenseStatusOverview"
 import Badge from "@/components/ui/Badge";
 import EmptyState from "@/components/ui/EmptyState";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import clsx from "clsx";
 import { 
@@ -43,6 +44,7 @@ function getCategoryMeta(categoryName: string | null): { Icon: LucideIcon; color
 }
 
 export default function DashboardClient() {
+  const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const isOrgWideRole = user?.role === "chef_finance" || user?.role === "mod";
   const [showAll, setShowAll] = useState(false);
@@ -224,7 +226,7 @@ export default function DashboardClient() {
                       <tr 
                         key={e.id}
                         className="border-b border-border-subtle hover:bg-card-hover transition-colors text-sm group cursor-pointer"
-                        onClick={() => window.location.href = `/expenses/${e.id}`}
+                        onClick={() => router.push(`/expenses/${e.id}`)}
                       >
                         <td className="py-3 pr-2 font-medium text-muted-foreground">{e.date}</td>
                         <td className="py-3 pr-2 font-semibold text-foreground group-hover:text-primary transition-colors truncate max-w-[120px]">
@@ -272,7 +274,7 @@ export default function DashboardClient() {
                         <tr 
                           key={i} 
                           className="border-b border-border-subtle hover:bg-card-hover transition-colors text-sm cursor-pointer"
-                          onClick={() => window.location.href = s.category_id ? `/expenses?category_id=${s.category_id}` : "/expenses"}
+                          onClick={() => router.push(s.category_id ? `/expenses?category_id=${s.category_id}` : "/expenses")}
                         >
                           <td className="py-3 pr-2 font-semibold text-foreground">{s.category_name}</td>
                           <td className="py-3 pr-2 font-extrabold text-foreground">{formatEur(s.total)}</td>
@@ -311,7 +313,7 @@ export default function DashboardClient() {
                   </tr>
                 </thead>
                 <tbody>
-                  <tr className="border-b border-border-subtle hover:bg-card-hover transition-colors text-sm cursor-pointer" onClick={() => window.location.href = "/reports?status=draft"}>
+                  <tr className="border-b border-border-subtle hover:bg-card-hover transition-colors text-sm cursor-pointer" onClick={() => router.push("/reports?status=draft")}>
                     <td className="py-3.5 pr-2 font-semibold text-foreground flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-slate-400" />
                       Draft reports
@@ -319,7 +321,7 @@ export default function DashboardClient() {
                     <td className="py-3.5 pr-2 text-center text-foreground font-bold">{data?.draft_count ?? 0}</td>
                     <td className="py-3.5 text-right font-extrabold text-foreground">—</td>
                   </tr>
-                  <tr className="border-b border-border-subtle hover:bg-card-hover transition-colors text-sm cursor-pointer" onClick={() => window.location.href = "/reports?status=submitted"}>
+                  <tr className="border-b border-border-subtle hover:bg-card-hover transition-colors text-sm cursor-pointer" onClick={() => router.push("/reports?status=submitted")}>
                     <td className="py-3.5 pr-2 font-semibold text-foreground flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-amber-500" />
                       Submitted reports
@@ -327,7 +329,7 @@ export default function DashboardClient() {
                     <td className="py-3.5 pr-2 text-center text-foreground font-bold">{data?.submitted_count ?? 0}</td>
                     <td className="py-3.5 text-right font-extrabold text-foreground">—</td>
                   </tr>
-                  <tr className="border-b border-border-subtle hover:bg-card-hover transition-colors text-sm cursor-pointer" onClick={() => window.location.href = "/reports?status=paid"}>
+                  <tr className="border-b border-border-subtle hover:bg-card-hover transition-colors text-sm cursor-pointer" onClick={() => router.push("/reports?status=paid")}>
                     <td className="py-3.5 pr-2 font-semibold text-foreground flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-emerald-500" />
                       Paid reports

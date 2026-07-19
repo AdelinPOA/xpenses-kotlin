@@ -56,7 +56,8 @@ api.interceptors.response.use(
       } catch (refreshError) {
         processQueue(refreshError, null);
         if (typeof window !== "undefined") {
-          window.location.href = "/login";
+          // Same-origin assign stays inside iOS standalone PWA (unlike window.open).
+          window.location.assign("/login");
         }
         return Promise.reject(refreshError);
       } finally {
@@ -613,14 +614,12 @@ export async function bulkUploadExpenses(files: File[]): Promise<BulkUploadResul
   return data;
 }
 
-function isIosOrStandalone(): boolean {
-  if (typeof navigator === "undefined") return false;
-  const ua = navigator.userAgent;
-  const isIos = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-  const isStandalone =
-    window.matchMedia?.("(display-mode: standalone)").matches ||
-    (navigator as { standalone?: boolean }).standalone === true;
-  return isIos || isStandalone;
+function isStandalonePwa(): boolean {
+  if (typeof navigator === "undefined" || typeof window === "undefined") return false;
+  return (
+    window.matchMedia?.("(display-mode: standalone)").matches === true ||
+    (navigator as { standalone?: boolean }).standalone === true
+  );
 }
 
 export async function downloadBlob(
@@ -629,22 +628,33 @@ export async function downloadBlob(
   filename: string
 ): Promise<void> {
   const response = await api.get(url, { params, responseType: "blob" });
-  const objectUrl = URL.createObjectURL(response.data);
+  const blob: Blob = response.data;
 
-  if (isIosOrStandalone()) {
-    // iOS Safari / home-screen PWA ignores a[download] for blob URLs and often
-    // fails synthetic clicks entirely — open in a new tab instead.
-    window.open(objectUrl, "_blank");
-  } else {
-    const a = document.createElement("a");
-    a.href = objectUrl;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+  // Prefer Web Share (keeps iOS home-screen PWA in-app). Never window.open —
+  // that always breaks out of standalone into Safari.
+  if (isStandalonePwa() && typeof navigator.share === "function" && typeof navigator.canShare === "function") {
+    try {
+      const file = new File([blob], filename, { type: blob.type || "application/octet-stream" });
+      if (navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: filename });
+        return;
+      }
+    } catch (err) {
+      // User cancelled share or share unsupported for this type — fall through.
+      if (err instanceof DOMException && err.name === "AbortError") return;
+    }
   }
 
-  // Defer revocation — iOS may not have started the navigation yet.
+  const objectUrl = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = objectUrl;
+  a.download = filename;
+  // Stay in the same browsing context (critical for iOS standalone PWA).
+  a.target = "_self";
+  a.rel = "noopener";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
   setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
 }
 

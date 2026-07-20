@@ -67,7 +67,10 @@ class DashboardController(
             .filter { it.expenses.isNotEmpty() }
             .maxWithOrNull(compareBy<ExpenseReport> { it.dateTo ?: it.dateFrom ?: it.createdAt.toString() }.thenBy { it.id })
 
-        val totalLastReportEur = lastReportWithExpenses?.totalAmount ?: BigDecimal.ZERO
+        val totalLastReportEur = lastReportWithExpenses?.expenses
+            ?.map { it.amountEur }
+            ?.fold(BigDecimal.ZERO) { acc, v -> acc.add(v) } 
+            ?: BigDecimal.ZERO
 
         val draftCount = if (isOrgWide) expenseReportRepository.countByStatus("draft").toInt() else expenseReportRepository.countByUserIdAndStatus(currentUser.id!!, "draft").toInt()
         val submittedCount = if (isOrgWide) expenseReportRepository.countByStatus("submitted").toInt() else expenseReportRepository.countByUserIdAndStatus(currentUser.id!!, "submitted").toInt()

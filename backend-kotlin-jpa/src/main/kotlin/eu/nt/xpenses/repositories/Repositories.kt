@@ -54,6 +54,9 @@ interface ExpenseReportRepository : JpaRepository<ExpenseReport, Int> {
     @Query("SELECT DISTINCT r FROM ExpenseReport r LEFT JOIN FETCH r.expenses LEFT JOIN FETCH r.user WHERE r.user.id = :userId AND r.status = :status ORDER BY r.id DESC")
     fun findAllByUserIdAndStatusWithExpenses(@Param("userId") userId: Int, @Param("status") status: String): List<ExpenseReport>
 
+    fun countByStatus(status: String): Long
+    fun countByUserIdAndStatus(userId: Int, status: String): Long
+
     @Query(value = "SELECT * FROM expense_reports WHERE deleted = true", nativeQuery = true)
     fun findDeletedAudit(): List<ExpenseReport>
 }
@@ -62,6 +65,7 @@ interface ExpenseReportRepository : JpaRepository<ExpenseReport, Int> {
 interface ExpenseRepository : JpaRepository<Expense, Int> {
     fun findAllByUserId(userId: Int): List<Expense>
     fun findAllByReportId(reportId: Int): List<Expense>
+    fun countByUserId(userId: Int): Long
 
     @Query("SELECT e FROM Expense e WHERE e.rawOcrText IS NOT NULL AND e.category IS NOT NULL")
     fun findAllWithOcrTrainingData(): List<Expense>

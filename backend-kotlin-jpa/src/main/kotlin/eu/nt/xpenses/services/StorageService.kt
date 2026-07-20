@@ -1,8 +1,9 @@
 package eu.nt.xpenses.services
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.module.kotlin.readValue
 import eu.nt.xpenses.models.AppSetting
+import eu.nt.xpenses.models.StorageConfigDto
+import eu.nt.xpenses.models.LocalStorageConfig
 import eu.nt.xpenses.repositories.AppSettingRepository
 import eu.nt.xpenses.services.storage.S3StorageProvider
 import eu.nt.xpenses.services.storage.StorageProvider
@@ -39,20 +40,20 @@ class StorageService(
     @PostConstruct
     private fun initProvider() {
         val config = getStorageConfig()
-        val providerType = config["provider_type"] as? String ?: "local"
+        val providerType = config.providerType
         remoteProvider = createProvider(providerType, config)
     }
 
-    private fun createProvider(providerType: String, config: Map<String, Any>): StorageProvider? {
+    private fun createProvider(providerType: String, config: StorageConfigDto): StorageProvider? {
         return when (providerType) {
             "s3" -> {
-                val s3Config = config["s3"] as? Map<*, *> ?: return null
+                val s3Config = config.s3 ?: return null
                 S3StorageProvider(
-                    region = s3Config["region"] as? String ?: "us-east-1",
-                    bucket = s3Config["bucket"] as? String ?: return null,
-                    accessKeyId = s3Config["access_key_id"] as? String,
-                    secretAccessKey = s3Config["secret_key"] as? String,
-                    endpointOverride = s3Config["endpoint"] as? String
+                    region = s3Config.region,
+                    bucket = s3Config.bucket,
+                    accessKeyId = s3Config.accessKeyId,
+                    secretAccessKey = s3Config.secretKey,
+                    endpointOverride = s3Config.endpoint
                 )
             }
             "local" -> null
@@ -63,41 +64,41 @@ class StorageService(
         }
     }
 
-    fun getStorageConfig(): Map<String, Any> {
+    fun getStorageConfig(): StorageConfigDto {
         val setting = appSettingRepository.findById("storage_config").orElse(null)
-            ?: return mapOf(
-                "provider_type" to "local",
-                "local" to mapOf("path" to defaultReceiptsDir)
+            ?: return StorageConfigDto(
+                providerType = "local",
+                local = LocalStorageConfig(path = defaultReceiptsDir)
             )
 
-        val data: MutableMap<String, Any> = try {
-            objectMapper.readValue(setting.value)
+        val data: StorageConfigDto = try {
+            objectMapper.readValue(setting.value, StorageConfigDto::class.java)
         } catch (e: Exception) {
-            mutableMapOf()
+            StorageConfigDto()
         }
 
         // Decrypt sensitive fields
-        decryptNestedField(data, "smb", "password")
-        decryptNestedField(data, "webdav", "password")
-        decryptNestedField(data, "sftp", "password")
-        decryptNestedField(data, "s3", "secret_key")
+        data.smb?.password = decryptField(data.smb?.password)
+        data.webdav?.password = decryptField(data.webdav?.password)
+        data.sftp?.password = decryptField(data.sftp?.password)
+        data.s3?.secretKey = decryptField(data.s3?.secretKey)
 
-        if (!data.containsKey("local")) {
-            data["local"] = mapOf("path" to defaultReceiptsDir)
+        if (data.local == null) {
+            data.local = LocalStorageConfig(path = defaultReceiptsDir)
         }
 
         return data
     }
 
-    fun saveStorageConfig(configData: Map<String, Any>) {
+    fun saveStorageConfig(configData: StorageConfigDto) {
         // Create deep copy
         val jsonStr = objectMapper.writeValueAsString(configData)
-        val data: MutableMap<String, Any> = objectMapper.readValue(jsonStr)
+        val data: StorageConfigDto = objectMapper.readValue(jsonStr, StorageConfigDto::class.java)
 
-        encryptNestedField(data, "smb", "password")
-        encryptNestedField(data, "webdav", "password")
-        encryptNestedField(data, "sftp", "password")
-        encryptNestedField(data, "s3", "secret_key")
+        data.smb?.password = encryptField(data.smb?.password, "smb", "password")
+        data.webdav?.password = encryptField(data.webdav?.password, "webdav", "password")
+        data.sftp?.password = encryptField(data.sftp?.password, "sftp", "password")
+        data.s3?.secretKey = encryptField(data.s3?.secretKey, "s3", "secret_key")
 
         val setting = AppSetting(
             key = "storage_config",
@@ -107,18 +108,17 @@ class StorageService(
         appSettingRepository.save(setting)
 
         // Re-initialize provider with updated config
-        val providerType = data["provider_type"] as? String ?: "local"
+        val providerType = data.providerType
         // Decrypt before passing to createProvider
-        val plainConfig: MutableMap<String, Any> = objectMapper.readValue(jsonStr)
+        val plainConfig: StorageConfigDto = objectMapper.readValue(jsonStr, StorageConfigDto::class.java)
         remoteProvider = createProvider(providerType, plainConfig)
     }
 
     fun getLocalPath(relativePath: String): String {
         val config = getStorageConfig()
-        val providerType = config["provider_type"] as? String ?: "local"
+        val providerType = config.providerType
 
-        val localConfig = config["local"] as? Map<*, *>
-        val localPath = localConfig?.get("path") as? String ?: defaultReceiptsDir
+        val localPath = config.local?.path ?: defaultReceiptsDir
         val baseDir = File(localPath).canonicalFile
 
         if (providerType == "local") {
@@ -228,11 +228,10 @@ class StorageService(
         }
     }
 
-    fun testConnection(configData: Map<String, Any>): Map<String, Any?> {
-        val providerType = configData["provider_type"] as? String ?: "local"
+    fun testConnection(configData: StorageConfigDto): Map<String, Any?> {
+        val providerType = configData.providerType
         if (providerType == "local") {
-            val localConfig = configData["local"] as? Map<*, *>
-            val localPath = localConfig?.get("path") as? String ?: defaultReceiptsDir
+            val localPath = configData.local?.path ?: defaultReceiptsDir
             return try {
                 val dir = File(localPath)
                 dir.mkdirs()
@@ -257,44 +256,41 @@ class StorageService(
         return mapOf("ok" to false, "error" to "Storage provider '$providerType' is not implemented. Only 'local' and 's3' are supported.")
     }
 
-    @Suppress("UNCHECKED_CAST")
-    private fun decryptNestedField(data: MutableMap<String, Any>, sectionKey: String, fieldKey: String) {
-        val section = data[sectionKey] as? MutableMap<String, Any> ?: return
-        val encrypted = section[fieldKey] as? String ?: return
-        if (encrypted.isNotEmpty()) {
-            try {
-                section[fieldKey] = cryptoService.decrypt(encrypted, cryptoInfo)
-            } catch (e: Exception) {
-                logger.warn("Failed to decrypt storage config field '$sectionKey.$fieldKey': ${e.message}")
-                section[fieldKey] = ""
-            }
+    private fun decryptField(encrypted: String?): String? {
+        if (encrypted.isNullOrEmpty()) return encrypted
+        return try {
+            cryptoService.decrypt(encrypted, cryptoInfo)
+        } catch (e: Exception) {
+            logger.warn("Failed to decrypt storage config field: ${e.message}")
+            ""
         }
     }
 
-    @Suppress("UNCHECKED_CAST")
-    private fun encryptNestedField(data: MutableMap<String, Any>, sectionKey: String, fieldKey: String) {
-        val section = data[sectionKey] as? MutableMap<String, Any> ?: return
-        val plain = section[fieldKey] as? String ?: return
+    private fun encryptField(plain: String?, sectionKey: String, fieldKey: String): String? {
         if (plain == "••••••••") {
             // Keep existing password
             val existing = getStorageConfig()
-            val existingSection = existing[sectionKey] as? Map<*, *>
-            val existingPlain = existingSection?.get(fieldKey) as? String ?: ""
-            section[fieldKey] = if (existingPlain.isNotEmpty()) {
+            val existingPlain = when (sectionKey) {
+                "smb" -> existing.smb?.password
+                "webdav" -> existing.webdav?.password
+                "sftp" -> existing.sftp?.password
+                "s3" -> existing.s3?.secretKey
+                else -> ""
+            } ?: ""
+            return if (existingPlain.isNotEmpty()) {
                 cryptoService.encrypt(existingPlain, cryptoInfo)
             } else {
                 ""
             }
-        } else if (plain.isNotEmpty()) {
-            section[fieldKey] = cryptoService.encrypt(plain, cryptoInfo)
-        } else {
-            section[fieldKey] = ""
+        } else if (!plain.isNullOrEmpty()) {
+            return cryptoService.encrypt(plain, cryptoInfo)
         }
+        return ""
     }
 
-    fun startMigration(oldConfig: Map<String, Any>, newConfig: Map<String, Any>, receipts: List<eu.nt.xpenses.models.Receipt>) {
-        val newProviderType = newConfig["provider_type"] as? String ?: "local"
-        val oldProviderType = oldConfig["provider_type"] as? String ?: "local"
+    fun startMigration(oldConfig: StorageConfigDto, newConfig: StorageConfigDto, receipts: List<eu.nt.xpenses.models.Receipt>) {
+        val newProviderType = newConfig.providerType
+        val oldProviderType = oldConfig.providerType
 
         val statusSetting = AppSetting(
             key = "storage_migration_status",
@@ -327,8 +323,7 @@ class StorageService(
                             oldProvider.download(path)
                         } else {
                             // local
-                            val localConfig = oldConfig["local"] as? Map<*, *>
-                            val localPath = localConfig?.get("path") as? String ?: defaultReceiptsDir
+                            val localPath = oldConfig.local?.path ?: defaultReceiptsDir
                             val migrationBase = File(localPath).canonicalFile
                             val migrationFile = File(migrationBase, path).canonicalFile
                             if (!migrationFile.canonicalPath.startsWith(migrationBase.canonicalPath + File.separator)) {
@@ -342,8 +337,7 @@ class StorageService(
                             newProvider.upload(path, bytes)
                         } else {
                             // local
-                            val localConfig = newConfig["local"] as? Map<*, *>
-                            val localPath = localConfig?.get("path") as? String ?: defaultReceiptsDir
+                            val localPath = newConfig.local?.path ?: defaultReceiptsDir
                             val dest = File(localPath, path)
                             dest.parentFile?.mkdirs()
                             dest.writeBytes(bytes)
@@ -386,4 +380,3 @@ class StorageService(
         }
     }
 }
-

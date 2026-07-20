@@ -516,14 +516,18 @@ class ReportController(
         }
 
         var reports = if (all && currentUser.role in listOf("chef_finance", "mod", "manager")) {
-            if (userId != null) expenseReportRepository.findAllByUserIdWithExpenses(userId)
-            else expenseReportRepository.findAllWithExpenses()
+            if (userId != null) {
+                if (status != null) expenseReportRepository.findAllByUserIdAndStatusWithExpenses(userId, status)
+                else expenseReportRepository.findAllByUserIdWithExpenses(userId)
+            } else {
+                if (status != null) expenseReportRepository.findAllByStatusWithExpenses(status)
+                else expenseReportRepository.findAllWithExpenses()
+            }
         } else {
             val targetUid = userId ?: currentUser.id!!
-            expenseReportRepository.findAllByUserIdWithExpenses(targetUid)
+            if (status != null) expenseReportRepository.findAllByUserIdAndStatusWithExpenses(targetUid, status)
+            else expenseReportRepository.findAllByUserIdWithExpenses(targetUid)
         }
-
-        if (status != null) reports = reports.filter { it.status == status }
         reports = reports.sortedByDescending { it.createdAt }
 
         val isoFmt = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'")

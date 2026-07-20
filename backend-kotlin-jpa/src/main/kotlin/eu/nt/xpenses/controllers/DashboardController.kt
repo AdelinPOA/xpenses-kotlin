@@ -42,7 +42,7 @@ class DashboardController(
         val canViewAll = currentUser.role in listOf("chef_finance", "mod", "manager")
         val isOrgWide = all && canViewAll
 
-        val expenseCountTotal = if (isOrgWide) expenseRepository.count() else expenseRepository.findAllByUserId(currentUser.id!!).size.toLong()
+        val expenseCountTotal = if (isOrgWide) expenseRepository.count() else expenseRepository.countByUserId(currentUser.id!!).toLong()
         val monthExpenses = if (isOrgWide) {
             expenseRepository.findAllByDateFrom(monthStart)
         } else {
@@ -63,16 +63,18 @@ class DashboardController(
         }
         val userOrOrgReports = reports
 
-        val draftCount = userOrOrgReports.count { it.status == "draft" }
-        val submittedCount = userOrOrgReports.count { it.status == "submitted" }
-        val paidCount = userOrOrgReports.count { it.status == "paid" }
+        val draftCount = if (isOrgWide) expenseReportRepository.countByStatus("draft").toInt() else expenseReportRepository.countByUserIdAndStatus(currentUser.id!!, "draft").toInt()
+        val submittedCount = if (isOrgWide) expenseReportRepository.countByStatus("submitted").toInt() else expenseReportRepository.countByUserIdAndStatus(currentUser.id!!, "submitted").toInt()
+        val paidCount = if (isOrgWide) expenseReportRepository.countByStatus("paid").toInt() else expenseReportRepository.countByUserIdAndStatus(currentUser.id!!, "paid").toInt()
 
         val pendingApprovalCount = if (canApprove) {
-            reports.count { it.status == "submitted" && it.user?.id != currentUser.id }
+            if (isOrgWide) (expenseReportRepository.countByStatus("submitted") - expenseReportRepository.countByUserIdAndStatus(currentUser.id!!, "submitted")).toInt()
+            else 0
         } else 0
 
         val pendingPaymentCount = if (canPay) {
-            reports.count { it.status == "approved" }
+            if (isOrgWide) expenseReportRepository.countByStatus("approved").toInt()
+            else expenseReportRepository.countByUserIdAndStatus(currentUser.id!!, "approved").toInt()
         } else 0
 
         // 3. Category Spend

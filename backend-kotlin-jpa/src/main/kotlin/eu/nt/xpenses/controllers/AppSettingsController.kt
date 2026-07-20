@@ -3,6 +3,7 @@ package eu.nt.xpenses.controllers
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.databind.ObjectMapper
 import eu.nt.xpenses.models.AppSetting
+import eu.nt.xpenses.models.StorageConfigDto
 import eu.nt.xpenses.repositories.AppSettingRepository
 import eu.nt.xpenses.repositories.ReceiptRepository
 import eu.nt.xpenses.services.*
@@ -283,33 +284,24 @@ class AppSettingsController(
     // --- Storage Settings ---
     @GetMapping("/storage")
     @PreAuthorize("hasRole('mod')")
-    fun readStorageSettings(): ResponseEntity<Map<String, Any>> {
+    fun readStorageSettings(): ResponseEntity<StorageConfigDto> {
         val config = storageService.getStorageConfig()
-        val masked = config.toMutableMap()
-        for (ptype in listOf("smb", "webdav", "sftp")) {
-            val section = masked[ptype] as? Map<*, *>
-            if (section != null && section.containsKey("password") && (section["password"] as? String)?.isNotEmpty() == true) {
-                val secMutable = section.toMutableMap()
-                secMutable["password"] = "••••••••"
-                masked[ptype] = secMutable
-            }
-        }
-        val s3 = masked["s3"] as? Map<*, *>
-        if (s3 != null && s3.containsKey("secret_key") && (s3["secret_key"] as? String)?.isNotEmpty() == true) {
-            val s3Mutable = s3.toMutableMap()
-            s3Mutable["secret_key"] = "••••••••"
-            masked["s3"] = s3Mutable
-        }
-        return ResponseEntity.ok(masked)
+        
+        if (!config.smb?.password.isNullOrEmpty()) config.smb?.password = "••••••••"
+        if (!config.webdav?.password.isNullOrEmpty()) config.webdav?.password = "••••••••"
+        if (!config.sftp?.password.isNullOrEmpty()) config.sftp?.password = "••••••••"
+        if (!config.s3?.secretKey.isNullOrEmpty()) config.s3?.secretKey = "••••••••"
+
+        return ResponseEntity.ok(config)
     }
 
     @PatchMapping("/storage")
     @PreAuthorize("hasRole('mod')")
     @Transactional
     fun updateStorageSettings(
-        @RequestBody body: Map<String, Any>,
+        @RequestBody body: StorageConfigDto,
         @RequestParam(name = "migrate_existing", defaultValue = "false") migrateExisting: Boolean
-    ): ResponseEntity<Map<String, Any>> {
+    ): ResponseEntity<StorageConfigDto> {
         val oldConfig = storageService.getStorageConfig()
         storageService.saveStorageConfig(body)
 
@@ -319,50 +311,34 @@ class AppSettingsController(
         }
         
         val updated = storageService.getStorageConfig()
-        val masked = updated.toMutableMap()
-        for (ptype in listOf("smb", "webdav", "sftp")) {
-            val section = masked[ptype] as? Map<*, *>
-            if (section != null && section.containsKey("password") && (section["password"] as? String)?.isNotEmpty() == true) {
-                val secMutable = section.toMutableMap()
-                secMutable["password"] = "••••••••"
-                masked[ptype] = secMutable
-            }
-        }
-        val s3 = masked["s3"] as? Map<*, *>
-        if (s3 != null && s3.containsKey("secret_key") && (s3["secret_key"] as? String)?.isNotEmpty() == true) {
-            val s3Mutable = s3.toMutableMap()
-            s3Mutable["secret_key"] = "••••••••"
-            masked["s3"] = s3Mutable
-        }
-        return ResponseEntity.ok(masked)
+        
+        if (!updated.smb?.password.isNullOrEmpty()) updated.smb?.password = "••••••••"
+        if (!updated.webdav?.password.isNullOrEmpty()) updated.webdav?.password = "••••••••"
+        if (!updated.sftp?.password.isNullOrEmpty()) updated.sftp?.password = "••••••••"
+        if (!updated.s3?.secretKey.isNullOrEmpty()) updated.s3?.secretKey = "••••••••"
+
+        return ResponseEntity.ok(updated)
     }
 
     @PostMapping("/storage/test")
     @PreAuthorize("hasRole('mod')")
-    fun testStorageSettings(@RequestBody body: Map<String, Any>): ResponseEntity<*> {
-        val config = body.toMutableMap()
-        val ptype = config["provider_type"] as? String ?: "local"
+    fun testStorageSettings(@RequestBody body: StorageConfigDto): ResponseEntity<*> {
         val existing = storageService.getStorageConfig()
 
-        if (ptype in listOf("smb", "webdav", "sftp") && config.containsKey(ptype)) {
-            val section = (config[ptype] as? Map<*, *>)?.toMutableMap() ?: mutableMapOf()
-            val pw = section["password"] as? String
-            if (pw == "••••••••" || pw.isNullOrEmpty()) {
-                val existingSection = existing[ptype] as? Map<*, *>
-                section["password"] = existingSection?.get("password") ?: ""
-            }
-            config[ptype] = section
-        } else if (ptype == "s3" && config.containsKey("s3")) {
-            val s3 = (config["s3"] as? Map<*, *>)?.toMutableMap() ?: mutableMapOf()
-            val sk = s3["secret_key"] as? String
-            if (sk == "••••••••" || sk.isNullOrEmpty()) {
-                val existingS3 = existing["s3"] as? Map<*, *>
-                s3["secret_key"] = existingS3?.get("secret_key") ?: ""
-            }
-            config["s3"] = s3
+        if (body.smb?.password == "••••••••" || body.smb?.password.isNullOrEmpty()) {
+            if (body.smb != null) body.smb?.password = existing.smb?.password ?: ""
+        }
+        if (body.webdav?.password == "••••••••" || body.webdav?.password.isNullOrEmpty()) {
+            if (body.webdav != null) body.webdav?.password = existing.webdav?.password ?: ""
+        }
+        if (body.sftp?.password == "••••••••" || body.sftp?.password.isNullOrEmpty()) {
+            if (body.sftp != null) body.sftp?.password = existing.sftp?.password ?: ""
+        }
+        if (body.s3?.secretKey == "••••••••" || body.s3?.secretKey.isNullOrEmpty()) {
+            if (body.s3 != null) body.s3?.secretKey = existing.s3?.secretKey ?: ""
         }
 
-        val result = storageService.testConnection(config)
+        val result = storageService.testConnection(body)
         return ResponseEntity.ok(result)
     }
 
@@ -396,8 +372,7 @@ class AppSettingsController(
     @PreAuthorize("hasRole('mod')")
     fun scanOrphans(): ResponseEntity<*> {
         val config = storageService.getStorageConfig()
-        val localConfig = config["local"] as? Map<*, *>
-        val localPath = localConfig?.get("path") as? String ?: "/app/data/receipts"
+        val localPath = config.local?.path ?: "/app/data/receipts"
         val baseDir = File(localPath).absoluteFile
 
         if (!baseDir.exists() || !baseDir.isDirectory) {
@@ -416,8 +391,7 @@ class AppSettingsController(
     @Transactional
     fun cleanOrphans(): ResponseEntity<*> {
         val config = storageService.getStorageConfig()
-        val localConfig = config["local"] as? Map<*, *>
-        val localPath = localConfig?.get("path") as? String ?: "/app/data/receipts"
+        val localPath = config.local?.path ?: "/app/data/receipts"
         val baseDir = File(localPath).absoluteFile
 
         if (!baseDir.exists() || !baseDir.isDirectory) {

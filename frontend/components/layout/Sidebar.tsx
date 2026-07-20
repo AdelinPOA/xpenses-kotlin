@@ -79,7 +79,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
           open ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        <div className="px-6 py-4 border-b border-sidebar-border flex items-center justify-between">
+        <div className="px-6 py-4 pt-safe border-b border-sidebar-border flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Image
               src="/logo.png"

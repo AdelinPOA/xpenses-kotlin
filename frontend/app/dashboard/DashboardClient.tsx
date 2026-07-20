@@ -179,25 +179,16 @@ export default function DashboardClient() {
           <div className="bg-card rounded-2xl border border-border p-6 shadow-sm flex flex-col justify-between min-h-[280px]">
             <div>
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total spent this month</span>
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total spend last order</span>
                 <button className="text-muted-foreground hover:text-foreground">•••</button>
               </div>
-              <p className="text-3xl font-extrabold text-foreground mt-2">{formatEur(data?.total_month_eur ?? 0)}</p>
+              <p className="text-3xl font-extrabold text-foreground mt-2">{formatEur(data?.total_last_report_eur ?? 0)}</p>
               <p className="text-xs text-muted-foreground mt-1">Total Expense</p>
             </div>
 
             <SpendChart data={chartData} />
 
-            <div className="flex items-center justify-between mt-4 pt-4 border-t border-border-subtle">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded">+12.4%</span>
-                <span className="text-xs text-muted-foreground">vs last month</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">Budget</span>
-                <span className="text-xs font-bold text-foreground">€25k</span>
-              </div>
-            </div>
+
           </div>
 
           {/* Card 2: Recent Expenses Table */}
@@ -365,13 +356,10 @@ export default function DashboardClient() {
           {/* Card 1: Spending */}
           <div className="bg-card border border-border rounded-xl p-4 shadow-sm flex flex-col justify-between min-h-[92px]">
             <div>
-              <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest block">Total spent this month</span>
-              <p className="text-lg font-black text-foreground mt-1.5 leading-none">{formatEur(data?.total_month_eur ?? 0)}</p>
+              <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest block">Total spend last order</span>
+              <p className="text-lg font-black text-foreground mt-1.5 leading-none">{formatEur(data?.total_last_report_eur ?? 0)}</p>
             </div>
-            <div className="flex items-center justify-between mt-2 pt-2 border-t border-border-subtle">
-              <span className="text-[9px] text-muted-foreground">Text label</span>
-              <span className="text-[9px] font-extrabold text-emerald-500 bg-emerald-500/10 px-1 rounded">+12.4%</span>
-            </div>
+
           </div>
 
           {/* Card 2: Requests */}
@@ -380,10 +368,7 @@ export default function DashboardClient() {
               <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest block">Pending Approval</span>
               <p className="text-lg font-black text-foreground mt-1.5 leading-none">{data?.pending_approval_count ?? 0} Requests</p>
             </div>
-            <div className="flex items-center justify-between mt-2 pt-2 border-t border-border-subtle">
-              <span className="text-[9px] text-muted-foreground">Total Pending</span>
-              <span className="text-[9px] font-bold text-foreground">{formatEur(data?.total_month_eur ? data.total_month_eur * 0.3 : 0)}</span>
-            </div>
+
           </div>
         </div>
 

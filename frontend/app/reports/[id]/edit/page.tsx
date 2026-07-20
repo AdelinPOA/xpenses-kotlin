@@ -140,7 +140,7 @@ export default function EditReportPage({ params }: { params: Promise<{ id: strin
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Date from *</label>
             <input
@@ -178,18 +178,18 @@ export default function EditReportPage({ params }: { params: Promise<{ id: strin
             <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
               Delegation Details
             </p>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Field label="Kundenauftrag" value={kundenauftrag} onChange={setKundenauftrag} />
               <Field label="Auftragsart" value={auftragsart} onChange={setAuftragsart} />
             </div>
             <Field label="Positionstyp" value={positionstyp} onChange={setPositionstyp} />
             <Field label="Techn. Platz" value={technplatzRaw} onChange={setTechnplatzRaw} />
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Field label="Kunden-Nr." value={kundeCode} onChange={setKundeCode} />
               <Field label="Kundenname" value={kundeName} onChange={setKundeName} />
             </div>
             <Field label="Adresse" value={adresse} onChange={setAdresse} />
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Field label="Vorgang" value={vorgang} onChange={setVorgang} />
               <Field label="Techniker" value={techniker} onChange={setTechniker} />
             </div>

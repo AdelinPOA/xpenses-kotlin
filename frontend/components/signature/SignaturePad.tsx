@@ -17,20 +17,33 @@ export default function SignaturePad({
   const isDrawingRef = useRef(false);
   const [isEmpty, setIsEmpty] = useState(true);
 
+  // Size the canvas backing store to its rendered CSS width so it fits
+  // narrow screens (e.g. iPhone 375px) and stays crisp on retina displays.
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    const resize = () => {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      const cssWidth = Math.max(1, Math.floor(rect.width));
+      const cssHeight = height;
+      canvas.width = Math.floor(cssWidth * dpr);
+      canvas.height = Math.floor(cssHeight * dpr);
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.lineWidth = 2;
+      const isDark = document.documentElement.classList.contains("dark");
+      ctx.strokeStyle = isDark ? "#ffffff" : "#1e293b";
+    };
 
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    ctx.lineWidth = 2;
-
-    const isDark = document.documentElement.classList.contains("dark");
-    ctx.strokeStyle = isDark ? "#ffffff" : "#1e293b";
-  }, []);
+    resize();
+    window.addEventListener("resize", resize);
+    return () => window.removeEventListener("resize", resize);
+  }, [height]);
 
   function getContext() {
     const canvas = canvasRef.current;
@@ -147,9 +160,8 @@ export default function SignaturePad({
     <div className="flex flex-col gap-3">
       <canvas
         ref={canvasRef}
-        width={width}
-        height={height}
-        className="border border-input-border rounded-lg cursor-crosshair bg-input max-w-full h-auto touch-none"
+        style={{ height }}
+        className="border border-input-border rounded-lg cursor-crosshair bg-input w-full touch-none"
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}

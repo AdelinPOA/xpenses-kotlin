@@ -50,7 +50,12 @@ class DashboardController(
         }
 
         val expenseCountMonth = monthExpenses.size
-        val totalMonthEur = monthExpenses.map { it.amountEur }.fold(BigDecimal.ZERO) { acc, v -> acc.add(v) }
+
+        val lastReportWithExpenses = reports
+            .filter { it.expenses.isNotEmpty() }
+            .maxWithOrNull(compareBy<ExpenseReport> { it.dateTo ?: it.dateFrom ?: it.createdAt.toString() }.thenBy { it.id })
+
+        val totalLastReportEur = lastReportWithExpenses?.totalAmount ?: BigDecimal.ZERO
 
         // 2. Get Reports
         val canApprove = currentUser.role in listOf("manager", "chef_finance", "mod")
@@ -100,7 +105,7 @@ class DashboardController(
         return DashboardStats(
             expenseCountTotal = expenseCountTotal.toInt(),
             expenseCountMonth = expenseCountMonth,
-            totalMonthEur = totalMonthEur,
+            totalLastReportEur = totalLastReportEur,
             draftCount = draftCount,
             submittedCount = submittedCount,
             paidCount = paidCount,
@@ -123,7 +128,7 @@ data class CategorySpend(
 data class DashboardStats(
     @JsonProperty("expense_count_total") val expenseCountTotal: Int,
     @JsonProperty("expense_count_month") val expenseCountMonth: Int,
-    @JsonProperty("total_month_eur") val totalMonthEur: BigDecimal,
+    @JsonProperty("total_last_report_eur") val totalLastReportEur: BigDecimal,
     @JsonProperty("draft_count") val draftCount: Int,
     @JsonProperty("submitted_count") val submittedCount: Int,
     @JsonProperty("paid_count") val paidCount: Int,

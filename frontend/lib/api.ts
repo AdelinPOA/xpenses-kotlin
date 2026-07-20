@@ -221,7 +221,7 @@ export interface Report {
 export interface DashboardStats {
   expense_count_total: number;
   expense_count_month: number;
-  total_month_eur: number;
+  total_last_report_eur: number;
   draft_count: number;
   submitted_count: number;
   paid_count: number;

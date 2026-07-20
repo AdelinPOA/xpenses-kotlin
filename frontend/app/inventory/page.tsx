@@ -354,7 +354,7 @@ export default function InventoryPage() {
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Name *</label>
                   <input required value={formName} onChange={(e) => setFormName(e.target.value)} className="w-full px-3 py-2 border border-input-border rounded-lg bg-input text-foreground text-base sm:text-sm" />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Serial Number</label>
                     <input value={formSerial} onChange={(e) => setFormSerial(e.target.value)} className="w-full px-3 py-2 border border-input-border rounded-lg bg-input text-foreground text-base sm:text-sm" />
@@ -364,7 +364,7 @@ export default function InventoryPage() {
                     <input value={formCategory} onChange={(e) => setFormCategory(e.target.value)} placeholder="e.g. Laptop, Tool" className="w-full px-3 py-2 border border-input-border rounded-lg bg-input text-foreground text-base sm:text-sm" />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Purchase Date</label>
                     <input type="date" value={formPurchaseDate} onChange={(e) => setFormPurchaseDate(e.target.value)} className="w-full px-3 py-2 border border-input-border rounded-lg bg-input text-foreground text-base sm:text-sm" />

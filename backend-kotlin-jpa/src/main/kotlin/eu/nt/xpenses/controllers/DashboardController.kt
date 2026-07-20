@@ -51,11 +51,6 @@ class DashboardController(
 
         val expenseCountMonth = monthExpenses.size
 
-        val lastReportWithExpenses = reports
-            .filter { it.expenses.isNotEmpty() }
-            .maxWithOrNull(compareBy<ExpenseReport> { it.dateTo ?: it.dateFrom ?: it.createdAt.toString() }.thenBy { it.id })
-
-        val totalLastReportEur = lastReportWithExpenses?.totalAmount ?: BigDecimal.ZERO
 
         // 2. Get Reports
         val canApprove = currentUser.role in listOf("manager", "chef_finance", "mod")
@@ -67,6 +62,12 @@ class DashboardController(
             expenseReportRepository.findAllByUserId(currentUser.id!!)
         }
         val userOrOrgReports = reports
+
+        val lastReportWithExpenses = reports
+            .filter { it.expenses.isNotEmpty() }
+            .maxWithOrNull(compareBy<ExpenseReport> { it.dateTo ?: it.dateFrom ?: it.createdAt.toString() }.thenBy { it.id })
+
+        val totalLastReportEur = lastReportWithExpenses?.totalAmount ?: BigDecimal.ZERO
 
         val draftCount = if (isOrgWide) expenseReportRepository.countByStatus("draft").toInt() else expenseReportRepository.countByUserIdAndStatus(currentUser.id!!, "draft").toInt()
         val submittedCount = if (isOrgWide) expenseReportRepository.countByStatus("submitted").toInt() else expenseReportRepository.countByUserIdAndStatus(currentUser.id!!, "submitted").toInt()

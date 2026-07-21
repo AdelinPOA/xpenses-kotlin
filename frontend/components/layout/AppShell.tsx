@@ -34,10 +34,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </button>
 
         {/* Centered logo & brand */}
-        <div className="absolute inset-x-0 bottom-2.5 flex items-center justify-center gap-2 pointer-events-none">
+        <Link href="/dashboard" className="absolute inset-x-0 bottom-2.5 flex items-center justify-center gap-2 hover:opacity-90 transition-opacity z-10">
           <Image src="/logo.png" alt="xpenses" width={24} height={24} className="rounded-full" />
           <span className="text-sm font-bold text-foreground tracking-tight">xpenses</span>
-        </div>
+        </Link>
 
         {/* Right side profile */}
         <Link

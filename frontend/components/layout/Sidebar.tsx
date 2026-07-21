@@ -79,8 +79,12 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
           open ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        <div className="px-6 py-4 pt-safe border-b border-sidebar-border flex items-center justify-between">
-          <div className="flex items-center gap-2">
+        <div className="px-6 pt-6 pb-4 pt-safe border-b border-sidebar-border flex items-center justify-between">
+          <Link
+            href="/dashboard"
+            onClick={onClose}
+            className="flex items-center gap-2 hover:opacity-90 transition-opacity cursor-pointer"
+          >
             <Image
               src="/logo.png"
               alt="Newtech Automation"
@@ -92,7 +96,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
               )}
             />
             <span className="text-lg font-bold text-white tracking-tight">xpenses</span>
-          </div>
+          </Link>
           <button onClick={onClose} aria-label="Close navigation" className="lg:hidden p-3 -m-2 text-slate-400 hover:text-white">
             <X className="w-5 h-5" />
           </button>

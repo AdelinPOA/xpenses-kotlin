@@ -79,7 +79,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
           open ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        <div className="px-6 pt-6 pb-4 pt-safe border-b border-sidebar-border flex items-center justify-between">
+        <div className="px-6 pb-4 border-b border-sidebar-border flex items-center justify-between" style={{ paddingTop: "calc(1.5rem + env(safe-area-inset-top, 0px))" }}>
           <Link
             href="/dashboard"
             onClick={onClose}

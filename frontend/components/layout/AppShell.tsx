@@ -24,29 +24,34 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen min-h-dvh bg-background text-foreground flex flex-col">
       {/* Mobile header matching mockup */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 h-[calc(3.5rem+env(safe-area-inset-top,0px))] pt-safe box-border bg-card border-b border-border flex items-end px-4 z-30 shadow-sm">
-        <button
-          onClick={() => setSidebarOpen(true)}
-          className="absolute left-2 bottom-2.5 p-2 text-muted hover:bg-card-hover rounded-lg"
-          aria-label="Open sidebar"
-        >
-          <Menu className="w-5 h-5" />
-        </button>
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-30 bg-card border-b border-border shadow-sm pt-safe">
+        <div className="h-14 px-4 flex items-center justify-between relative">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="p-2 -ml-2 text-muted hover:bg-card-hover rounded-lg flex items-center justify-center shrink-0 z-20"
+            aria-label="Open sidebar"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
 
-        {/* Centered logo & brand */}
-        <Link href="/dashboard" className="absolute inset-x-0 bottom-2.5 flex items-center justify-center gap-2 hover:opacity-90 transition-opacity z-10">
-          <Image src="/logo.png" alt="xpenses" width={24} height={24} className="rounded-full" />
-          <span className="text-sm font-bold text-foreground tracking-tight">xpenses</span>
-        </Link>
+          {/* Centered logo & brand */}
+          <Link
+            href="/dashboard"
+            className="absolute inset-0 flex items-center justify-center gap-2 hover:opacity-90 transition-opacity z-10 pointer-events-auto"
+          >
+            <Image src="/logo.png" alt="xpenses" width={26} height={26} className="rounded-full" />
+            <span className="text-base font-bold text-foreground tracking-tight">xpenses</span>
+          </Link>
 
-        {/* Right side profile */}
-        <Link
-          href="/profile"
-          className="absolute right-2 bottom-2.5 w-6 h-6 rounded-full bg-primary/20 border border-primary flex items-center justify-center text-primary font-bold text-[10px]"
-          aria-label="Profile"
-        >
-          {user?.display_name?.charAt(0) || "U"}
-        </Link>
+          {/* Right side profile */}
+          <Link
+            href="/profile"
+            className="w-7 h-7 rounded-full bg-primary/20 border border-primary flex items-center justify-center text-primary font-bold text-xs shrink-0 z-20"
+            aria-label="Profile"
+          >
+            {user?.display_name?.charAt(0) || "U"}
+          </Link>
+        </div>
       </div>
 
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />

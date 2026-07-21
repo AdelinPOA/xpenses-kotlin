@@ -35,9 +35,9 @@
     "semantic_hash": "f9fe259a825b6e1bd6f60712136ac880"
   },
   "backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/config/SecurityConfig.kt": {
-    "mtime": 1783778710.032006,
-    "ast_hash": "670f4ff6945f54d44308b479e9084df4",
-    "semantic_hash": "670f4ff6945f54d44308b479e9084df4"
+    "mtime": 1784660723.049905,
+    "ast_hash": "bbd9013e4bb9d958fe591a5d1ac13ac3",
+    "semantic_hash": ""
   },
   "backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/config/ValidationExceptionHandler.kt": {
     "mtime": 1782847618.0238101,
@@ -50,14 +50,14 @@
     "semantic_hash": "c547e9322ead1dca6fb82dcf618a2d55"
   },
   "backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/AppSettingsController.kt": {
-    "mtime": 1782573207.4944491,
-    "ast_hash": "e2169346f66e0883532920bc03af9835",
-    "semantic_hash": "e2169346f66e0883532920bc03af9835"
+    "mtime": 1784589116.0786283,
+    "ast_hash": "c7bec83149a951681d36809e0ffc3e2b",
+    "semantic_hash": ""
   },
   "backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/AuthController.kt": {
-    "mtime": 1784232501.299297,
-    "ast_hash": "21167430d0bd839c0f8264468dcb6a37",
-    "semantic_hash": "21167430d0bd839c0f8264468dcb6a37"
+    "mtime": 1784656662.7615342,
+    "ast_hash": "cd50e42c6cb732516ec126c945b1c99f",
+    "semantic_hash": ""
   },
   "backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/BulkExpenseController.kt": {
     "mtime": 1782813731.8647883,
@@ -70,14 +70,14 @@
     "semantic_hash": "d18812989c8c6e1332232d035f60a5f7"
   },
   "backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/DashboardController.kt": {
-    "mtime": 1782499302.3061974,
-    "ast_hash": "227b704e7fa8bdf023b97968d30a9410",
-    "semantic_hash": "227b704e7fa8bdf023b97968d30a9410"
+    "mtime": 1784657546.5071998,
+    "ast_hash": "3c9ef893ba13427dab7a99cfe6ccd7db",
+    "semantic_hash": ""
   },
   "backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/ExpenseController.kt": {
-    "mtime": 1784016646.067769,
-    "ast_hash": "8abebd0c0e2d71f83f9532c9b732a036",
-    "semantic_hash": "8abebd0c0e2d71f83f9532c9b732a036"
+    "mtime": 1784656613.5939038,
+    "ast_hash": "cf2165f22f33e1d9c79d15e0acf09c5b",
+    "semantic_hash": ""
   },
   "backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/HealthController.kt": {
     "mtime": 1782293213.7576685,
@@ -110,9 +110,9 @@
     "semantic_hash": "d9c4c9db2dd93538869e1b6ccb6b307d"
   },
   "backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/ReportController.kt": {
-    "mtime": 1782397012.0871134,
-    "ast_hash": "b7652c7f9521b938ee6ab0e11c8759de",
-    "semantic_hash": "b7652c7f9521b938ee6ab0e11c8759de"
+    "mtime": 1784657630.25859,
+    "ast_hash": "e382f8c3bc3519602142ab81a2a4d5ad",
+    "semantic_hash": ""
   },
   "backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/SignatureController.kt": {
     "mtime": 1782293213.7616684,
@@ -125,9 +125,9 @@
     "semantic_hash": "967195f3395108776a4fe15d9110ffeb"
   },
   "backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/models/Models.kt": {
-    "mtime": 1784016636.8238468,
-    "ast_hash": "91b477ca49f595a7b0904a15d0efd5c7",
-    "semantic_hash": "91b477ca49f595a7b0904a15d0efd5c7"
+    "mtime": 1784657113.7342942,
+    "ast_hash": "1671852947de870177ee371ab072e893",
+    "semantic_hash": ""
   },
   "backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/models/PagedResponse.kt": {
     "mtime": 1782293213.7616684,
@@ -140,9 +140,9 @@
     "semantic_hash": "cb4f4f69045d785cd3f7d9c0013c35fa"
   },
   "backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/repositories/Repositories.kt": {
-    "mtime": 1782744185.1582408,
-    "ast_hash": "7cec8d2b99999f9349e3e9da549faf37",
-    "semantic_hash": "7cec8d2b99999f9349e3e9da549faf37"
+    "mtime": 1784660751.8816772,
+    "ast_hash": "5819e4e43f8c282185dce3ffd835a5a3",
+    "semantic_hash": ""
   },
   "backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/security/JwtAuthenticationFilter.kt": {
     "mtime": 1782397012.0871134,
@@ -160,9 +160,9 @@
     "semantic_hash": "003a7ec54f4f806c09c60508b6106468"
   },
   "backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/CryptoService.kt": {
-    "mtime": 1782397012.0871134,
-    "ast_hash": "7b2f185e3ee2d08967a85fc7f11d1a91",
-    "semantic_hash": "7b2f185e3ee2d08967a85fc7f11d1a91"
+    "mtime": 1784660712.197991,
+    "ast_hash": "d3fe372af175e3f8b96c689a82bbec68",
+    "semantic_hash": ""
   },
   "backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/EmailImportService.kt": {
     "mtime": 1782813731.8647883,
@@ -215,9 +215,9 @@
     "semantic_hash": "a730e4a96e8dcc7b6556b7cd7afda905"
   },
   "backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/StorageService.kt": {
-    "mtime": 1782397200.8650975,
-    "ast_hash": "767985fe5c7291067aeac3d2fd8a8fda",
-    "semantic_hash": "767985fe5c7291067aeac3d2fd8a8fda"
+    "mtime": 1784589100.2867513,
+    "ast_hash": "99ee371e862ad9ef5169586f1339922e",
+    "semantic_hash": ""
   },
   "backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/storage/S3StorageProvider.kt": {
     "mtime": 1782397012.0911133,
@@ -390,9 +390,9 @@
     "semantic_hash": "f280a2c1860931a66a064cda28503a23"
   },
   "backend-kotlin-jpa/src/test/kotlin/eu/nt/xpenses/controllers/ExpenseControllerTest.kt": {
-    "mtime": 1782813731.8687882,
-    "ast_hash": "5fde5d40d7480170932d43a65bcca35f",
-    "semantic_hash": "5fde5d40d7480170932d43a65bcca35f"
+    "mtime": 1784656684.1413736,
+    "ast_hash": "e3792fc39ce02f7f09a48379219858f4",
+    "semantic_hash": ""
   },
   "backend-kotlin-jpa/src/test/kotlin/eu/nt/xpenses/controllers/InsuranceControllerTest.kt": {
     "mtime": 1783778535.1452663,
@@ -425,9 +425,9 @@
     "semantic_hash": "59a5a759eeef8156786f3d3b5e0b9cc2"
   },
   "backend-kotlin-jpa/src/test/kotlin/eu/nt/xpenses/report/ReportStateMachineTest.kt": {
-    "mtime": 1782397315.7119699,
-    "ast_hash": "85f5f018648a694ece32188f6b703e44",
-    "semantic_hash": "85f5f018648a694ece32188f6b703e44"
+    "mtime": 1784656927.4515798,
+    "ast_hash": "ddf0d588ecac133bbb9ae91381ec870c",
+    "semantic_hash": ""
   },
   "backend-kotlin-jpa/src/test/kotlin/eu/nt/xpenses/services/ExpenseServiceTest.kt": {
     "mtime": 1784016909.9095535,
@@ -510,9 +510,9 @@
     "semantic_hash": "60cc039516f43d43da8c3b4271e38016"
   },
   "frontend/app/dashboard/DashboardClient.tsx": {
-    "mtime": 1784485539.151785,
-    "ast_hash": "e0dc84ff062ba92613d455887cf06f91",
-    "semantic_hash": "e0dc84ff062ba92613d455887cf06f91"
+    "mtime": 1784659098.7353497,
+    "ast_hash": "77747fd145eb7ba46988701d8f3f712e",
+    "semantic_hash": ""
   },
   "frontend/app/dashboard/page.tsx": {
     "mtime": 1782293213.7696683,
@@ -630,9 +630,9 @@
     "semantic_hash": "978c1d8d29d098a70500fb0871e905f6"
   },
   "frontend/app/reports/page.tsx": {
-    "mtime": 1784446213.4967356,
-    "ast_hash": "be239bbe540dd7459e09dd01a9321f53",
-    "semantic_hash": "be239bbe540dd7459e09dd01a9321f53"
+    "mtime": 1784656922.271615,
+    "ast_hash": "ef905ee6496366637267f4fb92a5651b",
+    "semantic_hash": ""
   },
   "frontend/components/AuthProvider.tsx": {
     "mtime": 1784466304.5738676,
@@ -660,14 +660,14 @@
     "semantic_hash": "89d8222869750764f0cbf433d9e76634"
   },
   "frontend/components/dashboard/ExpenseStatusOverview.tsx": {
-    "mtime": 1784447866.9868376,
-    "ast_hash": "4681520b6cc5f8ca166de68cc63c1246",
-    "semantic_hash": "4681520b6cc5f8ca166de68cc63c1246"
+    "mtime": 1784658182.4825244,
+    "ast_hash": "fa7725237b39407e6e6d728314e3a120",
+    "semantic_hash": ""
   },
   "frontend/components/dashboard/SpendChart.tsx": {
-    "mtime": 1784466304.5778675,
-    "ast_hash": "52be853d5a02ec1c71f8c90c616f1f32",
-    "semantic_hash": "52be853d5a02ec1c71f8c90c616f1f32"
+    "mtime": 1784658185.8344996,
+    "ast_hash": "4ad7f284f476ebcc0e802cc7d3246af5",
+    "semantic_hash": ""
   },
   "frontend/components/expenses/BulkReviewDrawer.tsx": {
     "mtime": 1784466304.5778675,
@@ -685,14 +685,14 @@
     "semantic_hash": "327c82b2a88c9406371afd6f5a20358f"
   },
   "frontend/components/layout/AppShell.tsx": {
-    "mtime": 1784493111.7636406,
-    "ast_hash": "a0b43667b5ff2725e88b846e91e351a9",
-    "semantic_hash": "a0b43667b5ff2725e88b846e91e351a9"
+    "mtime": 1784660082.3030071,
+    "ast_hash": "49b79a29f63189f1fa5a431e52ca2b0a",
+    "semantic_hash": ""
   },
   "frontend/components/layout/Sidebar.tsx": {
-    "mtime": 1784493320.3660433,
-    "ast_hash": "95d5615f6ce7b47fb42f1ec8e3b36d63",
-    "semantic_hash": "95d5615f6ce7b47fb42f1ec8e3b36d63"
+    "mtime": 1784660089.3589504,
+    "ast_hash": "f12a6d3791b2764acc97068f519f1064",
+    "semantic_hash": ""
   },
   "frontend/components/signature/SignaturePad.tsx": {
     "mtime": 1784492066.5393867,
@@ -715,9 +715,9 @@
     "semantic_hash": "0d80c54b6b8a89bb9f8094e4867d3e91"
   },
   "frontend/lib/api.ts": {
-    "mtime": 1784485650.3676333,
-    "ast_hash": "88b502258c5188a958194588d220607f",
-    "semantic_hash": "88b502258c5188a958194588d220607f"
+    "mtime": 1784660763.4695857,
+    "ast_hash": "9b1d66aff685962e75a1fd1ce646bcc4",
+    "semantic_hash": ""
   },
   "frontend/lib/auth.ts": {
     "mtime": 1782293213.7736683,
@@ -945,19 +945,14 @@
     "semantic_hash": "c27b31f23c889ba3e047b2136584cba0"
   },
   "AGENTS.md": {
-    "mtime": 1784458851.0211837,
-    "ast_hash": "cdc6f858ec35d8edd4a158d10c97b378",
-    "semantic_hash": "cdc6f858ec35d8edd4a158d10c97b378"
+    "mtime": 1784588222.925542,
+    "ast_hash": "f2d797e672bc24c1452012507f314342",
+    "semantic_hash": ""
   },
   "README.md": {
     "mtime": 1783779474.5622342,
     "ast_hash": "1b30aac95d6acfa2fd2f027a816b58d7",
     "semantic_hash": "1b30aac95d6acfa2fd2f027a816b58d7"
-  },
-  "backend-kotlin-jpa/AGENTS.md": {
-    "mtime": 1782397012.0831134,
-    "ast_hash": "5655d1aa0e1cae8a5bfda7a7ec8a402e",
-    "semantic_hash": "5655d1aa0e1cae8a5bfda7a7ec8a402e"
   },
   "backend-kotlin-jpa/deployment.yaml": {
     "mtime": 1782293213.7576685,
@@ -1048,11 +1043,6 @@
     "mtime": 1782293213.7656684,
     "ast_hash": "e0cd99a173c124555386c55069e25410",
     "semantic_hash": "e0cd99a173c124555386c55069e25410"
-  },
-  "frontend/AGENTS.md": {
-    "mtime": 1784480287.9529002,
-    "ast_hash": "afbf272968067c52f4d588f4aa0f2e99",
-    "semantic_hash": "afbf272968067c52f4d588f4aa0f2e99"
   },
   "frontend/playwright-report/index.html": {
     "mtime": 1784480538.503058,
@@ -1168,5 +1158,20 @@
     "mtime": 1782293213.7776682,
     "ast_hash": "803eaf6e0d0164121011cb7dda74ab5a",
     "semantic_hash": "803eaf6e0d0164121011cb7dda74ab5a"
+  },
+  "backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/models/StorageConfigDto.kt": {
+    "mtime": 1784589100.2747512,
+    "ast_hash": "b8982c409e552e3129830b16a28f3be4",
+    "semantic_hash": ""
+  },
+  "handoff.md": {
+    "mtime": 1784660867.8847616,
+    "ast_hash": "49edd367dc2723d938db1512ac1035a8",
+    "semantic_hash": ""
+  },
+  "openspec/specs/backend_optimizations.md": {
+    "mtime": 1784588947.0439436,
+    "ast_hash": "c414a1f6b9b95ece76aaad864075be91",
+    "semantic_hash": ""
   }
 }

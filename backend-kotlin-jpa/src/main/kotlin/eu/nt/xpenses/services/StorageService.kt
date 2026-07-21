@@ -163,6 +163,29 @@ class StorageService(
         return target.absolutePath
     }
 
+    fun validateMagicBytes(bytes: ByteArray, allowedTypes: Set<String> = setOf("image/jpeg", "image/png", "application/pdf", "image/webp")) {
+        if (bytes.size < 4) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "File payload is empty or too small")
+        }
+        val headerHex = bytes.take(8).joinToString("") { "%02X".format(it) }
+        val isJpeg = headerHex.startsWith("FFD8FF")
+        val isPng = headerHex.startsWith("89504E47")
+        val isPdf = headerHex.startsWith("25504446")
+        val isWebp = headerHex.startsWith("52494646") && bytes.size >= 12 && String(bytes.sliceArray(8..11)).equals("WEBP")
+
+        val matched = when {
+            isJpeg -> "image/jpeg"
+            isPng -> "image/png"
+            isPdf -> "application/pdf"
+            isWebp -> "image/webp"
+            else -> "unknown"
+        }
+
+        if (matched !in allowedTypes) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported or invalid file format detected via magic bytes")
+        }
+    }
+
     fun uploadFile(relativePath: String, content: ByteArray) {
         if (content.size > MAX_FILE_SIZE) throw ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, "File too large")
         // Always write to local cache

@@ -56,6 +56,10 @@ class ExportService {
                 val cell = dataRow.createCell(colIdx)
                 when (val v = row[col]) {
                     null -> cell.setCellValue("")
+                    is java.math.BigDecimal -> {
+                        cell.setCellValue(v.toDouble())
+                        cell.cellStyle = numberStyle
+                    }
                     is Number -> {
                         cell.setCellValue(v.toDouble())
                         cell.cellStyle = numberStyle
@@ -79,6 +83,7 @@ class ExportService {
 
     private fun formatValue(v: Any?): String = when (v) {
         null -> ""
+        is java.math.BigDecimal -> v.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString()
         is LocalDate -> v.format(isoDate)
         is LocalDateTime -> v.format(isoDateTime)
         is Double -> "%.2f".format(v)

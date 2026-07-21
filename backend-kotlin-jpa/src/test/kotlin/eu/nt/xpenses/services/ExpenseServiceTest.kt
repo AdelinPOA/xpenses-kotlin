@@ -20,12 +20,15 @@ import org.springframework.web.server.ResponseStatusException
 import java.util.Optional
 import java.time.Instant
 
+import eu.nt.xpenses.repositories.ReceiptRepository
+
 class ExpenseServiceTest {
 
     private val expenseRepository = mock(ExpenseRepository::class.java)
     private val categoryRepository = mock(CategoryRepository::class.java)
     private val expenseReportRepository = mock(ExpenseReportRepository::class.java)
     private val ocrComparisonRepository = mock(OcrComparisonRepository::class.java)
+    private val receiptRepository = mock(ReceiptRepository::class.java)
     private val fxService = mock(FxService::class.java)
     private val storageService = mock(StorageService::class.java)
 
@@ -34,6 +37,7 @@ class ExpenseServiceTest {
         categoryRepository,
         expenseReportRepository,
         ocrComparisonRepository,
+        receiptRepository,
         fxService,
         storageService
     )

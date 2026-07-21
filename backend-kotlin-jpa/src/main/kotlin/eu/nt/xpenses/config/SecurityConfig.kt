@@ -21,11 +21,14 @@ import org.springframework.web.cors.CorsConfigurationSource
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource
 import org.springframework.web.filter.OncePerRequestFilter
 
+import eu.nt.xpenses.security.RateLimitingFilter
+
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
 class SecurityConfig(
     private val jwtFilter: JwtAuthenticationFilter,
+    private val rateLimitingFilter: RateLimitingFilter,
     @Value("\${cors.allowed-origins}")
     private val allowedOrigins: List<String>
 ) {
@@ -59,6 +62,7 @@ class SecurityConfig(
                     .anyRequest().authenticated()
             }
             .addFilterBefore(csrfOriginRefererFilter(), UsernamePasswordAuthenticationFilter::class.java)
+            .addFilterBefore(rateLimitingFilter, UsernamePasswordAuthenticationFilter::class.java)
             .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter::class.java)
         return http.build()
     }
@@ -119,8 +123,11 @@ class SecurityConfig(
 
     private fun extractOriginFromReferer(referer: String): String {
         return try {
-            val parts = referer.split("/")
-            if (parts.size >= 3) "${parts[0]}//${parts[2]}" else referer
+            val uri = java.net.URI(referer)
+            if (uri.scheme != null && uri.host != null) {
+                val portStr = if (uri.port != -1) ":${uri.port}" else ""
+                "${uri.scheme}://${uri.host}$portStr"
+            } else referer
         } catch (_: Exception) {
             referer
         }

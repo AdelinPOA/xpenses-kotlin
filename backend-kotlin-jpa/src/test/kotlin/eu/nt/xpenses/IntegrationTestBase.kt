@@ -49,6 +49,7 @@ abstract class IntegrationTestBase {
             registry.add("jwt.secret") { "test-secret-at-least-32-chars-long" }
             registry.add("encryption.secret") { "test-secret-at-least-32-chars-long" }
             registry.add("bucket4j.enabled") { "false" }
+            registry.add("rate-limiting.enabled") { "false" }
             registry.add("seed.demo.users") { "true" }
         }
     }

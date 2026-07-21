@@ -130,30 +130,39 @@ interface ExpenseRepository : JpaRepository<Expense, Int> {
         pageable: Pageable
     ): Page<Expense>
 
+    @EntityGraph(attributePaths = ["user", "category"])
     @Query("SELECT e FROM Expense e WHERE e.report IS NULL AND e.user.id = :userId")
     fun findUnattachedByUserId(@Param("userId") userId: Int): List<Expense>
 
+    @EntityGraph(attributePaths = ["user", "category"])
     @Query("SELECT e FROM Expense e WHERE e.user.id = :userId AND e.status = :status")
     fun findAllByUserIdAndStatus(@Param("userId") userId: Int, @Param("status") status: String): List<Expense>
 
+    @EntityGraph(attributePaths = ["user", "category"])
     @Query("SELECT e FROM Expense e WHERE e.date >= :fromDate AND e.date <= :toDate")
     fun findAllByDateBetween(@Param("fromDate") fromDate: String, @Param("toDate") toDate: String): List<Expense>
 
+    @EntityGraph(attributePaths = ["user", "category"])
     @Query("SELECT e FROM Expense e WHERE e.user.id = :userId AND e.date >= :fromDate AND e.date <= :toDate")
     fun findAllByUserIdAndDateBetween(@Param("userId") userId: Int, @Param("fromDate") fromDate: String, @Param("toDate") toDate: String): List<Expense>
 
+    @EntityGraph(attributePaths = ["user", "category"])
     @Query("SELECT e FROM Expense e WHERE e.date >= :fromDate")
     fun findAllByDateFrom(@Param("fromDate") fromDate: String): List<Expense>
 
+    @EntityGraph(attributePaths = ["user", "category"])
     @Query("SELECT e FROM Expense e WHERE e.user.id = :userId AND e.date >= :fromDate")
     fun findAllByUserIdAndDateFrom(@Param("userId") userId: Int, @Param("fromDate") fromDate: String): List<Expense>
 
+    @EntityGraph(attributePaths = ["user", "category"])
     @Query("SELECT e FROM Expense e WHERE e.user.id = :userId AND e.date <= :toDate")
     fun findAllByUserIdAndDateTo(@Param("userId") userId: Int, @Param("toDate") toDate: String): List<Expense>
 
+    @EntityGraph(attributePaths = ["user", "category"])
     @Query("SELECT e FROM Expense e ORDER BY e.createdAt DESC")
     fun findRecentExpenses(pageable: Pageable): List<Expense>
 
+    @EntityGraph(attributePaths = ["user", "category"])
     @Query("SELECT e FROM Expense e WHERE e.user.id = :userId ORDER BY e.createdAt DESC")
     fun findRecentExpensesByUserId(@Param("userId") userId: Int, pageable: Pageable): List<Expense>
 

@@ -16,12 +16,15 @@ import java.math.RoundingMode
 import java.time.Instant
 import org.slf4j.LoggerFactory
 
+import eu.nt.xpenses.repositories.ReceiptRepository
+
 @Service
 class ExpenseService(
     private val expenseRepository: ExpenseRepository,
     private val categoryRepository: CategoryRepository,
     private val expenseReportRepository: ExpenseReportRepository,
     private val ocrComparisonRepository: OcrComparisonRepository,
+    private val receiptRepository: ReceiptRepository,
     private val fxService: FxService,
     private val storageService: StorageService
 ) {
@@ -237,7 +240,11 @@ class ExpenseService(
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Only draft expenses can be deleted")
         }
 
-        val paths = expense.receipts.map { it.filePath }
+        val receiptsList = expense.receipts.toList()
+        for (receipt in receiptsList) {
+            receiptRepository.delete(receipt)
+        }
+        val paths = receiptsList.map { it.filePath }
         expenseRepository.delete(expense)
 
         for (path in paths) {

@@ -27,6 +27,7 @@ class CryptoService(
     @PostConstruct
     fun validateSecrets() {
         require(encryptionSecret.isNotBlank()) { "encryption.secret must be configured and non-blank" }
+        require(jwtSecret.isNotBlank()) { "jwt.secret must be configured and non-blank" }
     }
 
     // Derives a Fernet key using HKDF-SHA256

@@ -609,9 +609,9 @@ class ReportController(
                 put("currency", e.currencyOriginal)
                 put("amount_eur", e.amountEur)
                 put("fx_rate", e.fxRate)
-                put("tax_amount", e.taxAmount.toDouble())
-                put("tax_rate", e.taxRate?.toDouble() ?: "")
-                put("tax_amount_eur", e.taxAmountEur.toDouble())
+                put("tax_amount", e.taxAmount)
+                put("tax_rate", e.taxRate ?: "")
+                put("tax_amount_eur", e.taxAmountEur)
                 put("status", e.status)
                 put("report_id", reportId)
             }

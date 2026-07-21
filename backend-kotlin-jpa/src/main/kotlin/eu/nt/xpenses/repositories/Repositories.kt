@@ -57,6 +57,19 @@ interface ExpenseReportRepository : JpaRepository<ExpenseReport, Int> {
     fun countByStatus(status: String): Long
     fun countByUserIdAndStatus(userId: Int, status: String): Long
 
+    @Query("""
+        SELECT r FROM ExpenseReport r
+        WHERE (:userId IS NULL OR r.user.id = :userId)
+          AND (:status IS NULL OR r.status = :status)
+        ORDER BY r.createdAt DESC, r.id DESC
+    """)
+    @EntityGraph(attributePaths = ["user"])
+    fun findAllWithFiltersPaged(
+        @Param("userId") userId: Int?,
+        @Param("status") status: String?,
+        pageable: Pageable
+    ): Page<ExpenseReport>
+
     @Query(value = "SELECT * FROM expense_reports WHERE deleted = true", nativeQuery = true)
     fun findDeletedAudit(): List<ExpenseReport>
 }

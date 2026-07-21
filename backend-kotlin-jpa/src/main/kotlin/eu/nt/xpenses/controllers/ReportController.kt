@@ -69,36 +69,33 @@ class ReportController(
             }
         }
 
-        var reports = if (all && currentUser.role in listOf("chef_finance", "mod", "manager")) {
-            if (userId != null) {
-                if (status != null) expenseReportRepository.findAllByUserIdAndStatusWithExpenses(userId, status)
-                else expenseReportRepository.findAllByUserIdWithExpenses(userId)
-            } else {
-                if (status != null) expenseReportRepository.findAllByStatusWithExpenses(status)
-                else expenseReportRepository.findAllWithExpenses()
-            }
-        } else {
-            val targetUid = userId ?: currentUser.id!!
-            if (status != null) expenseReportRepository.findAllByUserIdAndStatusWithExpenses(targetUid, status)
-            else expenseReportRepository.findAllByUserIdWithExpenses(targetUid)
-        }
-
-        reports = reports.sortedByDescending { it.createdAt }
+        val targetUid: Int? = if (all && currentUser.role in listOf("chef_finance", "mod", "manager")) userId else (userId ?: currentUser.id)
 
         return if (page != null) {
-            val total = reports.size
-            val fromIndex = page * size
-            val toIndex = minOf(fromIndex + size, total)
-            val pageContent = if (fromIndex < total) reports.subList(fromIndex, toIndex) else emptyList()
+            val pageable = org.springframework.data.domain.PageRequest.of(page, size)
+            val result = expenseReportRepository.findAllWithFiltersPaged(targetUid, status, pageable)
             eu.nt.xpenses.models.PagedResponse(
-                data = pageContent.map { mapReportToOut(it) },
-                page = page,
-                size = size,
-                totalElements = total.toLong(),
-                totalPages = if (size > 0) (total + size - 1) / size else 1
+                data = result.content.map { mapReportToOut(it) },
+                page = result.number,
+                size = result.size,
+                totalElements = result.totalElements,
+                totalPages = result.totalPages
             )
         } else {
-            reports.map { mapReportToOut(it) }
+            val reports = if (all && currentUser.role in listOf("chef_finance", "mod", "manager")) {
+                if (userId != null) {
+                    if (status != null) expenseReportRepository.findAllByUserIdAndStatusWithExpenses(userId, status)
+                    else expenseReportRepository.findAllByUserIdWithExpenses(userId)
+                } else {
+                    if (status != null) expenseReportRepository.findAllByStatusWithExpenses(status)
+                    else expenseReportRepository.findAllWithExpenses()
+                }
+            } else {
+                val uid = userId ?: currentUser.id!!
+                if (status != null) expenseReportRepository.findAllByUserIdAndStatusWithExpenses(uid, status)
+                else expenseReportRepository.findAllByUserIdWithExpenses(uid)
+            }
+            reports.sortedByDescending { it.createdAt }.map { mapReportToOut(it) }
         }
     }
 

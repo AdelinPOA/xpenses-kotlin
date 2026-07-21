@@ -42,7 +42,7 @@ class DashboardController(
         val canViewAll = currentUser.role in listOf("chef_finance", "mod", "manager")
         val isOrgWide = all && canViewAll
 
-        val expenseCountTotal = if (isOrgWide) expenseRepository.count() else expenseRepository.countByUserId(currentUser.id!!).toLong()
+        val expenseCountTotal = if (isOrgWide) expenseRepository.count() else expenseRepository.countByUserId(currentUser.id!!)
         val monthExpenses = if (isOrgWide) {
             expenseRepository.findAllByDateFrom(monthStart)
         } else {

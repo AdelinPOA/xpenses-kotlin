@@ -179,7 +179,7 @@ export default function DashboardClient() {
           <div className="bg-card rounded-2xl border border-border p-6 shadow-sm flex flex-col justify-between min-h-[280px]">
             <div>
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total spend last order</span>
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total Spend (Last Order / Report)</span>
                 <button className="text-muted-foreground hover:text-foreground">•••</button>
               </div>
               <p className="text-3xl font-extrabold text-foreground mt-2">{formatEur(data?.total_last_report_eur ?? 0)}</p>
@@ -253,34 +253,39 @@ export default function DashboardClient() {
                       <th className="pb-3 pr-2">Category</th>
                       <th className="pb-3 pr-2">Total Spent</th>
                       <th className="pb-3 pr-2">Transactions</th>
-                      <th className="pb-3 w-32">Budget Status</th>
+                      <th className="pb-3 w-32">% Share</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {data.spend_by_category.map((s, i) => {
-                      const maxTotal = Math.max(...data.spend_by_category.map((c) => c.total), 1);
-                      const percent = Math.min((s.total / maxTotal) * 100, 100);
+                    {(() => {
+                      const totalCategorySpend = data.spend_by_category.reduce((sum, c) => sum + c.total, 0) || 1;
+                      return data.spend_by_category.map((s, i) => {
+                        const percent = Math.min((s.total / totalCategorySpend) * 100, 100);
 
-                      return (
-                        <tr 
-                          key={i} 
-                          className="border-b border-border-subtle hover:bg-card-hover transition-colors text-sm cursor-pointer"
-                          onClick={() => router.push(s.category_id ? `/expenses?category_id=${s.category_id}` : "/expenses")}
-                        >
-                          <td className="py-3 pr-2 font-semibold text-foreground">{s.category_name}</td>
-                          <td className="py-3 pr-2 font-extrabold text-foreground">{formatEur(s.total)}</td>
-                          <td className="py-3 pr-2 text-muted-foreground">{s.count} {s.count === 1 ? "expense" : "expenses"}</td>
-                          <td className="py-3">
-                            <div className="w-full bg-input border border-input-border rounded-full h-1.5 overflow-hidden">
-                              <div
-                                className="h-full rounded-full bg-primary transition-all duration-500"
-                                style={{ width: `${percent}%` }}
-                              />
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
+                        return (
+                          <tr 
+                            key={i} 
+                            className="border-b border-border-subtle hover:bg-card-hover transition-colors text-sm cursor-pointer"
+                            onClick={() => router.push(s.category_id ? `/expenses?category_id=${s.category_id}` : "/expenses")}
+                          >
+                            <td className="py-3 pr-2 font-semibold text-foreground">{s.category_name}</td>
+                            <td className="py-3 pr-2 font-extrabold text-foreground">{formatEur(s.total)}</td>
+                            <td className="py-3 pr-2 text-muted-foreground">{s.count} {s.count === 1 ? "expense" : "expenses"}</td>
+                            <td className="py-3">
+                              <div className="flex items-center gap-2">
+                                <div className="flex-1 bg-input border border-input-border rounded-full h-1.5 overflow-hidden">
+                                  <div
+                                    className="h-full rounded-full bg-primary transition-all duration-500"
+                                    style={{ width: `${percent}%` }}
+                                  />
+                                </div>
+                                <span className="text-xs font-semibold text-muted-foreground w-8 text-right">{percent.toFixed(0)}%</span>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      });
+                    })()}
                   </tbody>
                 </table>
               </div>
@@ -356,7 +361,7 @@ export default function DashboardClient() {
           {/* Card 1: Spending */}
           <div className="bg-card border border-border rounded-xl p-4 shadow-sm flex flex-col justify-between min-h-[92px]">
             <div>
-              <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest block">Total spend last order</span>
+              <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest block">Total Spend (Last Order / Report)</span>
               <p className="text-lg font-black text-foreground mt-1.5 leading-none">{formatEur(data?.total_last_report_eur ?? 0)}</p>
             </div>
 
@@ -391,14 +396,14 @@ export default function DashboardClient() {
                   <Link 
                     key={e.id} 
                     href={`/expenses/${e.id}`}
-                    className="flex items-center justify-between py-2 border-b border-border-subtle last:border-0"
+                    className="flex items-center justify-between py-2 border-b border-border-subtle last:border-0 gap-3"
                   >
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
                       {/* Circle Category Icon */}
                       <div className={clsx("w-9 h-9 rounded-full flex items-center justify-center shrink-0", bgClass, colorClass)}>
                         <Icon className="w-4 h-4" />
                       </div>
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <p className="text-sm font-bold text-foreground truncate">{e.merchant || "—"}</p>
                         <p className="text-[10px] font-semibold text-muted-foreground truncate mt-0.5">
                           {e.date} · {e.category_name || "Uncategorized"}
@@ -406,8 +411,8 @@ export default function DashboardClient() {
                       </div>
                     </div>
 
-                    <div className="text-right shrink-0">
-                      <p className="text-sm font-black text-foreground">- {formatEur(e.amount_eur)}</p>
+                    <div className="flex flex-col items-end shrink-0 pl-2">
+                      <p className="text-sm font-black text-foreground whitespace-nowrap">- {formatEur(e.amount_eur)}</p>
                       <div className="mt-1">
                         <Badge status={e.status} />
                       </div>

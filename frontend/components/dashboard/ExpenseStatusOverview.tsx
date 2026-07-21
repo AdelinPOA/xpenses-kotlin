@@ -9,90 +9,68 @@ interface ExpenseStatusOverviewProps {
 }
 
 export default function ExpenseStatusOverview({ approved, pending, total }: ExpenseStatusOverviewProps) {
-  // Calculations for a 180-degree gauge arc
-  // Radius r = 35. Circumference of full circle = 2 * pi * 35 = 219.9.
-  // Half circle length = 109.9. We'll use 110 as the base arc length.
-  const r = 35;
-  const c = 2 * Math.PI * r; // ~219.91
-  const halfCircumference = c / 2; // ~109.96
-  
-  const { approvedOffset, pendingOffset, approvedPercent, pendingPercent } = useMemo(() => {
+  const arcLength = 113.097; // PI * r (r=36)
+
+  const { approvedLength, pendingLength, approvedPercent, pendingPercent } = useMemo(() => {
     const safeTotal = total || 1;
-    const appPct = approved / safeTotal;
-    const penPct = pending / safeTotal;
-    
-    // Approved starts from left (0) to right
-    const appLength = appPct * halfCircumference;
-    const penLength = penPct * halfCircumference;
-    
-    // SVG stroke-dashoffset:
-    // Full circumference is C. The stroke starts at 3 o'clock. We rotate the circle -180deg so it starts at 9 o'clock.
-    // Base dasharray will be `${halfCircumference} ${c}` so it only covers the top half.
-    // For approved: length is appLength, dashoffset is 0 (full length visible up to appLength).
-    // For pending: it should start where approved ends. So its offset is -appLength.
-    
+    const appPct = Math.min(approved / safeTotal, 1);
+    const penPct = Math.min(pending / safeTotal, 1);
+
     return {
-      approvedOffset: 0,
-      pendingOffset: -appLength,
-      approvedPercent: Math.round(appPct * 100),
-      pendingPercent: Math.round(penPct * 100),
+      approvedLength: appPct * arcLength,
+      pendingLength: penPct * arcLength,
+      approvedPercent: Math.round((approved / safeTotal) * 100),
+      pendingPercent: Math.round((pending / safeTotal) * 100),
     };
-  }, [approved, pending, total]);
+  }, [approved, pending, total, arcLength]);
 
   return (
-    <div className="bg-card rounded-2xl border border-border p-6 shadow-sm flex flex-col justify-between h-56">
+    <div className="bg-card rounded-2xl border border-border p-6 shadow-sm flex flex-col justify-between min-h-[220px]">
       <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Expense Status Overview</h2>
       
       <div className="flex items-center justify-between gap-6 flex-1">
         {/* Semi-Donut Gauge */}
-        <div className="relative w-32 h-20 flex items-end justify-center overflow-hidden">
-          <svg className="w-full h-24 transform -rotate-180" viewBox="0 0 100 50">
-            {/* Background Track */}
-            <circle
-              cx="50"
-              cy="50"
-              r={r}
+        <div className="relative w-36 h-24 flex items-end justify-center">
+          <svg className="w-full h-full overflow-visible" viewBox="0 0 100 55">
+            {/* Background Arc */}
+            <path
+              d="M 14 48 A 36 36 0 0 1 86 48"
               fill="none"
               stroke="var(--border-subtle)"
-              strokeWidth="10"
-              strokeDasharray={`${halfCircumference} ${c}`}
+              strokeWidth="9"
               strokeLinecap="round"
             />
             {/* Approved Arc (Green) */}
             {approved > 0 && (
-              <circle
-                cx="50"
-                cy="50"
-                r={r}
+              <path
+                d="M 14 48 A 36 36 0 0 1 86 48"
                 fill="none"
-                stroke="#10b981" // emerald-500
-                strokeWidth="10"
-                strokeDasharray={`${approved * halfCircumference / (total || 1)} ${c}`}
-                strokeDashoffset={approvedOffset}
+                stroke="#10b981"
+                strokeWidth="9"
+                strokeDasharray={`${approvedLength} ${arcLength}`}
+                strokeDashoffset="0"
                 strokeLinecap="round"
                 style={{ transition: "stroke-dasharray 0.5s ease" }}
               />
             )}
             {/* Pending Arc (Orange) */}
             {pending > 0 && (
-              <circle
-                cx="50"
-                cy="50"
-                r={r}
+              <path
+                d="M 14 48 A 36 36 0 0 1 86 48"
                 fill="none"
-                stroke="#f97316" // orange-500
-                strokeWidth="10"
-                strokeDasharray={`${pending * halfCircumference / (total || 1)} ${c}`}
-                strokeDashoffset={pendingOffset}
+                stroke="#f97316"
+                strokeWidth="9"
+                strokeDasharray={`${pendingLength} ${arcLength}`}
+                strokeDashoffset={-approvedLength}
                 strokeLinecap="round"
                 style={{ transition: "stroke-dashoffset 0.5s ease, stroke-dasharray 0.5s ease" }}
               />
             )}
           </svg>
 
-          {/* Absolute labels inside the semi-donut */}
+          {/* Centered label inside gauge */}
           <div className="absolute bottom-1 text-center">
-            <span className="text-2xl font-black text-foreground">{total}</span>
+            <span className="text-2xl font-black text-foreground block leading-tight">{total}</span>
             <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Total</p>
           </div>
         </div>

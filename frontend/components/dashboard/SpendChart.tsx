@@ -90,9 +90,10 @@ export default function SpendChart({ data }: SpendChartProps) {
           d={linePath}
           fill="none"
           stroke="#f97316"
-          strokeWidth="2"
+          strokeWidth="2.5"
           strokeLinecap="round"
           strokeLinejoin="round"
+          vectorEffect="non-scaling-stroke"
           filter="url(#glow)"
         />
 

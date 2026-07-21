@@ -6,6 +6,7 @@ import eu.nt.xpenses.repositories.*
 import eu.nt.xpenses.repositories.AppSettingRepository
 import eu.nt.xpenses.services.EmailSettingsService
 import eu.nt.xpenses.services.ExpenseMapper
+import eu.nt.xpenses.services.ExpenseService
 import eu.nt.xpenses.services.ExportService
 import eu.nt.xpenses.services.PdfService
 import eu.nt.xpenses.services.ReportService
@@ -45,7 +46,8 @@ class ReportController(
     private val exportService: ExportService,
     private val expenseMapper: ExpenseMapper,
     private val appSettingRepository: AppSettingRepository,
-    private val reportService: ReportService
+    private val reportService: ReportService,
+    private val expenseService: ExpenseService
 ) {
     private val log = LoggerFactory.getLogger(ReportController::class.java)
 
@@ -191,6 +193,7 @@ class ReportController(
     @ResponseStatus(HttpStatus.NO_CONTENT)
     fun deleteReport(
         @PathVariable reportId: Int,
+        @RequestParam(value = "delete_expenses", required = false, defaultValue = "false") deleteExpenses: Boolean,
         request: HttpServletRequest
     ) {
         val currentUser = request.getAttribute("currentUser") as? User
@@ -207,15 +210,21 @@ class ReportController(
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Only draft reports can be deleted")
         }
 
-        // Detach all expenses and reset to draft status
         val now = Instant.now()
-        for (expense in report.expenses) {
-            expense.report = null
-            expense.status = "draft"
-            expense.updatedAt = now
-            expenseRepository.save(expense)
+        val expensesList = report.expenses.toList()
+        if (deleteExpenses) {
+            for (expense in expensesList) {
+                expenseService.deleteExpense(expense.id!!, currentUser)
+            }
+        } else {
+            for (expense in expensesList) {
+                expense.report = null
+                expense.status = "draft"
+                expense.updatedAt = now
+                expenseRepository.save(expense)
+            }
         }
-
+        report.expenses.clear()
         expenseReportRepository.delete(report)
     }
 

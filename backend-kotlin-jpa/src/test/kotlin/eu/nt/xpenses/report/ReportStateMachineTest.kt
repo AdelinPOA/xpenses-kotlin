@@ -323,4 +323,44 @@ class ReportStateMachineTest : IntegrationTestBase() {
         mockMvc.perform(post("/api/reports/${report.id}/pay").cookie(cookie))
             .andExpect(status().isBadRequest)
     }
+
+    // ── Delete ────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `DELETE report with delete_expenses=false detaches expense and keeps it in draft`() {
+        val report = makeReport("tech1")
+        val expense = makeExpense("tech1", report)
+        entityManager.flush()
+        entityManager.clear()
+        val cookie = authHelper.loginAs("tech1", "tech1")
+
+        mockMvc.perform(delete("/api/reports/${report.id}?delete_expenses=false").cookie(cookie))
+            .andExpect(status().isNoContent)
+
+        entityManager.flush()
+        entityManager.clear()
+
+        val refreshedExp = expenseRepository.findById(expense.id!!).orElse(null)
+        assert(refreshedExp != null)
+        assertEquals("draft", refreshedExp?.status)
+        assertEquals(null, refreshedExp?.report)
+    }
+
+    @Test
+    fun `DELETE report with delete_expenses=true soft deletes attached expense`() {
+        val report = makeReport("tech1")
+        val expense = makeExpense("tech1", report)
+        entityManager.flush()
+        entityManager.clear()
+        val cookie = authHelper.loginAs("tech1", "tech1")
+
+        mockMvc.perform(delete("/api/reports/${report.id}?delete_expenses=true").cookie(cookie))
+            .andExpect(status().isNoContent)
+
+        entityManager.flush()
+        entityManager.clear()
+
+        val refreshedExp = expenseRepository.findById(expense.id!!).orElse(null)
+        assert(refreshedExp == null) // Soft deleted, ignored by @SQLRestriction
+    }
 }

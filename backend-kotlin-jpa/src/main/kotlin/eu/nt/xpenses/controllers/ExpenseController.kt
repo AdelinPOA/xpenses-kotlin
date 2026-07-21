@@ -106,7 +106,7 @@ class ExpenseController(
             ResponseStatusException(HttpStatus.NOT_FOUND, "Expense not found")
         }
 
-        if (currentUser.role !in listOf("chef_finance", "mod") && expense.user?.id != currentUser.id) {
+        if (currentUser.role !in listOf("chef_finance", "mod", "manager") && expense.user?.id != currentUser.id) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Not your expense")
         }
 
@@ -275,7 +275,7 @@ class ExpenseController(
             ResponseStatusException(HttpStatus.NOT_FOUND, "Expense not found")
         }
 
-        if (currentUser.role !in listOf("chef_finance", "mod") && expense.user?.id != currentUser.id) {
+        if (currentUser.role !in listOf("chef_finance", "mod", "manager") && expense.user?.id != currentUser.id) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Not your expense")
         }
 
@@ -314,7 +314,7 @@ class ExpenseController(
             ResponseStatusException(HttpStatus.NOT_FOUND, "Expense not found")
         }
 
-        if (currentUser.role !in listOf("chef_finance", "mod") && expense.user?.id != currentUser.id) {
+        if (currentUser.role !in listOf("chef_finance", "mod", "manager") && expense.user?.id != currentUser.id) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Not your expense")
         }
 

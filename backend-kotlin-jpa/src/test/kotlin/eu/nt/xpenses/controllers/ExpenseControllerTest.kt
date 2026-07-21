@@ -147,4 +147,16 @@ class ExpenseControllerTest : IntegrationTestBase() {
         val deletedAudit = expenseRepository.findDeletedAudit()
         assert(deletedAudit.any { it.id == expense.id })
     }
+
+    @Test
+    fun `GET single expense as manager returns 200`() {
+        val expense = saveTechExpense()
+        entityManager.flush()
+        entityManager.clear()
+        val managerCookie = authHelper.loginAs("manager1", "manager1")
+
+        mockMvc.perform(get("/api/expenses/${expense.id}").cookie(managerCookie))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.id").value(expense.id))
+    }
 }

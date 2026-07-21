@@ -168,7 +168,7 @@ class ExpenseReport(
     var techniker: String? = null,
 
     @JsonManagedReference("report-expenses")
-    @OneToMany(mappedBy = "report", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "report", cascade = [CascadeType.PERSIST, CascadeType.MERGE], fetch = FetchType.LAZY)
     var expenses: MutableList<Expense> = mutableListOf(),
 
     @JsonManagedReference("report-advances")

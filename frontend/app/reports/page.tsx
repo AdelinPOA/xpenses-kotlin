@@ -70,7 +70,8 @@ function ReportsPageContent() {
   });
 
   const del = useMutation({
-    mutationFn: (id: number) => api.delete(`/reports/${id}`),
+    mutationFn: ({ id, deleteExpenses }: { id: number; deleteExpenses?: boolean }) =>
+      api.delete(`/reports/${id}`, { params: { delete_expenses: deleteExpenses } }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: reportKeys.all });
       qc.invalidateQueries({ queryKey: dashboardKeys.all });
@@ -431,26 +432,36 @@ function ReportsPageContent() {
 
       {confirmDeleteId !== null && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-card rounded-xl border border-border shadow-xl max-w-sm w-full p-6 space-y-4">
-            <h3 className="text-lg font-bold text-foreground">Delete Report</h3>
+          <div className="bg-card rounded-xl border border-border shadow-xl max-w-md w-full p-6 space-y-4">
+            <h3 className="text-lg font-bold text-foreground">Ștergere Raport</h3>
             <p className="text-sm text-muted">
-              Are you sure you want to delete this report? This action is permanent and cannot be undone.
+              Cum dorești să procedezi cu cheltuielile asociate acestui raport?
             </p>
-            <div className="flex justify-end gap-3 pt-2">
+            <div className="flex flex-col gap-2 pt-2">
               <button
-                onClick={() => setConfirmDeleteId(null)}
-                className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-lg transition-colors cursor-pointer"
+                onClick={() => {
+                  del.mutate({ id: confirmDeleteId, deleteExpenses: false });
+                  setConfirmDeleteId(null);
+                }}
+                className="w-full px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors cursor-pointer text-left flex items-center justify-between"
               >
-                Cancel
+                <span>Păstrează cheltuielile ca Draft neasociat</span>
+                <span className="text-xs opacity-75">(Recomandat)</span>
               </button>
               <button
                 onClick={() => {
-                  del.mutate(confirmDeleteId);
+                  del.mutate({ id: confirmDeleteId, deleteExpenses: true });
                   setConfirmDeleteId(null);
                 }}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-lg transition-colors cursor-pointer"
+                className="w-full px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-lg transition-colors cursor-pointer text-left"
               >
-                Delete
+                Șterge raportul ȘI toate cheltuielile din el
+              </button>
+              <button
+                onClick={() => setConfirmDeleteId(null)}
+                className="w-full px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-lg transition-colors cursor-pointer text-center mt-1"
+              >
+                Anulează
               </button>
             </div>
           </div>

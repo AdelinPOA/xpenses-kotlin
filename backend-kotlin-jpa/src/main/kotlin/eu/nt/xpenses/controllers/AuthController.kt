@@ -109,16 +109,38 @@ class AuthController(
         val hashedToken = tokenProvider.hashRefreshToken(rawToken)
 
         val storedToken = refreshTokenRepository.findByTokenHash(hashedToken)
-            ?: return ResponseEntity.status(401).body(mapOf("detail" to "Invalid refresh token"))
+        if (storedToken == null) {
+            // Revoke active sessions for the user if access token is present
+            val accessTokenCookie = cookies.find { it.name == "access_token" }
+            if (accessTokenCookie != null) {
+                try {
+                    val claims = tokenProvider.decodeAccessToken(accessTokenCookie.value)
+                    if (claims != null) {
+                        userRepository.findById(claims.userId).ifPresent { user ->
+                            user.tokenVersion++
+                            userRepository.save(user)
+                            refreshTokenRepository.deleteByUserId(user.id!!)
+                        }
+                    }
+                } catch (_: Exception) {}
+            }
+            clearAuthCookies(response)
+            return ResponseEntity.status(401).body(mapOf("detail" to "Invalid refresh token"))
+        }
 
         if (storedToken.expiresAt.isBefore(Instant.now())) {
-            refreshTokenRepository.delete(storedToken)
+            val user = storedToken.user
+            user.tokenVersion++
+            userRepository.save(user)
+            refreshTokenRepository.deleteByUserId(user.id!!)
             clearAuthCookies(response)
             return ResponseEntity.status(401).body(mapOf("detail" to "Refresh token expired"))
         }
 
         val user = storedToken.user
         if (!user.isActive) {
+            user.tokenVersion++
+            userRepository.save(user)
             refreshTokenRepository.deleteByUserId(user.id!!)
             clearAuthCookies(response)
             return ResponseEntity.status(403).body(mapOf("detail" to "Account deactivated"))

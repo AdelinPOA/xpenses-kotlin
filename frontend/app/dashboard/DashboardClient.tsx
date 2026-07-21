@@ -342,7 +342,7 @@ export default function DashboardClient() {
       </div>
 
       {/* ── MOBILE VIEW ONLY (Restructured matching mockup) ────────────────── */}
-      <div className="lg:hidden flex flex-col gap-6">
+      <div className="lg:hidden flex flex-col gap-6 pt-2">
         {/* Greeting & Quick Action Row */}
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-bold text-foreground">

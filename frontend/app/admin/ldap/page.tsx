@@ -131,6 +131,8 @@ export default function LdapAdminPage() {
     queryKey: ldapKeys.config(),
     queryFn: () => api.get<LdapConfig>("/settings/ldap").then((r) => r.data),
     enabled: user?.role === "mod",
+    staleTime: 300_000,
+    gcTime: 600_000,
   });
 
   useEffect(() => {

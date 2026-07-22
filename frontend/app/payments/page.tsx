@@ -9,10 +9,7 @@ import AppShell from "@/components/layout/AppShell";
 import EmptyState from "@/components/ui/EmptyState";
 import { useAuth } from "@/components/AuthProvider";
 import { Banknote, XCircle } from "lucide-react";
-
-function formatEur(amount: number) {
-  return new Intl.NumberFormat("en-GB", { style: "currency", currency: "EUR" }).format(amount);
-}
+import { formatEur } from "@/lib/format";
 
 export default function PaymentsPage() {
   const { user, loading } = useAuth();

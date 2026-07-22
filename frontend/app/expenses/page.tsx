@@ -4,6 +4,8 @@ import { expenseKeys, categoryKeys } from "@/lib/queryKeys";
 import { Expense, Category, isPagedResponse, PagedResponse } from "@/lib/api";
 import ExpensesClient from "./ExpensesClient";
 
+export const dynamic = "force-dynamic";
+
 export default async function ExpensesPage() {
   const queryClient = new QueryClient();
 

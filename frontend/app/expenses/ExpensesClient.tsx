@@ -10,13 +10,14 @@ import AppShell from "@/components/layout/AppShell";
 import Badge from "@/components/ui/Badge";
 import EmptyState from "@/components/ui/EmptyState";
 import { useToast } from "@/components/ToastProvider";
+import dynamic from "next/dynamic";
 import BulkUploadZone from "@/components/expenses/BulkUploadZone";
-import BulkReviewDrawer from "@/components/expenses/BulkReviewDrawer";
 import { Plus, Trash2, Pencil, Copy, Download } from "lucide-react";
+import { formatAmount } from "@/lib/format";
 
-function formatAmount(amount: number, currency: string) {
-  return new Intl.NumberFormat("en-GB", { style: "currency", currency }).format(amount);
-}
+const BulkReviewDrawer = dynamic(() => import("@/components/expenses/BulkReviewDrawer"), {
+  loading: () => <div className="animate-pulse bg-card h-96 rounded-xl" />,
+});
 
 function ExpensesPageContent() {
   const qc = useQueryClient();
@@ -94,6 +95,8 @@ function ExpensesPageContent() {
   const { data: categories } = useQuery<Category[]>({
     queryKey: categoryKeys.list(),
     queryFn: () => api.get("/categories").then((r) => r.data),
+    staleTime: 300_000,
+    gcTime: 600_000,
   });
 
   const del = useMutation({

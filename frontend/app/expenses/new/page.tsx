@@ -1,5 +1,9 @@
+import dynamic from "next/dynamic";
 import AppShell from "@/components/layout/AppShell";
-import ExpenseForm from "@/components/expenses/ExpenseForm";
+
+const ExpenseForm = dynamic(() => import("@/components/expenses/ExpenseForm"), {
+  loading: () => <div className="animate-pulse bg-card h-96 rounded-xl" />,
+});
 
 export default async function NewExpensePage({
   searchParams,

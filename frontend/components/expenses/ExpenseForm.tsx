@@ -7,15 +7,12 @@ import api, { Category, Expense, CURRENCIES, API_BASE_URL, downloadBlob, OCRScan
 import { categoryKeys, expenseKeys, dashboardKeys } from "@/lib/queryKeys";
 import { X, Camera } from "lucide-react";
 import clsx from "clsx";
+import { formatEur } from "@/lib/format";
 
 interface Props {
   expense?: Expense;
   reportId?: number;
   defaultCurrency?: string;
-}
-
-function formatEur(amount: number) {
-  return new Intl.NumberFormat("en-GB", { style: "currency", currency: "EUR" }).format(amount);
 }
 
 export default function ExpenseForm({ expense, reportId, defaultCurrency }: Props) {
@@ -94,6 +91,8 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
   const { data: categories } = useQuery<Category[]>({
     queryKey: categoryKeys.list(),
     queryFn: () => api.get("/categories").then((r) => r.data),
+    staleTime: 300_000,
+    gcTime: 600_000,
   });
 
   const existingReceipts = expense?.receipts?.filter((r) => !deletedReceiptIds.has(r.id)) ?? [];

@@ -118,6 +118,8 @@ export default function ImapAdminPage() {
     queryKey: ["users-list-sim"],
     queryFn: () => api.get<User[]>("/users").then((r) => r.data),
     enabled: user?.role === "mod",
+    staleTime: 120_000,
+    gcTime: 300_000,
   });
 
   const { register, handleSubmit, reset, watch, setValue, getValues, formState: { errors, isDirty } } = useForm<FormState>({
@@ -137,6 +139,8 @@ export default function ImapAdminPage() {
     queryKey: imapKeys.config(),
     queryFn: () => api.get<ImapConfig>("/settings/imap").then((r) => r.data),
     enabled: user?.role === "mod",
+    staleTime: 300_000,
+    gcTime: 600_000,
   });
 
   useEffect(() => {

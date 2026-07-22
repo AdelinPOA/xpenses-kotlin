@@ -2,9 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "standalone",
-  experimental: {
-    cpus: 6,
-  },
+  reactStrictMode: true,
   async rewrites() {
     return [
       {

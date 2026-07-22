@@ -31,6 +31,8 @@ export default function BulkReviewDrawer({ files, isOpen, onClose }: BulkReviewD
     queryKey: categoryKeys.list(),
     queryFn: () => api.get("/categories").then((r) => r.data),
     enabled: isOpen,
+    staleTime: 300_000,
+    gcTime: 600_000,
   });
 
   const { mutate: runUpload, isPending: uploading } = useMutation({

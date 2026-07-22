@@ -9,10 +9,11 @@ import AppShell from "@/components/layout/AppShell";
 import { useAuth } from "@/components/AuthProvider";
 import EmptyState from "@/components/ui/EmptyState";
 import { Plus, Pencil, X } from "lucide-react";
+import { formatEur } from "@/lib/format";
 
 function formatLimit(limit: number | null) {
   if (limit === null) return "No limit";
-  return new Intl.NumberFormat("en-GB", { style: "currency", currency: "EUR" }).format(limit);
+  return formatEur(limit);
 }
 
 interface FormState {
@@ -32,6 +33,8 @@ export default function CategoriesPage() {
   const { data: categories, isLoading } = useQuery<Category[]>({
     queryKey: categoryKeys.list(),
     queryFn: () => api.get("/categories?active_only=false").then((r) => r.data),
+    staleTime: 300_000,
+    gcTime: 600_000,
   });
 
   const save = useMutation({

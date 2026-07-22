@@ -17,10 +17,7 @@ import {
   Search, Bell, Download, Plus, ChevronDown, 
   Briefcase, Utensils, Plane, Car, Building, FileText, LucideIcon 
 } from "lucide-react";
-
-function formatEur(amount: number) {
-  return new Intl.NumberFormat("en-GB", { style: "currency", currency: "EUR" }).format(amount);
-}
+import { formatEur } from "@/lib/format";
 
 // Maps category names to circles & icons matching mobile mockup specs
 function getCategoryMeta(categoryName: string | null): { Icon: LucideIcon; colorClass: string; bgClass: string } {
@@ -59,6 +56,8 @@ export default function DashboardClient() {
     queryKey: [...dashboardKeys.all, user?.id, { all: showAll }],
     queryFn: () => api.get("/dashboard", { params: { all: showAll } }).then((r) => r.data),
     enabled: !!user,
+    staleTime: 60_000,
+    refetchOnWindowFocus: true,
   });
 
   // Calculate daily data points for desktop chart

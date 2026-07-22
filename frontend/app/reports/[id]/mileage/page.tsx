@@ -8,10 +8,7 @@ import AppShell from "@/components/layout/AppShell";
 import Badge from "@/components/ui/Badge";
 import { ArrowLeft, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
-
-function formatAmount(amount: number, currency: string) {
-  return new Intl.NumberFormat("en-GB", { style: "currency", currency }).format(amount);
-}
+import { formatAmount } from "@/lib/format";
 
 function formatDuration(minutes: number) {
   const h = Math.floor(minutes / 60);

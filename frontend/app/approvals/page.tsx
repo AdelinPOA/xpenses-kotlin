@@ -10,10 +10,7 @@ import EmptyState from "@/components/ui/EmptyState";
 import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/ToastProvider";
 import { CheckCircle, XCircle } from "lucide-react";
-
-function formatEur(amount: number) {
-  return new Intl.NumberFormat("en-GB", { style: "currency", currency: "EUR" }).format(amount);
-}
+import { formatEur } from "@/lib/format";
 
 export default function ApprovalsPage() {
   const { user, loading } = useAuth();

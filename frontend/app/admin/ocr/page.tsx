@@ -83,6 +83,8 @@ export default function OcrAdminPage() {
     queryKey: ocrKeys.config(),
     queryFn: getOcrConfig,
     enabled: user?.role === "mod",
+    staleTime: 300_000,
+    gcTime: 600_000,
   });
 
   const { data: compData } = useQuery({
@@ -95,6 +97,8 @@ export default function OcrAdminPage() {
     queryKey: categoryKeys.list(),
     queryFn: () => api.get("/categories").then((r) => r.data),
     enabled: user?.role === "mod",
+    staleTime: 300_000,
+    gcTime: 600_000,
   });
 
   useEffect(() => {

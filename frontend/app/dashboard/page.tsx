@@ -4,6 +4,8 @@ import { dashboardKeys } from "@/lib/queryKeys";
 import { DashboardStats } from "@/lib/api";
 import DashboardClient from "./DashboardClient";
 
+export const dynamic = "force-dynamic";
+
 export default async function DashboardPage() {
   const queryClient = new QueryClient();
 

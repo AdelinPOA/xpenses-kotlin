@@ -63,6 +63,8 @@ export default function StorageAdminPage() {
     queryKey: storageKeys.config(),
     queryFn: getStorageConfig,
     enabled: !!user && user.role === "mod",
+    staleTime: 300_000,
+    gcTime: 600_000,
   });
 
   const { data: migrationStatus } = useQuery<StorageMigrationStatus>({

@@ -9,10 +9,7 @@ import AppShell from "@/components/layout/AppShell";
 import Badge from "@/components/ui/Badge";
 import { ArrowLeft, Plus, Check, X, Trash2 } from "lucide-react";
 import Link from "next/link";
-
-function formatAmount(amount: number, currency: string) {
-  return new Intl.NumberFormat("en-GB", { style: "currency", currency }).format(amount);
-}
+import { formatAmount } from "@/lib/format";
 
 export default function AdvancesPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);

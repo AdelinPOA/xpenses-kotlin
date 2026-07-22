@@ -2,10 +2,15 @@
 import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api, { API_BASE_URL } from "@/lib/api";
+import dynamic from "next/dynamic";
 import AppShell from "@/components/layout/AppShell";
-import SignaturePad from "@/components/signature/SignaturePad";
 import { ArrowLeft, Trash2 } from "lucide-react";
 import Link from "next/link";
+
+const SignaturePad = dynamic(() => import("@/components/signature/SignaturePad"), {
+  ssr: false,
+  loading: () => <div className="animate-pulse bg-card h-48 rounded-xl" />,
+});
 
 export default function SignaturePage() {
   const queryClient = useQueryClient();

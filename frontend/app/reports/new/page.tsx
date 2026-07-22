@@ -7,10 +7,7 @@ import api, { Expense, CURRENCIES } from "@/lib/api";
 import { reportKeys, expenseKeys, dashboardKeys } from "@/lib/queryKeys";
 import AppShell from "@/components/layout/AppShell";
 import Badge from "@/components/ui/Badge";
-
-function formatEur(amount: number) {
-  return new Intl.NumberFormat("en-GB", { style: "currency", currency: "EUR" }).format(amount);
-}
+import { formatEur } from "@/lib/format";
 
 export default function NewReportPage() {
   const router = useRouter();

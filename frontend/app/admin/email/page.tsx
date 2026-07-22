@@ -93,6 +93,8 @@ export default function EmailAdminPage() {
     queryKey: emailKeys.config(),
     queryFn: () => api.get<SmtpConfig>("/settings/email").then((r) => r.data),
     enabled: user?.role === "mod",
+    staleTime: 300_000,
+    gcTime: 600_000,
   });
 
   useEffect(() => {

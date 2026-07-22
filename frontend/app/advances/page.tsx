@@ -9,10 +9,7 @@ import AppShell from "@/components/layout/AppShell";
 import { useAuth } from "@/components/AuthProvider";
 import { Check, X } from "lucide-react";
 import Link from "next/link";
-
-function formatAmount(amount: number, currency: string) {
-  return new Intl.NumberFormat("en-GB", { style: "currency", currency }).format(amount);
-}
+import { formatAmount } from "@/lib/format";
 
 export default function GlobalAdvancesPage() {
   const { user, loading } = useAuth();

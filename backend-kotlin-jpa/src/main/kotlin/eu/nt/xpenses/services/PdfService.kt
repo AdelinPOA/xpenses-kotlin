@@ -3,7 +3,7 @@ package eu.nt.xpenses.services
 import com.lowagie.text.*
 import com.lowagie.text.pdf.*
 import com.lowagie.text.pdf.draw.DottedLineSeparator
-import eu.nt.xpenses.models.*
+import eu.nt.xpenses.model.*
 import eu.nt.xpenses.repositories.AppSettingRepository
 import org.apache.pdfbox.Loader
 import org.apache.pdfbox.io.IOUtils

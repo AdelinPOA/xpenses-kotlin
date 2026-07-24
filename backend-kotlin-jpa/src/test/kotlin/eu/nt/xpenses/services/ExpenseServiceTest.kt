@@ -1,13 +1,14 @@
 package eu.nt.xpenses.services
 
-import eu.nt.xpenses.models.Expense
-import eu.nt.xpenses.models.User
+import eu.nt.xpenses.dto.expense.ExpenseCreate
+import eu.nt.xpenses.dto.expense.ExpenseUpdate
+import eu.nt.xpenses.model.Category
+import eu.nt.xpenses.model.Expense
+import eu.nt.xpenses.model.User
 import eu.nt.xpenses.repositories.CategoryRepository
 import eu.nt.xpenses.repositories.ExpenseReportRepository
 import eu.nt.xpenses.repositories.ExpenseRepository
 import eu.nt.xpenses.repositories.OcrComparisonRepository
-import eu.nt.xpenses.controllers.ExpenseCreate
-import eu.nt.xpenses.controllers.ExpenseUpdate
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -96,7 +97,7 @@ class ExpenseServiceTest {
             currency = "USD",
             date = "2024-01-01"
         )
-        val deactivatedCategory = eu.nt.xpenses.models.Category(id = 10, name = "Deactivated Cat", isActive = false)
+        val deactivatedCategory = eu.nt.xpenses.model.Category(id = 10, name = "Deactivated Cat", isActive = false)
         `when`(fxService.getRate("USD", "2024-01-01")).thenReturn(BigDecimal("0.85"))
         `when`(categoryRepository.findById(10)).thenReturn(Optional.of(deactivatedCategory))
 
@@ -110,7 +111,7 @@ class ExpenseServiceTest {
     @Test
     fun `updateExpense should reject deactivated category`() {
         val expense = Expense(id = 1, user = techUser, status = "draft", amountOriginal = BigDecimal("10.00"), amountEur = BigDecimal("10.00"), currencyOriginal = "EUR", date = "2024-01-01")
-        val deactivatedCategory = eu.nt.xpenses.models.Category(id = 10, name = "Deactivated Cat", isActive = false)
+        val deactivatedCategory = eu.nt.xpenses.model.Category(id = 10, name = "Deactivated Cat", isActive = false)
         `when`(expenseRepository.findById(1)).thenReturn(Optional.of(expense))
         `when`(categoryRepository.findById(10)).thenReturn(Optional.of(deactivatedCategory))
 

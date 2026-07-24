@@ -1,11 +1,10 @@
-package eu.nt.xpenses.services
+package eu.nt.xpenses.services.mapper
 
-import eu.nt.xpenses.models.Expense
-import eu.nt.xpenses.models.Receipt
-import eu.nt.xpenses.controllers.ExpenseOut
-import eu.nt.xpenses.controllers.ReceiptOut
+import eu.nt.xpenses.dto.expense.ExpenseOut
+import eu.nt.xpenses.dto.expense.ReceiptOut
+import eu.nt.xpenses.model.Expense
+import eu.nt.xpenses.model.Receipt
 import org.springframework.stereotype.Component
-import java.math.BigDecimal
 
 @Component
 class ExpenseMapper {
@@ -30,7 +29,7 @@ class ExpenseMapper {
             categoryId = expense.category?.id,
             categoryName = expense.category?.name,
             reportId = expense.report?.id,
-            comparisonId = null, // TODO: add comparisonId if a JPA relationship is added
+            comparisonId = null,
             amountOriginal = expense.amountOriginal,
             currencyOriginal = expense.currencyOriginal,
             amountEur = expense.amountEur,

@@ -2,7 +2,7 @@ package eu.nt.xpenses.controllers
 
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.databind.ObjectMapper
-import eu.nt.xpenses.models.AppSetting
+import eu.nt.xpenses.model.AppSetting
 import eu.nt.xpenses.models.StorageConfigDto
 import eu.nt.xpenses.repositories.AppSettingRepository
 import eu.nt.xpenses.repositories.ReceiptRepository
@@ -303,6 +303,20 @@ class AppSettingsController(
         @RequestParam(name = "migrate_existing", defaultValue = "false") migrateExisting: Boolean
     ): ResponseEntity<StorageConfigDto> {
         val oldConfig = storageService.getStorageConfig()
+
+        if (body.smb?.password == "••••••••" || body.smb?.password == "****") {
+            if (body.smb != null) body.smb?.password = oldConfig.smb?.password ?: ""
+        }
+        if (body.webdav?.password == "••••••••" || body.webdav?.password == "****") {
+            if (body.webdav != null) body.webdav?.password = oldConfig.webdav?.password ?: ""
+        }
+        if (body.sftp?.password == "••••••••" || body.sftp?.password == "****") {
+            if (body.sftp != null) body.sftp?.password = oldConfig.sftp?.password ?: ""
+        }
+        if (body.s3?.secretKey == "••••••••" || body.s3?.secretKey == "****") {
+            if (body.s3 != null) body.s3?.secretKey = oldConfig.s3?.secretKey ?: ""
+        }
+
         storageService.saveStorageConfig(body)
 
         if (migrateExisting) {

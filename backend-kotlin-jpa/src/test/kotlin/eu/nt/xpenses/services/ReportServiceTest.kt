@@ -1,7 +1,7 @@
 package eu.nt.xpenses.services
 
-import eu.nt.xpenses.models.ExpenseReport
-import eu.nt.xpenses.models.User
+import eu.nt.xpenses.model.ExpenseReport
+import eu.nt.xpenses.model.User
 import eu.nt.xpenses.repositories.ExpenseReportRepository
 import eu.nt.xpenses.repositories.ExpenseRepository
 import eu.nt.xpenses.repositories.UserRepository

@@ -2,10 +2,10 @@ package eu.nt.xpenses.services
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
-import eu.nt.xpenses.models.AppSetting
-import eu.nt.xpenses.models.Category
-import eu.nt.xpenses.models.Expense
-import eu.nt.xpenses.models.OcrComparison
+import eu.nt.xpenses.model.AppSetting
+import eu.nt.xpenses.model.Category
+import eu.nt.xpenses.model.Expense
+import eu.nt.xpenses.model.OcrComparison
 import eu.nt.xpenses.repositories.AppSettingRepository
 import eu.nt.xpenses.repositories.CategoryRepository
 import eu.nt.xpenses.repositories.OcrComparisonRepository

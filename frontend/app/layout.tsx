@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import Providers from "@/components/Providers";
 import PwaRegistration from "@/components/PwaRegistration";
+import Script from "next/script";
 
 export const metadata: Metadata = {
   title: "xpenses",
@@ -43,17 +44,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              try {
-                const stored = localStorage.getItem('theme');
-                const isDark = stored === 'dark' || (!stored && window.matchMedia('(prefers-color-scheme: dark)').matches);
-                document.documentElement.classList.toggle('dark', isDark);
-              } catch (_) {}
-            `,
-          }}
-        />
+        <Script id="theme-init" strategy="beforeInteractive">{`
+          try {
+            const stored = localStorage.getItem('theme');
+            const isDark = stored === 'dark' || (!stored && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            document.documentElement.classList.toggle('dark', isDark);
+          } catch (_) {}
+        `}</Script>
       </head>
       <body>
         <Providers>

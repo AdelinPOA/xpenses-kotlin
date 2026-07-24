@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useState, useEffect, useMemo } from "react";
-import api, { DashboardStats } from "@/lib/api";
+import api, { DashboardStats, downloadBlob } from "@/lib/api";
 import { dashboardKeys } from "@/lib/queryKeys";
 import AppShell from "@/components/layout/AppShell";
 import SpendChart from "@/components/dashboard/SpendChart";
@@ -18,6 +18,12 @@ import {
   Briefcase, Utensils, Plane, Car, Building, FileText, LucideIcon 
 } from "lucide-react";
 import { formatEur } from "@/lib/format";
+import ManagerKpiCards from "@/components/dashboard/ManagerKpiCards";
+import PendingReportsTable from "@/components/dashboard/PendingReportsTable";
+import PendingAdvancesList from "@/components/dashboard/PendingAdvancesList";
+import SlideOverReviewDrawer from "@/components/dashboard/SlideOverReviewDrawer";
+import RecentActivityStream from "@/components/dashboard/RecentActivityStream";
+import { ManagerDashboardStats } from "@/lib/api";
 
 // Maps category names to circles & icons matching mobile mockup specs
 function getCategoryMeta(categoryName: string | null): { Icon: LucideIcon; colorClass: string; bgClass: string } {
@@ -51,6 +57,8 @@ export default function DashboardClient() {
   }, [user?.id, isOrgWideRole]);
 
   const canToggle = user?.role === "chef_finance" || user?.role === "mod" || user?.role === "manager";
+  const isManagerRole = user?.role === "manager" || user?.role === "chef_finance" || user?.role === "mod";
+  const [selectedReportId, setSelectedReportId] = useState<number | null>(null);
 
   const { data, isLoading } = useQuery<DashboardStats>({
     queryKey: [...dashboardKeys.all, user?.id, { all: showAll }],
@@ -59,6 +67,48 @@ export default function DashboardClient() {
     staleTime: 60_000,
     refetchOnWindowFocus: true,
   });
+
+  const { data: managerStats, refetch: refetchManagerStats } = useQuery<ManagerDashboardStats>({
+    queryKey: dashboardKeys.manager(),
+    queryFn: () => api.get("/dashboard/manager").then((r) => r.data),
+    enabled: !!user && isManagerRole,
+    staleTime: 30_000,
+  });
+
+  const handleApproveReport = async (reportId: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await api.post(`/reports/${reportId}/approve`);
+      refetchManagerStats();
+    } catch (err) {
+      console.error("Approve report error", err);
+    }
+  };
+
+  const handleRejectReport = (reportId: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedReportId(reportId);
+  };
+
+  const handlePayAdvance = async (reportId: number, advanceId: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await api.post(`/reports/${reportId}/advances/${advanceId}/pay`);
+      refetchManagerStats();
+    } catch (err) {
+      console.error("Pay advance error", err);
+    }
+  };
+
+  const handleRejectAdvance = async (reportId: number, advanceId: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await api.post(`/reports/${reportId}/advances/${advanceId}/reject`);
+      refetchManagerStats();
+    } catch (err) {
+      console.error("Reject advance error", err);
+    }
+  };
 
   // Calculate daily data points for desktop chart
   const chartData = useMemo(() => {
@@ -156,13 +206,7 @@ export default function DashboardClient() {
             </Link>
             
             <button
-              onClick={() => api.get("/expenses/export-csv", { responseType: 'blob' }).then(r => {
-                const url = URL.createObjectURL(r.data);
-                const a = document.createElement("a");
-                a.href = url;
-                a.download = `expenses-${new Date().toISOString().slice(0, 10)}.csv`;
-                a.click();
-              })}
+              onClick={() => downloadBlob("/expenses/export-csv", {}, `expenses-${new Date().toISOString().slice(0, 10)}.csv`)}
               className="flex items-center gap-2 bg-input border border-input-border text-foreground hover:bg-card-hover px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer"
             >
               <Download className="w-4 h-4" />
@@ -170,6 +214,34 @@ export default function DashboardClient() {
             </button>
           </div>
         </div>
+
+        {/* ── MANAGER WORKFLOW DASHBOARD ────────────────────────────────────────── */}
+        {isManagerRole && managerStats && (
+          <div className="space-y-6 mb-8 border-b border-border pb-8">
+            <ManagerKpiCards kpis={managerStats.kpis} />
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2">
+                <PendingReportsTable
+                  reports={managerStats.pending_reports}
+                  onSelectReport={(id) => setSelectedReportId(id)}
+                  onApprove={handleApproveReport}
+                  onReject={handleRejectReport}
+                />
+              </div>
+              <div className="lg:col-span-1">
+                <PendingAdvancesList
+                  advances={managerStats.pending_advances}
+                  onSelectAdvance={(reportId) => setSelectedReportId(reportId)}
+                  onPay={handlePayAdvance}
+                  onReject={handleRejectAdvance}
+                />
+              </div>
+            </div>
+
+            <RecentActivityStream activities={managerStats.recent_activity} />
+          </div>
+        )}
 
         {/* 2x2 Desktop Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -430,6 +502,14 @@ export default function DashboardClient() {
           total={data?.expense_count_month ?? 0}
         />
       </div>
+
+      <SlideOverReviewDrawer
+        reportId={selectedReportId}
+        onClose={() => {
+          setSelectedReportId(null);
+          refetchManagerStats();
+        }}
+      />
     </AppShell>
   );
 }

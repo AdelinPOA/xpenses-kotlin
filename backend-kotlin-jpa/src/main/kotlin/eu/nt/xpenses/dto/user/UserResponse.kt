@@ -1,6 +1,7 @@
-package eu.nt.xpenses.models
+package eu.nt.xpenses.dto.user
 
 import com.fasterxml.jackson.annotation.JsonProperty
+import eu.nt.xpenses.model.User
 
 data class UserResponse(
     val id: Int,

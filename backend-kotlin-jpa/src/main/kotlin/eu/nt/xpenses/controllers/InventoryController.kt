@@ -1,9 +1,9 @@
 package eu.nt.xpenses.controllers
 
 import com.fasterxml.jackson.annotation.JsonProperty
-import eu.nt.xpenses.models.InventoryItem
-import eu.nt.xpenses.models.InventoryRequest
-import eu.nt.xpenses.models.User
+import eu.nt.xpenses.model.InventoryItem
+import eu.nt.xpenses.model.InventoryRequest
+import eu.nt.xpenses.model.User
 import eu.nt.xpenses.repositories.InventoryItemRepository
 import eu.nt.xpenses.repositories.InventoryRequestRepository
 import jakarta.servlet.http.HttpServletRequest

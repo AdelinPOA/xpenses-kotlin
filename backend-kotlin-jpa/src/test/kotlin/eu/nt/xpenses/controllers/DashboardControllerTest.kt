@@ -1,7 +1,7 @@
 package eu.nt.xpenses.controllers
 
 import eu.nt.xpenses.IntegrationTestBase
-import eu.nt.xpenses.models.Expense
+import eu.nt.xpenses.model.Expense
 import jakarta.persistence.EntityManager
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -52,4 +52,24 @@ class DashboardControllerTest : IntegrationTestBase() {
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.expense_count_total").value(org.hamcrest.Matchers.greaterThanOrEqualTo(2)))
     }
+
+    @Test
+    fun `technician gets 403 forbidden for manager dashboard`() {
+        val cookie = authHelper.loginAs("tech1", "tech1")
+        mockMvc.perform(get("/api/dashboard/manager").cookie(cookie))
+            .andExpect(status().isForbidden)
+    }
+
+    @Test
+    fun `manager gets 200 ok with manager dashboard stats`() {
+        val cookie = authHelper.loginAs("manager1", "manager1")
+        mockMvc.perform(get("/api/dashboard/manager").cookie(cookie))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.kpis.pending_reports_count").exists())
+            .andExpect(jsonPath("$.kpis.pending_advances_count").exists())
+            .andExpect(jsonPath("$.pending_reports").isArray)
+            .andExpect(jsonPath("$.pending_advances").isArray)
+            .andExpect(jsonPath("$.recent_activity").isArray)
+    }
 }
+

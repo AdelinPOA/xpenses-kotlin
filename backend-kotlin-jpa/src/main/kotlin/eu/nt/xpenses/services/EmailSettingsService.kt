@@ -3,7 +3,7 @@ package eu.nt.xpenses.services
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
-import eu.nt.xpenses.models.AppSetting
+import eu.nt.xpenses.model.AppSetting
 import eu.nt.xpenses.repositories.AppSettingRepository
 import jakarta.mail.Message
 import jakarta.mail.Session

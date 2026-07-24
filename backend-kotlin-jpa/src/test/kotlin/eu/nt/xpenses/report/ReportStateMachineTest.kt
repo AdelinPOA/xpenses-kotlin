@@ -1,8 +1,8 @@
 package eu.nt.xpenses.report
 
 import eu.nt.xpenses.IntegrationTestBase
-import eu.nt.xpenses.models.Expense
-import eu.nt.xpenses.models.ExpenseReport
+import eu.nt.xpenses.model.Expense
+import eu.nt.xpenses.model.ExpenseReport
 import jakarta.persistence.EntityManager
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test

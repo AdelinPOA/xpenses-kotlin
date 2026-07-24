@@ -1,7 +1,7 @@
 package eu.nt.xpenses.controllers
 
 import eu.nt.xpenses.IntegrationTestBase
-import eu.nt.xpenses.models.InsuranceFile
+import eu.nt.xpenses.model.InsuranceFile
 import eu.nt.xpenses.repositories.InsuranceFileRepository
 import jakarta.persistence.EntityManager
 import org.junit.jupiter.api.Test

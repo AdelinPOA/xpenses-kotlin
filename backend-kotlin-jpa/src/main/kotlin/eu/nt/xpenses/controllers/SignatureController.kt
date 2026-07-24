@@ -1,6 +1,6 @@
 package eu.nt.xpenses.controllers
 
-import eu.nt.xpenses.models.User
+import eu.nt.xpenses.model.User
 import eu.nt.xpenses.repositories.UserRepository
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse

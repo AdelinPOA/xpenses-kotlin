@@ -1,8 +1,8 @@
 package eu.nt.xpenses.controllers
 
 import com.fasterxml.jackson.annotation.JsonProperty
-import eu.nt.xpenses.models.InsuranceFile
-import eu.nt.xpenses.models.User
+import eu.nt.xpenses.model.InsuranceFile
+import eu.nt.xpenses.model.User
 import eu.nt.xpenses.repositories.InsuranceFileRepository
 import eu.nt.xpenses.repositories.UserRepository
 import eu.nt.xpenses.services.StorageService

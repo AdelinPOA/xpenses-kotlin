@@ -1,19 +1,19 @@
 package eu.nt.xpenses.controllers
 
-import com.fasterxml.jackson.annotation.JsonProperty
-import eu.nt.xpenses.models.*
+import eu.nt.xpenses.dto.expense.ExpenseCreate
+import eu.nt.xpenses.dto.expense.ExpenseOut
+import eu.nt.xpenses.dto.expense.ExpenseUpdate
+import eu.nt.xpenses.model.*
+import eu.nt.xpenses.models.PagedResponse
 import eu.nt.xpenses.repositories.*
-import eu.nt.xpenses.services.ExpenseMapper
+import eu.nt.xpenses.services.ExpenseService
 import eu.nt.xpenses.services.ExportService
 import eu.nt.xpenses.services.FxService
-import eu.nt.xpenses.services.ExpenseService
 import eu.nt.xpenses.services.StorageService
+import eu.nt.xpenses.services.mapper.ExpenseMapper
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
 import jakarta.validation.Valid
-import jakarta.validation.constraints.Min
-import jakarta.validation.constraints.NotBlank
-import jakarta.validation.constraints.Pattern
 import org.springframework.http.ContentDisposition
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
@@ -25,8 +25,6 @@ import org.springframework.web.bind.annotation.*
 import org.springframework.web.multipart.MultipartFile
 import org.springframework.web.server.ResponseStatusException
 import java.io.File
-import java.math.BigDecimal
-import java.math.RoundingMode
 import org.slf4j.LoggerFactory
 import java.net.URLConnection
 import java.time.Instant
@@ -69,7 +67,7 @@ class ExpenseController(
         return if (page != null) {
             val pageable = org.springframework.data.domain.PageRequest.of(page, size)
             val result = expenseRepository.findAllWithFiltersPaged(uid, status, reportId, categoryId, fromDate, toDate, pageable)
-            eu.nt.xpenses.models.PagedResponse(
+            PagedResponse(
                 data = result.content.map { expenseMapper.toExpenseOut(it) },
                 page = result.number,
                 size = result.size,
@@ -318,13 +316,11 @@ class ExpenseController(
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Not your expense")
         }
 
-        // Get first receipt sorted by created_at
         val receipt = expense.receipts.minByOrNull { it.createdAt }
         if (receipt != null) {
             return getSingleReceipt(expenseId, receipt.id!!, request, response)
         }
 
-        // Fallback to receiptPath column
         val rPath = expense.receiptPath ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "No receipt found")
         val bytes = try {
             storageService.downloadFile(rPath)
@@ -374,9 +370,8 @@ class ExpenseController(
         if (content.size < expected.size || !content.copyOfRange(0, expected.size).contentEquals(expected)) {
             throw IllegalArgumentException("File content does not match .$ext format")
         }
-        // Additional sub-signature check for WebP (RIFF header alone matches WAV/AVI too)
         if (ext == "webp") {
-            val webpSignature = byteArrayOf(0x57, 0x45, 0x42, 0x50) // "WEBP"
+            val webpSignature = byteArrayOf(0x57, 0x45, 0x42, 0x50)
             if (content.size < 12 || !content.copyOfRange(8, 12).contentEquals(webpSignature)) {
                 throw IllegalArgumentException("File content does not match .webp format")
             }
@@ -451,80 +446,3 @@ class ExpenseController(
     }
 
 }
-
-data class ReceiptOut(
-    val id: Int,
-    @JsonProperty("expense_id") val expenseId: Int,
-    @JsonProperty("file_path") val filePath: String,
-    @JsonProperty("original_name") val originalName: String?,
-    @JsonProperty("created_at") val createdAt: Instant
-)
-
-data class ExpenseOut(
-    val id: Int,
-    @JsonProperty("user_id") val userId: Int?,
-    @JsonProperty("user_display_name") val userDisplayName: String?,
-    @JsonProperty("category_id") val categoryId: Int?,
-    @JsonProperty("comparison_id") val comparisonId: Int? = null,
-    @JsonProperty("category_name") val categoryName: String?,
-    @JsonProperty("report_id") val reportId: Int?,
-    @JsonProperty("amount_original") val amountOriginal: BigDecimal,
-    @JsonProperty("currency_original") val currencyOriginal: String,
-    @JsonProperty("amount_eur") val amountEur: BigDecimal,
-    @JsonProperty("fx_rate") val fxRate: BigDecimal,
-    @JsonProperty("fx_rate_manual") val fxRateManual: Boolean,
-    @JsonProperty("tax_amount") val taxAmount: BigDecimal,
-    @JsonProperty("tax_rate") val taxRate: BigDecimal?,
-    @JsonProperty("tax_amount_eur") val taxAmountEur: BigDecimal,
-    val date: String,
-    val description: String?,
-    val merchant: String?,
-    @JsonProperty("receipt_path") val receiptPath: String?,
-    val receipts: List<ReceiptOut>,
-    val status: String,
-    @JsonProperty("raw_ocr_text") val rawOcrText: String?,
-    @JsonProperty("created_at") val createdAt: Instant,
-    @JsonProperty("updated_at") val updatedAt: Instant
-)
-
-data class ExpenseCreate(
-    @JsonProperty("category_id") val categoryId: Int? = null,
-    @JsonProperty("report_id") val reportId: Int? = null,
-    @field:Min(0) val amount: BigDecimal,
-    @field:NotBlank @field:Pattern(regexp = "^[A-Z]{3}$") val currency: String = "EUR",
-    @JsonProperty("tax_amount") val taxAmount: BigDecimal = BigDecimal.ZERO,
-    @JsonProperty("tax_rate") val taxRate: BigDecimal? = null,
-    @field:NotBlank val date: String,
-    val description: String? = null,
-    val merchant: String? = null,
-    @JsonProperty("raw_ocr_text") val rawOcrText: String? = null,
-    @JsonProperty("comparison_id") val comparisonId: Int? = null,
-    @JsonProperty("fx_rate") val fxRate: BigDecimal? = null,
-    @JsonProperty("fx_rate_manual") val fxRateManual: Boolean? = null
-)
-
-data class ExpenseUpdate(
-    @JsonProperty("category_id") val categoryId: Int? = null,
-    @JsonProperty("report_id") val reportId: Int? = null,
-    @field:Min(0) val amount: BigDecimal? = null,
-    @field:Pattern(regexp = "^[A-Z]{3}$") val currency: String? = null,
-    @JsonProperty("tax_amount") val taxAmount: BigDecimal? = null,
-    @JsonProperty("tax_rate") val taxRate: BigDecimal? = null,
-    val date: String? = null,
-    val description: String? = null,
-    val merchant: String? = null,
-    @JsonProperty("raw_ocr_text") val rawOcrText: String? = null,
-    @JsonProperty("comparison_id") val comparisonId: Int? = null,
-    @JsonProperty("fx_rate") val fxRate: BigDecimal? = null,
-    @JsonProperty("fx_rate_manual") val fxRateManual: Boolean? = null
-)
-
-data class BulkUploadError(
-    val filename: String,
-    val reason: String
-)
-
-data class BulkUploadResult(
-    val created: List<ExpenseOut>,
-    val errors: List<BulkUploadError>
-)

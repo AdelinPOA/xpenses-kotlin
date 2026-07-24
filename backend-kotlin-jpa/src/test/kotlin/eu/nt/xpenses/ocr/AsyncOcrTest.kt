@@ -1,8 +1,8 @@
 package eu.nt.xpenses.ocr
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import eu.nt.xpenses.models.OcrJob
-import eu.nt.xpenses.models.User
+import eu.nt.xpenses.model.OcrJob
+import eu.nt.xpenses.model.User
 import eu.nt.xpenses.repositories.OcrJobRepository
 import eu.nt.xpenses.services.AsyncOcrService
 import eu.nt.xpenses.services.OcrService

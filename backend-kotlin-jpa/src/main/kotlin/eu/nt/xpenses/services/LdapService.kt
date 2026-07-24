@@ -3,8 +3,8 @@ package eu.nt.xpenses.services
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
-import eu.nt.xpenses.models.AppSetting
-import eu.nt.xpenses.models.User
+import eu.nt.xpenses.model.AppSetting
+import eu.nt.xpenses.model.User
 import eu.nt.xpenses.repositories.AppSettingRepository
 import eu.nt.xpenses.repositories.RefreshTokenRepository
 import eu.nt.xpenses.repositories.UserRepository

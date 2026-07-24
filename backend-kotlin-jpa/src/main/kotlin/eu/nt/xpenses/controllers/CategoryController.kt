@@ -1,7 +1,7 @@
 package eu.nt.xpenses.controllers
 
 import com.fasterxml.jackson.annotation.JsonProperty
-import eu.nt.xpenses.models.Category
+import eu.nt.xpenses.model.Category
 import eu.nt.xpenses.repositories.CategoryRepository
 import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank

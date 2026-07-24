@@ -1,7 +1,7 @@
 package eu.nt.xpenses.services
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import eu.nt.xpenses.models.AppSetting
+import eu.nt.xpenses.model.AppSetting
 import eu.nt.xpenses.models.StorageConfigDto
 import eu.nt.xpenses.models.LocalStorageConfig
 import eu.nt.xpenses.repositories.AppSettingRepository
@@ -91,6 +91,24 @@ class StorageService(
     }
 
     fun saveStorageConfig(configData: StorageConfigDto) {
+        val maskedPatterns = listOf("••••••••", "****", "········", "————")
+        fun isMasked(value: String?): Boolean = value != null && value.isNotBlank() && value.trim() in maskedPatterns
+
+        for (label in listOf("smb", "webdav", "sftp")) {
+            val nc = when (label) {
+                "smb" -> configData.smb
+                "webdav" -> configData.webdav
+                else -> configData.sftp
+            }
+            if (nc?.password != null && isMasked(nc.password)) {
+                throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Storage config for '$label' contains a masked/placeholder password. Please enter the actual password.")
+            }
+        }
+        val s3 = configData.s3
+        if (s3?.secretKey != null && isMasked(s3.secretKey)) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "S3 secret key contains a masked/placeholder value. Please enter the actual key.")
+        }
+
         // Create deep copy
         val jsonStr = objectMapper.writeValueAsString(configData)
         val data: StorageConfigDto = objectMapper.readValue(jsonStr, StorageConfigDto::class.java)
@@ -311,7 +329,7 @@ class StorageService(
         return ""
     }
 
-    fun startMigration(oldConfig: StorageConfigDto, newConfig: StorageConfigDto, receipts: List<eu.nt.xpenses.models.Receipt>) {
+    fun startMigration(oldConfig: StorageConfigDto, newConfig: StorageConfigDto, receipts: List<eu.nt.xpenses.model.Receipt>) {
         val newProviderType = newConfig.providerType
         val oldProviderType = oldConfig.providerType
 
@@ -339,7 +357,7 @@ class StorageService(
                 val newProvider = createProvider(newProviderType, newConfig)
 
                 for (receipt in receipts) {
-                    val path = receipt.filePath ?: continue
+                    val path = receipt.filePath
                     try {
                         // Get file bytes from old provider
                         val bytes = if (oldProvider != null) {

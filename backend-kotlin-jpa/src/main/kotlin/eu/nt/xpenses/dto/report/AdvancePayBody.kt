@@ -1,0 +1,13 @@
+package eu.nt.xpenses.dto.report
+
+import com.fasterxml.jackson.annotation.JsonProperty
+import jakarta.validation.constraints.Min
+import jakarta.validation.constraints.NotBlank
+import jakarta.validation.constraints.Pattern
+import java.math.BigDecimal
+
+data class AdvancePayBody(
+    @field:Min(0) val amount: BigDecimal,
+    @field:NotBlank @field:Pattern(regexp = "^[A-Z]{3}$") val currency: String = "EUR",
+    @field:NotBlank val date: String
+)

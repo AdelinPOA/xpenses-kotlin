@@ -31,9 +31,12 @@ spring:
 jwt:
   secret: ${JWT_SECRET:}
   access-expires-minutes: 60
+  refresh-expires-days: 30
+  cookie:
+    access-max-age-seconds: 2592000  # 30 days, matches refresh TTL by default
 
 encryption:
-  secret: ${ENCRYPTION_SECRET:${JWT_SECRET:}}
+  secret: ${ENCRYPTION_SECRET:}
 
 seed:
   demo:
@@ -91,4 +94,8 @@ springdoc:
     enabled: ${SWAGGER_ENABLED:false}
   swagger-ui:
     enabled: ${SWAGGER_ENABLED:false}
+
+server:
+  forward-headers-strategy: framework
+
 

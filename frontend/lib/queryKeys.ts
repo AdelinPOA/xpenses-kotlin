@@ -34,6 +34,7 @@ export const settingsKeys = {
 
 export const dashboardKeys = {
   all: ["dashboard"] as const,
+  manager: () => [...dashboardKeys.all, "manager"] as const,
 };
 
 export const ldapKeys = {

@@ -1,16 +1,15 @@
 package eu.nt.xpenses.controllers
 
-import com.fasterxml.jackson.annotation.JsonProperty
-import eu.nt.xpenses.models.User
-import eu.nt.xpenses.models.UserResponse
+import eu.nt.xpenses.dto.user.ActiveUpdateRequest
+import eu.nt.xpenses.dto.user.RoleUpdateRequest
+import eu.nt.xpenses.dto.user.UserCreateRequest
+import eu.nt.xpenses.dto.user.UserResponse
+import eu.nt.xpenses.dto.user.UserUpdateMeRequest
+import eu.nt.xpenses.model.User
 import eu.nt.xpenses.repositories.RefreshTokenRepository
 import eu.nt.xpenses.repositories.UserRepository
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.validation.Valid
-import jakarta.validation.constraints.NotBlank
-import jakarta.validation.constraints.Pattern
-import jakarta.validation.constraints.Size
-import jakarta.validation.constraints.NotNull
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.security.access.prepost.PreAuthorize
@@ -128,11 +127,12 @@ class UserController(
         val user = userRepository.findById(userId).orElse(null)
             ?: return ResponseEntity.status(404).body(mapOf("detail" to "User not found"))
 
-        user.isActive = body.isActive!!
+        val active = body.isActive ?: return ResponseEntity.status(400).body(mapOf("detail" to "is_active is required"))
+        user.isActive = active
         user.updatedAt = Instant.now()
         val saved = userRepository.save(user)
 
-        if (!body.isActive!!) {
+        if (!active) {
             refreshTokenRepository.deleteByUserId(userId)
         }
 
@@ -168,24 +168,3 @@ class UserController(
         return ResponseEntity.ok(UserResponse.fromUser(saved))
     }
 }
-
-data class UserCreateRequest(
-    @field:NotBlank val username: String,
-    @JsonProperty("display_name") @field:NotBlank val displayName: String,
-    @field:NotBlank @field:Size(min = 8) val password: String,
-    @field:Pattern(regexp = "technician|manager|chef_finance|mod") val role: String,
-    val email: String? = null
-)
-
-data class RoleUpdateRequest(
-    @field:NotBlank val role: String
-)
-
-data class ActiveUpdateRequest(
-    @JsonProperty("is_active") @field:NotNull val isActive: Boolean? = null
-)
-
-data class UserUpdateMeRequest(
-    @JsonProperty("display_name") @field:Size(min = 1) val displayName: String? = null,
-    @JsonProperty("notifications_enabled") val notificationsEnabled: Boolean? = null
-)

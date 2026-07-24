@@ -1,17 +1,18 @@
 package eu.nt.xpenses.controllers
 
-import com.fasterxml.jackson.annotation.JsonProperty
-import eu.nt.xpenses.models.*
+import eu.nt.xpenses.dto.report.AdvancePayBody
+import eu.nt.xpenses.dto.report.AdvancePaymentCreate
+import eu.nt.xpenses.dto.report.AdvancePaymentOut
+import eu.nt.xpenses.dto.report.AdvancePaymentUpdate
+import eu.nt.xpenses.dto.report.AdvanceRejectBody
+import eu.nt.xpenses.dto.report.PendingAdvanceOut
+import eu.nt.xpenses.model.*
 import eu.nt.xpenses.repositories.*
 import eu.nt.xpenses.services.FxService
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.validation.Valid
-import jakarta.validation.constraints.Min
-import jakarta.validation.constraints.NotBlank
-import jakarta.validation.constraints.Pattern
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
-import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.bind.annotation.*
 import org.springframework.web.server.ResponseStatusException
@@ -48,7 +49,6 @@ class AdvanceController(
         val report = verifyReportOwnership(reportId, currentUser)
         val advances = advancePaymentRepository.findAllByReportId(reportId)
 
-        // Scoping: technicians see only their own advances
         if (currentUser.role !in listOf("chef_finance", "mod", "manager") && report.user?.id != currentUser.id) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden")
         }
@@ -99,7 +99,6 @@ class AdvanceController(
             return ResponseEntity.status(HttpStatus.CREATED).body(mapAdvanceToOut(saved))
         }
 
-        // type == "paid"
         if (isOwner && report.status != "draft") {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Technicians can only add self-paid advances to draft reports")
         }
@@ -171,7 +170,7 @@ class AdvanceController(
             val effAmount = body.amount ?: adv.amountOriginal
             val effCurrency = (body.currency ?: adv.currencyOriginal).uppercase()
             val effDate = body.date ?: adv.date
-            
+
             if (effDate.isEmpty()) {
                 throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Date is required for paid advances")
             }
@@ -404,76 +403,3 @@ class AdvanceController(
         )
     }
 }
-
-data class AdvancePaymentCreate(
-    @field:NotBlank val type: String = "paid",
-    @field:Min(0) val amount: BigDecimal,
-    @field:NotBlank @field:Pattern(regexp = "^[A-Z]{3}$") val currency: String = "EUR",
-    val date: String? = null,
-    val description: String? = null
-)
-
-data class AdvancePaymentUpdate(
-    @field:Min(0) val amount: BigDecimal? = null,
-    @field:Pattern(regexp = "^[A-Z]{3}$") val currency: String? = null,
-    val date: String? = null,
-    val description: String? = null
-)
-
-data class AdvancePayBody(
-    @field:Min(0) val amount: BigDecimal,
-    @field:NotBlank @field:Pattern(regexp = "^[A-Z]{3}$") val currency: String = "EUR",
-    @field:NotBlank val date: String
-)
-
-data class AdvanceRejectBody(
-    val reason: String = ""
-)
-
-data class AdvancePaymentOut(
-    val id: Int,
-    @JsonProperty("report_id") val reportId: Int,
-    @JsonProperty("user_id") val userId: Int,
-    val status: String,
-    @JsonProperty("amount_original") val amountOriginal: BigDecimal,
-    @JsonProperty("currency_original") val currencyOriginal: String,
-    @JsonProperty("amount_eur") val amountEur: BigDecimal,
-    @JsonProperty("fx_rate") val fxRate: BigDecimal,
-    val date: String,
-    val description: String?,
-    @JsonProperty("requested_amount") val requestedAmount: BigDecimal?,
-    @JsonProperty("requested_currency") val requestedCurrency: String?,
-    @JsonProperty("paid_by") val paidBy: Int?,
-    @JsonProperty("paid_by_name") val paidByName: String?,
-    @JsonProperty("paid_at") val paidAt: Instant?,
-    @JsonProperty("rejected_by") val rejectedBy: Int?,
-    @JsonProperty("rejected_by_name") val rejectedByName: String?,
-    @JsonProperty("rejected_at") val rejectedAt: Instant?,
-    @JsonProperty("created_at") val createdAt: Instant,
-    @JsonProperty("updated_at") val updatedAt: Instant
-)
-
-data class PendingAdvanceOut(
-    val id: Int,
-    @JsonProperty("report_id") val reportId: Int,
-    @JsonProperty("user_id") val userId: Int,
-    val status: String,
-    @JsonProperty("amount_original") val amountOriginal: BigDecimal,
-    @JsonProperty("currency_original") val currencyOriginal: String,
-    @JsonProperty("amount_eur") val amountEur: BigDecimal,
-    @JsonProperty("fx_rate") val fxRate: BigDecimal,
-    val date: String,
-    val description: String?,
-    @JsonProperty("requested_amount") val requestedAmount: BigDecimal?,
-    @JsonProperty("requested_currency") val requestedCurrency: String?,
-    @JsonProperty("paid_by") val paidBy: Int?,
-    @JsonProperty("paid_by_name") val paidByName: String?,
-    @JsonProperty("paid_at") val paidAt: Instant?,
-    @JsonProperty("rejected_by") val rejectedBy: Int?,
-    @JsonProperty("rejected_by_name") val rejectedByName: String?,
-    @JsonProperty("rejected_at") val rejectedAt: Instant?,
-    @JsonProperty("created_at") val createdAt: Instant,
-    @JsonProperty("updated_at") val updatedAt: Instant,
-    @JsonProperty("user_display_name") val userDisplayName: String,
-    @JsonProperty("report_title") val reportTitle: String
-)

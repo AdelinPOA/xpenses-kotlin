@@ -1,6 +1,6 @@
 package eu.nt.xpenses.config
 
-import eu.nt.xpenses.models.*
+import eu.nt.xpenses.model.*
 import eu.nt.xpenses.repositories.*
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value

@@ -1,6 +1,6 @@
 package eu.nt.xpenses.services
 
-import eu.nt.xpenses.models.*
+import eu.nt.xpenses.model.*
 import eu.nt.xpenses.repositories.AppSettingRepository
 import org.apache.pdfbox.Loader
 import org.apache.pdfbox.text.PDFTextStripper

@@ -72,10 +72,31 @@ class RateLimitingFilter(
 
     private fun extractClientIp(request: HttpServletRequest): String {
         val xForwardedFor = request.getHeader("X-Forwarded-For")
-        return if (!xForwardedFor.isNullOrBlank()) {
-            xForwardedFor.split(",")[0].trim()
-        } else {
-            request.remoteAddr ?: "unknown"
+        if (!xForwardedFor.isNullOrBlank()) {
+            val firstIp = xForwardedFor.split(",")[0].trim()
+            if (!isPrivateIp(firstIp)) {
+                return firstIp
+            }
+        }
+
+        val xRealIp = request.getHeader("X-Real-IP")
+        if (!xRealIp.isNullOrBlank()) {
+            return xRealIp.trim()
+        }
+
+        return request.remoteAddr ?: "unknown"
+    }
+
+    private fun isPrivateIp(ip: String): Boolean {
+        val parts = ip.split(".").mapNotNull { it.toIntOrNull() }
+        if (parts.size != 4) return false
+        return when (parts[0]) {
+            10 -> true
+            172 -> parts[1] in 16..31
+            192 -> parts[1] == 168
+            127 -> true
+            169 -> parts[1] == 254
+            else -> false
         }
     }
 }

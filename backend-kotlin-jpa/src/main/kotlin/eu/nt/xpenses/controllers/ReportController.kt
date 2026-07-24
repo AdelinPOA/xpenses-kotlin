@@ -1,11 +1,19 @@
 package eu.nt.xpenses.controllers
 
-import com.fasterxml.jackson.annotation.JsonProperty
-import eu.nt.xpenses.models.*
-import eu.nt.xpenses.repositories.*
+import eu.nt.xpenses.dto.expense.ExpenseOut
+import eu.nt.xpenses.dto.report.RejectBody
+import eu.nt.xpenses.dto.report.ReportCreate
+import eu.nt.xpenses.dto.report.ReportOut
+import eu.nt.xpenses.dto.report.ReportSubmit
+import eu.nt.xpenses.dto.report.ReportUpdate
+import eu.nt.xpenses.model.*
+import eu.nt.xpenses.models.PagedResponse
+import eu.nt.xpenses.repositories.ExpenseReportRepository
+import eu.nt.xpenses.repositories.ExpenseRepository
+import eu.nt.xpenses.repositories.UserRepository
 import eu.nt.xpenses.repositories.AppSettingRepository
-import eu.nt.xpenses.services.EmailSettingsService
-import eu.nt.xpenses.services.ExpenseMapper
+import eu.nt.xpenses.services.mapper.ExpenseMapper
+import eu.nt.xpenses.services.mapper.ReportMapper
 import eu.nt.xpenses.services.ExpenseService
 import eu.nt.xpenses.services.ExportService
 import eu.nt.xpenses.services.PdfService
@@ -22,12 +30,8 @@ import org.springframework.web.bind.annotation.*
 import org.springframework.web.server.ResponseStatusException
 import org.springframework.transaction.annotation.Transactional
 import jakarta.validation.Valid
-import jakarta.validation.constraints.NotBlank
-import jakarta.validation.constraints.Size
 import java.io.ByteArrayOutputStream
 import java.math.BigDecimal
-import java.math.RoundingMode
-import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -40,12 +44,11 @@ class ReportController(
     private val expenseReportRepository: ExpenseReportRepository,
     private val expenseRepository: ExpenseRepository,
     private val userRepository: UserRepository,
-    private val emailSettingsService: EmailSettingsService,
     private val pdfService: PdfService,
     private val storageService: StorageService,
     private val exportService: ExportService,
     private val expenseMapper: ExpenseMapper,
-    private val appSettingRepository: AppSettingRepository,
+    private val reportMapper: ReportMapper,
     private val reportService: ReportService,
     private val expenseService: ExpenseService
 ) {
@@ -74,8 +77,8 @@ class ReportController(
         return if (page != null) {
             val pageable = org.springframework.data.domain.PageRequest.of(page, size)
             val result = expenseReportRepository.findAllWithFiltersPaged(targetUid, status, pageable)
-            eu.nt.xpenses.models.PagedResponse(
-                data = result.content.map { mapReportToOut(it) },
+            PagedResponse(
+                data = result.content.map { reportMapper.mapReportToOut(it) },
                 page = result.number,
                 size = result.size,
                 totalElements = result.totalElements,
@@ -95,7 +98,7 @@ class ReportController(
                 if (status != null) expenseReportRepository.findAllByUserIdAndStatusWithExpenses(uid, status)
                 else expenseReportRepository.findAllByUserIdWithExpenses(uid)
             }
-            reports.sortedByDescending { it.createdAt }.map { mapReportToOut(it) }
+            reports.sortedByDescending { it.createdAt }.map { reportMapper.mapReportToOut(it) }
         }
     }
 
@@ -121,7 +124,7 @@ class ReportController(
         )
 
         val saved = expenseReportRepository.save(report)
-        return ResponseEntity.status(HttpStatus.CREATED).body(mapReportToOut(saved))
+        return ResponseEntity.status(HttpStatus.CREATED).body(reportMapper.mapReportToOut(saved))
     }
 
     @GetMapping("/{reportId}")
@@ -140,7 +143,7 @@ class ReportController(
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Not your report")
         }
 
-        return mapReportToOut(report)
+        return reportMapper.mapReportToOut(report)
     }
 
     @Transactional
@@ -182,7 +185,7 @@ class ReportController(
 
         report.updatedAt = Instant.now()
         val saved = expenseReportRepository.save(report)
-        return mapReportToOut(saved)
+        return reportMapper.mapReportToOut(saved)
     }
 
     @Transactional
@@ -235,7 +238,7 @@ class ReportController(
         val currentUser = request.getAttribute("currentUser") as? User
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
         val saved = reportService.attachExpenses(reportId, body.expenseIds, currentUser)
-        return mapReportToOut(saved)
+        return reportMapper.mapReportToOut(saved)
     }
 
     @Transactional
@@ -248,7 +251,7 @@ class ReportController(
         val currentUser = request.getAttribute("currentUser") as? User
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
         val saved = reportService.submitReport(reportId, body?.expenseIds, currentUser)
-        return mapReportToOut(saved)
+        return reportMapper.mapReportToOut(saved)
     }
 
     @Transactional
@@ -260,7 +263,7 @@ class ReportController(
         val currentUser = request.getAttribute("currentUser") as? User
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
         val saved = reportService.recallReport(reportId, currentUser)
-        return mapReportToOut(saved)
+        return reportMapper.mapReportToOut(saved)
     }
 
     @Transactional
@@ -272,7 +275,7 @@ class ReportController(
         val currentUser = request.getAttribute("currentUser") as? User
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
         val saved = reportService.payReport(reportId, currentUser)
-        return mapReportToOut(saved)
+        return reportMapper.mapReportToOut(saved)
     }
 
     @Transactional
@@ -284,7 +287,7 @@ class ReportController(
         val currentUser = request.getAttribute("currentUser") as? User
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
         val saved = reportService.approveReport(reportId, currentUser)
-        return mapReportToOut(saved)
+        return reportMapper.mapReportToOut(saved)
     }
 
     @Transactional
@@ -298,7 +301,7 @@ class ReportController(
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
         val reason = body?.reason ?: ""
         val saved = reportService.rejectReport(reportId, reason, currentUser)
-        return mapReportToOut(saved)
+        return reportMapper.mapReportToOut(saved)
     }
 
     @Transactional
@@ -322,7 +325,6 @@ class ReportController(
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "No signature saved. Record your signature first.")
         }
 
-        // Only allow signing on submitted or approved reports
         if (report.status !in listOf("submitted", "approved")) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Only submitted or approved reports can be signed")
         }
@@ -333,7 +335,7 @@ class ReportController(
         report.updatedAt = now
 
         val saved = expenseReportRepository.save(report)
-        return mapReportToOut(saved)
+        return reportMapper.mapReportToOut(saved)
     }
 
     @GetMapping("/{reportId}/export")
@@ -389,18 +391,18 @@ class ReportController(
         ZipOutputStream(zipStream).use { zos ->
             val seen = mutableMapOf<String, Int>()
             val expensesSorted = report.expenses.sortedBy { it.date }
-            
+
             for (expense in expensesSorted) {
                 for (receipt in expense.receipts) {
                     try {
                         val bytes = storageService.downloadFile(receipt.filePath)
                         val ext = receipt.filePath.substringAfterLast(".", "")
-                        
+
                         val date = expense.date
                         val namePart = expense.merchant ?: expense.description ?: "expense_${expense.id}"
                         val baseName = "${date}_$namePart".replace(" ", "_").replace("/", "-")
                         var arcName = if (ext.isNotEmpty()) "$baseName.$ext" else baseName
-                        
+
                         val count = seen[arcName]
                         if (count != null) {
                             seen[arcName] = count + 1
@@ -408,13 +410,12 @@ class ReportController(
                         } else {
                             seen[arcName] = 1
                         }
-                        
+
                         val zipEntry = ZipEntry(arcName)
                         zos.putNextEntry(zipEntry)
                         zos.write(bytes)
                         zos.closeEntry()
                     } catch (e: Exception) {
-                        // ignore missing/corrupt files
                     }
                 }
             }
@@ -432,72 +433,6 @@ class ReportController(
             .contentType(MediaType.parseMediaType("application/zip"))
             .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"$filename\"")
             .body(zipBytes)
-    }
-
-    private fun mapAdvanceToOut(adv: AdvancePayment): AdvancePaymentOut {
-        return AdvancePaymentOut(
-            id = adv.id!!,
-            reportId = adv.report.id!!,
-            userId = adv.user.id!!,
-            status = adv.status,
-            amountOriginal = adv.amountOriginal,
-            currencyOriginal = adv.currencyOriginal,
-            amountEur = adv.amountEur,
-            fxRate = adv.fxRate,
-            date = adv.date,
-            description = adv.description,
-            requestedAmount = adv.requestedAmount,
-            requestedCurrency = adv.requestedCurrency,
-            paidBy = adv.paidBy?.id,
-            paidByName = adv.paidBy?.displayName,
-            paidAt = adv.paidAt,
-            rejectedBy = adv.rejectedBy?.id,
-            rejectedByName = adv.rejectedBy?.displayName,
-            rejectedAt = adv.rejectedAt,
-            createdAt = adv.createdAt,
-            updatedAt = adv.updatedAt
-        )
-    }
-
-    private fun mapRecordToOut(m: MileageRecord): MileageRecordOut {
-        val durationMins = Duration.between(m.startTime, m.endTime).toMillis() / 60000.0
-        return MileageRecordOut(
-            id = m.id!!,
-            reportId = m.report.id!!,
-            userId = m.user.id!!,
-            origin = m.origin,
-            destination = m.destination,
-            distanceKm = m.distanceKm,
-            rateBeforeTax = m.rateBeforeTax,
-            rateAfterTax = m.rateAfterTax,
-            amountBeforeTax = m.amountBeforeTax,
-            amountEur = m.amountEur,
-            startTime = m.startTime,
-            endTime = m.endTime,
-            description = m.description,
-            createdAt = m.createdAt,
-            updatedAt = m.updatedAt,
-            durationMinutes = durationMins
-        )
-    }
-
-    private fun getDailyAllowanceRate(): BigDecimal =
-        appSettingRepository.findById("daily_allowance_rate").orElse(null)?.value?.let { BigDecimal(it) } ?: BigDecimal("50.00")
-
-    private fun calculateDailyAllowance(dateFrom: String?, dateTo: String?): BigDecimal {
-        if (dateFrom.isNullOrEmpty() || dateTo.isNullOrEmpty()) return BigDecimal.ZERO
-        return try {
-            val formatter = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd")
-            val dFrom = java.time.LocalDate.parse(dateFrom.take(10), formatter)
-            val dTo = java.time.LocalDate.parse(dateTo.take(10), formatter)
-            val days = java.time.Duration.between(dFrom.atStartOfDay(), dTo.atStartOfDay()).toDays() + 1
-            
-            val rate = appSettingRepository.findById("daily_allowance_rate").orElse(null)?.value?.let { BigDecimal(it) } ?: BigDecimal("50.00")
-            if (days > 0) rate.multiply(BigDecimal.valueOf(days)) else BigDecimal.ZERO
-        } catch (e: Exception) {
-            log.warn("Exception in calculateDailyAllowance: {}", e.message)
-            BigDecimal.ZERO
-        }
     }
 
     @GetMapping("/export")
@@ -548,7 +483,7 @@ class ReportController(
                 put("date_from", r.dateFrom ?: "")
                 put("date_to", r.dateTo ?: "")
                 put("total_amount", r.totalAmount)
-                put("currency", r.currency ?: "EUR")
+                put("currency", r.currency)
                 put("submitted_at", r.submittedAt?.let { isoFmt.format(it.atZone(java.time.ZoneOffset.UTC)) } ?: "")
                 put("approved_at", r.approvedAt?.let { isoFmt.format(it.atZone(java.time.ZoneOffset.UTC)) } ?: "")
                 put("paid_at", r.paidAt?.let { isoFmt.format(it.atZone(java.time.ZoneOffset.UTC)) } ?: "")
@@ -634,135 +569,4 @@ class ReportController(
         }
         return ResponseEntity(bytes, headers, HttpStatus.OK)
     }
-
-    private fun mapReportToOut(report: ExpenseReport): ReportOut {
-        val expensesOut = report.expenses.sortedBy { it.date }.map { expenseMapper.toExpenseOut(it) }
-        val advancesOut = report.advances.sortedBy { it.date }.map { mapAdvanceToOut(it) }
-        val mileageOut = report.mileageRecords.sortedBy { it.startTime }.map { mapRecordToOut(it) }
-
-        val totalExpenses = expensesOut.map { it.amountEur }.fold(BigDecimal.ZERO) { acc, v -> acc.add(v) }
-        val totalAdvances = advancesOut.filter { it.status == "paid" }.map { it.amountEur }.fold(BigDecimal.ZERO) { acc, v -> acc.add(v) }
-        val totalMileage = mileageOut.map { it.amountEur }.fold(BigDecimal.ZERO) { acc, v -> acc.add(v) }
-        val allowance = calculateDailyAllowance(report.dateFrom, report.dateTo)
-        val totalReimbursable = totalExpenses.add(allowance).add(totalMileage).subtract(totalAdvances)
-
-        return ReportOut(
-            id = report.id!!,
-            userId = report.user?.id,
-            userDisplayName = report.user?.displayName,
-            title = report.title,
-            description = report.description,
-            dateFrom = report.dateFrom,
-            dateTo = report.dateTo,
-            status = report.status,
-            submittedAt = report.submittedAt,
-            paidAt = report.paidAt,
-            approvedBy = report.approvedBy?.id,
-            approvedAt = report.approvedAt,
-            rejectedBy = report.rejectedBy?.id,
-            rejectedAt = report.rejectedAt,
-            rejectedReason = report.rejectedReason,
-            signerId = report.signer?.id,
-            signedAt = report.signedAt,
-            totalAmount = report.totalAmount,
-            currency = report.currency,
-            createdAt = report.createdAt,
-            updatedAt = report.updatedAt,
-            expenses = expensesOut,
-            advances = advancesOut,
-            totalAdvances = totalAdvances,
-            mileageRecords = mileageOut,
-            totalMileageEur = totalMileage,
-            dailyAllowance = allowance,
-            totalReimbursable = totalReimbursable,
-            kundenauftrag = report.kundenauftrag,
-            auftragsart = report.auftragsart,
-            positionstyp = report.positionstyp,
-            technplatzRaw = report.technplatzRaw,
-            technplatzLine = report.technplatzLine,
-            kundeCode = report.kundeCode,
-            kundeName = report.kundeName,
-            adresse = report.adresse,
-            vorgang = report.vorgang,
-            arbeitsplatz = report.arbeitsplatz,
-            techniker = report.techniker
-        )
-    }
 }
-
-data class RejectBody(
-    val reason: String = ""
-)
-
-data class ReportCreate(
-    @field:NotBlank val title: String,
-    @field:Size(max = 1000) val description: String? = null,
-    @JsonProperty("date_from") val dateFrom: String? = null,
-    @JsonProperty("date_to") val dateTo: String? = null,
-    val currency: String = "EUR"
-)
-
-data class ReportUpdate(
-    val title: String? = null,
-    @field:Size(max = 1000) val description: String? = null,
-    @JsonProperty("date_from") val dateFrom: String? = null,
-    @JsonProperty("date_to") val dateTo: String? = null,
-    val currency: String? = null,
-    val kundenauftrag: String? = null,
-    val auftragsart: String? = null,
-    val positionstyp: String? = null,
-    @JsonProperty("technplatz_raw") val technplatzRaw: String? = null,
-    @JsonProperty("kunde_code") val kundeCode: String? = null,
-    @JsonProperty("kunde_name") val kundeName: String? = null,
-    val adresse: String? = null,
-    val vorgang: String? = null,
-    val arbeitsplatz: String? = null,
-    val techniker: String? = null
-)
-
-data class ReportSubmit(
-    @JsonProperty("expense_ids") val expenseIds: List<Int> = emptyList()
-)
-
-data class ReportOut(
-    val id: Int,
-    @JsonProperty("user_id") val userId: Int?,
-    @JsonProperty("user_display_name") val userDisplayName: String?,
-    val title: String,
-    val description: String?,
-    @JsonProperty("date_from") val dateFrom: String?,
-    @JsonProperty("date_to") val dateTo: String?,
-    val status: String,
-    @JsonProperty("submitted_at") val submittedAt: Instant?,
-    @JsonProperty("paid_at") val paidAt: Instant?,
-    @JsonProperty("approved_by") val approvedBy: Int?,
-    @JsonProperty("approved_at") val approvedAt: Instant?,
-    @JsonProperty("rejected_by") val rejectedBy: Int?,
-    @JsonProperty("rejected_at") val rejectedAt: Instant?,
-    @JsonProperty("rejected_reason") val rejectedReason: String?,
-    @JsonProperty("signer_id") val signerId: Int?,
-    @JsonProperty("signed_at") val signedAt: Instant?,
-    @JsonProperty("total_amount") val totalAmount: BigDecimal,
-    val currency: String,
-    @JsonProperty("created_at") val createdAt: Instant,
-    @JsonProperty("updated_at") val updatedAt: Instant,
-    val expenses: List<ExpenseOut> = emptyList(),
-    val advances: List<AdvancePaymentOut> = emptyList(),
-    @JsonProperty("total_advances") val totalAdvances: BigDecimal = BigDecimal.ZERO,
-    @JsonProperty("mileage_records") val mileageRecords: List<MileageRecordOut> = emptyList(),
-    @JsonProperty("total_mileage_eur") val totalMileageEur: BigDecimal = BigDecimal.ZERO,
-    @JsonProperty("daily_allowance") val dailyAllowance: BigDecimal = BigDecimal.ZERO,
-    @JsonProperty("total_reimbursable") val totalReimbursable: BigDecimal = BigDecimal.ZERO,
-    // Delegation email import fields
-    val kundenauftrag: String? = null,
-    val auftragsart: String? = null,
-    val positionstyp: String? = null,
-    @JsonProperty("technplatz_raw") val technplatzRaw: String? = null,
-    @JsonProperty("technplatz_line") val technplatzLine: Boolean = false,
-    @JsonProperty("kunde_code") val kundeCode: String? = null,
-    @JsonProperty("kunde_name") val kundeName: String? = null,
-    val adresse: String? = null,
-    val vorgang: String? = null,
-    val arbeitsplatz: String? = null,
-    val techniker: String? = null
-)

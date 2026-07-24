@@ -1,7 +1,7 @@
 package eu.nt.xpenses.controllers
 
 import eu.nt.xpenses.IntegrationTestBase
-import eu.nt.xpenses.models.ExpenseReport
+import eu.nt.xpenses.model.ExpenseReport
 import jakarta.persistence.EntityManager
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired

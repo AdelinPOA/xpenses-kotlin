@@ -1,6 +1,6 @@
 package eu.nt.xpenses.services
 
-import eu.nt.xpenses.models.FxRate
+import eu.nt.xpenses.model.FxRate
 import eu.nt.xpenses.repositories.FxRateRepository
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach

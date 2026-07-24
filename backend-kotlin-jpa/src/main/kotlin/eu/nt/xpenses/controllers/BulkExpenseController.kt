@@ -1,11 +1,15 @@
 package eu.nt.xpenses.controllers
 
-import eu.nt.xpenses.models.*
+import eu.nt.xpenses.dto.expense.BulkUploadError
+import eu.nt.xpenses.dto.expense.BulkUploadResult
+import eu.nt.xpenses.dto.expense.ExpenseCreate
+import eu.nt.xpenses.dto.expense.ExpenseOut
+import eu.nt.xpenses.model.*
 import eu.nt.xpenses.repositories.*
-import eu.nt.xpenses.services.ExpenseMapper
 import eu.nt.xpenses.services.ExpenseService
 import eu.nt.xpenses.services.OcrService
 import eu.nt.xpenses.services.StorageService
+import eu.nt.xpenses.services.mapper.ExpenseMapper
 import jakarta.servlet.http.HttpServletRequest
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
@@ -21,13 +25,6 @@ import java.math.BigDecimal
 import java.time.Instant
 import java.time.LocalDate
 
-/**
- * Dedicated controller for bulk receipt upload → draft expense creation.
- *
- * Kept separate from ExpenseController to avoid a Spring Boot 3 AOT routing
- * limitation where @PostMapping("/literal-path") on the same controller as
- * @PostMapping (no-path) fails to register in the AOT-optimised handler map.
- */
 @RestController
 @RequestMapping("/api/expenses")
 class BulkExpenseController(
@@ -40,10 +37,6 @@ class BulkExpenseController(
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
-    // POST /api/expenses/bulk-upload
-    // Accepts up to 20 receipt images/PDFs. Per file: runs OCR synchronously,
-    // creates a draft expense, attaches the receipt. Returns all created expenses
-    // plus a per-file error list for files that failed validation or OCR.
     @PostMapping("/bulk-upload")
     fun bulkUploadExpenses(
         @RequestParam("files") files: List<MultipartFile>,
@@ -80,7 +73,6 @@ class BulkExpenseController(
                 continue
             }
 
-            // Run OCR synchronously — never let a single OCR failure abort the batch
             val ocrResult: Map<String, Any?> = try {
                 ocrService.scanReceipt(file.bytes, filename)
             } catch (e: Exception) {
@@ -122,7 +114,6 @@ class BulkExpenseController(
                 continue
             }
 
-            // Attach receipt
             try {
                 val relativePath = saveReceipt(expense.id!!, filename, file.bytes)
                 val receipt = Receipt(
@@ -169,7 +160,7 @@ class BulkExpenseController(
             throw IllegalArgumentException("File content does not match .$ext format")
         }
         if (ext == "webp") {
-            val webpSignature = byteArrayOf(0x57, 0x45, 0x42, 0x50) // "WEBP"
+            val webpSignature = byteArrayOf(0x57, 0x45, 0x42, 0x50)
             if (content.size < 12 || !content.copyOfRange(8, 12).contentEquals(webpSignature)) {
                 throw IllegalArgumentException("File content does not match .webp format")
             }

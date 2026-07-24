@@ -1,7 +1,7 @@
 package eu.nt.xpenses.services
 
-import eu.nt.xpenses.models.ExpenseReport
-import eu.nt.xpenses.models.User
+import eu.nt.xpenses.model.ExpenseReport
+import eu.nt.xpenses.model.User
 import eu.nt.xpenses.repositories.ExpenseReportRepository
 import eu.nt.xpenses.repositories.ExpenseRepository
 import eu.nt.xpenses.repositories.UserRepository
@@ -105,6 +105,15 @@ class ReportService(
         if (expenseIds != null && expenseIds.isNotEmpty()) {
             val expenses = expenseRepository.findAllById(expenseIds)
             val valid = expenses.filter { it.status == "draft" && it.user?.id == currentUser.id }
+            for (exp in valid) {
+                if (exp.report?.id != null && exp.report?.id != reportId) {
+                    throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Expense already attached to another report")
+                }
+            }
+            val invalid = expenseIds.toSet() - valid.map { it.id!! }.toSet()
+            if (invalid.isNotEmpty()) {
+                throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid, non-draft, or not-owned expense IDs: $invalid")
+            }
             for (exp in valid) {
                 exp.report = report
                 exp.updatedAt = now

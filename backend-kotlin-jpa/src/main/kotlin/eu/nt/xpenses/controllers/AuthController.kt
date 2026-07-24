@@ -1,9 +1,10 @@
 package eu.nt.xpenses.controllers
 
-import eu.nt.xpenses.models.RefreshToken
-import eu.nt.xpenses.models.User
-import eu.nt.xpenses.models.UserResponse
-import com.fasterxml.jackson.annotation.JsonProperty
+import eu.nt.xpenses.dto.auth.ChangePasswordRequest
+import eu.nt.xpenses.dto.auth.LoginRequest
+import eu.nt.xpenses.dto.user.UserResponse
+import eu.nt.xpenses.model.RefreshToken
+import eu.nt.xpenses.model.User
 import eu.nt.xpenses.repositories.RefreshTokenRepository
 import eu.nt.xpenses.repositories.UserRepository
 import eu.nt.xpenses.security.JwtTokenProvider
@@ -13,8 +14,6 @@ import eu.nt.xpenses.services.LDAPUnavailableException
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
 import jakarta.validation.Valid
-import jakarta.validation.constraints.NotBlank
-import jakarta.validation.constraints.Size
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.HttpHeaders
 import org.springframework.http.ResponseCookie
@@ -33,8 +32,13 @@ class AuthController(
     private val tokenProvider: JwtTokenProvider,
     private val refreshTokenRepository: RefreshTokenRepository,
     private val ldapService: LdapService,
-    @Value("\${cookie.secure:false}") private val cookieSecure: Boolean
+    @Value("\${cookie.secure:false}") private val cookieSecure: Boolean,
+    @Value("\${jwt.refresh-expires-days:30}") private val refreshExpiresDays: Long,
+    @Value("\${jwt.cookie.access-max-age-seconds:0}") private val accessCookieMaxAgeSeconds: Long
 ) {
+    private val cookieMaxAgeSeconds: Long by lazy {
+        if (accessCookieMaxAgeSeconds > 0) accessCookieMaxAgeSeconds else refreshExpiresDays * 86400
+    }
 
     @PostMapping("/login")
     @Transactional
@@ -44,7 +48,6 @@ class AuthController(
     ): ResponseEntity<*> {
         val user = userRepository.findByUsername(request.username)
         if (user == null) {
-            // Prevent username enumeration timing oracle: always run bcrypt regardless
             passwordEncoder.matches(request.password, "\$2a\$10\$dummyHashThatIsLongEnoughSoBcryptDoesNotCrash")
             return ResponseEntity.status(401).body(mapOf("detail" to "Invalid credentials"))
         }
@@ -77,11 +80,9 @@ class AuthController(
         val rawRefreshToken = tokenProvider.createRefreshToken()
         val hashedRefreshToken = tokenProvider.hashRefreshToken(rawRefreshToken)
 
-        // Invalidate old refresh tokens
         refreshTokenRepository.deleteByUserId(user.id!!)
 
-        // Store new refresh token
-        val tokenExpiry = Instant.now().plus(7, ChronoUnit.DAYS)
+        val tokenExpiry = Instant.now().plus(refreshExpiresDays, ChronoUnit.DAYS)
         refreshTokenRepository.save(
             RefreshToken(
                 user = user,
@@ -110,7 +111,6 @@ class AuthController(
 
         val storedToken = refreshTokenRepository.findByTokenHash(hashedToken)
         if (storedToken == null) {
-            // Revoke active sessions for the user if access token is present
             val accessTokenCookie = cookies.find { it.name == "access_token" }
             if (accessTokenCookie != null) {
                 try {
@@ -146,7 +146,6 @@ class AuthController(
             return ResponseEntity.status(403).body(mapOf("detail" to "Account deactivated"))
         }
 
-        // Rotate token
         refreshTokenRepository.delete(storedToken)
 
         val newAccessToken = tokenProvider.createAccessToken(user.id!!, user.username, user.role, user.tokenVersion)
@@ -157,7 +156,7 @@ class AuthController(
             RefreshToken(
                 user = user,
                 tokenHash = newHashedRefreshToken,
-                expiresAt = Instant.now().plus(7, ChronoUnit.DAYS)
+                expiresAt = Instant.now().plus(refreshExpiresDays, ChronoUnit.DAYS)
             )
         )
 
@@ -182,7 +181,7 @@ class AuthController(
                 refreshTokenRepository.delete(storedToken)
             }
         }
-        
+
         clearAuthCookies(response)
         return ResponseEntity.ok(mapOf("status" to "logged out"))
     }
@@ -217,7 +216,7 @@ class AuthController(
     fun getMe(request: HttpServletRequest): ResponseEntity<*> {
         val currentUser = request.getAttribute("currentUser") as? User
             ?: return ResponseEntity.status(401).body(mapOf("detail" to "Not authenticated"))
-        
+
         return ResponseEntity.ok(UserResponse.fromUser(currentUser))
     }
 
@@ -226,6 +225,7 @@ class AuthController(
             .httpOnly(true)
             .secure(cookieSecure)
             .path("/")
+            .maxAge(cookieMaxAgeSeconds)
             .sameSite("Lax")
             .build()
 
@@ -233,7 +233,7 @@ class AuthController(
             .httpOnly(true)
             .secure(cookieSecure)
             .path("/")
-            .maxAge(7 * 24 * 60 * 60)
+            .maxAge(cookieMaxAgeSeconds)
             .sameSite("Lax")
             .build()
 
@@ -262,13 +262,3 @@ class AuthController(
         response.addHeader(HttpHeaders.SET_COOKIE, clearRefresh.toString())
     }
 }
-
-data class LoginRequest(
-    @field:NotBlank val username: String,
-    @field:NotBlank val password: String
-)
-
-data class ChangePasswordRequest(
-    @JsonProperty("old_password") @field:NotBlank val oldPassword: String,
-    @JsonProperty("new_password") @field:NotBlank @field:Size(min = 8) val newPassword: String
-)

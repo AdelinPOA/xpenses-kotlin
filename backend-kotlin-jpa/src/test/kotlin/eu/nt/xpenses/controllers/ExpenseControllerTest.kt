@@ -1,7 +1,8 @@
 package eu.nt.xpenses.controllers
 
 import eu.nt.xpenses.IntegrationTestBase
-import eu.nt.xpenses.models.Expense
+import eu.nt.xpenses.model.Expense
+import eu.nt.xpenses.model.Receipt
 import jakarta.persistence.EntityManager
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -103,7 +104,7 @@ class ExpenseControllerTest : IntegrationTestBase() {
     fun `DELETE receipt on non-draft expense returns 400`() {
         val expense = saveTechExpense()
         expense.status = "submitted"
-        val receipt = eu.nt.xpenses.models.Receipt(expense = expense, filePath = "2026/06/test.png", originalName = "test.png")
+        val receipt = eu.nt.xpenses.model.Receipt(expense = expense, filePath = "2026/06/test.png", originalName = "test.png")
         expense.receipts.add(receipt)
         expenseRepository.save(expense)
         entityManager.flush()

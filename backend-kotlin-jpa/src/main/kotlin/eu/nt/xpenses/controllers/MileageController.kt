@@ -1,13 +1,12 @@
 package eu.nt.xpenses.controllers
 
-import com.fasterxml.jackson.annotation.JsonProperty
-import eu.nt.xpenses.models.*
+import eu.nt.xpenses.dto.report.MileageRecordCreate
+import eu.nt.xpenses.dto.report.MileageRecordOut
+import eu.nt.xpenses.dto.report.MileageRecordUpdate
+import eu.nt.xpenses.model.*
 import eu.nt.xpenses.repositories.*
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.validation.Valid
-import jakarta.validation.constraints.DecimalMin
-import jakarta.validation.constraints.Min
-import jakarta.validation.constraints.NotBlank
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.transaction.annotation.Transactional
@@ -206,40 +205,3 @@ class MileageController(
         )
     }
 }
-
-data class MileageRecordCreate(
-    @field:NotBlank val origin: String,
-    @field:NotBlank val destination: String,
-    @JsonProperty("distance_km") @field:DecimalMin(value = "0.01", inclusive = true) val distanceKm: Double,
-    @JsonProperty("start_time") val startTime: Instant,
-    @JsonProperty("end_time") val endTime: Instant,
-    val description: String? = null
-)
-
-data class MileageRecordUpdate(
-    val origin: String? = null,
-    val destination: String? = null,
-    @JsonProperty("distance_km") @field:DecimalMin(value = "0.01", inclusive = true) val distanceKm: Double? = null,
-    @JsonProperty("start_time") val startTime: Instant? = null,
-    @JsonProperty("end_time") val endTime: Instant? = null,
-    val description: String? = null
-)
-
-data class MileageRecordOut(
-    val id: Int,
-    @JsonProperty("report_id") val reportId: Int,
-    @JsonProperty("user_id") val userId: Int,
-    val origin: String,
-    val destination: String,
-    @JsonProperty("distance_km") val distanceKm: Double,
-    @JsonProperty("rate_before_tax") val rateBeforeTax: BigDecimal,
-    @JsonProperty("rate_after_tax") val rateAfterTax: BigDecimal,
-    @JsonProperty("amount_before_tax") val amountBeforeTax: BigDecimal,
-    @JsonProperty("amount_eur") val amountEur: BigDecimal,
-    @JsonProperty("start_time") val startTime: Instant,
-    @JsonProperty("end_time") val endTime: Instant,
-    val description: String?,
-    @JsonProperty("created_at") val createdAt: Instant,
-    @JsonProperty("updated_at") val updatedAt: Instant,
-    @JsonProperty("duration_minutes") val durationMinutes: Double
-)

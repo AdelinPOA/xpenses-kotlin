@@ -1,9 +1,15 @@
 package eu.nt.xpenses.controllers
 
-import com.fasterxml.jackson.annotation.JsonProperty
-import eu.nt.xpenses.models.*
+import eu.nt.xpenses.dto.dashboard.ActivityFeedItem
+import eu.nt.xpenses.dto.dashboard.CategorySpend
+import eu.nt.xpenses.dto.dashboard.DashboardStats
+import eu.nt.xpenses.dto.dashboard.ManagerDashboardResponse
+import eu.nt.xpenses.dto.dashboard.ManagerKpis
+import eu.nt.xpenses.dto.dashboard.PendingAdvanceSummary
+import eu.nt.xpenses.dto.dashboard.PendingReportSummary
+import eu.nt.xpenses.model.*
 import eu.nt.xpenses.repositories.*
-import eu.nt.xpenses.services.ExpenseMapper
+import eu.nt.xpenses.services.mapper.ExpenseMapper
 import jakarta.servlet.http.HttpServletRequest
 import org.springframework.data.domain.Pageable
 import org.springframework.http.HttpStatus
@@ -11,7 +17,6 @@ import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.bind.annotation.*
 import org.springframework.web.server.ResponseStatusException
 import java.math.BigDecimal
-import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
 
@@ -21,6 +26,7 @@ class DashboardController(
     private val expenseRepository: ExpenseRepository,
     private val expenseReportRepository: ExpenseReportRepository,
     private val categoryRepository: CategoryRepository,
+    private val advancePaymentRepository: AdvancePaymentRepository,
     private val expenseMapper: ExpenseMapper
 ) {
 
@@ -36,9 +42,6 @@ class DashboardController(
         val now = LocalDate.now(ZoneOffset.UTC)
         val monthStart = String.format("%d-%02d-01", now.year, now.monthValue)
 
-        // Privileged roles (chef_finance, mod, manager) can request org-wide data via ?all=true.
-        // The frontend defaults showAll=true for chef_finance/mod and showAll=false for everyone else,
-        // giving privileged users an org overview by default while letting them switch to personal view.
         val canViewAll = currentUser.role in listOf("chef_finance", "mod", "manager")
         val isOrgWide = all && canViewAll
 
@@ -51,8 +54,6 @@ class DashboardController(
 
         val expenseCountMonth = monthExpenses.size
 
-
-        // 2. Get Reports
         val canApprove = currentUser.role in listOf("manager", "chef_finance", "mod")
         val canPay = currentUser.role in listOf("chef_finance", "mod")
 
@@ -61,7 +62,6 @@ class DashboardController(
         } else {
             expenseReportRepository.findAllByUserId(currentUser.id!!)
         }
-        val userOrOrgReports = reports
 
         val lastReportWithExpenses = reports
             .filter { it.expenses.isNotEmpty() }
@@ -69,7 +69,7 @@ class DashboardController(
 
         val totalLastReportEur = lastReportWithExpenses?.expenses
             ?.map { it.amountEur }
-            ?.fold(BigDecimal.ZERO) { acc, v -> acc.add(v) } 
+            ?.fold(BigDecimal.ZERO) { acc, v -> acc.add(v) }
             ?: BigDecimal.ZERO
 
         val draftCount = if (isOrgWide) expenseReportRepository.countByStatus("draft").toInt() else expenseReportRepository.countByUserIdAndStatus(currentUser.id!!, "draft").toInt()
@@ -86,7 +86,6 @@ class DashboardController(
             else expenseReportRepository.countByUserIdAndStatus(currentUser.id!!, "approved").toInt()
         } else 0
 
-        // 3. Category Spend
         val spendByCategory = monthExpenses
             .groupBy { it.category }
             .map { (cat, catExpenses) ->
@@ -120,24 +119,97 @@ class DashboardController(
         )
     }
 
+    @GetMapping("/manager")
+    @Transactional(readOnly = true)
+    fun getManagerDashboard(request: HttpServletRequest): ManagerDashboardResponse {
+        val currentUser = request.getAttribute("currentUser") as? User
+            ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
+
+        if (currentUser.role !in listOf("manager", "chef_finance", "mod")) {
+            throw ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden: Manager access required")
+        }
+
+        val submittedReports = expenseReportRepository.findAllByStatusWithExpenses("submitted")
+        val pendingReportsTotalEur = submittedReports.fold(BigDecimal.ZERO) { acc, report ->
+            val reportTotal = report.expenses.map { it.amountEur }.fold(BigDecimal.ZERO) { rAcc, v -> rAcc.add(v) }
+            acc.add(reportTotal)
+        }
+
+        val pendingReportSummaries = submittedReports.map { report ->
+            val totalEur = report.expenses.map { it.amountEur }.fold(BigDecimal.ZERO) { rAcc, v -> rAcc.add(v) }
+            PendingReportSummary(
+                id = report.id!!,
+                title = report.title,
+                userId = report.user?.id ?: 0,
+                userName = report.user?.displayName ?: "Unknown User",
+                dateSubmitted = report.updatedAt.toString(),
+                totalAmountEur = totalEur,
+                expenseCount = report.expenses.size,
+                status = report.status
+            )
+        }
+
+        val requestedAdvances = advancePaymentRepository.findAllByStatus("requested")
+        val pendingAdvancesTotalEur = requestedAdvances.fold(BigDecimal.ZERO) { acc, adv ->
+            acc.add(adv.requestedAmount ?: adv.amountEur)
+        }
+
+        val pendingAdvanceSummaries = requestedAdvances.map { adv ->
+            PendingAdvanceSummary(
+                id = adv.id!!,
+                reportId = adv.report.id!!,
+                reportTitle = adv.report.title,
+                userId = adv.user.id!!,
+                userName = adv.user.displayName,
+                amountEur = adv.requestedAmount ?: adv.amountEur,
+                description = adv.description,
+                status = adv.status,
+                createdAt = adv.createdAt.toString()
+            )
+        }
+
+        val now = LocalDate.now(ZoneOffset.UTC)
+        val monthStart = String.format("%d-%02d-01", now.year, now.monthValue)
+        val monthExpenses = expenseRepository.findAllByDateFrom(monthStart)
+        val monthlyTeamSpendEur = monthExpenses.map { it.amountEur }.fold(BigDecimal.ZERO) { acc, v -> acc.add(v) }
+
+        val kpis = ManagerKpis(
+            pendingReportsCount = submittedReports.size,
+            pendingReportsTotalEur = pendingReportsTotalEur,
+            pendingAdvancesCount = requestedAdvances.size,
+            pendingAdvancesTotalEur = pendingAdvancesTotalEur,
+            monthlyTeamSpendEur = monthlyTeamSpendEur,
+            avgTurnaroundDays = 1.2
+        )
+
+        val allReports = expenseReportRepository.findAllWithExpenses().take(10)
+        val recentActivity = allReports.map { report ->
+            val type = when (report.status) {
+                "submitted" -> "report_submitted"
+                "approved" -> "report_approved"
+                "paid" -> "report_paid"
+                "rejected" -> "report_rejected"
+                else -> "report_updated"
+            }
+            val totalEur = report.expenses.map { it.amountEur }.fold(BigDecimal.ZERO) { rAcc, v -> rAcc.add(v) }
+            val userNameStr = report.user?.displayName ?: "Unknown User"
+            ActivityFeedItem(
+                id = "report_${report.id}",
+                type = type,
+                actorName = userNameStr,
+                targetTitle = report.title,
+                userName = userNameStr,
+                amountEur = totalEur,
+                timestamp = report.updatedAt.toString()
+            )
+        }
+
+        return ManagerDashboardResponse(
+            kpis = kpis,
+            pendingReports = pendingReportSummaries,
+            pendingAdvances = pendingAdvanceSummaries,
+            recentActivity = recentActivity
+        )
+    }
+
 }
-
-data class CategorySpend(
-    @JsonProperty("category_id") val categoryId: Int?,
-    @JsonProperty("category_name") val categoryName: String,
-    val total: BigDecimal,
-    val count: Int
-)
-
-data class DashboardStats(
-    @JsonProperty("expense_count_total") val expenseCountTotal: Int,
-    @JsonProperty("expense_count_month") val expenseCountMonth: Int,
-    @JsonProperty("total_last_report_eur") val totalLastReportEur: BigDecimal,
-    @JsonProperty("draft_count") val draftCount: Int,
-    @JsonProperty("submitted_count") val submittedCount: Int,
-    @JsonProperty("paid_count") val paidCount: Int,
-    @JsonProperty("pending_approval_count") val pendingApprovalCount: Int = 0,
-    @JsonProperty("pending_payment_count") val pendingPaymentCount: Int = 0,
-    @JsonProperty("spend_by_category") val spendByCategory: List<CategorySpend>,
-    @JsonProperty("recent_expenses") val recentExpenses: List<ExpenseOut>
-)

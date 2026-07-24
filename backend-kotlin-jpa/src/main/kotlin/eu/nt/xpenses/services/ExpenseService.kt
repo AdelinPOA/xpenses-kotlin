@@ -1,12 +1,12 @@
 package eu.nt.xpenses.services
 
-import eu.nt.xpenses.models.*
+import eu.nt.xpenses.dto.expense.ExpenseCreate
+import eu.nt.xpenses.dto.expense.ExpenseUpdate
+import eu.nt.xpenses.model.*
 import eu.nt.xpenses.repositories.CategoryRepository
 import eu.nt.xpenses.repositories.ExpenseReportRepository
 import eu.nt.xpenses.repositories.ExpenseRepository
 import eu.nt.xpenses.repositories.OcrComparisonRepository
-import eu.nt.xpenses.controllers.ExpenseCreate
-import eu.nt.xpenses.controllers.ExpenseUpdate
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional

@@ -3,7 +3,7 @@ package eu.nt.xpenses.services
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
-import eu.nt.xpenses.models.ExpenseReport
+import eu.nt.xpenses.model.ExpenseReport
 import eu.nt.xpenses.repositories.ExpenseReportRepository
 import eu.nt.xpenses.repositories.UserRepository
 import jakarta.mail.*
@@ -262,8 +262,8 @@ class EmailImportService(
 
         return mapOf(
             "title" to title,
-            "date_from" to dateFrom!!,
-            "date_to" to dateTo!!,
+            "date_from" to dateFrom,
+            "date_to" to dateTo,
             "description" to description,
             "kundenauftrag" to (kundenauftrag ?: ""),
             "auftragsart" to (auftragsart ?: ""),

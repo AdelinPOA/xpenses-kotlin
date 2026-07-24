@@ -1,6 +1,6 @@
 package eu.nt.xpenses.services
 
-import eu.nt.xpenses.models.FxRate
+import eu.nt.xpenses.model.FxRate
 import eu.nt.xpenses.repositories.FxRateRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service

@@ -1,9 +1,9 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { User } from "@/lib/api";
-import { getMe, logout as apiLogout } from "@/lib/auth";
+import { getMe, logout as apiLogout, refreshTokens } from "@/lib/auth";
 
 interface AuthContextType {
   user: User | null;
@@ -23,13 +23,36 @@ export function useAuth() {
   return useContext(AuthContext);
 }
 
-const CHECK_INTERVAL_MS = 5 * 60 * 1000;
+// Access token TTL (matches backend jwt.access-expires-minutes default).
+// Proactively refresh 10 minutes before expiry so API calls never see a 401.
+const ACCESS_TOKEN_TTL_MS = 60 * 60 * 1000;
+const PROACTIVE_REFRESH_MS = ACCESS_TOKEN_TTL_MS - 10 * 60 * 1000;
 
 export default function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
+  const proactiveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const scheduleProactiveRefresh = useCallback(() => {
+    if (proactiveTimer.current) clearTimeout(proactiveTimer.current);
+    proactiveTimer.current = setTimeout(async () => {
+      try {
+        await refreshTokens();
+        scheduleProactiveRefresh();
+      } catch {
+        // Reactive 401 interceptor handles it as fallback
+      }
+    }, PROACTIVE_REFRESH_MS);
+  }, []);
+
+  const clearProactiveRefresh = useCallback(() => {
+    if (proactiveTimer.current) {
+      clearTimeout(proactiveTimer.current);
+      proactiveTimer.current = null;
+    }
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -38,11 +61,14 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     const checkAuth = () => {
       getMe()
         .then((u) => {
-          if (mounted) setUser(u);
+          if (!mounted) return;
+          setUser(u);
+          scheduleProactiveRefresh();
         })
         .catch(() => {
           if (!mounted) return;
           setUser(null);
+          clearProactiveRefresh();
           if (window.location.pathname !== "/login") {
             router.replace("/login");
           }
@@ -61,20 +87,22 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     document.addEventListener("visibilitychange", handleVisibility);
 
     checkAuth();
-    interval = setInterval(checkAuth, CHECK_INTERVAL_MS);
+    interval = setInterval(checkAuth, 5 * 60 * 1000);
 
     return () => {
       mounted = false;
       clearInterval(interval);
+      clearProactiveRefresh();
       document.removeEventListener("visibilitychange", handleVisibility);
     };
-  }, [router]);
+  }, [router, scheduleProactiveRefresh, clearProactiveRefresh]);
 
   const logout = useCallback(async () => {
+    clearProactiveRefresh();
     await apiLogout();
     setUser(null);
     router.push("/login");
-  }, [router]);
+  }, [router, clearProactiveRefresh]);
 
   // Neutral loading state while the initial session check runs — prevents
   // rendering the shell with user=null (logged-out flash) on PWA cold start.

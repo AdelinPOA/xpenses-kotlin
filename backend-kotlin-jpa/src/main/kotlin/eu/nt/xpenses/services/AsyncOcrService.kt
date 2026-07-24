@@ -1,7 +1,7 @@
 package eu.nt.xpenses.services
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import eu.nt.xpenses.models.OcrJob
+import eu.nt.xpenses.model.OcrJob
 import eu.nt.xpenses.repositories.OcrJobRepository
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Async

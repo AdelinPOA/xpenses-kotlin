@@ -3,8 +3,8 @@ package eu.nt.xpenses.services
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
-import eu.nt.xpenses.models.AppSetting
-import eu.nt.xpenses.models.OcrComparison
+import eu.nt.xpenses.model.AppSetting
+import eu.nt.xpenses.model.OcrComparison
 import eu.nt.xpenses.repositories.AppSettingRepository
 import eu.nt.xpenses.repositories.CategoryRepository
 import eu.nt.xpenses.repositories.OcrComparisonRepository
@@ -263,7 +263,7 @@ class OcrService(
         fileBytes: ByteArray,
         filename: String,
         apiKey: String,
-        categories: List<eu.nt.xpenses.models.Category>,
+        categories: List<eu.nt.xpenses.model.Category>,
         provider: String = "gemini"
     ): Map<String, Any?> {
         val b64Data = Base64.getEncoder().encodeToString(fileBytes)

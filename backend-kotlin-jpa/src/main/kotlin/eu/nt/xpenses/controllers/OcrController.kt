@@ -2,9 +2,9 @@ package eu.nt.xpenses.controllers
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.annotation.JsonProperty
-import eu.nt.xpenses.models.OcrComparison
-import eu.nt.xpenses.models.OcrJob
-import eu.nt.xpenses.models.User
+import eu.nt.xpenses.model.OcrComparison
+import eu.nt.xpenses.model.OcrJob
+import eu.nt.xpenses.model.User
 import eu.nt.xpenses.repositories.OcrComparisonRepository
 import eu.nt.xpenses.repositories.OcrJobRepository
 import eu.nt.xpenses.services.AsyncOcrService

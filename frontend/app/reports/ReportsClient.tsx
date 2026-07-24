@@ -55,7 +55,7 @@ function ReportsPageContent() {
   }, [search]);
 
   const { data: reports, isLoading } = useQuery<Report[]>({
-    queryKey: reportKeys.list({ status: statusFilter, all: showAll }),
+    queryKey: [...reportKeys.all, "list", statusFilter, showAll],
     queryFn: () =>
       api.get("/reports", { params: {
         status: statusFilter || undefined,

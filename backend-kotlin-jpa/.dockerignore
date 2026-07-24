@@ -1,0 +1,10 @@
+build/
+.gradle/
+.kotlin/
+.git/
+*.md
+.gitignore
+gradle/wrapper/gradle-wrapper.jar
+deployment.yaml
+Dockerfile
+Dockerfile.native

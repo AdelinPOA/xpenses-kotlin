@@ -10,6 +10,7 @@ import eu.nt.xpenses.repositories.OcrComparisonRepository
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.web.multipart.MultipartFile
 import org.springframework.web.server.ResponseStatusException
 import java.math.BigDecimal
 import java.math.RoundingMode
@@ -30,17 +31,22 @@ class ExpenseService(
 ) {
     private val log = LoggerFactory.getLogger(ExpenseService::class.java)
 
-    @Transactional
     fun createExpense(body: ExpenseCreate, currentUser: User): Expense {
-        val fxRate = if (body.fxRate != null) {
-            body.fxRate
-        } else {
-            try {
-                fxService.getRate(body.currency, body.date)
-            } catch (e: Exception) {
-                throw ResponseStatusException(HttpStatus.BAD_GATEWAY, "Failed to fetch exchange rate: ${e.message}")
-            }
+        val fxRate = resolveFxRate(body.fxRate, body.currency, body.date)
+        return doCreateExpense(body, currentUser, fxRate)
+    }
+
+    private fun resolveFxRate(manualRate: BigDecimal?, currency: String, date: String): BigDecimal {
+        if (manualRate != null) return manualRate
+        return try {
+            fxService.getRate(currency, date)
+        } catch (e: Exception) {
+            throw ResponseStatusException(HttpStatus.BAD_GATEWAY, "Failed to fetch exchange rate: ${e.message}")
         }
+    }
+
+    @Transactional
+    fun doCreateExpense(body: ExpenseCreate, currentUser: User, fxRate: BigDecimal): Expense {
         val fxRateManual = body.fxRate != null
 
         val amountEur = body.amount.multiply(fxRate).setScale(2, RoundingMode.HALF_UP)
@@ -117,7 +123,6 @@ class ExpenseService(
         }
 
         val hasManualRate = body.fxRate != null
-
         val needFxRecalc = hasManualRate || body.amount != null || body.currency != null || body.date != null || body.taxAmount != null || body.taxRate != null
 
         if (needFxRecalc) {
@@ -174,11 +179,6 @@ class ExpenseService(
             }
             expense.report = rep
         }
-        // A null reportId means "leave the report association unchanged". Detaching an
-        // expense from a report is done deliberately via the report endpoints
-        // (attach / recall / reject), never as a side effect of editing an expense —
-        // otherwise editing an uncategorized, attached expense would silently remove it
-        // from its report.
 
         expense.updatedAt = Instant.now()
         val saved = expenseRepository.save(expense)
@@ -252,6 +252,120 @@ class ExpenseService(
                 storageService.deleteFile(path)
             } catch (e: Exception) {
                 log.warn("Failed to delete receipt file '{}': {}", path, e.message)
+            }
+        }
+    }
+
+    fun uploadReceipts(expenseId: Int, files: List<MultipartFile>, currentUser: User): List<Map<String, Any>> {
+        val expense = expenseRepository.findById(expenseId).orElseThrow {
+            ResponseStatusException(HttpStatus.NOT_FOUND, "Expense not found")
+        }
+
+        if (expense.user?.id != currentUser.id) {
+            throw ResponseStatusException(HttpStatus.FORBIDDEN, "Only the owner can perform this action")
+        }
+        if (expense.status != "draft") {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Only draft expenses can have receipts uploaded")
+        }
+
+        val now = Instant.now()
+        val savedReceiptsList = mutableListOf<Map<String, Any>>()
+        for (file in files) {
+            val originalName = file.originalFilename ?: "receipt"
+            val content = file.bytes
+            val relativePath = try {
+                saveReceiptLocal(expenseId, originalName, content)
+            } catch (e: IllegalArgumentException) {
+                throw ResponseStatusException(HttpStatus.BAD_REQUEST, e.message)
+            }
+            val receipt = Receipt(
+                expense = expense,
+                filePath = relativePath,
+                originalName = originalName,
+                createdAt = now
+            )
+            val savedReceipt = receiptRepository.save(receipt)
+            savedReceiptsList.add(mapOf(
+                "id" to savedReceipt.id!!,
+                "file_path" to relativePath,
+                "original_name" to originalName
+            ))
+        }
+        expense.updatedAt = now
+        expenseRepository.save(expense)
+        return savedReceiptsList
+    }
+
+    fun deleteSingleReceipt(expenseId: Int, receiptId: Int, currentUser: User) {
+        val expense = expenseRepository.findById(expenseId).orElseThrow {
+            ResponseStatusException(HttpStatus.NOT_FOUND, "Expense not found")
+        }
+        if (expense.user?.id != currentUser.id) {
+            throw ResponseStatusException(HttpStatus.FORBIDDEN, "Only the owner can delete receipts")
+        }
+        if (expense.status != "draft") {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Only draft expenses can have receipts deleted")
+        }
+
+        val receipt = receiptRepository.findById(receiptId).orElseThrow {
+            ResponseStatusException(HttpStatus.NOT_FOUND, "Receipt not found")
+        }
+        if (receipt.expense.id != expenseId) {
+            throw ResponseStatusException(HttpStatus.NOT_FOUND, "Receipt not associated with this expense")
+        }
+
+        val filePath = receipt.filePath
+        receiptRepository.delete(receipt)
+        expense.updatedAt = Instant.now()
+        expenseRepository.save(expense)
+
+        try {
+            storageService.deleteFile(filePath)
+        } catch (e: Exception) {
+            log.warn("Failed to delete receipt file '{}': {}", filePath, e.message)
+        }
+    }
+
+    private fun saveReceiptLocal(expenseId: Int, filename: String, content: ByteArray): String {
+        val allowedExtensions = setOf("jpg", "jpeg", "png", "gif", "pdf", "webp")
+        val rawFilename = java.io.File(filename).name
+        val ext = rawFilename.substringAfterLast(".", "").lowercase()
+        if (ext !in allowedExtensions) {
+            throw IllegalArgumentException("File type .$ext not allowed")
+        }
+        validateMagicBytes(content, ext)
+        if (content.size > 10 * 1024 * 1024) {
+            throw IllegalArgumentException("File exceeds 10MB limit")
+        }
+
+        val now = java.time.LocalDate.now()
+        val year = now.year
+        val month = String.format("%02d", now.monthValue)
+        val subdir = "$year/$month"
+        val safeName = "${expenseId}_${rawFilename}".replace(" ", "_")
+        val relativePath = "$subdir/$safeName"
+
+        storageService.uploadFile(relativePath, content)
+        return relativePath
+    }
+
+    private fun validateMagicBytes(content: ByteArray, ext: String) {
+        val signatures = mapOf(
+            "jpg" to byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte()),
+            "jpeg" to byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte()),
+            "png" to byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A),
+            "gif" to byteArrayOf(0x47, 0x49, 0x46, 0x38),
+            "pdf" to byteArrayOf(0x25, 0x50, 0x44, 0x46),
+            "webp" to byteArrayOf(0x52, 0x49, 0x46, 0x46)
+        )
+        val expected = signatures[ext] ?: return
+        if (content.size < expected.size || !content.copyOfRange(0, expected.size).contentEquals(expected)) {
+            throw IllegalArgumentException("File content does not match .$ext format")
+        }
+        if (ext == "webp") {
+            val webpSignature = byteArrayOf(0x57, 0x45, 0x42, 0x50)
+            if (content.size < 12 || !content.copyOfRange(8, 12).contentEquals(webpSignature)) {
+                throw IllegalArgumentException("File content does not match .webp format")
             }
         }
     }

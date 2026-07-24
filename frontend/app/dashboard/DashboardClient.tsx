@@ -61,7 +61,7 @@ export default function DashboardClient() {
   const [selectedReportId, setSelectedReportId] = useState<number | null>(null);
 
   const { data, isLoading } = useQuery<DashboardStats>({
-    queryKey: [...dashboardKeys.all, user?.id, { all: showAll }],
+    queryKey: [...dashboardKeys.all, user?.id, "all", showAll],
     queryFn: () => api.get("/dashboard", { params: { all: showAll } }).then((r) => r.data),
     enabled: !!user,
     staleTime: 60_000,

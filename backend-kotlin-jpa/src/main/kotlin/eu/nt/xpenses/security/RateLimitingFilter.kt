@@ -22,6 +22,10 @@ class RateLimitingFilter(
 
     private val log = LoggerFactory.getLogger(RateLimitingFilter::class.java)
 
+    companion object {
+        private val EXPORT_REPORT_PATH = Regex("^/api/reports/\\d+/(pdf|receipts-zip)$")
+    }
+
     // Rate limits (requests per 60-second window per IP)
     private val limits = mapOf(
         "/api/auth/login" to 5,
@@ -41,7 +45,7 @@ class RateLimitingFilter(
         val clientIp = extractClientIp(request)
 
         val matchedLimitKey = limits.keys.find { path.startsWith(it) }
-            ?: if (path.matches(Regex("^/api/reports/\\d+/(pdf|receipts-zip)$"))) "/api/reports/export" else null
+            ?: if (path.matches(EXPORT_REPORT_PATH)) "/api/reports/export" else null
 
         val limit = matchedLimitKey?.let { limits[it] ?: 15 }
 

@@ -1,18 +1,30 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
-/**
- * Locks body scroll while `locked` is true (e.g. while a drawer/sidebar is open).
- * Restores the previous overflow on cleanup. Prevents iOS scroll bleed behind overlays.
- */
+let lockCount = 0;
+let previousOverflow = "";
+
 export function useBodyScrollLock(locked: boolean) {
+  const prevRef = useRef<string>("");
+
   useEffect(() => {
-    if (!locked) return;
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    if (locked) {
+      if (lockCount === 0) {
+        previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = "hidden";
+      }
+      lockCount++;
+      prevRef.current = document.body.style.overflow;
+    }
     return () => {
-      document.body.style.overflow = previous;
+      if (locked) {
+        lockCount--;
+        if (lockCount <= 0) {
+          document.body.style.overflow = previousOverflow;
+          lockCount = 0;
+        }
+      }
     };
   }, [locked]);
 }

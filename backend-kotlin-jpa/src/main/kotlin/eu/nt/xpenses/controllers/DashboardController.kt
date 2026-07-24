@@ -45,11 +45,12 @@ class DashboardController(
         val canViewAll = currentUser.role in listOf("chef_finance", "mod", "manager")
         val isOrgWide = all && canViewAll
 
-        val expenseCountTotal = if (isOrgWide) expenseRepository.count() else expenseRepository.countByUserId(currentUser.id!!)
+        val uid = currentUser.id!!
+        val expenseCountTotal = if (isOrgWide) expenseRepository.count() else expenseRepository.countByUserId(uid)
         val monthExpenses = if (isOrgWide) {
             expenseRepository.findAllByDateFrom(monthStart)
         } else {
-            expenseRepository.findAllByUserIdAndDateFrom(currentUser.id!!, monthStart)
+            expenseRepository.findAllByUserIdAndDateFrom(uid, monthStart)
         }
 
         val expenseCountMonth = monthExpenses.size
@@ -57,33 +58,33 @@ class DashboardController(
         val canApprove = currentUser.role in listOf("manager", "chef_finance", "mod")
         val canPay = currentUser.role in listOf("chef_finance", "mod")
 
-        val reports = if (isOrgWide) {
-            expenseReportRepository.findAll()
+        val latestReports = if (isOrgWide) {
+            expenseReportRepository.findLatestWithExpenses(Pageable.ofSize(1))
         } else {
-            expenseReportRepository.findAllByUserId(currentUser.id!!)
+            expenseReportRepository.findLatestByUserIdWithExpenses(uid, Pageable.ofSize(1))
         }
+        val lastReportWithExpenses = latestReports.firstOrNull { it.expenses.isNotEmpty() }
+        val totalLastReportEur = lastReportWithExpenses?.let { report ->
+            report.expenses.map { it.amountEur }.fold(BigDecimal.ZERO) { acc, v -> acc.add(v) }
+        } ?: BigDecimal.ZERO
 
-        val lastReportWithExpenses = reports
-            .filter { it.expenses.isNotEmpty() }
-            .maxWithOrNull(compareBy<ExpenseReport> { it.dateTo ?: it.dateFrom ?: it.createdAt.toString() }.thenBy { it.id })
+        val countsRaw = expenseReportRepository.countByStatusGrouped(if (isOrgWide) null else uid)
+        val counts = countsRaw.mapNotNull { row ->
+            val status = row[0] as? String ?: return@mapNotNull null
+            val count = (row[1] as? Number)?.toInt() ?: 0
+            status to count
+        }.toMap()
 
-        val totalLastReportEur = lastReportWithExpenses?.expenses
-            ?.map { it.amountEur }
-            ?.fold(BigDecimal.ZERO) { acc, v -> acc.add(v) }
-            ?: BigDecimal.ZERO
+        val draftCount = counts["draft"] ?: 0
+        val submittedCount = counts["submitted"] ?: 0
+        val paidCount = counts["paid"] ?: 0
 
-        val draftCount = if (isOrgWide) expenseReportRepository.countByStatus("draft").toInt() else expenseReportRepository.countByUserIdAndStatus(currentUser.id!!, "draft").toInt()
-        val submittedCount = if (isOrgWide) expenseReportRepository.countByStatus("submitted").toInt() else expenseReportRepository.countByUserIdAndStatus(currentUser.id!!, "submitted").toInt()
-        val paidCount = if (isOrgWide) expenseReportRepository.countByStatus("paid").toInt() else expenseReportRepository.countByUserIdAndStatus(currentUser.id!!, "paid").toInt()
-
-        val pendingApprovalCount = if (canApprove) {
-            if (isOrgWide) (expenseReportRepository.countByStatus("submitted") - expenseReportRepository.countByUserIdAndStatus(currentUser.id!!, "submitted")).toInt()
-            else 0
+        val pendingApprovalCount = if (canApprove && isOrgWide) {
+            (counts["submitted"] ?: 0) - (expenseReportRepository.countByUserIdAndStatus(uid, "submitted").toInt())
         } else 0
 
         val pendingPaymentCount = if (canPay) {
-            if (isOrgWide) expenseReportRepository.countByStatus("approved").toInt()
-            else expenseReportRepository.countByUserIdAndStatus(currentUser.id!!, "approved").toInt()
+            counts["approved"] ?: 0
         } else 0
 
         val spendByCategory = monthExpenses
@@ -102,7 +103,7 @@ class DashboardController(
         val recentExpenses = if (isOrgWide) {
             expenseRepository.findRecentExpenses(Pageable.ofSize(10))
         } else {
-            expenseRepository.findRecentExpensesByUserId(currentUser.id!!, Pageable.ofSize(10))
+            expenseRepository.findRecentExpensesByUserId(uid, Pageable.ofSize(10))
         }.map { expenseMapper.toExpenseOut(it) }
 
         return DashboardStats(

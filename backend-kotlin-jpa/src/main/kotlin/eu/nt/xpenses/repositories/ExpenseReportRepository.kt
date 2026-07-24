@@ -32,6 +32,17 @@ interface ExpenseReportRepository : JpaRepository<ExpenseReport, Int> {
     fun countByStatus(status: String): Long
     fun countByUserIdAndStatus(userId: Int, status: String): Long
 
+    @Query("SELECT r.status, COUNT(r) FROM ExpenseReport r WHERE (:userId IS NULL OR r.user.id = :userId) GROUP BY r.status")
+    fun countByStatusGrouped(@Param("userId") userId: Int?): List<Array<Any>>
+
+    @EntityGraph(attributePaths = ["expenses", "user"])
+    @Query("SELECT r FROM ExpenseReport r ORDER BY r.id DESC")
+    fun findLatestWithExpenses(pageable: Pageable): List<ExpenseReport>
+
+    @EntityGraph(attributePaths = ["expenses", "user"])
+    @Query("SELECT r FROM ExpenseReport r WHERE r.user.id = :userId ORDER BY r.id DESC")
+    fun findLatestByUserIdWithExpenses(@Param("userId") userId: Int, pageable: Pageable): List<ExpenseReport>
+
     @Query("""
         SELECT r FROM ExpenseReport r
         WHERE (:userId IS NULL OR r.user.id = :userId)

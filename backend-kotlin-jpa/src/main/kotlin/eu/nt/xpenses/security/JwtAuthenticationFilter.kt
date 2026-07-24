@@ -4,6 +4,7 @@ import eu.nt.xpenses.repositories.UserRepository
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
+import org.springframework.http.HttpStatus
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
 import org.springframework.security.core.authority.SimpleGrantedAuthority
 import org.springframework.security.core.context.SecurityContextHolder
@@ -34,7 +35,7 @@ class JwtAuthenticationFilter(
                         // reject the token so the user must re-login.
                         if (claims.tokenVersion < user.tokenVersion) {
                             SecurityContextHolder.clearContext()
-                            filterChain.doFilter(request, response)
+                            response.sendError(HttpStatus.UNAUTHORIZED.value(), "Token version mismatch")
                             return
                         }
                         val authorities = listOf(SimpleGrantedAuthority("ROLE_${user.role}"))

@@ -10,6 +10,8 @@ import eu.nt.xpenses.services.storage.StorageProvider
 import jakarta.annotation.PostConstruct
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Qualifier
+import org.springframework.cache.annotation.CacheEvict
+import org.springframework.cache.annotation.Cacheable
 import org.springframework.stereotype.Service
 import org.springframework.http.HttpStatus
 import org.springframework.web.server.ResponseStatusException
@@ -64,6 +66,7 @@ class StorageService(
         }
     }
 
+    @Cacheable("storage-config-cache")
     fun getStorageConfig(): StorageConfigDto {
         val setting = appSettingRepository.findById("storage_config").orElse(null)
             ?: return StorageConfigDto(
@@ -90,6 +93,7 @@ class StorageService(
         return data
     }
 
+    @CacheEvict("storage-config-cache", allEntries = true)
     fun saveStorageConfig(configData: StorageConfigDto) {
         val maskedPatterns = listOf("••••••••", "****", "········", "————")
         fun isMasked(value: String?): Boolean = value != null && value.isNotBlank() && value.trim() in maskedPatterns

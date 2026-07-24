@@ -22,18 +22,9 @@ import java.time.Instant
 class MileageController(
     private val mileageRecordRepository: MileageRecordRepository,
     private val expenseReportRepository: ExpenseReportRepository,
-    private val appSettingRepository: AppSettingRepository
+    private val appSettingRepository: AppSettingRepository,
+    private val reportOwnership: ReportOwnership
 ) {
-
-    private fun verifyReportOwnership(reportId: Int, currentUser: User): ExpenseReport {
-        val report = expenseReportRepository.findById(reportId).orElseThrow {
-            ResponseStatusException(HttpStatus.NOT_FOUND, "Report not found")
-        }
-        if (report.user?.id != currentUser.id && currentUser.role !in listOf("chef_finance", "mod", "manager")) {
-            throw ResponseStatusException(HttpStatus.FORBIDDEN, "Not your report")
-        }
-        return report
-    }
 
     private fun getMileageRates(): Pair<BigDecimal, BigDecimal> {
         val rateBt = appSettingRepository.findById("mileage_rate_before_tax").orElse(null)?.value?.let { BigDecimal(it) } ?: BigDecimal("0.60")
@@ -49,7 +40,7 @@ class MileageController(
         val currentUser = request.getAttribute("currentUser") as? User
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
 
-        verifyReportOwnership(reportId, currentUser)
+        reportOwnership.verifyOwnership(reportId, currentUser)
 
         val records = mileageRecordRepository.findAllByReportId(reportId)
         return records.sortedBy { it.startTime }.map { mapRecordToOut(it) }
@@ -65,7 +56,7 @@ class MileageController(
         val currentUser = request.getAttribute("currentUser") as? User
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
 
-        val report = verifyReportOwnership(reportId, currentUser)
+        val report = reportOwnership.verifyOwnership(reportId, currentUser)
         if (report.user?.id != currentUser.id) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Only the report owner can modify mileage records")
         }
@@ -114,7 +105,7 @@ class MileageController(
         val currentUser = request.getAttribute("currentUser") as? User
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
 
-        val report = verifyReportOwnership(reportId, currentUser)
+        val report = reportOwnership.verifyOwnership(reportId, currentUser)
         if (report.user?.id != currentUser.id) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Only the report owner can modify mileage records")
         }
@@ -164,7 +155,7 @@ class MileageController(
         val currentUser = request.getAttribute("currentUser") as? User
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
 
-        val report = verifyReportOwnership(reportId, currentUser)
+        val report = reportOwnership.verifyOwnership(reportId, currentUser)
         if (report.user?.id != currentUser.id) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Only the report owner can modify mileage records")
         }

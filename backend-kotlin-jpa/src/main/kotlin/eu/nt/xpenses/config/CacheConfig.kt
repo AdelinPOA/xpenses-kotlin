@@ -19,11 +19,17 @@ class CacheConfig {
         val provider = Caching.getCachingProvider("com.github.benmanes.caffeine.jcache.spi.CaffeineCachingProvider")
         val cacheManager = provider.cacheManager
         
-        if (cacheManager.getCache<Any, Any>("rate-limit-cache") == null) {
-            val configuration = MutableConfiguration<Any, Any>()
-                .setExpiryPolicyFactory(CreatedExpiryPolicy.factoryOf(Duration(TimeUnit.HOURS, 1)))
-                .setStoreByValue(false)
-            cacheManager.createCache("rate-limit-cache", configuration)
+        val caches = mapOf(
+            "rate-limit-cache" to Duration(TimeUnit.HOURS, 1),
+            "storage-config-cache" to Duration(TimeUnit.MINUTES, 5)
+        )
+        for ((name, expiry) in caches) {
+            if (cacheManager.getCache<Any, Any>(name) == null) {
+                val configuration = MutableConfiguration<Any, Any>()
+                    .setExpiryPolicyFactory(CreatedExpiryPolicy.factoryOf(expiry))
+                    .setStoreByValue(false)
+                cacheManager.createCache(name, configuration)
+            }
         }
         return cacheManager
     }

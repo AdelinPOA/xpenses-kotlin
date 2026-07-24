@@ -99,6 +99,16 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
   };
 
   useEffect(() => {
+    const currentFiles = new Set(receiptFiles.map((e) => e.file));
+    objectUrlsRef.current.forEach((url, file) => {
+      if (!currentFiles.has(file)) {
+        URL.revokeObjectURL(url);
+        objectUrlsRef.current.delete(file);
+      }
+    });
+  }, [receiptFiles]);
+
+  useEffect(() => {
     return () => {
       objectUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
       if (redirectTimeoutRef.current) clearTimeout(redirectTimeoutRef.current);

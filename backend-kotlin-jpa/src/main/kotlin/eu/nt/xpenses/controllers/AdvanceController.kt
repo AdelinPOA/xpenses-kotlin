@@ -25,18 +25,9 @@ class AdvanceController(
     private val advancePaymentRepository: AdvancePaymentRepository,
     private val expenseReportRepository: ExpenseReportRepository,
     private val userRepository: UserRepository,
-    private val fxService: FxService
+    private val fxService: FxService,
+    private val reportOwnership: ReportOwnership
 ) {
-
-    private fun verifyReportOwnership(reportId: Int, currentUser: User): ExpenseReport {
-        val report = expenseReportRepository.findById(reportId).orElseThrow {
-            ResponseStatusException(HttpStatus.NOT_FOUND, "Report not found")
-        }
-        if (report.user?.id != currentUser.id && currentUser.role !in listOf("chef_finance", "mod", "manager")) {
-            throw ResponseStatusException(HttpStatus.FORBIDDEN, "Not your report")
-        }
-        return report
-    }
 
     @GetMapping("/api/reports/{reportId}/advances")
     fun listAdvances(
@@ -46,7 +37,7 @@ class AdvanceController(
         val currentUser = request.getAttribute("currentUser") as? User
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
 
-        val report = verifyReportOwnership(reportId, currentUser)
+        val report = reportOwnership.verifyOwnership(reportId, currentUser)
         val advances = advancePaymentRepository.findAllByReportId(reportId)
 
         if (currentUser.role !in listOf("chef_finance", "mod", "manager") && report.user?.id != currentUser.id) {
@@ -66,7 +57,7 @@ class AdvanceController(
         val currentUser = request.getAttribute("currentUser") as? User
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
 
-        val report = verifyReportOwnership(reportId, currentUser)
+        val report = reportOwnership.verifyOwnership(reportId, currentUser)
         val isOwner = report.user?.id == currentUser.id
         val isPrivileged = currentUser.role in listOf("manager", "chef_finance", "mod")
 
@@ -148,7 +139,7 @@ class AdvanceController(
         val currentUser = request.getAttribute("currentUser") as? User
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
 
-        val report = verifyReportOwnership(reportId, currentUser)
+        val report = reportOwnership.verifyOwnership(reportId, currentUser)
         val isPrivileged = currentUser.role in listOf("manager", "chef_finance", "mod")
         if (!isPrivileged && report.user?.id != currentUser.id) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Only the report owner can modify advance payments")
@@ -206,7 +197,7 @@ class AdvanceController(
         val currentUser = request.getAttribute("currentUser") as? User
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
 
-        val report = verifyReportOwnership(reportId, currentUser)
+        val report = reportOwnership.verifyOwnership(reportId, currentUser)
         val adv = advancePaymentRepository.findById(advanceId).orElseThrow {
             ResponseStatusException(HttpStatus.NOT_FOUND, "Advance payment not found")
         }
@@ -253,7 +244,7 @@ class AdvanceController(
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Not authorized")
         }
 
-        verifyReportOwnership(reportId, currentUser)
+        reportOwnership.verifyOwnership(reportId, currentUser)
 
         val adv = advancePaymentRepository.findById(advanceId).orElseThrow {
             ResponseStatusException(HttpStatus.NOT_FOUND, "Advance payment not found")
@@ -305,7 +296,7 @@ class AdvanceController(
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Not authorized")
         }
 
-        verifyReportOwnership(reportId, currentUser)
+        reportOwnership.verifyOwnership(reportId, currentUser)
 
         val adv = advancePaymentRepository.findById(advanceId).orElseThrow {
             ResponseStatusException(HttpStatus.NOT_FOUND, "Advance payment not found")

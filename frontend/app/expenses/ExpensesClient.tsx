@@ -84,7 +84,7 @@ function ExpensesPageContent() {
   }
 
   const { data: expenses, isLoading } = useQuery<Expense[]>({
-    queryKey: expenseKeys.list({ status: statusFilter, category_id: categoryFilter }),
+    queryKey: [...expenseKeys.all, "list", statusFilter, categoryFilter],
     queryFn: () =>
       api.get("/expenses", { params: { ...(statusFilter ? { status: statusFilter } : {}), ...(categoryFilter ? { category_id: categoryFilter } : {}) } }).then((r) => {
         const payload = r.data as Expense[] | PagedResponse<Expense>;

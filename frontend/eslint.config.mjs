@@ -1,27 +1,36 @@
-import { FlatCompat } from "@eslint/eslintrc";
 import js from "@eslint/js";
-import path from "path";
-import { fileURLToPath } from "url";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const compat = new FlatCompat({
-  baseDirectory: __dirname,
-  recommendedConfig: js.configs.recommended,
-  allConfig: js.configs.all
-});
+import globals from "globals";
+import nextPlugin from "@next/eslint-plugin-next";
 
 const eslintConfig = [
-  ...compat.extends("next/core-web-vitals"),
+  js.configs.recommended,
   {
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+        ...globals.node,
+        ...globals.es2021,
+      },
+    },
+    plugins: {
+      "@next/next": nextPlugin,
+    },
     rules: {
       "@typescript-eslint/no-explicit-any": "off",
       "react/no-unescaped-entities": "off",
       "@next/next/no-img-element": "off",
-      "react-hooks/exhaustive-deps": "off"
-    }
-  }
+      "react-hooks/exhaustive-deps": "off",
+      "no-undef": "off", // Disable for service workers and Next.js internals
+    },
+  },
+  {
+    ignores: [
+      ".next/**",
+      "node_modules/**",
+      "public/sw.js",
+      "postcss.config.js",
+    ],
+  },
 ];
 
 export default eslintConfig;

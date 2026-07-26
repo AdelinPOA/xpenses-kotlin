@@ -2,20 +2,22 @@ package eu.nt.xpenses.services
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import eu.nt.xpenses.model.AppSetting
-import eu.nt.xpenses.models.StorageConfigDto
 import eu.nt.xpenses.models.LocalStorageConfig
+import eu.nt.xpenses.models.StorageConfigDto
 import eu.nt.xpenses.repositories.AppSettingRepository
+import eu.nt.xpenses.services.storage.LocalStorageProvider
 import eu.nt.xpenses.services.storage.S3StorageProvider
+import eu.nt.xpenses.services.storage.StorageMigrationEngine
 import eu.nt.xpenses.services.storage.StorageProvider
 import jakarta.annotation.PostConstruct
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.cache.annotation.CacheEvict
 import org.springframework.cache.annotation.Cacheable
-import org.springframework.stereotype.Service
 import org.springframework.http.HttpStatus
-import org.springframework.web.server.ResponseStatusException
+import org.springframework.stereotype.Service
 import org.springframework.transaction.support.TransactionTemplate
+import org.springframework.web.server.ResponseStatusException
 import java.io.File
 import java.time.Instant
 import java.util.concurrent.Executor
@@ -36,33 +38,67 @@ class StorageService(
     private val defaultReceiptsDir = "/app/data/receipts"
     private val cryptoInfo = "xpenses-storage-settings"
 
+    private val migrationEngine = StorageMigrationEngine(executor)
+
+    @Volatile
+    private var activeProvider: StorageProvider = LocalStorageProvider(defaultReceiptsDir)
+
     @Volatile
     private var remoteProvider: StorageProvider? = null
 
     @PostConstruct
     private fun initProvider() {
         val config = getStorageConfig()
-        val providerType = config.providerType
-        remoteProvider = createProvider(providerType, config)
+        setupProviders(config)
     }
 
-    private fun createProvider(providerType: String, config: StorageConfigDto): StorageProvider? {
+    private fun setupProviders(config: StorageConfigDto) {
+        val localDir = config.local?.path ?: defaultReceiptsDir
+        val localProvider = LocalStorageProvider(localDir)
+
+        when (config.providerType) {
+            "s3" -> {
+                val s3Config = config.s3
+                if (s3Config != null) {
+                    val s3Provider = S3StorageProvider(
+                        region = s3Config.region,
+                        bucket = s3Config.bucket,
+                        accessKeyId = s3Config.accessKeyId,
+                        secretAccessKey = s3Config.secretKey,
+                        endpointOverride = s3Config.endpoint
+                    )
+                    remoteProvider = s3Provider
+                    activeProvider = s3Provider
+                } else {
+                    remoteProvider = null
+                    activeProvider = localProvider
+                }
+            }
+            else -> {
+                remoteProvider = null
+                activeProvider = localProvider
+            }
+        }
+    }
+
+    private fun createProvider(providerType: String, config: StorageConfigDto): StorageProvider {
+        val localDir = config.local?.path ?: defaultReceiptsDir
         return when (providerType) {
             "s3" -> {
-                val s3Config = config.s3 ?: return null
-                S3StorageProvider(
-                    region = s3Config.region,
-                    bucket = s3Config.bucket,
-                    accessKeyId = s3Config.accessKeyId,
-                    secretAccessKey = s3Config.secretKey,
-                    endpointOverride = s3Config.endpoint
-                )
+                val s3Config = config.s3
+                if (s3Config != null) {
+                    S3StorageProvider(
+                        region = s3Config.region,
+                        bucket = s3Config.bucket,
+                        accessKeyId = s3Config.accessKeyId,
+                        secretAccessKey = s3Config.secretKey,
+                        endpointOverride = s3Config.endpoint
+                    )
+                } else {
+                    LocalStorageProvider(localDir)
+                }
             }
-            "local" -> null
-            else -> {
-                logger.warn("Storage provider '$providerType' not implemented — only S3 and local are supported")
-                null
-            }
+            else -> LocalStorageProvider(localDir)
         }
     }
 
@@ -113,7 +149,7 @@ class StorageService(
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "S3 secret key contains a masked/placeholder value. Please enter the actual key.")
         }
 
-        // Create deep copy
+        // Create deep copy for encryption
         val jsonStr = objectMapper.writeValueAsString(configData)
         val data: StorageConfigDto = objectMapper.readValue(jsonStr, StorageConfigDto::class.java)
 
@@ -130,49 +166,40 @@ class StorageService(
         appSettingRepository.save(setting)
 
         // Re-initialize provider with updated config
-        val providerType = data.providerType
-        // Decrypt before passing to createProvider
         val plainConfig: StorageConfigDto = objectMapper.readValue(jsonStr, StorageConfigDto::class.java)
-        remoteProvider = createProvider(providerType, plainConfig)
+        setupProviders(plainConfig)
     }
 
     fun getLocalPath(relativePath: String): String {
         val config = getStorageConfig()
-        val providerType = config.providerType
+        val localDir = config.local?.path ?: defaultReceiptsDir
+        val localProvider = LocalStorageProvider(localDir)
 
-        val localPath = config.local?.path ?: defaultReceiptsDir
-        val baseDir = File(localPath).canonicalFile
-
-        if (providerType == "local") {
-            val target = File(baseDir, relativePath).canonicalFile
-            if (!target.canonicalPath.startsWith(baseDir.canonicalPath + File.separator)) {
-                throw IllegalArgumentException("Invalid target filepath: path traversal detected")
-            }
-            // Ensure parent directory exists
+        if (config.providerType == "local") {
+            // Local provider creates file structure via LocalStorageProvider logic
+            val target = File(File(localDir).canonicalFile, relativePath).canonicalFile
             target.parentFile?.mkdirs()
             return target.absolutePath
         }
 
         // Remote provider: use cache directory
-        val cacheBase = File(baseDir, "cache").canonicalFile
+        val cacheBase = File(File(localDir).canonicalFile, "cache").canonicalFile
         val target = File(cacheBase, relativePath).canonicalFile
         if (!target.canonicalPath.startsWith(cacheBase.canonicalPath + File.separator)) {
             throw IllegalArgumentException("Invalid target cache path: path traversal detected")
         }
 
         if (!target.exists()) {
-            // Check local default fallback
             val fallbackBase = File(defaultReceiptsDir).canonicalFile
             val fallbackTarget = File(fallbackBase, relativePath).canonicalFile
             if (fallbackTarget.exists() && fallbackTarget.canonicalPath.startsWith(fallbackBase.canonicalPath + File.separator)) {
                 return fallbackTarget.absolutePath
             }
 
-            // Try fetching from remote provider and cache locally
-            val provider = remoteProvider
-            if (provider != null) {
+            val remote = remoteProvider
+            if (remote != null) {
                 try {
-                    val remoteBytes = provider.download(relativePath)
+                    val remoteBytes = remote.download(relativePath)
                     target.parentFile?.mkdirs()
                     target.writeBytes(remoteBytes)
                     return target.absolutePath
@@ -210,17 +237,18 @@ class StorageService(
 
     fun uploadFile(relativePath: String, content: ByteArray) {
         if (content.size > MAX_FILE_SIZE) throw ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, "File too large")
-        // Always write to local cache
-        val localPath = getLocalPath(relativePath)
-        val file = File(localPath)
-        file.parentFile?.mkdirs()
-        file.writeBytes(content)
+        
+        // Always write to local cache/storage first
+        val config = getStorageConfig()
+        val localDir = config.local?.path ?: defaultReceiptsDir
+        val localProvider = LocalStorageProvider(localDir)
+        localProvider.upload(relativePath, content)
 
         // Sync to remote if configured
-        val provider = remoteProvider
-        if (provider != null) {
+        val remote = remoteProvider
+        if (remote != null) {
             try {
-                provider.upload(relativePath, content)
+                remote.upload(relativePath, content)
             } catch (e: Exception) {
                 logger.error("Failed to sync $relativePath to remote storage: ${e.message}")
             }
@@ -228,45 +256,34 @@ class StorageService(
     }
 
     fun downloadFile(relativePath: String): ByteArray {
-        // Try local cache first
-        val localPath = getLocalPath(relativePath)
-        val file = File(localPath)
-        if (file.exists()) {
-            return file.readBytes()
-        }
+        val config = getStorageConfig()
+        val localDir = config.local?.path ?: defaultReceiptsDir
+        val localProvider = LocalStorageProvider(localDir)
 
-        // Fall back to remote
-        val provider = remoteProvider
-        if (provider != null) {
-            try {
-                val remoteBytes = provider.download(relativePath)
-                // Cache locally
-                file.parentFile?.mkdirs()
-                file.writeBytes(remoteBytes)
+        try {
+            return localProvider.download(relativePath)
+        } catch (e: java.nio.file.NoSuchFileException) {
+            // Local missing, fall back to remote if available
+            val remote = remoteProvider
+            if (remote != null) {
+                val remoteBytes = remote.download(relativePath)
+                localProvider.upload(relativePath, remoteBytes)
                 return remoteBytes
-            } catch (e: java.nio.file.NoSuchFileException) {
-                throw e
-            } catch (e: Exception) {
-                logger.error("Failed to download $relativePath from remote: ${e.message}")
             }
+            throw e
         }
-
-        throw java.nio.file.NoSuchFileException(relativePath)
     }
 
     fun deleteFile(relativePath: String) {
-        // Delete local cache
-        val localPath = getLocalPath(relativePath)
-        val file = File(localPath)
-        if (file.exists()) {
-            file.delete()
-        }
+        val config = getStorageConfig()
+        val localDir = config.local?.path ?: defaultReceiptsDir
+        val localProvider = LocalStorageProvider(localDir)
+        localProvider.delete(relativePath)
 
-        // Delete from remote
-        val provider = remoteProvider
-        if (provider != null) {
+        val remote = remoteProvider
+        if (remote != null) {
             try {
-                provider.delete(relativePath)
+                remote.delete(relativePath)
             } catch (e: Exception) {
                 logger.error("Failed to delete $relativePath from remote storage: ${e.message}")
             }
@@ -274,31 +291,8 @@ class StorageService(
     }
 
     fun testConnection(configData: StorageConfigDto): Map<String, Any?> {
-        val providerType = configData.providerType
-        if (providerType == "local") {
-            val localPath = configData.local?.path ?: defaultReceiptsDir
-            return try {
-                val dir = File(localPath)
-                dir.mkdirs()
-                if (dir.exists() && dir.canWrite()) {
-                    mapOf("ok" to true, "error" to null)
-                } else {
-                    mapOf("ok" to false, "error" to "Directory is not writable")
-                }
-            } catch (e: Exception) {
-                mapOf("ok" to false, "error" to e.message)
-            }
-        }
-
-        if (providerType == "s3") {
-            val provider = createProvider(providerType, configData)
-            if (provider != null) {
-                return provider.testConnection()
-            }
-            return mapOf("ok" to false, "error" to "Invalid S3 configuration (missing bucket)")
-        }
-
-        return mapOf("ok" to false, "error" to "Storage provider '$providerType' is not implemented. Only 'local' and 's3' are supported.")
+        val provider = createProvider(configData.providerType, configData)
+        return provider.testConnection()
     }
 
     private fun decryptField(encrypted: String?): String? {
@@ -313,7 +307,6 @@ class StorageService(
 
     private fun encryptField(plain: String?, sectionKey: String, fieldKey: String): String? {
         if (plain == "••••••••") {
-            // Keep existing password
             val existing = getStorageConfig()
             val existingPlain = when (sectionKey) {
                 "smb" -> existing.smb?.password
@@ -334,14 +327,15 @@ class StorageService(
     }
 
     fun startMigration(oldConfig: StorageConfigDto, newConfig: StorageConfigDto, receipts: List<eu.nt.xpenses.model.Receipt>) {
-        val newProviderType = newConfig.providerType
-        val oldProviderType = oldConfig.providerType
+        val filePaths = receipts.map { it.filePath }
+        val oldProvider = createProvider(oldConfig.providerType, oldConfig)
+        val newProvider = createProvider(newConfig.providerType, newConfig)
 
         val statusSetting = AppSetting(
             key = "storage_migration_status",
             value = objectMapper.writeValueAsString(mapOf(
                 "status" to "running",
-                "total_files" to receipts.size,
+                "total_files" to filePaths.size,
                 "migrated_files" to 0,
                 "failed_files" to 0,
                 "errors" to emptyList<String>()
@@ -350,77 +344,23 @@ class StorageService(
         )
         appSettingRepository.save(statusSetting)
 
-        // Run on Spring-managed thread pool
-        executor.execute {
+        migrationEngine.executeMigrationAsync(oldProvider, newProvider, filePaths) { result, isComplete ->
             transactionTemplate.execute {
-                val errors = mutableListOf<String>()
-                var migrated = 0
-                var failed = 0
+                val statusStr = if (isComplete) {
+                    if (result.failedFiles == 0) "completed" else "failed"
+                } else "running"
 
-                val oldProvider = createProvider(oldProviderType, oldConfig)
-                val newProvider = createProvider(newProviderType, newConfig)
-
-                for (receipt in receipts) {
-                    val path = receipt.filePath
-                    try {
-                        // Get file bytes from old provider
-                        val bytes = if (oldProvider != null) {
-                            oldProvider.download(path)
-                        } else {
-                            // local
-                            val localPath = oldConfig.local?.path ?: defaultReceiptsDir
-                            val migrationBase = File(localPath).canonicalFile
-                            val migrationFile = File(migrationBase, path).canonicalFile
-                            if (!migrationFile.canonicalPath.startsWith(migrationBase.canonicalPath + File.separator)) {
-                                throw IllegalArgumentException("Invalid target filepath: path traversal detected")
-                            }
-                            migrationFile.readBytes()
-                        }
-
-                        // Write file bytes to new provider
-                        if (newProvider != null) {
-                            newProvider.upload(path, bytes)
-                        } else {
-                            // local
-                            val localPath = newConfig.local?.path ?: defaultReceiptsDir
-                            val dest = File(localPath, path)
-                            dest.parentFile?.mkdirs()
-                            dest.writeBytes(bytes)
-                        }
-
-                        migrated++
-                    } catch (e: Exception) {
-                        failed++
-                        errors.add("Failed to migrate $path: ${e.message}")
-                    }
-
-                    // Update status in DB
-                    appSettingRepository.save(AppSetting(
-                        key = "storage_migration_status",
-                        value = objectMapper.writeValueAsString(mapOf(
-                            "status" to "running",
-                            "total_files" to receipts.size,
-                            "migrated_files" to migrated,
-                            "failed_files" to failed,
-                            "errors" to errors.take(50)
-                        )),
-                        updatedAt = Instant.now()
-                    ))
-                }
-
-                // Completed status
                 appSettingRepository.save(AppSetting(
                     key = "storage_migration_status",
                     value = objectMapper.writeValueAsString(mapOf(
-                        "status" to if (failed == 0) "completed" else "failed",
-                        "total_files" to receipts.size,
-                        "migrated_files" to migrated,
-                        "failed_files" to failed,
-                        "errors" to errors.take(50)
+                        "status" to statusStr,
+                        "total_files" to result.totalFiles,
+                        "migrated_files" to result.migratedFiles,
+                        "failed_files" to result.failedFiles,
+                        "errors" to result.errors
                     )),
                     updatedAt = Instant.now()
                 ))
-                null
             }
         }
     }

@@ -14,6 +14,7 @@ import eu.nt.xpenses.repositories.UserRepository
 import eu.nt.xpenses.repositories.AppSettingRepository
 import eu.nt.xpenses.services.mapper.ExpenseMapper
 import eu.nt.xpenses.services.mapper.ReportMapper
+import eu.nt.xpenses.services.Authorization
 import eu.nt.xpenses.services.ExpenseService
 import eu.nt.xpenses.services.ExportService
 import eu.nt.xpenses.services.PdfService
@@ -50,7 +51,8 @@ class ReportController(
     private val expenseMapper: ExpenseMapper,
     private val reportMapper: ReportMapper,
     private val reportService: ReportService,
-    private val expenseService: ExpenseService
+    private val expenseService: ExpenseService,
+    private val authorization: Authorization,
 ) {
     private val log = LoggerFactory.getLogger(ReportController::class.java)
 
@@ -67,12 +69,12 @@ class ReportController(
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
 
         if (userId != null && userId != currentUser.id) {
-            if (currentUser.role !in listOf("chef_finance", "mod", "manager")) {
+            if (!authorization.canViewAll(currentUser)) {
                 throw ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden")
             }
         }
 
-        val targetUid: Int? = if (all && currentUser.role in listOf("chef_finance", "mod", "manager")) userId else (userId ?: currentUser.id)
+        val targetUid: Int? = if (all && authorization.canViewAll(currentUser)) userId else (userId ?: currentUser.id)
 
         return if (page != null) {
             val pageable = org.springframework.data.domain.PageRequest.of(page, size)
@@ -85,7 +87,7 @@ class ReportController(
                 totalPages = result.totalPages
             )
         } else {
-            val reports = if (all && currentUser.role in listOf("chef_finance", "mod", "manager")) {
+            val reports = if (all && authorization.canViewAll(currentUser)) {
                 if (userId != null) {
                     if (status != null) expenseReportRepository.findAllByUserIdAndStatusWithExpenses(userId, status)
                     else expenseReportRepository.findAllByUserIdWithExpenses(userId)
@@ -139,7 +141,7 @@ class ReportController(
             ResponseStatusException(HttpStatus.NOT_FOUND, "Report not found")
         }
 
-        if (currentUser.role !in listOf("chef_finance", "mod", "manager") && report.user?.id != currentUser.id) {
+        if (!authorization.canView(currentUser, report.user?.id)) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Not your report")
         }
 
@@ -350,7 +352,7 @@ class ReportController(
             ResponseStatusException(HttpStatus.NOT_FOUND, "Report not found")
         }
 
-        if (currentUser.role !in listOf("chef_finance", "mod", "manager") && report.user?.id != currentUser.id) {
+        if (!authorization.canView(currentUser, report.user?.id)) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Not your report")
         }
 
@@ -383,7 +385,7 @@ class ReportController(
             ResponseStatusException(HttpStatus.NOT_FOUND, "Report not found")
         }
 
-        if (currentUser.role !in listOf("chef_finance", "mod", "manager") && report.user?.id != currentUser.id) {
+        if (!authorization.canView(currentUser, report.user?.id)) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Not your report")
         }
 
@@ -451,12 +453,12 @@ class ReportController(
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
 
         if (userId != null && userId != currentUser.id) {
-            if (currentUser.role !in listOf("chef_finance", "mod", "manager")) {
+            if (!authorization.canViewAll(currentUser)) {
                 throw ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden")
             }
         }
 
-        var reports = if (all && currentUser.role in listOf("chef_finance", "mod", "manager")) {
+        var reports = if (all && authorization.canViewAll(currentUser)) {
             if (userId != null) {
                 if (status != null) expenseReportRepository.findAllByUserIdAndStatusWithExpenses(userId, status)
                 else expenseReportRepository.findAllByUserIdWithExpenses(userId)
@@ -524,7 +526,7 @@ class ReportController(
         val report = expenseReportRepository.findByIdWithExpenses(reportId)
             .orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND, "Report not found") }
 
-        if (currentUser.role !in listOf("chef_finance", "mod", "manager") && report.user?.id != currentUser.id) {
+        if (!authorization.canView(currentUser, report.user?.id)) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden")
         }
 

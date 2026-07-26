@@ -4,6 +4,7 @@ import eu.nt.xpenses.dto.search.SearchResult
 import eu.nt.xpenses.model.User
 import eu.nt.xpenses.repositories.ExpenseReportRepository
 import eu.nt.xpenses.repositories.ExpenseRepository
+import eu.nt.xpenses.services.Authorization
 import eu.nt.xpenses.services.mapper.ExpenseMapper
 import eu.nt.xpenses.services.mapper.ReportMapper
 import jakarta.servlet.http.HttpServletRequest
@@ -17,7 +18,8 @@ class SearchController(
     private val expenseRepository: ExpenseRepository,
     private val expenseReportRepository: ExpenseReportRepository,
     private val expenseMapper: ExpenseMapper,
-    private val reportMapper: ReportMapper
+    private val reportMapper: ReportMapper,
+    private val authorization: Authorization,
 ) {
     @GetMapping
     fun search(
@@ -38,8 +40,7 @@ class SearchController(
         }
 
         val term = query.trim()
-        val isPrivileged = currentUser.role in listOf("chef_finance", "mod", "manager")
-        val userId = if (all && isPrivileged) null else currentUser.id
+        val userId = authorization.effectiveUserId(currentUser, all)
 
         val reports = expenseReportRepository.search(userId, term).map { reportMapper.mapReportToOut(it) }
         val expenses = expenseRepository.search(userId, term).map { expenseMapper.toExpenseOut(it) }

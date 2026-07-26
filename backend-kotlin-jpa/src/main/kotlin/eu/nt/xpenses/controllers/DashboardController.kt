@@ -9,6 +9,7 @@ import eu.nt.xpenses.dto.dashboard.PendingAdvanceSummary
 import eu.nt.xpenses.dto.dashboard.PendingReportSummary
 import eu.nt.xpenses.model.*
 import eu.nt.xpenses.repositories.*
+import eu.nt.xpenses.services.Authorization
 import eu.nt.xpenses.services.mapper.ExpenseMapper
 import jakarta.servlet.http.HttpServletRequest
 import org.springframework.data.domain.Pageable
@@ -27,7 +28,8 @@ class DashboardController(
     private val expenseReportRepository: ExpenseReportRepository,
     private val categoryRepository: CategoryRepository,
     private val advancePaymentRepository: AdvancePaymentRepository,
-    private val expenseMapper: ExpenseMapper
+    private val expenseMapper: ExpenseMapper,
+    private val authorization: Authorization,
 ) {
 
     @GetMapping
@@ -42,7 +44,7 @@ class DashboardController(
         val now = LocalDate.now(ZoneOffset.UTC)
         val monthStart = String.format("%d-%02d-01", now.year, now.monthValue)
 
-        val canViewAll = currentUser.role in listOf("chef_finance", "mod", "manager")
+        val canViewAll = authorization.canViewAll(currentUser)
         val isOrgWide = all && canViewAll
 
         val uid = currentUser.id!!
@@ -55,8 +57,8 @@ class DashboardController(
 
         val expenseCountMonth = monthExpenses.size
 
-        val canApprove = currentUser.role in listOf("manager", "chef_finance", "mod")
-        val canPay = currentUser.role in listOf("chef_finance", "mod")
+        val canApprove = authorization.canManage(currentUser)
+        val canPay = authorization.canPay(currentUser)
 
         val latestReports = if (isOrgWide) {
             expenseReportRepository.findLatestWithExpenses(Pageable.ofSize(1))
@@ -126,7 +128,7 @@ class DashboardController(
         val currentUser = request.getAttribute("currentUser") as? User
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
 
-        if (currentUser.role !in listOf("manager", "chef_finance", "mod")) {
+        if (!authorization.canViewAll(currentUser)) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden: Manager access required")
         }
 

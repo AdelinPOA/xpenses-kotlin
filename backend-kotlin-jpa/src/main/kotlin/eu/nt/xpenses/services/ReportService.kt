@@ -5,6 +5,7 @@ import eu.nt.xpenses.model.User
 import eu.nt.xpenses.repositories.ExpenseReportRepository
 import eu.nt.xpenses.repositories.ExpenseRepository
 import eu.nt.xpenses.repositories.UserRepository
+import org.springframework.beans.factory.annotation.Autowired
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Service
@@ -19,7 +20,8 @@ class ReportService(
     private val reportRepository: ExpenseReportRepository,
     private val expenseRepository: ExpenseRepository,
     private val userRepository: UserRepository,
-    private val emailSettingsService: EmailSettingsService
+    private val emailSettingsService: EmailSettingsService,
+    @Autowired private val authorization: Authorization,
 ) {
     private val log = LoggerFactory.getLogger(ReportService::class.java)
 
@@ -188,7 +190,7 @@ class ReportService(
 
     @Transactional
     fun approveReport(reportId: Int, currentUser: User): ExpenseReport {
-        if (currentUser.role !in listOf("manager", "chef_finance")) {
+        if (!authorization.canManage(currentUser)) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Not authorized")
         }
 
@@ -230,7 +232,7 @@ class ReportService(
 
     @Transactional
     fun rejectReport(reportId: Int, reason: String, currentUser: User): ExpenseReport {
-        if (currentUser.role !in listOf("manager", "chef_finance")) {
+        if (!authorization.canManage(currentUser)) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Not authorized")
         }
 
@@ -276,7 +278,7 @@ class ReportService(
 
     @Transactional
     fun payReport(reportId: Int, currentUser: User): ExpenseReport {
-        if (currentUser.role != "chef_finance") {
+        if (!authorization.canPay(currentUser)) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Only chef_finance can perform payment")
         }
 

@@ -20,12 +20,14 @@ class ReportServiceTest {
     private val expenseRepository = mock(ExpenseRepository::class.java)
     private val userRepository = mock(UserRepository::class.java)
     private val emailSettingsService = mock(EmailSettingsService::class.java)
+    private val authorization = Authorization()
 
     private val reportService = ReportService(
         reportRepository,
         expenseRepository,
         userRepository,
-        emailSettingsService
+        emailSettingsService,
+        authorization
     )
 
     private lateinit var techUser: User

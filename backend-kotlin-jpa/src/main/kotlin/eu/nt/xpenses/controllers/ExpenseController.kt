@@ -6,6 +6,7 @@ import eu.nt.xpenses.dto.expense.ExpenseUpdate
 import eu.nt.xpenses.model.*
 import eu.nt.xpenses.models.PagedResponse
 import eu.nt.xpenses.repositories.*
+import eu.nt.xpenses.services.Authorization
 import eu.nt.xpenses.services.ExpenseService
 import eu.nt.xpenses.services.ExportService
 import eu.nt.xpenses.services.FxService
@@ -41,6 +42,7 @@ class ExpenseController(
     private val exportService: ExportService,
     private val expenseMapper: ExpenseMapper,
     private val expenseService: ExpenseService,
+    private val authorization: Authorization,
 ) {
     private val log = LoggerFactory.getLogger(ExpenseController::class.java)
 
@@ -59,7 +61,7 @@ class ExpenseController(
         val currentUser = request.getAttribute("currentUser") as? User
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
 
-        val uid = if (all && currentUser.role in listOf("chef_finance", "mod", "manager")) null else currentUser.id!!
+        val uid = authorization.effectiveUserId(currentUser, all)
 
         return if (page != null) {
             val pageable = org.springframework.data.domain.PageRequest.of(page, size)
@@ -101,7 +103,7 @@ class ExpenseController(
             ResponseStatusException(HttpStatus.NOT_FOUND, "Expense not found")
         }
 
-        if (currentUser.role !in listOf("chef_finance", "mod", "manager") && expense.user?.id != currentUser.id) {
+        if (!authorization.canView(currentUser, expense.user?.id)) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Not your expense")
         }
 
@@ -192,7 +194,7 @@ class ExpenseController(
             ResponseStatusException(HttpStatus.NOT_FOUND, "Expense not found")
         }
 
-        if (currentUser.role !in listOf("chef_finance", "mod", "manager") && expense.user?.id != currentUser.id) {
+        if (!authorization.canView(currentUser, expense.user?.id)) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Not your expense")
         }
 
@@ -231,7 +233,7 @@ class ExpenseController(
             ResponseStatusException(HttpStatus.NOT_FOUND, "Expense not found")
         }
 
-        if (currentUser.role !in listOf("chef_finance", "mod", "manager") && expense.user?.id != currentUser.id) {
+        if (!authorization.canView(currentUser, expense.user?.id)) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Not your expense")
         }
 
@@ -271,10 +273,10 @@ class ExpenseController(
         val currentUser = request.getAttribute("currentUser") as? User
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
 
-        val uid = if (all && currentUser.role in listOf("chef_finance", "mod", "manager")) null else currentUser.id!!
+        val uid = authorization.effectiveUserId(currentUser, all)
         val expenses = expenseRepository.findAllWithFilters(uid, status, reportId, categoryId, fromDate, toDate)
 
-        val includeUser = all && currentUser.role in listOf("chef_finance", "mod", "manager")
+        val includeUser = authorization.canViewAll(currentUser) && all
         val columns = listOfNotNull(
             "id", "date", "merchant", "description", "category",
             "amount_original", "currency", "amount_eur", "fx_rate",

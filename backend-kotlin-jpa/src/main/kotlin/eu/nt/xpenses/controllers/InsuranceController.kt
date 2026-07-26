@@ -5,6 +5,7 @@ import eu.nt.xpenses.model.InsuranceFile
 import eu.nt.xpenses.model.User
 import eu.nt.xpenses.repositories.InsuranceFileRepository
 import eu.nt.xpenses.repositories.UserRepository
+import eu.nt.xpenses.services.Authorization
 import eu.nt.xpenses.services.StorageService
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
@@ -26,7 +27,8 @@ class InsuranceController(
     private val insuranceFileRepository: InsuranceFileRepository,
     private val userRepository: UserRepository,
     private val storageService: StorageService,
-    private val transactionTemplate: TransactionTemplate
+    private val transactionTemplate: TransactionTemplate,
+    private val authorization: Authorization,
 ) {
     private val logger = LoggerFactory.getLogger(InsuranceController::class.java)
     @GetMapping
@@ -37,7 +39,7 @@ class InsuranceController(
         val currentUser = request.getAttribute("currentUser") as? User
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
 
-        val files = if (all && currentUser.role in listOf("manager", "chef_finance", "mod")) {
+        val files = if (all && authorization.canViewAll(currentUser)) {
             insuranceFileRepository.findAllByOrderByCreatedAtDesc()
         } else {
             insuranceFileRepository.findAllByUserIdOrderByCreatedAtDesc(currentUser.id!!)
@@ -58,7 +60,7 @@ class InsuranceController(
             ResponseStatusException(HttpStatus.NOT_FOUND, "File not found")
         }
 
-        if (currentUser.role !in listOf("manager", "chef_finance", "mod") && file.user?.id != currentUser.id) {
+        if (!authorization.canView(currentUser, file.user?.id)) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Not your file")
         }
 
@@ -76,7 +78,7 @@ class InsuranceController(
         val currentUser = request.getAttribute("currentUser") as? User
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
 
-        if (currentUser.role !in listOf("manager", "chef_finance", "mod")) {
+        if (!authorization.canViewAll(currentUser)) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Only managers and admins can upload insurance files")
         }
 
@@ -145,7 +147,7 @@ class InsuranceController(
             ResponseStatusException(HttpStatus.NOT_FOUND, "File not found")
         }
 
-        if (currentUser.role !in listOf("manager", "chef_finance", "mod") && file.user?.id != currentUser.id) {
+        if (!authorization.canView(currentUser, file.user?.id)) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Not your file")
         }
 
@@ -171,7 +173,7 @@ class InsuranceController(
         val currentUser = request.getAttribute("currentUser") as? User
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
 
-        if (currentUser.role !in listOf("manager", "chef_finance", "mod")) {
+        if (!authorization.canViewAll(currentUser)) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Only managers and admins can delete insurance files")
         }
 

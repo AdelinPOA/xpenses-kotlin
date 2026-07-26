@@ -8,6 +8,7 @@ import eu.nt.xpenses.dto.report.AdvanceRejectBody
 import eu.nt.xpenses.dto.report.PendingAdvanceOut
 import eu.nt.xpenses.model.*
 import eu.nt.xpenses.repositories.*
+import eu.nt.xpenses.services.Authorization
 import eu.nt.xpenses.services.FxService
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.validation.Valid
@@ -26,7 +27,8 @@ class AdvanceController(
     private val expenseReportRepository: ExpenseReportRepository,
     private val userRepository: UserRepository,
     private val fxService: FxService,
-    private val reportOwnership: ReportOwnership
+    private val reportOwnership: ReportOwnership,
+    private val authorization: Authorization,
 ) {
 
     @GetMapping("/api/reports/{reportId}/advances")
@@ -40,7 +42,7 @@ class AdvanceController(
         val report = reportOwnership.verifyOwnership(reportId, currentUser)
         val advances = advancePaymentRepository.findAllByReportId(reportId)
 
-        if (currentUser.role !in listOf("chef_finance", "mod", "manager") && report.user?.id != currentUser.id) {
+        if (!authorization.canView(currentUser, report.user?.id)) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden")
         }
 
@@ -59,7 +61,7 @@ class AdvanceController(
 
         val report = reportOwnership.verifyOwnership(reportId, currentUser)
         val isOwner = report.user?.id == currentUser.id
-        val isPrivileged = currentUser.role in listOf("manager", "chef_finance", "mod")
+        val isPrivileged = authorization.canViewAll(currentUser)
 
         val now = Instant.now()
 
@@ -140,7 +142,7 @@ class AdvanceController(
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
 
         val report = reportOwnership.verifyOwnership(reportId, currentUser)
-        val isPrivileged = currentUser.role in listOf("manager", "chef_finance", "mod")
+        val isPrivileged = authorization.canViewAll(currentUser)
         if (!isPrivileged && report.user?.id != currentUser.id) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Only the report owner can modify advance payments")
         }
@@ -207,7 +209,7 @@ class AdvanceController(
         }
 
         val isOwner = report.user?.id == currentUser.id
-        val isPrivileged = currentUser.role in listOf("manager", "chef_finance", "mod")
+        val isPrivileged = authorization.canViewAll(currentUser)
 
         if (adv.status == "requested") {
             if (!isOwner) {
@@ -240,7 +242,7 @@ class AdvanceController(
         val currentUser = request.getAttribute("currentUser") as? User
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
 
-        if (currentUser.role !in listOf("manager", "chef_finance")) {
+        if (!authorization.canManage(currentUser)) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Not authorized")
         }
 
@@ -292,7 +294,7 @@ class AdvanceController(
         val currentUser = request.getAttribute("currentUser") as? User
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
 
-        if (currentUser.role !in listOf("manager", "chef_finance")) {
+        if (!authorization.canManage(currentUser)) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Not authorized")
         }
 
@@ -334,7 +336,7 @@ class AdvanceController(
         val currentUser = request.getAttribute("currentUser") as? User
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
 
-        if (currentUser.role !in listOf("manager", "chef_finance", "mod")) {
+        if (!authorization.canViewAll(currentUser)) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden")
         }
 

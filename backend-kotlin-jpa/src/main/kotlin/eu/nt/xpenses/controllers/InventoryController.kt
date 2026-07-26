@@ -6,6 +6,7 @@ import eu.nt.xpenses.model.InventoryRequest
 import eu.nt.xpenses.model.User
 import eu.nt.xpenses.repositories.InventoryItemRepository
 import eu.nt.xpenses.repositories.InventoryRequestRepository
+import eu.nt.xpenses.services.Authorization
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.validation.Valid
 import jakarta.validation.constraints.Min
@@ -24,7 +25,8 @@ import java.time.Instant
 @RequestMapping("/api/inventory")
 class InventoryController(
     private val inventoryItemRepository: InventoryItemRepository,
-    private val inventoryRequestRepository: InventoryRequestRepository
+    private val inventoryRequestRepository: InventoryRequestRepository,
+    private val authorization: Authorization,
 ) {
     // ── Items ──────────────────────────────────────────────────────────────
 
@@ -36,7 +38,7 @@ class InventoryController(
         val currentUser = request.getAttribute("currentUser") as? User
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
 
-        val items = if (all && currentUser.role in listOf("chef_finance", "mod", "manager")) {
+        val items = if (all && authorization.canViewAll(currentUser)) {
             inventoryItemRepository.findAllByOrderByCreatedAtDesc()
         } else {
             inventoryItemRepository.findAllByUserIdOrderByCreatedAtDesc(currentUser.id!!)
@@ -57,7 +59,7 @@ class InventoryController(
             ResponseStatusException(HttpStatus.NOT_FOUND, "Inventory item not found")
         }
 
-        if (currentUser.role !in listOf("chef_finance", "mod", "manager") && item.user?.id != currentUser.id) {
+        if (!authorization.canView(currentUser, item.user?.id)) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Not your item")
         }
 
@@ -105,7 +107,7 @@ class InventoryController(
             ResponseStatusException(HttpStatus.NOT_FOUND, "Inventory item not found")
         }
 
-        if (currentUser.role !in listOf("chef_finance", "mod") && item.user?.id != currentUser.id) {
+        if (!authorization.canView(currentUser, item.user?.id)) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Not your item")
         }
 
@@ -142,7 +144,7 @@ class InventoryController(
             ResponseStatusException(HttpStatus.NOT_FOUND, "Inventory item not found")
         }
 
-        if (currentUser.role !in listOf("chef_finance", "mod") && item.user?.id != currentUser.id) {
+        if (!authorization.canView(currentUser, item.user?.id)) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Not your item")
         }
 
@@ -160,7 +162,7 @@ class InventoryController(
         val currentUser = request.getAttribute("currentUser") as? User
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
 
-        val isPrivileged = currentUser.role in listOf("manager", "chef_finance", "mod")
+        val isPrivileged = authorization.canViewAll(currentUser)
 
         val reqs = when {
             mine -> inventoryRequestRepository.findAllByUserIdOrderByCreatedAtDesc(currentUser.id!!)
@@ -204,7 +206,7 @@ class InventoryController(
         val currentUser = request.getAttribute("currentUser") as? User
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
 
-        if (currentUser.role !in listOf("manager", "chef_finance", "mod")) {
+        if (!authorization.canViewAll(currentUser)) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Only managers and admins can approve requests")
         }
 
@@ -255,7 +257,7 @@ class InventoryController(
         val currentUser = request.getAttribute("currentUser") as? User
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
 
-        if (currentUser.role !in listOf("manager", "chef_finance", "mod")) {
+        if (!authorization.canViewAll(currentUser)) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Only managers and admins can reject requests")
         }
 

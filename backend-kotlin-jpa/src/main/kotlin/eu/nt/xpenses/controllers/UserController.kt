@@ -8,6 +8,7 @@ import eu.nt.xpenses.dto.user.UserUpdateMeRequest
 import eu.nt.xpenses.model.User
 import eu.nt.xpenses.repositories.RefreshTokenRepository
 import eu.nt.xpenses.repositories.UserRepository
+import eu.nt.xpenses.services.Authorization
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
@@ -24,7 +25,8 @@ import java.time.Instant
 class UserController(
     private val userRepository: UserRepository,
     private val passwordEncoder: BCryptPasswordEncoder,
-    private val refreshTokenRepository: RefreshTokenRepository
+    private val refreshTokenRepository: RefreshTokenRepository,
+    private val authorization: Authorization,
 ) {
     private val validRoles = setOf("technician", "manager", "chef_finance", "mod")
 
@@ -60,7 +62,7 @@ class UserController(
         val currentUser = request.getAttribute("currentUser") as? User
             ?: return ResponseEntity.status(401).body(mapOf("detail" to "Not authenticated"))
 
-        if (currentUser.role !in setOf("chef_finance", "manager", "mod")) {
+        if (!authorization.canViewAll(currentUser)) {
             return ResponseEntity.status(403).body(mapOf("detail" to "Forbidden"))
         }
 
@@ -76,7 +78,7 @@ class UserController(
         val currentUser = request.getAttribute("currentUser") as? User
             ?: return ResponseEntity.status(401).body(mapOf("detail" to "Not authenticated"))
 
-        if (userId != currentUser.id && currentUser.role !in setOf("chef_finance", "manager", "mod")) {
+        if (userId != currentUser.id && !authorization.canViewAll(currentUser)) {
             return ResponseEntity.status(403).body(mapOf("detail" to "Forbidden"))
         }
 

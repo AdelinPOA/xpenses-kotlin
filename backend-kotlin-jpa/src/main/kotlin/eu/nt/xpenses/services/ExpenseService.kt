@@ -268,13 +268,25 @@ class ExpenseService(
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Only draft expenses can have receipts uploaded")
         }
 
+        val allowedExtensions = setOf("jpg", "jpeg", "png", "gif", "pdf", "webp")
+        val maxSizeInBytes = 10L * 1024 * 1024
+
+        val nowTime = java.time.LocalDate.now()
+        val year = nowTime.year
+        val month = String.format("%02d", nowTime.monthValue)
+        val contextPrefix = "$year/$month/${expenseId}_"
+
         val now = Instant.now()
         val savedReceiptsList = mutableListOf<Map<String, Any>>()
         for (file in files) {
             val originalName = file.originalFilename ?: "receipt"
-            val content = file.bytes
+            val rawUpload = eu.nt.xpenses.models.RawUpload(
+                bytes = file.bytes,
+                originalFilename = originalName,
+                contentType = file.contentType
+            )
             val relativePath = try {
-                saveReceiptLocal(expenseId, originalName, content)
+                storageService.storeFile(contextPrefix, rawUpload, maxSizeInBytes, allowedExtensions)
             } catch (e: IllegalArgumentException) {
                 throw ResponseStatusException(HttpStatus.BAD_REQUEST, e.message)
             }
@@ -326,47 +338,5 @@ class ExpenseService(
         }
     }
 
-    private fun saveReceiptLocal(expenseId: Int, filename: String, content: ByteArray): String {
-        val allowedExtensions = setOf("jpg", "jpeg", "png", "gif", "pdf", "webp")
-        val rawFilename = java.io.File(filename).name
-        val ext = rawFilename.substringAfterLast(".", "").lowercase()
-        if (ext !in allowedExtensions) {
-            throw IllegalArgumentException("File type .$ext not allowed")
-        }
-        validateMagicBytes(content, ext)
-        if (content.size > 10 * 1024 * 1024) {
-            throw IllegalArgumentException("File exceeds 10MB limit")
-        }
 
-        val now = java.time.LocalDate.now()
-        val year = now.year
-        val month = String.format("%02d", now.monthValue)
-        val subdir = "$year/$month"
-        val safeName = "${expenseId}_${rawFilename}".replace(" ", "_")
-        val relativePath = "$subdir/$safeName"
-
-        storageService.uploadFile(relativePath, content)
-        return relativePath
-    }
-
-    private fun validateMagicBytes(content: ByteArray, ext: String) {
-        val signatures = mapOf(
-            "jpg" to byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte()),
-            "jpeg" to byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte()),
-            "png" to byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A),
-            "gif" to byteArrayOf(0x47, 0x49, 0x46, 0x38),
-            "pdf" to byteArrayOf(0x25, 0x50, 0x44, 0x46),
-            "webp" to byteArrayOf(0x52, 0x49, 0x46, 0x46)
-        )
-        val expected = signatures[ext] ?: return
-        if (content.size < expected.size || !content.copyOfRange(0, expected.size).contentEquals(expected)) {
-            throw IllegalArgumentException("File content does not match .$ext format")
-        }
-        if (ext == "webp") {
-            val webpSignature = byteArrayOf(0x57, 0x45, 0x42, 0x50)
-            if (content.size < 12 || !content.copyOfRange(8, 12).contentEquals(webpSignature)) {
-                throw IllegalArgumentException("File content does not match .webp format")
-            }
-        }
-    }
 }

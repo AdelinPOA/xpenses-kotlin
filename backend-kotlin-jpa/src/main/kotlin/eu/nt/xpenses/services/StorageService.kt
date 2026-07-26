@@ -212,7 +212,7 @@ class StorageService(
         return target.absolutePath
     }
 
-    fun validateMagicBytes(bytes: ByteArray, allowedTypes: Set<String> = setOf("image/jpeg", "image/png", "application/pdf", "image/webp")) {
+    fun validateMagicBytes(bytes: ByteArray, allowedTypes: Set<String> = setOf("image/jpeg", "image/png", "application/pdf", "image/webp", "image/gif")) {
         if (bytes.size < 4) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "File payload is empty or too small")
         }
@@ -221,18 +221,54 @@ class StorageService(
         val isPng = headerHex.startsWith("89504E47")
         val isPdf = headerHex.startsWith("25504446")
         val isWebp = headerHex.startsWith("52494646") && bytes.size >= 12 && String(bytes.sliceArray(8..11)).equals("WEBP")
+        val isGif = headerHex.startsWith("47494638")
 
         val matched = when {
             isJpeg -> "image/jpeg"
             isPng -> "image/png"
             isPdf -> "application/pdf"
             isWebp -> "image/webp"
+            isGif -> "image/gif"
             else -> "unknown"
         }
 
         if (matched !in allowedTypes) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported or invalid file format detected via magic bytes")
         }
+    }
+
+    fun storeFile(
+        contextPrefix: String,
+        upload: eu.nt.xpenses.models.RawUpload,
+        maxSizeInBytes: Long,
+        allowedExtensions: Set<String>
+    ): String {
+        if (upload.bytes.size > maxSizeInBytes) {
+            throw ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, "File exceeds size limit")
+        }
+
+        val rawFilename = java.io.File(upload.originalFilename).name
+        val ext = rawFilename.substringAfterLast(".", "").lowercase()
+        if (ext !in allowedExtensions) {
+            throw IllegalArgumentException("File type .$ext not allowed")
+        }
+
+        val mapping = mapOf(
+            "jpg" to "image/jpeg",
+            "jpeg" to "image/jpeg",
+            "png" to "image/png",
+            "pdf" to "application/pdf",
+            "webp" to "image/webp",
+            "gif" to "image/gif"
+        )
+        val allowedMimeTypes = allowedExtensions.mapNotNull { mapping[it] }.toSet()
+        validateMagicBytes(upload.bytes, allowedMimeTypes)
+
+        val safeName = rawFilename.replace(" ", "_")
+        val relativePath = "$contextPrefix$safeName"
+
+        uploadFile(relativePath, upload.bytes)
+        return relativePath
     }
 
     fun uploadFile(relativePath: String, content: ByteArray) {

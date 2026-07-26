@@ -51,8 +51,9 @@ abstract class IntegrationTestBase {
             registry.add("bucket4j.enabled") { "false" }
             registry.add("rate-limiting.enabled") { "false" }
             registry.add("seed.demo.users") { "true" }
-            // Use a temp directory for signatures in tests
+            // Use temp directories for file storage in tests
             registry.add("signatures.dir") { java.nio.file.Files.createTempDirectory("test-signatures").toAbsolutePath().toString() }
+            registry.add("storage.local.base-dir") { java.nio.file.Files.createTempDirectory("test-storage").toAbsolutePath().toString() }
         }
     }
 

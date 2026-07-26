@@ -1,15 +1,19 @@
 package eu.nt.xpenses.controllers
 
 import eu.nt.xpenses.IntegrationTestBase
+import eu.nt.xpenses.model.AppSetting
 import eu.nt.xpenses.model.InsuranceFile
+import eu.nt.xpenses.repositories.AppSettingRepository
 import eu.nt.xpenses.repositories.InsuranceFileRepository
 import jakarta.persistence.EntityManager
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.MediaType
 import org.springframework.mock.web.MockMultipartFile
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.*
+import java.nio.file.Files
 
 class InsuranceControllerTest : IntegrationTestBase() {
 
@@ -17,6 +21,17 @@ class InsuranceControllerTest : IntegrationTestBase() {
     private lateinit var entityManager: EntityManager
     @Autowired
     private lateinit var insuranceFileRepository: InsuranceFileRepository
+    @Autowired
+    private lateinit var appSettingRepository: AppSettingRepository
+
+    @BeforeEach
+    fun setupStorage() {
+        // Create a temp directory for storage and configure it in the database
+        val tempDir = Files.createTempDirectory("test-insurance-storage")
+        val config = """{"providerType":"local","local":{"path":"${tempDir.toAbsolutePath()}"}}"""
+        appSettingRepository.save(AppSetting(key = "storage_config", value = config))
+        entityManager.flush()
+    }
 
     private fun saveInsuranceFile(): InsuranceFile {
         val tech = userRepository.findByUsername("tech1")!!

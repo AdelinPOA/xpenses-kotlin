@@ -14,7 +14,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import clsx from "clsx";
 import { 
-  Search, Bell, Download, Plus, ChevronDown, 
+  Bell, Download, Plus, ChevronDown, 
   Briefcase, Utensils, Plane, Car, Building, FileText, LucideIcon 
 } from "lucide-react";
 import { formatEur } from "@/lib/format";
@@ -23,6 +23,7 @@ import PendingReportsTable from "@/components/dashboard/PendingReportsTable";
 import PendingAdvancesList from "@/components/dashboard/PendingAdvancesList";
 import SlideOverReviewDrawer from "@/components/dashboard/SlideOverReviewDrawer";
 import RecentActivityStream from "@/components/dashboard/RecentActivityStream";
+import SearchDropdown from "@/components/ui/SearchDropdown";
 import { ManagerDashboardStats } from "@/lib/api";
 
 // Maps category names to circles & icons matching mobile mockup specs
@@ -145,14 +146,7 @@ export default function DashboardClient() {
       <div className="hidden lg:block space-y-8">
         {/* Top Header Navigation Bar */}
         <div className="flex items-center justify-between border-b border-border pb-4">
-          <div className="relative w-80">
-            <Search className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="Search..."
-              className="w-full pl-9 pr-4 py-2 bg-input border border-input-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-base sm:text-sm"
-            />
-          </div>
+          <SearchDropdown className="w-80" />
 
           <div className="flex items-center gap-6">
             <button className="relative p-1 text-muted hover:text-foreground transition-colors" aria-label="Notifications">

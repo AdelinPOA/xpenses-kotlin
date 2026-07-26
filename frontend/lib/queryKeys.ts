@@ -76,3 +76,8 @@ export const insuranceKeys = {
   list: (filters?: object) => [...insuranceKeys.all, "list", filters] as const,
 };
 
+export const searchKeys = {
+  all: ["search"] as const,
+  query: (term: string, all?: boolean) => [...searchKeys.all, term, all] as const,
+};
+

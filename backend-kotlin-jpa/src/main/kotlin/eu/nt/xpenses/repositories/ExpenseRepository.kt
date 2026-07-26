@@ -97,4 +97,19 @@ interface ExpenseRepository : JpaRepository<Expense, Int> {
 
     @Query(value = "SELECT * FROM expenses WHERE deleted = true", nativeQuery = true)
     fun findDeletedAudit(): List<Expense>
+
+    @Query("""
+        SELECT e FROM Expense e
+        WHERE (:userId IS NULL OR e.user.id = :userId)
+          AND (
+            LOWER(e.merchant) LIKE LOWER(CONCAT('%', :term, '%'))
+            OR LOWER(e.description) LIKE LOWER(CONCAT('%', :term, '%'))
+          )
+        ORDER BY e.date DESC, e.id DESC
+    """)
+    @EntityGraph(attributePaths = ["user", "category"])
+    fun search(
+        @Param("userId") userId: Int?,
+        @Param("term") term: String
+    ): List<Expense>
 }

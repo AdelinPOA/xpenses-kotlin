@@ -58,4 +58,22 @@ interface ExpenseReportRepository : JpaRepository<ExpenseReport, Int> {
 
     @Query(value = "SELECT * FROM expense_reports WHERE deleted = true", nativeQuery = true)
     fun findDeletedAudit(): List<ExpenseReport>
+
+    @Query("""
+        SELECT DISTINCT r FROM ExpenseReport r LEFT JOIN FETCH r.expenses LEFT JOIN FETCH r.user
+        WHERE (:userId IS NULL OR r.user.id = :userId)
+          AND (
+            LOWER(r.title) LIKE LOWER(CONCAT('%', :term, '%'))
+            OR LOWER(r.user.displayName) LIKE LOWER(CONCAT('%', :term, '%'))
+            OR LOWER(r.kundenauftrag) LIKE LOWER(CONCAT('%', :term, '%'))
+            OR LOWER(r.kundeCode) LIKE LOWER(CONCAT('%', :term, '%'))
+            OR LOWER(r.kundeName) LIKE LOWER(CONCAT('%', :term, '%'))
+            OR LOWER(r.adresse) LIKE LOWER(CONCAT('%', :term, '%'))
+          )
+        ORDER BY r.createdAt DESC, r.id DESC
+    """)
+    fun search(
+        @Param("userId") userId: Int?,
+        @Param("term") term: String
+    ): List<ExpenseReport>
 }

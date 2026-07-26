@@ -83,6 +83,7 @@ export type { LdapConfig, LdapSyncResult, LdapTestResult, SmtpConfig, SmtpTestRe
 export type { InventoryItem, InventoryItemCreate, InventoryItemUpdate, InventoryRequest, InventoryRequestCreate, InventoryRejectBody, InventoryApproveResponse } from "./types/inventory";
 export type { Category } from "./types/expense";
 export type { InsuranceFile } from "./types/insurance";
+export type { SearchResult } from "./types/search";
 export { bulkUploadExpenses, duplicateExpense } from "./api/expenses";
 export { getOcrConfig, updateOcrConfig, testOcrConfig, getOcrComparisons, getStorageConfig, updateStorageConfig, testStorageConfig, getStorageMigrationStatus, simulateEmailIngestion } from "./api/admin";
 

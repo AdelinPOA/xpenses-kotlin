@@ -1,12 +1,17 @@
 package eu.nt.xpenses.services
 
 import eu.nt.xpenses.dto.expense.ExpenseCreate
+import eu.nt.xpenses.dto.expense.ExpenseOut
 import eu.nt.xpenses.dto.expense.ExpenseUpdate
 import eu.nt.xpenses.model.*
+import eu.nt.xpenses.models.PagedResponse
 import eu.nt.xpenses.repositories.CategoryRepository
 import eu.nt.xpenses.repositories.ExpenseReportRepository
 import eu.nt.xpenses.repositories.ExpenseRepository
 import eu.nt.xpenses.repositories.OcrComparisonRepository
+import eu.nt.xpenses.repositories.ReceiptRepository
+import eu.nt.xpenses.services.mapper.ExpenseMapper
+import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -14,10 +19,9 @@ import org.springframework.web.multipart.MultipartFile
 import org.springframework.web.server.ResponseStatusException
 import java.math.BigDecimal
 import java.math.RoundingMode
+import java.net.URLConnection
 import java.time.Instant
-import org.slf4j.LoggerFactory
-
-import eu.nt.xpenses.repositories.ReceiptRepository
+import java.time.LocalDate
 
 @Service
 class ExpenseService(
@@ -27,14 +31,61 @@ class ExpenseService(
     private val ocrComparisonRepository: OcrComparisonRepository,
     private val receiptRepository: ReceiptRepository,
     private val fxService: FxService,
-    private val storageService: StorageService
+    private val storageService: StorageService,
+    private val exportService: ExportService,
+    private val expenseMapper: ExpenseMapper,
+    private val authorization: Authorization
 ) {
     private val log = LoggerFactory.getLogger(ExpenseService::class.java)
 
+    @Transactional(readOnly = true)
+    fun listExpenses(
+        currentUser: User,
+        reportId: Int?,
+        categoryId: Int?,
+        status: String?,
+        fromDate: String?,
+        toDate: String?,
+        all: Boolean,
+        page: Int?,
+        size: Int
+    ): Any {
+        val uid = authorization.effectiveUserId(currentUser, all)
+
+        return if (page != null) {
+            val pageable = org.springframework.data.domain.PageRequest.of(page, size)
+            val result = expenseRepository.findAllWithFiltersPaged(uid, status, reportId, categoryId, fromDate, toDate, pageable)
+            PagedResponse(
+                data = result.content.map { expenseMapper.toExpenseOut(it) },
+                page = result.number,
+                size = result.size,
+                totalElements = result.totalElements,
+                totalPages = result.totalPages
+            )
+        } else {
+            expenseRepository.findAllWithFilters(uid, status, reportId, categoryId, fromDate, toDate)
+                .map { expenseMapper.toExpenseOut(it) }
+        }
+    }
+
+    @Transactional(readOnly = true)
+    fun getExpense(expenseId: Int, currentUser: User): ExpenseOut {
+        val expense = expenseRepository.findById(expenseId).orElseThrow {
+            ResponseStatusException(HttpStatus.NOT_FOUND, "Expense not found")
+        }
+
+        if (!authorization.canView(currentUser, expense.user?.id)) {
+            throw ResponseStatusException(HttpStatus.FORBIDDEN, "Not your expense")
+        }
+
+        return expenseMapper.toExpenseOut(expense)
+    }
+
     @Transactional
-    fun createExpense(body: ExpenseCreate, currentUser: User): Expense {
+    fun createExpense(body: ExpenseCreate, currentUser: User): ExpenseOut {
         val fxRate = resolveFxRate(body.fxRate, body.currency, body.date)
-        return doCreateExpense(body, currentUser, fxRate)
+        val saved = doCreateExpense(body, currentUser, fxRate)
+        return expenseMapper.toExpenseOut(saved)
     }
 
     private fun resolveFxRate(manualRate: BigDecimal?, currency: String, date: String): BigDecimal {
@@ -67,7 +118,7 @@ class ExpenseService(
             val rep = expenseReportRepository.findById(it).orElseThrow {
                 ResponseStatusException(HttpStatus.NOT_FOUND, "Report not found")
             }
-            if (rep.user?.id != currentUser.id) {
+            if (!authorization.canMutate(currentUser, rep.user?.id)) {
                 throw ResponseStatusException(HttpStatus.FORBIDDEN, "Cannot attach to another user's report")
             }
             if (rep.status != "draft") {
@@ -111,12 +162,12 @@ class ExpenseService(
     }
 
     @Transactional
-    fun updateExpense(expenseId: Int, body: ExpenseUpdate, currentUser: User): Expense {
+    fun updateExpense(expenseId: Int, body: ExpenseUpdate, currentUser: User): ExpenseOut {
         val expense = expenseRepository.findById(expenseId).orElseThrow {
             ResponseStatusException(HttpStatus.NOT_FOUND, "Expense not found")
         }
 
-        if (expense.user?.id != currentUser.id) {
+        if (!authorization.canMutate(currentUser, expense.user?.id)) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Only the owner can perform this action")
         }
         if (expense.status != "draft") {
@@ -172,7 +223,7 @@ class ExpenseService(
             val rep = expenseReportRepository.findById(body.reportId).orElseThrow {
                 ResponseStatusException(HttpStatus.NOT_FOUND, "Report not found")
             }
-            if (rep.user?.id != currentUser.id) {
+            if (!authorization.canMutate(currentUser, rep.user?.id)) {
                 throw ResponseStatusException(HttpStatus.FORBIDDEN, "Cannot attach to another user's report")
             }
             if (rep.status != "draft") {
@@ -192,16 +243,16 @@ class ExpenseService(
             }
         }
 
-        return saved
+        return expenseMapper.toExpenseOut(saved)
     }
 
     @Transactional
-    fun duplicateExpense(expenseId: Int, currentUser: User): Expense {
+    fun duplicateExpense(expenseId: Int, currentUser: User): ExpenseOut {
         val expense = expenseRepository.findById(expenseId).orElseThrow {
             ResponseStatusException(HttpStatus.NOT_FOUND, "Expense not found")
         }
 
-        if (expense.user?.id != currentUser.id) {
+        if (!authorization.canMutate(currentUser, expense.user?.id)) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Only the owner can perform this action")
         }
 
@@ -225,7 +276,8 @@ class ExpenseService(
             updatedAt = Instant.now()
         )
 
-        return expenseRepository.save(newExpense)
+        val saved = expenseRepository.save(newExpense)
+        return expenseMapper.toExpenseOut(saved)
     }
 
     @Transactional
@@ -234,7 +286,7 @@ class ExpenseService(
             ResponseStatusException(HttpStatus.NOT_FOUND, "Expense not found")
         }
 
-        if (expense.user?.id != currentUser.id) {
+        if (!authorization.canMutate(currentUser, expense.user?.id)) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Only the owner can perform this action")
         }
         if (expense.status != "draft") {
@@ -263,20 +315,12 @@ class ExpenseService(
             ResponseStatusException(HttpStatus.NOT_FOUND, "Expense not found")
         }
 
-        if (expense.user?.id != currentUser.id) {
+        if (!authorization.canMutate(currentUser, expense.user?.id)) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Only the owner can perform this action")
         }
         if (expense.status != "draft") {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Only draft expenses can have receipts uploaded")
         }
-
-        val allowedExtensions = setOf("jpg", "jpeg", "png", "gif", "pdf", "webp")
-        val maxSizeInBytes = 10L * 1024 * 1024
-
-        val nowTime = java.time.LocalDate.now()
-        val year = nowTime.year
-        val month = String.format("%02d", nowTime.monthValue)
-        val contextPrefix = "$year/$month/${expenseId}_"
 
         val now = Instant.now()
         val savedReceiptsList = mutableListOf<Map<String, Any>>()
@@ -288,7 +332,7 @@ class ExpenseService(
                 contentType = file.contentType
             )
             val relativePath = try {
-                storageService.storeFile(contextPrefix, rawUpload, maxSizeInBytes, allowedExtensions)
+                storageService.storeFile(StorageContext.RECEIPT, rawUpload, expenseId)
             } catch (e: IllegalArgumentException) {
                 throw ResponseStatusException(HttpStatus.BAD_REQUEST, e.message)
             }
@@ -315,7 +359,7 @@ class ExpenseService(
         val expense = expenseRepository.findById(expenseId).orElseThrow {
             ResponseStatusException(HttpStatus.NOT_FOUND, "Expense not found")
         }
-        if (expense.user?.id != currentUser.id) {
+        if (!authorization.canMutate(currentUser, expense.user?.id)) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Only the owner can delete receipts")
         }
         if (expense.status != "draft") {
@@ -341,5 +385,103 @@ class ExpenseService(
         }
     }
 
+    @Transactional(readOnly = true)
+    fun getReceiptBytes(expenseId: Int, receiptId: Int?, currentUser: User): Pair<ByteArray, String> {
+        val expense = expenseRepository.findById(expenseId).orElseThrow {
+            ResponseStatusException(HttpStatus.NOT_FOUND, "Expense not found")
+        }
 
+        if (!authorization.canView(currentUser, expense.user?.id)) {
+            throw ResponseStatusException(HttpStatus.FORBIDDEN, "Not your expense")
+        }
+
+        if (receiptId != null) {
+            val receipt = receiptRepository.findById(receiptId).orElseThrow {
+                ResponseStatusException(HttpStatus.NOT_FOUND, "Receipt not found")
+            }
+            if (receipt.expense.id != expenseId) {
+                throw ResponseStatusException(HttpStatus.NOT_FOUND, "Receipt not associated with this expense")
+            }
+            val bytes = try {
+                storageService.downloadFile(receipt.filePath)
+            } catch (e: Exception) {
+                throw ResponseStatusException(HttpStatus.NOT_FOUND, "Receipt file not found")
+            }
+            val contentType = URLConnection.guessContentTypeFromName(receipt.originalName ?: receipt.filePath)
+                ?: "application/octet-stream"
+            return Pair(bytes, contentType)
+        }
+
+        val receipt = expense.receipts.minByOrNull { it.createdAt }
+        if (receipt != null) {
+            return getReceiptBytes(expenseId, receipt.id!!, currentUser)
+        }
+
+        val rPath = expense.receiptPath ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "No receipt found")
+        val bytes = try {
+            storageService.downloadFile(rPath)
+        } catch (e: Exception) {
+            throw ResponseStatusException(HttpStatus.NOT_FOUND, "Receipt file not found")
+        }
+
+        val contentType = URLConnection.guessContentTypeFromName(rPath) ?: "application/octet-stream"
+        return Pair(bytes, contentType)
+    }
+
+    @Transactional(readOnly = true)
+    fun exportExpenses(
+        currentUser: User,
+        format: String,
+        reportId: Int?,
+        categoryId: Int?,
+        status: String?,
+        fromDate: String?,
+        toDate: String?,
+        all: Boolean
+    ): Triple<ByteArray, String, String> {
+        if (format !in listOf("csv", "xlsx")) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported format '$format'. Use 'csv' or 'xlsx'.")
+        }
+
+        val uid = authorization.effectiveUserId(currentUser, all)
+        val expenses = expenseRepository.findAllWithFilters(uid, status, reportId, categoryId, fromDate, toDate)
+
+        val includeUser = authorization.canViewAll(currentUser) && all
+        val columns = listOfNotNull(
+            "id", "date", "merchant", "description", "category",
+            "amount_original", "currency", "amount_eur", "fx_rate",
+            "tax_amount", "tax_rate", "tax_amount_eur", "status", "report_id",
+            if (includeUser) "user" else null
+        )
+
+        val rows = expenses.map { e ->
+            buildMap {
+                put("id", e.id)
+                put("date", e.date)
+                put("merchant", e.merchant ?: "")
+                put("description", e.description ?: "")
+                put("category", e.category?.name ?: "")
+                put("amount_original", e.amountOriginal)
+                put("currency", e.currencyOriginal)
+                put("amount_eur", e.amountEur)
+                put("fx_rate", e.fxRate)
+                put("tax_amount", e.taxAmount)
+                put("tax_rate", e.taxRate ?: "")
+                put("tax_amount_eur", e.taxAmountEur)
+                put("status", e.status)
+                put("report_id", e.report?.id ?: "")
+                if (includeUser) put("user", e.user?.displayName ?: "")
+            }
+        }
+
+        val today = LocalDate.now()
+        return when (format) {
+            "xlsx" -> Triple(
+                exportService.buildXlsx(rows, columns),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                "expenses_$today.xlsx"
+            )
+            else -> Triple(exportService.buildCsv(rows, columns), "text/csv", "expenses_$today.csv")
+        }
+    }
 }

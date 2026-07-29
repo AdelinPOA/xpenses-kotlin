@@ -4,12 +4,9 @@ import eu.nt.xpenses.dto.expense.BulkUploadError
 import eu.nt.xpenses.dto.expense.BulkUploadResult
 import eu.nt.xpenses.dto.expense.ExpenseCreate
 import eu.nt.xpenses.dto.expense.ExpenseOut
-import eu.nt.xpenses.model.*
-import eu.nt.xpenses.repositories.*
+import eu.nt.xpenses.model.User
 import eu.nt.xpenses.services.ExpenseService
 import eu.nt.xpenses.services.OcrService
-import eu.nt.xpenses.services.StorageService
-import eu.nt.xpenses.services.mapper.ExpenseMapper
 import jakarta.servlet.http.HttpServletRequest
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
@@ -20,22 +17,17 @@ import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.multipart.MultipartFile
 import org.springframework.web.server.ResponseStatusException
-import java.io.File
 import java.math.BigDecimal
-import java.time.Instant
 import java.time.LocalDate
 
 @RestController
 @RequestMapping("/api/expenses")
 class BulkExpenseController(
     private val expenseService: ExpenseService,
-    private val expenseRepository: ExpenseRepository,
-    private val receiptRepository: ReceiptRepository,
-    private val ocrService: OcrService,
-    private val expenseMapper: ExpenseMapper,
-    private val storageService: StorageService,
+    private val ocrService: OcrService
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
+    private val currencyRegex = Regex("^[A-Z]{3}$")
 
     @PostMapping("/bulk-upload")
     fun bulkUploadExpenses(
@@ -49,37 +41,12 @@ class BulkExpenseController(
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Maximum 20 files per bulk upload")
         }
 
-        val allowedExt = setOf("jpg", "jpeg", "png", "webp", "pdf")
         val created = mutableListOf<ExpenseOut>()
         val errors = mutableListOf<BulkUploadError>()
         val today = LocalDate.now().toString()
 
         for (file in files) {
             val filename = file.originalFilename ?: "receipt"
-            val ext = filename.substringAfterLast('.', "").lowercase()
-
-            if (ext !in allowedExt) {
-                errors.add(BulkUploadError(filename, "File type .$ext not supported"))
-                continue
-            }
-            if (file.size > 10 * 1024 * 1024) {
-                errors.add(BulkUploadError(filename, "File exceeds 10 MB limit"))
-                continue
-            }
-            val mimeType = when (ext) {
-                "jpg", "jpeg" -> setOf("image/jpeg")
-                "png" -> setOf("image/png")
-                "pdf" -> setOf("application/pdf")
-                "webp" -> setOf("image/webp")
-                "gif" -> setOf("image/gif")
-                else -> emptySet()
-            }
-            try {
-                storageService.validateMagicBytes(file.bytes, mimeType)
-            } catch (e: Exception) {
-                errors.add(BulkUploadError(filename, e.message ?: "Invalid file format"))
-                continue
-            }
 
             val ocrResult: Map<String, Any?> = try {
                 ocrService.scanReceipt(file.bytes, filename)
@@ -92,7 +59,7 @@ class BulkExpenseController(
                 ?.let { BigDecimal.valueOf(it.toDouble()) }
                 ?: BigDecimal.ZERO
             val currency = (ocrResult["currency"] as? String)
-                ?.takeIf { it.matches(Regex("^[A-Z]{3}$")) } ?: "EUR"
+                ?.takeIf { it.matches(currencyRegex) } ?: "EUR"
             val date = (ocrResult["date"] as? String) ?: today
             val merchant = ocrResult["merchant"] as? String
             val description = (ocrResult["description"] as? String)
@@ -114,7 +81,7 @@ class BulkExpenseController(
                 rawOcrText = rawOcrText
             )
 
-            val expense = try {
+            val expenseOut = try {
                 expenseService.createExpense(dto, currentUser)
             } catch (e: Exception) {
                 log.error("Failed to create expense for $filename: ${e.message}")
@@ -123,34 +90,18 @@ class BulkExpenseController(
             }
 
             try {
-                val relativePath = saveReceipt(expense.id!!, filename, file.bytes)
-                val receipt = Receipt(
-                    expense = expense,
-                    filePath = relativePath,
-                    originalName = filename,
-                    createdAt = Instant.now()
-                )
-                receiptRepository.save(receipt)
-                expense.updatedAt = Instant.now()
-                expenseRepository.save(expense)
+                expenseService.uploadReceipts(expenseOut.id, listOf(file), currentUser)
+            } catch (e: ResponseStatusException) {
+                log.warn("Receipt storage failed for expense ${expenseOut.id}: ${e.reason ?: e.message}")
+                errors.add(BulkUploadError(filename, e.reason ?: e.message))
             } catch (e: Exception) {
-                log.warn("Receipt storage failed for expense ${expense.id}: ${e.message}")
+                log.warn("Receipt storage failed for expense ${expenseOut.id}: ${e.message}")
+                errors.add(BulkUploadError(filename, e.message ?: "Could not upload receipt"))
             }
 
-            created.add(expenseMapper.toExpenseOut(expense))
+            created.add(expenseOut)
         }
 
         return ResponseEntity.ok(BulkUploadResult(created, errors))
-    }
-
-    private fun saveReceipt(expenseId: Int, filename: String, content: ByteArray): String {
-        val rawFilename = File(filename).name
-        val ext = rawFilename.substringAfterLast(".", "").lowercase()
-        val now = LocalDate.now()
-        val subdir = "${now.year}/${String.format("%02d", now.monthValue)}"
-        val safeName = "${expenseId}_${rawFilename}".replace(" ", "_")
-        val relativePath = "$subdir/$safeName"
-        storageService.uploadFile(relativePath, content)
-        return relativePath
     }
 }

@@ -23,8 +23,34 @@ import java.io.File
 import java.time.Instant
 import java.util.concurrent.Executor
 
+enum class StorageContext(
+    val allowedExtensions: Set<String>,
+    val maxSizeInBytes: Long,
+    val pathBuilder: (entityId: Int, filename: String) -> String
+) {
+    RECEIPT(
+        allowedExtensions = setOf("jpg", "jpeg", "png", "gif", "pdf", "webp"),
+        maxSizeInBytes = 10L * 1024 * 1024,
+        pathBuilder = { entityId, filename ->
+            val now = java.time.LocalDate.now()
+            val year = now.year
+            val month = String.format("%02d", now.monthValue)
+            "$year/$month/${entityId}_$filename"
+        }
+    ),
+    SIGNATURE(
+        allowedExtensions = setOf("png"),
+        maxSizeInBytes = 2L * 1024 * 1024,
+        pathBuilder = { entityId, filename ->
+            "signatures/${entityId}_$filename"
+        }
+    );
+
+    fun buildPath(entityId: Int, filename: String): String = pathBuilder(entityId, filename)
+}
+
 @Service
-class StorageService(
+open class StorageService(
     private val appSettingRepository: AppSettingRepository,
     private val cryptoService: CryptoService,
     private val objectMapper: ObjectMapper,
@@ -238,19 +264,18 @@ class StorageService(
         }
     }
 
-    fun storeFile(
-        contextPrefix: String,
+    open fun storeFile(
+        context: StorageContext,
         upload: eu.nt.xpenses.models.RawUpload,
-        maxSizeInBytes: Long,
-        allowedExtensions: Set<String>
+        entityId: Int
     ): String {
-        if (upload.bytes.size > maxSizeInBytes) {
+        if (upload.bytes.size > context.maxSizeInBytes) {
             throw ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, "File exceeds size limit")
         }
 
         val rawFilename = java.io.File(upload.originalFilename).name
         val ext = rawFilename.substringAfterLast(".", "").lowercase()
-        if (ext !in allowedExtensions) {
+        if (ext !in context.allowedExtensions) {
             throw IllegalArgumentException("File type .$ext not allowed")
         }
 
@@ -262,11 +287,11 @@ class StorageService(
             "webp" to "image/webp",
             "gif" to "image/gif"
         )
-        val allowedMimeTypes = allowedExtensions.mapNotNull { mapping[it] }.toSet()
+        val allowedMimeTypes = context.allowedExtensions.mapNotNull { mapping[it] }.toSet()
         validateMagicBytes(upload.bytes, allowedMimeTypes)
 
         val safeName = rawFilename.replace(" ", "_")
-        val relativePath = "$contextPrefix$safeName"
+        val relativePath = context.buildPath(entityId, safeName)
 
         uploadFile(relativePath, upload.bytes)
         return relativePath

@@ -189,6 +189,22 @@ class AuthorizationTest {
     }
 
     @Nested
+    inner class CanMutate {
+        @Test
+        fun `owner can mutate resource`() {
+            assertTrue(authorization.canMutate(technician, ownerId = 1))
+        }
+
+        @Test
+        fun `non-owner cannot mutate resource even if privileged`() {
+            assertFalse(authorization.canMutate(technician, ownerId = 2))
+            assertFalse(authorization.canMutate(manager, ownerId = 1))
+            assertFalse(authorization.canMutate(chefFinance, ownerId = 1))
+            assertFalse(authorization.canMutate(mod, ownerId = 1))
+        }
+    }
+
+    @Nested
     inner class RoleConstants {
         @Test
         fun `role constants match expected values`() {

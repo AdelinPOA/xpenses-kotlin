@@ -96,4 +96,16 @@ class Authorization {
         }
         return currentUser.id
     }
+
+    /**
+     * Check if the current user can mutate (edit, delete, duplicate, upload receipts for) a resource owned by ownerId.
+     * Only the owner can mutate resources.
+     *
+     * @param currentUser The user requesting access
+     * @param ownerId The owner of the resource
+     * @return true if the user is the owner
+     */
+    fun canMutate(currentUser: User, ownerId: Int?): Boolean {
+        return currentUser.id == ownerId
+    }
 }

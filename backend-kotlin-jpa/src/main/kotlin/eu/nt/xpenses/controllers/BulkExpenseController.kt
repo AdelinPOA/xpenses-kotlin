@@ -66,8 +66,16 @@ class BulkExpenseController(
                 errors.add(BulkUploadError(filename, "File exceeds 10 MB limit"))
                 continue
             }
+            val mimeType = when (ext) {
+                "jpg", "jpeg" -> setOf("image/jpeg")
+                "png" -> setOf("image/png")
+                "pdf" -> setOf("application/pdf")
+                "webp" -> setOf("image/webp")
+                "gif" -> setOf("image/gif")
+                else -> emptySet()
+            }
             try {
-                storageService.validateMagicBytes(file.bytes)
+                storageService.validateMagicBytes(file.bytes, mimeType)
             } catch (e: Exception) {
                 errors.add(BulkUploadError(filename, e.message ?: "Invalid file format"))
                 continue

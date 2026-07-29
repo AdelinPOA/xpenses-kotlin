@@ -32,6 +32,8 @@ class RateLimitingFilter(
         "/api/expenses/scan" to 10
     )
 
+    private val requestCounts = ConcurrentHashMap<String, AtomicInteger>()
+
     override fun doFilterInternal(
         request: HttpServletRequest,
         response: HttpServletResponse,
@@ -54,12 +56,10 @@ class RateLimitingFilter(
             val cache = cacheManager.getCache("rate-limit-cache")
             
             val count = if (cache != null) {
-                synchronized(cacheKey.intern()) {
-                    val current = (cache.get(cacheKey)?.get() as? Number)?.toInt() ?: 0
-                    val newCount = current + 1
-                    cache.put(cacheKey, newCount)
-                    newCount
-                }
+                val counter = requestCounts.computeIfAbsent(cacheKey) { AtomicInteger(0) }
+                val newCount = counter.incrementAndGet()
+                cache.put(cacheKey, newCount)
+                newCount
             } else {
                 1
             }

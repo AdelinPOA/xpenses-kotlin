@@ -37,7 +37,7 @@ class RateLimitingFilter(
         response: HttpServletResponse,
         filterChain: FilterChain
     ) {
-        if (!enabled) {
+        if (!enabled || request.method.equals("OPTIONS", ignoreCase = true) || request.method.equals("HEAD", ignoreCase = true)) {
             filterChain.doFilter(request, response)
             return
         }
@@ -54,10 +54,12 @@ class RateLimitingFilter(
             val cache = cacheManager.getCache("rate-limit-cache")
             
             val count = if (cache != null) {
-                val current = (cache.get(cacheKey)?.get() as? Number)?.toInt() ?: 0
-                val newCount = current + 1
-                cache.put(cacheKey, newCount)
-                newCount
+                synchronized(cacheKey.intern()) {
+                    val current = (cache.get(cacheKey)?.get() as? Number)?.toInt() ?: 0
+                    val newCount = current + 1
+                    cache.put(cacheKey, newCount)
+                    newCount
+                }
             } else {
                 1
             }

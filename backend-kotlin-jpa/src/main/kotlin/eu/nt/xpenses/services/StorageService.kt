@@ -11,6 +11,7 @@ import eu.nt.xpenses.services.storage.StorageMigrationEngine
 import eu.nt.xpenses.services.storage.StorageProvider
 import jakarta.annotation.PostConstruct
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.cache.annotation.CacheEvict
 import org.springframework.cache.annotation.Cacheable
@@ -28,14 +29,14 @@ class StorageService(
     private val cryptoService: CryptoService,
     private val objectMapper: ObjectMapper,
     @Qualifier("applicationTaskExecutor") private val executor: Executor,
-    private val transactionTemplate: TransactionTemplate
+    private val transactionTemplate: TransactionTemplate,
+    @Value("\${storage.location:/app/data/receipts}") private val defaultReceiptsDir: String = "/app/data/receipts"
 ) {
     companion object {
         private const val MAX_FILE_SIZE = 50 * 1024 * 1024
     }
 
     private val logger = LoggerFactory.getLogger(StorageService::class.java)
-    private val defaultReceiptsDir = "/app/data/receipts"
     private val cryptoInfo = "xpenses-storage-settings"
 
     private val migrationEngine = StorageMigrationEngine(executor)

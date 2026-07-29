@@ -31,6 +31,7 @@ class ExpenseService(
 ) {
     private val log = LoggerFactory.getLogger(ExpenseService::class.java)
 
+    @Transactional
     fun createExpense(body: ExpenseCreate, currentUser: User): Expense {
         val fxRate = resolveFxRate(body.fxRate, body.currency, body.date)
         return doCreateExpense(body, currentUser, fxRate)
@@ -256,6 +257,7 @@ class ExpenseService(
         }
     }
 
+    @Transactional
     fun uploadReceipts(expenseId: Int, files: List<MultipartFile>, currentUser: User): List<Map<String, Any>> {
         val expense = expenseRepository.findById(expenseId).orElseThrow {
             ResponseStatusException(HttpStatus.NOT_FOUND, "Expense not found")
@@ -308,6 +310,7 @@ class ExpenseService(
         return savedReceiptsList
     }
 
+    @Transactional
     fun deleteSingleReceipt(expenseId: Int, receiptId: Int, currentUser: User) {
         val expense = expenseRepository.findById(expenseId).orElseThrow {
             ResponseStatusException(HttpStatus.NOT_FOUND, "Expense not found")

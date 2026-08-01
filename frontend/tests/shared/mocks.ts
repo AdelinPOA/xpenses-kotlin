@@ -25,6 +25,56 @@ export const DASHBOARD_DATA = {
   ],
 };
 
+export const MANAGER_DASHBOARD_DATA = {
+  kpis: {
+    pending_reports_count: 1,
+    pending_reports_total_eur: 1250,
+    pending_advances_count: 1,
+    pending_advances_total_eur: 500,
+    monthly_team_spend_eur: 4200,
+    avg_turnaround_days: 1.2,
+  },
+  pending_reports: [
+    {
+      id: 1,
+      title: "July Business Trip",
+      user_id: 4,
+      user_name: "Technician One",
+      date_submitted: "2026-07-16T10:00:00Z",
+      date_from: "2026-07-01",
+      date_to: "2026-07-15",
+      total_amount_eur: 1250,
+      expense_count: 1,
+      description: "Business trip to Vienna for client meetings",
+      status: "submitted",
+    },
+  ],
+  pending_advances: [
+    {
+      id: 1,
+      report_id: 1,
+      report_title: "July Business Trip",
+      user_id: 4,
+      user_name: "Technician One",
+      amount_eur: 500,
+      description: "Travel advance",
+      status: "requested",
+      created_at: "2026-07-14T00:00:00Z",
+    },
+  ],
+  recent_activity: [
+    {
+      id: "report_1",
+      type: "report_submitted",
+      actor_name: "Technician One",
+      target_title: "July Business Trip",
+      user_name: "Technician One",
+      amount_eur: 1250,
+      timestamp: "2026-07-16T10:00:00Z",
+    },
+  ],
+};
+
 export const CATEGORIES = [
   { id: 1, name: "Transport", limit_amount: 5000.0, is_active: true, created_at: "2026-01-01T00:00:00Z" },
   { id: 2, name: "Accommodation", limit_amount: 8000.0, is_active: true, created_at: "2026-01-01T00:00:00Z" },
@@ -87,7 +137,13 @@ export async function setupCommonMocks(page: Page, opts?: { role?: keyof typeof 
   await page.route("**/api/categories**", (route) => route.fulfill({ json: CATEGORIES }));
   await page.route("**/api/expenses**", (route) => route.fulfill({ json: EXPENSES }));
   await page.route("**/api/reports**", (route) => route.fulfill({ json: REPORTS }));
-  await page.route("**/api/dashboard**", (route) => route.fulfill({ json: DASHBOARD_DATA }));
+  await page.route("**/api/dashboard**", (route, req) => {
+    if (new URL(req.url()).pathname.endsWith("/api/dashboard/manager")) {
+      route.fulfill({ json: MANAGER_DASHBOARD_DATA });
+      return;
+    }
+    route.fulfill({ json: DASHBOARD_DATA });
+  });
   await setupAdminMocks(page);
 }
 

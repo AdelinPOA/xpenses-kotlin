@@ -1,5 +1,5 @@
 import { test, expect, Page } from "@playwright/test";
-import { setupAuthMocks, setupCommonMocks } from "../shared/mocks";
+import { DASHBOARD_DATA, setupAuthMocks, setupCommonMocks } from "../shared/mocks";
 
 async function openSidebarIfNeeded(page: Page) {
   const vpw = page.viewportSize()?.width ?? 1280;
@@ -63,6 +63,20 @@ test.describe("Sidebar navigation", () => {
     const menuBtn = page.getByLabel(/open.*nav|menu|hamburger/i).or(page.locator("button").filter({ has: page.locator("svg") }).first());
     const hasOverflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
     expect(hasOverflow).toBe(false);
+  });
+
+  test("mobile bottom navigation is role-specific", async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await setupCommonMocks(page, { role: "manager" });
+    await page.goto("/dashboard", { waitUntil: "load" });
+    const bottomNav = page.locator("div.fixed.bottom-0");
+    await expect(bottomNav.getByRole("link", { name: "Review Reports" })).toBeVisible({ timeout: 15000 });
+    await expect(bottomNav.getByRole("link", { name: "Expenses" })).not.toBeVisible();
+
+    await setupAuthMocks(page, "user");
+    await page.route("**/api/dashboard**", (route) => route.fulfill({ json: DASHBOARD_DATA }));
+    await page.goto("/dashboard", { waitUntil: "load" });
+    await expect(bottomNav.getByRole("link", { name: "Expenses" })).toBeVisible({ timeout: 15000 });
   });
 
   test("theme toggle cycles through light/dark/system", async ({ page }) => {

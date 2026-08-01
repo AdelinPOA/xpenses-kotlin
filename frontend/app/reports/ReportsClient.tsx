@@ -8,12 +8,13 @@ import { reportKeys, dashboardKeys } from "@/lib/queryKeys";
 import AppShell from "@/components/layout/AppShell";
 import Badge from "@/components/ui/Badge";
 import EmptyState from "@/components/ui/EmptyState";
-import { Plus, Trash2, Eye, Send, ChevronUp, ChevronDown, Search, Download } from "lucide-react";
+import { Plus, Trash2, Eye, Send, ChevronUp, ChevronDown, Search, Download, SlidersHorizontal, X } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/ToastProvider";
 import clsx from "clsx";
 import { useRouter, useSearchParams } from "next/navigation";
 import { formatEur } from "@/lib/format";
+import { useTranslations } from "next-intl";
 
 type SortKey = "title" | "total" | "submitted_at";
 type SortDir = "asc" | "desc";
@@ -35,7 +36,9 @@ function ReportsPageContent() {
   const [delError, setDelError] = useState("");
   const [exporting, setExporting] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const t = useTranslations("reports");
 
   const isPrivileged = user?.role === "chef_finance" || user?.role === "mod" || user?.role === "manager";
 
@@ -73,7 +76,7 @@ function ReportsPageContent() {
       qc.invalidateQueries({ queryKey: reportKeys.all });
       qc.invalidateQueries({ queryKey: dashboardKeys.all });
     },
-    onError: () => setDelError("Failed to delete report. Please try again."),
+    onError: () => setDelError(t("error_delete")),
   });
 
   const quickSubmit = useMutation({
@@ -95,7 +98,7 @@ function ReportsPageContent() {
         `reports_${today}.${format}`
       );
     } catch {
-      toast.error("Export failed. Please try again.");
+      toast.error(t("error_export"));
     } finally {
       setExporting(false);
     }
@@ -120,6 +123,8 @@ function ReportsPageContent() {
   const uniqueOwners = Array.from(
     new Set((reports ?? []).map((r) => r.user_display_name).filter(Boolean))
   ).sort() as string[];
+  const statuses = ["", "draft", "submitted", "approved", "rejected", "paid"];
+  const activeFilterCount = [statusFilter, ownerFilter, debouncedSearch].filter(Boolean).length;
 
   const filtered = (reports ?? []).filter((r) => {
     if (ownerFilter && r.user_display_name !== ownerFilter) return false;
@@ -146,9 +151,9 @@ function ReportsPageContent() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground">
-            {showAll ? "Company Reports" : "My Reports"}
+            {showAll ? t("company_reports") : t("my_reports")}
           </h1>
-          <p className="text-muted text-sm mt-1">{reports?.length ?? 0} total</p>
+          <p className="text-muted text-sm mt-1">{reports?.length ?? 0} {t("total")}</p>
         </div>
         <div className="flex items-center gap-3">
           {isPrivileged && (
@@ -161,7 +166,7 @@ function ReportsPageContent() {
                   : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-300"
               )}
             >
-              {showAll ? "Show My Reports" : "Show All Reports"}
+              {showAll ? t("toggle_my") : t("toggle_all")}
             </button>
           )}
           <div className="relative">
@@ -172,7 +177,7 @@ function ReportsPageContent() {
               className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 disabled:opacity-50 cursor-pointer"
             >
               <Download className="w-4 h-4" />
-              {exporting ? "Exporting…" : "Export"}
+              {exporting ? t("exporting") : t("export")}
             </button>
             {exportOpen && (
               <>
@@ -182,13 +187,13 @@ function ReportsPageContent() {
                     onClick={() => handleExport("csv")}
                     className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-t-lg"
                   >
-                    Download CSV
+                    {t("download_csv")}
                   </button>
                   <button
                     onClick={() => handleExport("xlsx")}
                     className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-b-lg"
                   >
-                    Download XLSX
+                    {t("download_xlsx")}
                   </button>
                 </div>
               </>
@@ -199,7 +204,7 @@ function ReportsPageContent() {
             className="flex items-center gap-2 px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-hover w-fit"
           >
             <Plus className="w-4 h-4" />
-            New report
+            {t("new_report")}
           </Link>
         </div>
       </div>
@@ -211,9 +216,51 @@ function ReportsPageContent() {
         </div>
       )}
 
+      <div className="mb-3 md:hidden">
+        <button
+          type="button"
+          onClick={() => setMobileFiltersOpen((v) => !v)}
+          aria-expanded={mobileFiltersOpen}
+          className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground shadow-sm"
+        >
+          <SlidersHorizontal className="w-4 h-4" />
+          {t("filters")}
+          {activeFilterCount > 0 && (
+            <span className="rounded-full bg-primary px-2 py-0.5 text-[11px] text-white">{activeFilterCount}</span>
+          )}
+        </button>
+
+        {activeFilterCount > 0 && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {statusFilter && (
+              <button onClick={() => setStatusFilter("")} className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+                {t(`status_${statusFilter}` as any)}
+                <X className="w-3 h-3" />
+              </button>
+            )}
+            {ownerFilter && (
+              <button onClick={() => setOwnerFilter("")} className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+                {ownerFilter}
+                <X className="w-3 h-3" />
+              </button>
+            )}
+            {debouncedSearch && (
+              <button onClick={() => setSearch("")} className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+                {debouncedSearch}
+                <X className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
       <div className="bg-card rounded-xl shadow-sm">
-        <div className="p-4 border-b border-slate-100 dark:border-slate-700 flex flex-wrap gap-2 items-center">
-          {["", "draft", "submitted", "approved", "rejected", "paid"].map((s) => (
+        <div className={clsx(
+          "p-4 border-b border-slate-100 dark:border-slate-700 flex-wrap gap-3 items-center",
+          mobileFiltersOpen ? "flex" : "hidden md:flex"
+        )}>
+          <div className="flex w-full flex-wrap gap-2 md:w-auto">
+          {statuses.map((s) => (
             <button
               key={s}
               onClick={() => setStatusFilter(s)}
@@ -223,23 +270,27 @@ function ReportsPageContent() {
                   : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700"
               }`}
             >
-              {s === "" ? "All" : s.charAt(0).toUpperCase() + s.slice(1)}
+              {s === "" ? t("filter_all") : t(`status_${s}` as any)}
             </button>
           ))}
-          <div className="ml-auto flex items-center gap-2 border border-border rounded-lg px-3 py-1 text-sm bg-input">
+          </div>
+          <div className="flex w-full items-center gap-2 border border-border rounded-lg px-3 py-2 text-sm bg-input md:ml-auto md:w-auto md:py-1">
             <Search className="w-3.5 h-3.5 text-slate-400" />
             <input
               type="text"
-              placeholder="Search reports…"
+              placeholder={t("search_placeholder")}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="outline-none bg-transparent text-slate-700 dark:text-slate-300 placeholder-slate-400 w-40"
+              className="outline-none bg-transparent text-slate-700 dark:text-slate-300 placeholder-slate-400 w-full md:w-40"
             />
           </div>
         </div>
         {showAll && uniqueOwners.length > 1 && (
-          <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-700 flex flex-wrap gap-2 items-center">
-            <span className="text-xs text-muted-foreground font-medium mr-1">Employee:</span>
+          <div className={clsx(
+            "px-4 py-2 border-b border-slate-100 dark:border-slate-700 flex-wrap gap-2 items-center",
+            mobileFiltersOpen ? "flex" : "hidden md:flex"
+          )}>
+            <span className="text-xs text-muted-foreground font-medium mr-1">{t("employee_filter")}</span>
             <button
               onClick={() => setOwnerFilter("")}
               className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
@@ -248,7 +299,7 @@ function ReportsPageContent() {
                   : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700"
               }`}
             >
-              All
+              {t("filter_all")}
             </button>
             {uniqueOwners.map((name) => (
               <button
@@ -279,14 +330,14 @@ function ReportsPageContent() {
         ) : !sorted.length ? (
           <EmptyState
             message={
-              debouncedSearch ? `No reports matching "${debouncedSearch}"` :
-              ownerFilter ? `No reports from ${ownerFilter}` :
-              statusFilter ? "No reports with this status" : "No reports found"
+              debouncedSearch ? t("empty_no_match") :
+              ownerFilter ? `${t("empty_no_owner")} ${ownerFilter}` :
+              statusFilter ? t("empty_no_status") : t("empty_no_reports")
             }
             actionLabel={
-              debouncedSearch ? "Clear search" :
-              ownerFilter ? "Clear employee filter" :
-              statusFilter ? "Clear filter" : "Create your first report"
+              debouncedSearch ? t("clear_search") :
+              ownerFilter ? t("clear_employee") :
+              statusFilter ? t("clear_filter") : t("create_first")
             }
             onAction={
               debouncedSearch ? () => setSearch("") :
@@ -319,7 +370,7 @@ function ReportsPageContent() {
                     <div className="flex items-center gap-2">
                       <Badge status={r.status} />
                       <span className="text-xs text-muted-foreground">
-                        {r.expenses.length} expense{r.expenses.length === 1 ? "" : "s"}
+                        {r.expenses.length === 1 ? t("expense_count_one", { count: r.expenses.length }) : t("expense_count_other", { count: r.expenses.length })}
                       </span>
                     </div>
                     <div className="flex items-center gap-3">
@@ -328,7 +379,7 @@ function ReportsPageContent() {
                       </Link>
                       {r.status === "draft" && r.user_id === user?.id && (
                         <>
-                          <button title="Submit report" onClick={() => quickSubmit.mutate(r.id)} disabled={quickSubmit.isPending}>
+                          <button title={t("submit_tooltip")} onClick={() => quickSubmit.mutate(r.id)} disabled={quickSubmit.isPending}>
                             <Send className="w-4 h-4 text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400" />
                           </button>
                           <button onClick={() => setConfirmDeleteId(r.id)} disabled={del.isPending}>
@@ -351,23 +402,23 @@ function ReportsPageContent() {
                     className="text-left px-4 py-3 cursor-pointer select-none hover:text-slate-700 dark:hover:text-slate-200"
                     onClick={() => toggleSort("title")}
                   >
-                    Title <SortIcon k="title" />
+                    {t("table_title")} <SortIcon k="title" />
                   </th>
-                  {showAll && <th className="text-left px-4 py-3">Owner</th>}
-                  <th className="text-left px-4 py-3">Period</th>
-                  <th className="text-left px-4 py-3">Expenses</th>
+                  {showAll && <th className="text-left px-4 py-3">{t("table_owner")}</th>}
+                  <th className="text-left px-4 py-3">{t("table_period")}</th>
+                  <th className="text-left px-4 py-3">{t("table_expenses")}</th>
                   <th
                     className="text-right px-4 py-3 cursor-pointer select-none hover:text-slate-700 dark:hover:text-slate-200"
                     onClick={() => toggleSort("total")}
                   >
-                    Total <SortIcon k="total" />
+                    {t("table_total")} <SortIcon k="total" />
                   </th>
-                  <th className="text-center px-4 py-3">Status</th>
+                  <th className="text-center px-4 py-3">{t("table_status")}</th>
                   <th
                     className="text-left px-4 py-3 cursor-pointer select-none hover:text-slate-700 dark:hover:text-slate-200"
                     onClick={() => toggleSort("submitted_at")}
                   >
-                    Submitted <SortIcon k="submitted_at" />
+                    {t("table_submitted")} <SortIcon k="submitted_at" />
                   </th>
                   <th className="px-4 py-3"></th>
                 </tr>
@@ -402,7 +453,7 @@ function ReportsPageContent() {
                         {r.status === "draft" && r.user_id === user?.id && (
                           <>
                             <button
-                              title="Submit report"
+                              title={t("submit_tooltip")}
                               onClick={() => quickSubmit.mutate(r.id)}
                               disabled={quickSubmit.isPending}
                             >
@@ -430,9 +481,9 @@ function ReportsPageContent() {
       {confirmDeleteId !== null && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
           <div className="bg-card rounded-xl border border-border shadow-xl max-w-md w-full p-6 space-y-4">
-            <h3 className="text-lg font-bold text-foreground">Ștergere Raport</h3>
+            <h3 className="text-lg font-bold text-foreground">{t("delete_title")}</h3>
             <p className="text-sm text-muted">
-              Cum dorești să procedezi cu cheltuielile asociate acestui raport?
+              {t("delete_description")}
             </p>
             <div className="flex flex-col gap-2 pt-2">
               <button
@@ -442,8 +493,8 @@ function ReportsPageContent() {
                 }}
                 className="w-full px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors cursor-pointer text-left flex items-center justify-between"
               >
-                <span>Păstrează cheltuielile ca Draft neasociat</span>
-                <span className="text-xs opacity-75">(Recomandat)</span>
+                <span>{t("delete_keep")}</span>
+                <span className="text-xs opacity-75">{t("delete_recommended")}</span>
               </button>
               <button
                 onClick={() => {
@@ -452,13 +503,13 @@ function ReportsPageContent() {
                 }}
                 className="w-full px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-lg transition-colors cursor-pointer text-left"
               >
-                Șterge raportul ȘI toate cheltuielile din el
+                {t("delete_all")}
               </button>
               <button
                 onClick={() => setConfirmDeleteId(null)}
                 className="w-full px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-lg transition-colors cursor-pointer text-center mt-1"
               >
-                Anulează
+                {t("delete_cancel")}
               </button>
             </div>
           </div>

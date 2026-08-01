@@ -5,7 +5,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import api, { SearchResult } from "@/lib/api";
 import { searchKeys } from "@/lib/queryKeys";
-import { Search, FileText, Receipt, ChevronRight } from "lucide-react";
+import { Search, FileText, Receipt, ChevronRight, Users, Package, Shield, Wallet } from "lucide-react";
 import { formatEur } from "@/lib/format";
 import Badge from "@/components/ui/Badge";
 import clsx from "clsx";
@@ -63,6 +63,10 @@ export default function SearchDropdown({ className }: SearchDropdownProps) {
   const results = data ? [
     ...data.reports.map(r => ({ type: "report" as const, id: r.id, title: r.title, subtitle: r.user_display_name || "", amount: r.expenses.reduce((s, e) => s + e.amount_eur, 0) || r.total_amount, status: r.status })),
     ...data.expenses.map(e => ({ type: "expense" as const, id: e.id, title: e.merchant || "—", subtitle: e.category_name || "", amount: e.amount_eur, status: e.status })),
+    ...(data.users ?? []).map(u => ({ type: "user" as const, id: u.id, title: u.display_name || u.username || "User", subtitle: u.email || u.role || "", amount: null, status: u.role })),
+    ...(data.inventory ?? []).map(i => ({ type: "inventory" as const, id: i.id, title: i.name || "Inventory item", subtitle: i.serial_number || i.category || "", amount: null, status: i.status })),
+    ...(data.insurance ?? []).map(i => ({ type: "insurance" as const, id: i.id, title: i.title || i.filename || "Insurance file", subtitle: i.uploaded_by || "", amount: null, status: null })),
+    ...(data.advances ?? []).map(a => ({ type: "advance" as const, id: a.id, reportId: a.report_id, title: a.report_title || "Advance payment", subtitle: a.description || "", amount: a.amount_eur ?? null, status: a.status })),
   ] : [];
 
   const handleSelect = useCallback((result: typeof results[0]) => {
@@ -70,8 +74,16 @@ export default function SearchDropdown({ className }: SearchDropdownProps) {
     setTerm("");
     if (result.type === "report") {
       router.push(`/reports/${result.id}`);
-    } else {
+    } else if (result.type === "expense") {
       router.push(`/expenses/${result.id}`);
+    } else if (result.type === "user") {
+      router.push(`/profile/${result.id}`);
+    } else if (result.type === "inventory") {
+      router.push("/inventory");
+    } else if (result.type === "insurance") {
+      router.push("/insurance");
+    } else {
+      router.push(result.reportId ? `/reports/${result.reportId}/advances` : "/advances");
     }
   }, [router]);
 
@@ -101,6 +113,14 @@ export default function SearchDropdown({ className }: SearchDropdownProps) {
   };
 
   const showDropdown = isOpen && debouncedTerm.length >= 2;
+  const groups = data ? [
+    { key: "report" as const, label: "Reports", count: data.report_count, icon: FileText, color: "text-primary", bg: "bg-primary/10", items: results.filter((r) => r.type === "report") },
+    { key: "expense" as const, label: "Expenses", count: data.expense_count, icon: Receipt, color: "text-orange-500", bg: "bg-orange-500/10", items: results.filter((r) => r.type === "expense") },
+    { key: "user" as const, label: "Users", count: data.user_count ?? data.users?.length ?? 0, icon: Users, color: "text-blue-500", bg: "bg-blue-500/10", items: results.filter((r) => r.type === "user") },
+    { key: "inventory" as const, label: "Inventory", count: data.inventory_count ?? data.inventory?.length ?? 0, icon: Package, color: "text-emerald-500", bg: "bg-emerald-500/10", items: results.filter((r) => r.type === "inventory") },
+    { key: "insurance" as const, label: "Insurance", count: data.insurance_count ?? data.insurance?.length ?? 0, icon: Shield, color: "text-cyan-500", bg: "bg-cyan-500/10", items: results.filter((r) => r.type === "insurance") },
+    { key: "advance" as const, label: "Advances", count: data.advance_count ?? data.advances?.length ?? 0, icon: Wallet, color: "text-violet-500", bg: "bg-violet-500/10", items: results.filter((r) => r.type === "advance") },
+  ].filter((group) => group.items.length > 0) : [];
 
   return (
     <div className={clsx("relative", className)}>
@@ -109,7 +129,7 @@ export default function SearchDropdown({ className }: SearchDropdownProps) {
         <input
           ref={inputRef}
           type="text"
-          placeholder="Search reports & expenses..."
+          placeholder="Search..."
           value={term}
           onChange={(e) => {
             setTerm(e.target.value);
@@ -144,17 +164,19 @@ export default function SearchDropdown({ className }: SearchDropdownProps) {
           ) : (
             <>
               <div className="overflow-y-auto max-h-[340px]">
-                {data && data.reports.length > 0 && (
-                  <div>
+                {groups.map((group) => {
+                  const Icon = group.icon;
+                  return (
+                  <div key={group.key}>
                     <div className="px-3 py-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider bg-muted/50">
-                      Reports ({data.report_count})
+                      {group.label} ({group.count})
                     </div>
-                    {data.reports.slice(0, 5).map((report) => {
-                      const idx = results.findIndex(r => r.type === "report" && r.id === report.id);
+                    {group.items.slice(0, 5).map((item) => {
+                      const idx = results.findIndex(r => r.type === item.type && r.id === item.id);
                       return (
                         <button
-                          key={`report-${report.id}`}
-                          onClick={() => handleSelect({ type: "report", id: report.id, title: report.title, subtitle: report.user_display_name || "", amount: report.expenses.reduce((s, e) => s + e.amount_eur, 0) || report.total_amount, status: report.status })}
+                          key={`${item.type}-${item.id}`}
+                          onClick={() => handleSelect(item)}
                           className={clsx(
                             "w-full px-3 py-2.5 flex items-center gap-3 hover:bg-card-hover transition-colors text-left",
                             idx === selectedIndex && "bg-card-hover"
@@ -162,62 +184,28 @@ export default function SearchDropdown({ className }: SearchDropdownProps) {
                           role="option"
                           aria-selected={idx === selectedIndex}
                         >
-                          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                            <FileText className="w-4 h-4 text-primary" />
+                          <div className={clsx("w-8 h-8 rounded-full flex items-center justify-center shrink-0", group.bg)}>
+                            <Icon className={clsx("w-4 h-4", group.color)} />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <div className="text-sm font-semibold text-foreground truncate">{report.title}</div>
-                            <div className="text-xs text-muted-foreground truncate">{report.user_display_name || "—"}</div>
+                            <div className="text-sm font-semibold text-foreground truncate">{item.title}</div>
+                            <div className="text-xs text-muted-foreground truncate">{item.subtitle || "—"}</div>
                           </div>
                           <div className="text-right shrink-0">
-                            <div className="text-sm font-bold text-foreground">{formatEur(report.expenses.reduce((s, e) => s + e.amount_eur, 0) || report.total_amount)}</div>
-                            <Badge status={report.status} />
+                            {typeof item.amount === "number" && (
+                              <div className="text-sm font-bold text-foreground">{formatEur(item.amount)}</div>
+                            )}
+                            {item.status && <Badge status={item.status} />}
                           </div>
                           <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
                         </button>
                       );
                     })}
                   </div>
-                )}
-
-                {data && data.expenses.length > 0 && (
-                  <div>
-                    <div className="px-3 py-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider bg-muted/50">
-                      Expenses ({data.expense_count})
-                    </div>
-                    {data.expenses.slice(0, 5).map((expense) => {
-                      const idx = results.findIndex(r => r.type === "expense" && r.id === expense.id);
-                      return (
-                        <button
-                          key={`expense-${expense.id}`}
-                          onClick={() => handleSelect({ type: "expense", id: expense.id, title: expense.merchant || "—", subtitle: expense.category_name || "", amount: expense.amount_eur, status: expense.status })}
-                          className={clsx(
-                            "w-full px-3 py-2.5 flex items-center gap-3 hover:bg-card-hover transition-colors text-left",
-                            idx === selectedIndex && "bg-card-hover"
-                          )}
-                          role="option"
-                          aria-selected={idx === selectedIndex}
-                        >
-                          <div className="w-8 h-8 rounded-full bg-orange-500/10 flex items-center justify-center shrink-0">
-                            <Receipt className="w-4 h-4 text-orange-500" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="text-sm font-semibold text-foreground truncate">{expense.merchant || "—"}</div>
-                            <div className="text-xs text-muted-foreground truncate">{expense.category_name || "Uncategorized"}</div>
-                          </div>
-                          <div className="text-right shrink-0">
-                            <div className="text-sm font-bold text-foreground">{formatEur(expense.amount_eur)}</div>
-                            <Badge status={expense.status} />
-                          </div>
-                          <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
+                )})}
               </div>
 
-              {(data && (data.report_count > 5 || data.expense_count > 5 || (data.report_count + data.expense_count) > 10)) && (
+              {(data && results.length > 10) && (
                 <button
                   onClick={handleSeeAll}
                   className="w-full px-4 py-3 text-sm font-medium text-primary hover:bg-card-hover border-t border-border transition-colors flex items-center justify-center gap-2"

@@ -33,8 +33,11 @@ export interface PendingReportSummary {
   user_id: number;
   user_name: string;
   date_submitted: string | null;
+  date_from: string | null;
+  date_to: string | null;
   total_amount_eur: number;
   expense_count: number;
+  description: string | null;
   status: string;
 }
 

@@ -21,7 +21,8 @@ test.describe("Reports list page", () => {
     }
   });
 
-  test("status filter pills visible", async ({ page }) => {
+  test("status filter pills visible on desktop", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
     await setupAuthMocks(page, "user");
     await page.route("**/api/reports**", (route) => route.fulfill({ json: REPORTS }));
     await page.goto("/reports", { waitUntil: "load" });
@@ -29,6 +30,19 @@ test.describe("Reports list page", () => {
     await expect(page.getByRole("button", { name: "All" })).toBeVisible({ timeout: 15000 });
     await expect(page.getByRole("button", { name: "Draft" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Submitted" })).toBeVisible();
+  });
+
+  test("mobile filters are compact until opened", async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await setupAuthMocks(page, "manager");
+    await page.route("**/api/reports**", (route) => route.fulfill({ json: REPORTS }));
+    await page.goto("/reports", { waitUntil: "load" });
+    await expect(page.getByRole("button", { name: "Filters" })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole("button", { name: "Draft" })).not.toBeVisible();
+    await page.getByRole("button", { name: "Filters" }).click();
+    await expect(page.getByRole("button", { name: "Draft" })).toBeVisible();
+    await page.getByRole("button", { name: "Submitted" }).click();
+    await expect(page.getByRole("button", { name: "Submitted" }).first()).toBeVisible();
   });
 
   test("export button visible", async ({ page }) => {
@@ -44,7 +58,7 @@ test.describe("Reports list page", () => {
     await page.route("**/api/reports**", (route) => route.fulfill({ json: REPORTS }));
     await page.goto("/reports", { waitUntil: "load" });
     await page.waitForTimeout(2000);
-    await expect(page.getByRole("link", { name: /new|create/i })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole("link", { name: "New report" })).toBeVisible({ timeout: 15000 });
   });
 
   test("mobile viewport has no overflow", async ({ page }) => {

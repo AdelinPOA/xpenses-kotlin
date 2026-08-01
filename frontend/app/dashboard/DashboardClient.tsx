@@ -18,7 +18,7 @@ import {
   Briefcase, Utensils, Plane, Car, Building, FileText, LucideIcon 
 } from "lucide-react";
 import { formatEur } from "@/lib/format";
-import ManagerKpiCards from "@/components/dashboard/ManagerKpiCards";
+import { useTranslations } from "next-intl";
 import PendingReportsTable from "@/components/dashboard/PendingReportsTable";
 import PendingAdvancesList from "@/components/dashboard/PendingAdvancesList";
 import SlideOverReviewDrawer from "@/components/dashboard/SlideOverReviewDrawer";
@@ -48,6 +48,8 @@ function getCategoryMeta(categoryName: string | null): { Icon: LucideIcon; color
 }
 
 export default function DashboardClient() {
+  const t = useTranslations("dashboard");
+  const tc = useTranslations("common");
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const isOrgWideRole = user?.role === "chef_finance" || user?.role === "mod";
@@ -59,6 +61,7 @@ export default function DashboardClient() {
 
   const canToggle = user?.role === "chef_finance" || user?.role === "mod" || user?.role === "manager";
   const isManagerRole = user?.role === "manager" || user?.role === "chef_finance" || user?.role === "mod";
+  const isManagerWorkHub = user?.role === "manager";
   const [selectedReportId, setSelectedReportId] = useState<number | null>(null);
 
   const { data, isLoading } = useQuery<DashboardStats>({
@@ -149,7 +152,7 @@ export default function DashboardClient() {
           <SearchDropdown className="w-80" />
 
           <div className="flex items-center gap-6">
-            <button className="relative p-1 text-muted hover:text-foreground transition-colors" aria-label="Notifications">
+            <button className="relative p-1 text-muted hover:text-foreground transition-colors" aria-label={t("notifications")}>
               <Bell className="w-5 h-5" />
               <span className="absolute top-0 right-0 w-2 h-2 bg-primary rounded-full" />
             </button>
@@ -170,7 +173,7 @@ export default function DashboardClient() {
         {/* Dashboard Title & Action Row */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
+            <h1 className="text-2xl font-bold text-foreground">{t("title")}</h1>
             <button className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground mt-1 cursor-pointer">
               <span>{currentMonthYear}</span>
               <ChevronDown className="w-3 h-3" />
@@ -188,7 +191,7 @@ export default function DashboardClient() {
                     : "bg-input border-input-border text-muted hover:text-foreground"
                 )}
               >
-                {showAll ? "Switch to My View" : "View Company Overview"}
+                {showAll ? t("toggle_my_view") : t("toggle_company_overview")}
               </button>
             )}
             
@@ -196,7 +199,7 @@ export default function DashboardClient() {
               href="/expenses/new"
               className="flex items-center gap-2 bg-primary hover:bg-primary-hover text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer"
             >
-              Add New Expense
+              {t("add_expense")}
             </Link>
             
             <button
@@ -204,7 +207,7 @@ export default function DashboardClient() {
               className="flex items-center gap-2 bg-input border border-input-border text-foreground hover:bg-card-hover px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer"
             >
               <Download className="w-4 h-4" />
-              Download Report
+              {t("download_report")}
             </button>
           </div>
         </div>
@@ -212,43 +215,42 @@ export default function DashboardClient() {
         {/* ── MANAGER WORKFLOW DASHBOARD ────────────────────────────────────────── */}
         {isManagerRole && managerStats && (
           <div className="space-y-6 mb-8 border-b border-border pb-8">
-            <ManagerKpiCards kpis={managerStats.kpis} />
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2">
-                <PendingReportsTable
-                  reports={managerStats.pending_reports}
-                  onSelectReport={(id) => setSelectedReportId(id)}
-                  onApprove={handleApproveReport}
-                  onReject={handleRejectReport}
-                />
-              </div>
-              <div className="lg:col-span-1">
-                <PendingAdvancesList
-                  advances={managerStats.pending_advances}
-                  onSelectAdvance={(reportId) => setSelectedReportId(reportId)}
-                  onPay={handlePayAdvance}
-                  onReject={handleRejectAdvance}
-                />
-              </div>
+            <div>
+              <h2 className="text-xl font-bold text-foreground">{t("manager_work_hub")}</h2>
+              <p className="mt-1 text-sm text-muted-foreground">{t("manager_work_hub_subtitle")}</p>
             </div>
+
+            <PendingReportsTable
+              reports={managerStats.pending_reports}
+              onSelectReport={(id) => setSelectedReportId(id)}
+              onApprove={handleApproveReport}
+              onReject={handleRejectReport}
+            />
+
+            <PendingAdvancesList
+              advances={managerStats.pending_advances}
+              onSelectAdvance={(reportId) => setSelectedReportId(reportId)}
+              onPay={handlePayAdvance}
+              onReject={handleRejectAdvance}
+            />
 
             <RecentActivityStream activities={managerStats.recent_activity} />
           </div>
         )}
 
         {/* 2x2 Desktop Grid */}
+        {!isManagerWorkHub && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           
           {/* Card 1: Spent this Month */}
           <div className="bg-card rounded-2xl border border-border p-6 shadow-sm flex flex-col justify-between min-h-[280px]">
             <div>
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total Spend (Last Order / Report)</span>
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("total_spend")}</span>
                 <button className="text-muted-foreground hover:text-foreground">•••</button>
               </div>
               <p className="text-3xl font-extrabold text-foreground mt-2">{formatEur(data?.total_last_report_eur ?? 0)}</p>
-              <p className="text-xs text-muted-foreground mt-1">Total Expense</p>
+              <p className="text-xs text-muted-foreground mt-1">{t("total_expense")}</p>
             </div>
 
             <SpendChart data={chartData} />
@@ -259,22 +261,22 @@ export default function DashboardClient() {
           {/* Card 2: Recent Expenses Table */}
           <div className="bg-card rounded-2xl border border-border p-6 shadow-sm flex flex-col min-h-[280px]">
             <div className="flex items-center justify-between mb-4">
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Recent Expenses</span>
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("recent_expenses")}</span>
               <button className="text-muted-foreground hover:text-foreground">•••</button>
             </div>
 
             {!data?.recent_expenses.length ? (
-              <EmptyState message="No expenses yet" />
+              <EmptyState message={t("no_expenses")} />
             ) : (
               <div className="overflow-x-auto flex-1">
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="border-b border-border-subtle text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-                      <th className="pb-3 pr-2">Date</th>
-                      <th className="pb-3 pr-2">Merchant</th>
-                      <th className="pb-3 pr-2">Category</th>
-                      <th className="pb-3 text-right">Amount</th>
-                      <th className="pb-3 text-right">Status</th>
+                      <th className="pb-3 pr-2">{t("date")}</th>
+                      <th className="pb-3 pr-2">{t("merchant")}</th>
+                      <th className="pb-3 pr-2">{t("category")}</th>
+                      <th className="pb-3 text-right">{t("amount")}</th>
+                      <th className="pb-3 text-right">{t("status")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -288,7 +290,7 @@ export default function DashboardClient() {
                         <td className="py-3 pr-2 font-semibold text-foreground group-hover:text-primary transition-colors truncate max-w-[120px]">
                           {e.merchant || "—"}
                         </td>
-                        <td className="py-3 pr-2 text-muted-foreground">{e.category_name || "Uncategorized"}</td>
+                        <td className="py-3 pr-2 text-muted-foreground">{e.category_name || tc("uncategorized")}</td>
                         <td className="py-3 text-right font-bold text-foreground">{formatEur(e.amount_eur)}</td>
                         <td className="py-3 text-right">
                           <Badge status={e.status} />
@@ -304,21 +306,21 @@ export default function DashboardClient() {
           {/* Card 3: Spend by Category Table */}
           <div className="bg-card rounded-2xl border border-border p-6 shadow-sm flex flex-col min-h-[280px]">
             <div className="flex items-center justify-between mb-4">
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Spend by Category</span>
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("spend_by_category")}</span>
               <button className="text-muted-foreground hover:text-foreground">•••</button>
             </div>
 
             {!data?.spend_by_category.length ? (
-              <EmptyState message="No expenses this month" />
+              <EmptyState message={t("no_expenses_this_month")} />
             ) : (
               <div className="overflow-x-auto flex-1">
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="border-b border-border-subtle text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-                      <th className="pb-3 pr-2">Category</th>
-                      <th className="pb-3 pr-2">Total Spent</th>
-                      <th className="pb-3 pr-2">Transactions</th>
-                      <th className="pb-3 w-32">% Share</th>
+                      <th className="pb-3 pr-2">{t("category")}</th>
+                      <th className="pb-3 pr-2">{t("total_spent")}</th>
+                      <th className="pb-3 pr-2">{t("transactions")}</th>
+                      <th className="pb-3 w-32">{t("share")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -335,7 +337,7 @@ export default function DashboardClient() {
                           >
                             <td className="py-3 pr-2 font-semibold text-foreground">{s.category_name}</td>
                             <td className="py-3 pr-2 font-extrabold text-foreground">{formatEur(s.total)}</td>
-                            <td className="py-3 pr-2 text-muted-foreground">{s.count} {s.count === 1 ? "expense" : "expenses"}</td>
+                            <td className="py-3 pr-2 text-muted-foreground">{s.count === 1 ? t("expense_count_one", { count: s.count }) : t("expense_count_other", { count: s.count })}</td>
                             <td className="py-3">
                               <div className="flex items-center gap-2">
                                 <div className="flex-1 bg-input border border-input-border rounded-full h-1.5 overflow-hidden">
@@ -360,7 +362,7 @@ export default function DashboardClient() {
           {/* Card 4: Report Summary Table */}
           <div className="bg-card rounded-2xl border border-border p-6 shadow-sm flex flex-col min-h-[280px]">
             <div className="flex items-center justify-between mb-4">
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Report Summary</span>
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("report_summary")}</span>
               <button className="text-muted-foreground hover:text-foreground">•••</button>
             </div>
 
@@ -368,16 +370,16 @@ export default function DashboardClient() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-border-subtle text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-                    <th className="pb-3 pr-2">Status</th>
-                    <th className="pb-3 pr-2 text-center">Count</th>
-                    <th className="pb-3 text-right">Reimbursements</th>
+                    <th className="pb-3 pr-2">{t("status")}</th>
+                    <th className="pb-3 pr-2 text-center">{t("count")}</th>
+                    <th className="pb-3 text-right">{t("reimbursements")}</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr className="border-b border-border-subtle hover:bg-card-hover transition-colors text-sm cursor-pointer" onClick={() => router.push("/reports?status=draft")}>
                     <td className="py-3.5 pr-2 font-semibold text-foreground flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-slate-400" />
-                      Draft reports
+                      {t("draft_reports")}
                     </td>
                     <td className="py-3.5 pr-2 text-center text-foreground font-bold">{data?.draft_count ?? 0}</td>
                     <td className="py-3.5 text-right font-extrabold text-foreground">—</td>
@@ -385,7 +387,7 @@ export default function DashboardClient() {
                   <tr className="border-b border-border-subtle hover:bg-card-hover transition-colors text-sm cursor-pointer" onClick={() => router.push("/reports?status=submitted")}>
                     <td className="py-3.5 pr-2 font-semibold text-foreground flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-amber-500" />
-                      Submitted reports
+                      {t("submitted_reports")}
                     </td>
                     <td className="py-3.5 pr-2 text-center text-foreground font-bold">{data?.submitted_count ?? 0}</td>
                     <td className="py-3.5 text-right font-extrabold text-foreground">—</td>
@@ -393,7 +395,7 @@ export default function DashboardClient() {
                   <tr className="border-b border-border-subtle hover:bg-card-hover transition-colors text-sm cursor-pointer" onClick={() => router.push("/reports?status=paid")}>
                     <td className="py-3.5 pr-2 font-semibold text-foreground flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                      Paid reports
+                      {t("paid_reports")}
                     </td>
                     <td className="py-3.5 pr-2 text-center text-foreground font-bold">{data?.paid_count ?? 0}</td>
                     <td className="py-3.5 text-right font-extrabold text-foreground">—</td>
@@ -404,6 +406,7 @@ export default function DashboardClient() {
           </div>
 
         </div>
+        )}
       </div>
 
       {/* ── MOBILE VIEW ONLY (Restructured matching mockup) ────────────────── */}
@@ -411,22 +414,39 @@ export default function DashboardClient() {
         {/* Greeting & Quick Action Row */}
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-bold text-foreground">
-            Hello, {user?.display_name}!
+            {t("greeting", { name: user?.display_name ?? "" })}
           </h1>
           <Link
             href="/expenses/new"
             className="bg-primary hover:bg-primary-hover text-white text-[11px] font-bold uppercase tracking-wider px-3 py-2 rounded-full transition-colors flex items-center gap-1 shadow-sm"
           >
-            Quick Add Expense <Plus className="w-3.5 h-3.5" />
+            {t("quick_add_expense")} <Plus className="w-3.5 h-3.5" />
           </Link>
         </div>
 
-        {/* 2 Side-by-Side Compact Stat Cards */}
+        {isManagerWorkHub && managerStats ? (
+          <>
+            <PendingReportsTable
+              reports={managerStats.pending_reports}
+              onSelectReport={(id) => setSelectedReportId(id)}
+              onApprove={handleApproveReport}
+              onReject={handleRejectReport}
+            />
+            <PendingAdvancesList
+              advances={managerStats.pending_advances}
+              onSelectAdvance={(reportId) => setSelectedReportId(reportId)}
+              onPay={handlePayAdvance}
+              onReject={handleRejectAdvance}
+            />
+            <RecentActivityStream activities={managerStats.recent_activity} />
+          </>
+        ) : (
+          <>
         <div className="grid grid-cols-2 gap-4">
           {/* Card 1: Spending */}
           <div className="bg-card border border-border rounded-xl p-4 shadow-sm flex flex-col justify-between min-h-[92px]">
             <div>
-              <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest block">Total Spend (Last Order / Report)</span>
+              <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest block">{t("total_spend")}</span>
               <p className="text-lg font-black text-foreground mt-1.5 leading-none">{formatEur(data?.total_last_report_eur ?? 0)}</p>
             </div>
 
@@ -435,8 +455,8 @@ export default function DashboardClient() {
           {/* Card 2: Requests */}
           <div className="bg-card border border-border rounded-xl p-4 shadow-sm flex flex-col justify-between min-h-[92px]">
             <div>
-              <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest block">Pending Approval</span>
-              <p className="text-lg font-black text-foreground mt-1.5 leading-none">{data?.pending_approval_count ?? 0} Requests</p>
+              <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest block">{t("pending_approval")}</span>
+              <p className="text-lg font-black text-foreground mt-1.5 leading-none">{data?.pending_approval_count ?? 0} {t("requests")}</p>
             </div>
 
           </div>
@@ -445,14 +465,14 @@ export default function DashboardClient() {
         {/* Recent Expenses List Cards */}
         <div className="bg-card border border-border rounded-xl p-4 shadow-sm flex flex-col">
           <div className="flex items-center justify-between mb-4">
-            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Recent Expenses</span>
+            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{t("recent_expenses")}</span>
             <Link href="/expenses" className="text-[10px] font-bold text-primary uppercase tracking-widest hover:underline">
-              See All
+              {t("see_all")}
             </Link>
           </div>
 
           {!data?.recent_expenses.length ? (
-            <EmptyState message="No expenses yet" />
+            <EmptyState message={t("no_expenses")} />
           ) : (
             <div className="space-y-4">
               {data.recent_expenses.slice(0, 5).map((e) => {
@@ -471,7 +491,7 @@ export default function DashboardClient() {
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-bold text-foreground truncate">{e.merchant || "—"}</p>
                         <p className="text-[10px] font-semibold text-muted-foreground truncate mt-0.5">
-                          {e.date} · {e.category_name || "Uncategorized"}
+                          {e.date} · {e.category_name || tc("uncategorized")}
                         </p>
                       </div>
                     </div>
@@ -495,6 +515,8 @@ export default function DashboardClient() {
           pending={data?.submitted_count ?? 0}
           total={data?.expense_count_month ?? 0}
         />
+          </>
+        )}
       </div>
 
       <SlideOverReviewDrawer

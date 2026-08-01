@@ -12,6 +12,11 @@ test.describe("/approvals page", () => {
     await page.goto("/approvals", { waitUntil: "load" });
     await page.waitForTimeout(2000);
     await expect(page.getByText("July Business Trip")).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText("Business trip", { exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "View Details" })).toBeVisible();
+    await page.getByRole("button", { name: "Reject" }).click();
+    await expect(page.getByPlaceholder("Explain why this report is being rejected...")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Confirm rejection" })).toBeDisabled();
   });
 
   test("no horizontal overflow", async ({ page }) => {

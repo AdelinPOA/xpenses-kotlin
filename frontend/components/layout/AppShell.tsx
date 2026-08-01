@@ -2,23 +2,30 @@
 
 import { useState } from "react";
 import Sidebar from "./Sidebar";
-import { Menu, LayoutDashboard, ReceiptText, FileText, User } from "lucide-react";
+import { Menu, LayoutDashboard, ReceiptText, FileText, User, CheckSquare } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import clsx from "clsx";
+import { useTranslations } from "next-intl";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pathname = usePathname();
   const { user } = useAuth();
+  const tNav = useTranslations("nav");
 
-  const navItems = [
-    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/expenses", label: "Expenses", icon: ReceiptText },
-    { href: "/reports", label: "Reports", icon: FileText },
-    { href: "/profile", label: "Profile", icon: User },
+  const navItems = user?.role === "manager" ? [
+    { href: "/dashboard", labelKey: "dashboard", icon: LayoutDashboard },
+    { href: "/approvals", labelKey: "review_reports", icon: CheckSquare },
+    { href: "/reports", labelKey: "reports", icon: FileText },
+    { href: "/profile", labelKey: "profile", icon: User },
+  ] : [
+    { href: "/dashboard", labelKey: "dashboard", icon: LayoutDashboard },
+    { href: "/expenses", labelKey: "expenses", icon: ReceiptText },
+    { href: "/reports", labelKey: "reports", icon: FileText },
+    { href: "/profile", labelKey: "profile", icon: User },
   ];
 
   return (
@@ -63,7 +70,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Mobile bottom navigation tab bar */}
       <div className="lg:hidden fixed bottom-0 left-0 right-0 h-[calc(4rem+env(safe-area-inset-bottom,0px))] pb-safe box-border bg-card border-t border-border flex items-end justify-around z-30 shadow-lg">
-        {navItems.map(({ href, label, icon: Icon }) => {
+        {navItems.map(({ href, labelKey, icon: Icon }) => {
           const active = pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
           return (
             <Link
@@ -75,7 +82,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               )}
             >
               <Icon className="w-5 h-5" />
-              <span>{label}</span>
+              <span>{tNav(labelKey)}</span>
             </Link>
           );
         })}

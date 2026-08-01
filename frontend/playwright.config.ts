@@ -5,6 +5,8 @@ const VIEWPORTS = {
   tablet: { width: 768, height: 1024 },
   desktop: { width: 1280, height: 800 },
 };
+const PORT = process.env.PLAYWRIGHT_PORT ?? "3001";
+const BASE_URL = `http://localhost:${PORT}`;
 
 export default defineConfig({
   testDir: "tests",
@@ -24,7 +26,7 @@ export default defineConfig({
     },
   },
   use: {
-    baseURL: "http://localhost:3001",
+    baseURL: BASE_URL,
     trace: "on-first-retry",
     screenshot: "only-on-failure",
     video: "retain-on-failure",
@@ -45,8 +47,8 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "npm run dev -- -p 3001",
-    url: "http://localhost:3001",
+    command: `npm run dev -- -p ${PORT}`,
+    url: BASE_URL,
     reuseExistingServer: !process.env.CI,
     timeout: 60000,
   },

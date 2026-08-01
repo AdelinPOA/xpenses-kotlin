@@ -145,9 +145,12 @@ class DashboardController(
                 title = report.title,
                 userId = report.user?.id ?: 0,
                 userName = report.user?.displayName ?: "Unknown User",
-                dateSubmitted = report.updatedAt.toString(),
+                dateSubmitted = report.submittedAt?.toString() ?: report.updatedAt.toString(),
+                dateFrom = report.dateFrom,
+                dateTo = report.dateTo,
                 totalAmountEur = totalEur,
                 expenseCount = report.expenses.size,
+                description = report.description,
                 status = report.status
             )
         }

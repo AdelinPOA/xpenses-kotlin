@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { setupAuthMocks, setupCommonMocks, DASHBOARD_DATA } from "../shared/mocks";
+import { setupAuthMocks, setupCommonMocks, DASHBOARD_DATA, MANAGER_DASHBOARD_DATA, REPORTS } from "../shared/mocks";
 
 test.describe("Dashboard", () => {
   test.beforeEach(async ({ page }) => {
@@ -11,7 +11,7 @@ test.describe("Dashboard", () => {
     await page.goto("/dashboard", { waitUntil: "load" });
     await page.waitForTimeout(2000);
     // Dual-view DOM (desktop + mobile markup) — assert on the visible copy
-    await expect(page.getByText("Total spent this month").filter({ visible: true }).first()).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText("Total Spend (Last Order / Report)").filter({ visible: true }).first()).toBeVisible({ timeout: 15000 });
     await expect(page.getByText("Recent Expenses").filter({ visible: true }).first()).toBeVisible();
   });
 
@@ -80,5 +80,46 @@ test.describe("Dashboard", () => {
       );
       expect(hasOverflow).toBe(false);
     }
+  });
+
+  test("manager dashboard prioritizes review work and removes KPI-first content", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await setupAuthMocks(page, "manager");
+    await page.route("**/api/dashboard**", (route) => route.fulfill({ json: DASHBOARD_DATA }));
+    await page.route("**/api/dashboard/manager", (route) => route.fulfill({ json: MANAGER_DASHBOARD_DATA }));
+    await page.goto("/dashboard", { waitUntil: "load" });
+    await expect(page.getByText("Manager Work Hub")).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText("July Business Trip").first()).toBeVisible();
+    await expect(page.getByText("Business trip to Vienna for client meetings").first()).toBeVisible();
+    await expect(page.getByText("Team Activity Stream").first()).toBeVisible();
+    await expect(page.getByText("Monthly Team Spend")).not.toBeVisible();
+  });
+
+  test("global search has neutral placeholder and grouped results", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await setupCommonMocks(page, { role: "manager" });
+    await page.route("**/api/search**", (route) => route.fulfill({
+      json: {
+        reports: [{ ...REPORTS[0], title: "July Business Trip" }],
+        expenses: [],
+        users: [{ id: 4, display_name: "Technician One", email: "tech1@xpenses.local", role: "technician" }],
+        inventory: [{ id: 1, name: "Laptop Dell", serial_number: "SN-001", status: "active" }],
+        insurance: [],
+        advances: [],
+        report_count: 1,
+        expense_count: 0,
+        user_count: 1,
+        inventory_count: 1,
+        insurance_count: 0,
+        advance_count: 0,
+      }
+    }));
+    await page.goto("/dashboard", { waitUntil: "load" });
+    const search = page.getByPlaceholder("Search...");
+    await expect(search).toBeVisible({ timeout: 15000 });
+    await search.fill("ju");
+    await expect(page.getByText("Reports (1)")).toBeVisible();
+    await expect(page.getByText("Users (1)")).toBeVisible();
+    await expect(page.getByText("Inventory (1)")).toBeVisible();
   });
 });

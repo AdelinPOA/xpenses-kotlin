@@ -1,6 +1,5 @@
 package eu.nt.xpenses.controllers
 
-import eu.nt.xpenses.dto.expense.ExpenseOut
 import eu.nt.xpenses.dto.report.RejectBody
 import eu.nt.xpenses.dto.report.ReportCreate
 import eu.nt.xpenses.dto.report.ReportOut
@@ -8,20 +7,19 @@ import eu.nt.xpenses.dto.report.ReportSubmit
 import eu.nt.xpenses.dto.report.ReportUpdate
 import eu.nt.xpenses.model.*
 import eu.nt.xpenses.models.PagedResponse
+import eu.nt.xpenses.report.lifecycle.AttachExpensesCommand
+import eu.nt.xpenses.report.lifecycle.DeleteDraftReportCommand
+import eu.nt.xpenses.report.lifecycle.ExpenseReportLifecycle
+import eu.nt.xpenses.report.lifecycle.ReportLifecycleNotificationAdapter
+import eu.nt.xpenses.report.lifecycle.RejectReportCommand
+import eu.nt.xpenses.report.lifecycle.SubmitReportCommand
 import eu.nt.xpenses.repositories.ExpenseReportRepository
-import eu.nt.xpenses.repositories.ExpenseRepository
-import eu.nt.xpenses.repositories.UserRepository
-import eu.nt.xpenses.repositories.AppSettingRepository
-import eu.nt.xpenses.services.mapper.ExpenseMapper
 import eu.nt.xpenses.services.mapper.ReportMapper
 import eu.nt.xpenses.services.Authorization
-import eu.nt.xpenses.services.ExpenseService
 import eu.nt.xpenses.services.ExportService
 import eu.nt.xpenses.services.PdfService
-import eu.nt.xpenses.services.ReportService
 import eu.nt.xpenses.services.StorageService
 import jakarta.servlet.http.HttpServletRequest
-import org.slf4j.LoggerFactory
 import org.springframework.http.ContentDisposition
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
@@ -32,7 +30,6 @@ import org.springframework.web.server.ResponseStatusException
 import org.springframework.transaction.annotation.Transactional
 import jakarta.validation.Valid
 import java.io.ByteArrayOutputStream
-import java.math.BigDecimal
 import java.time.Instant
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -43,19 +40,14 @@ import java.util.zip.ZipOutputStream
 @RequestMapping("/api/reports")
 class ReportController(
     private val expenseReportRepository: ExpenseReportRepository,
-    private val expenseRepository: ExpenseRepository,
-    private val userRepository: UserRepository,
     private val pdfService: PdfService,
     private val storageService: StorageService,
     private val exportService: ExportService,
-    private val expenseMapper: ExpenseMapper,
     private val reportMapper: ReportMapper,
-    private val reportService: ReportService,
-    private val expenseService: ExpenseService,
+    private val lifecycle: ExpenseReportLifecycle,
+    private val notificationAdapter: ReportLifecycleNotificationAdapter,
     private val authorization: Authorization,
 ) {
-    private val log = LoggerFactory.getLogger(ReportController::class.java)
-
     @GetMapping
     fun listReports(
         @RequestParam(value = "status", required = false) status: String?,
@@ -190,7 +182,6 @@ class ReportController(
         return reportMapper.mapReportToOut(saved)
     }
 
-    @Transactional
     @DeleteMapping("/{reportId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     fun deleteReport(
@@ -200,37 +191,9 @@ class ReportController(
     ) {
         val currentUser = request.getAttribute("currentUser") as? User
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
-
-        val report = expenseReportRepository.findById(reportId).orElseThrow {
-            ResponseStatusException(HttpStatus.NOT_FOUND, "Report not found")
-        }
-
-        if (report.user?.id != currentUser.id) {
-            throw ResponseStatusException(HttpStatus.FORBIDDEN, "Only the owner can delete a report")
-        }
-        if (report.status != "draft") {
-            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Only draft reports can be deleted")
-        }
-
-        val now = Instant.now()
-        val expensesList = report.expenses.toList()
-        if (deleteExpenses) {
-            for (expense in expensesList) {
-                expenseService.deleteExpense(expense.id!!, currentUser)
-            }
-        } else {
-            for (expense in expensesList) {
-                expense.report = null
-                expense.status = "draft"
-                expense.updatedAt = now
-                expenseRepository.save(expense)
-            }
-        }
-        report.expenses.clear()
-        expenseReportRepository.delete(report)
+        lifecycle.deleteDraft(reportId, DeleteDraftReportCommand(deleteExpenses), currentUser)
     }
 
-    @Transactional
     @PostMapping("/{reportId}/attach")
     fun attachExpenses(
         @PathVariable reportId: Int,
@@ -239,11 +202,11 @@ class ReportController(
     ): ReportOut {
         val currentUser = request.getAttribute("currentUser") as? User
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
-        val saved = reportService.attachExpenses(reportId, body.expenseIds, currentUser)
-        return reportMapper.mapReportToOut(saved)
+        val outcome = lifecycle.attach(reportId, AttachExpensesCommand(body.expenseIds), currentUser)
+        notificationAdapter.dispatch(outcome.events)
+        return reportMapper.mapReportToOut(outcome.report)
     }
 
-    @Transactional
     @PostMapping("/{reportId}/submit")
     fun submitReport(
         @PathVariable reportId: Int,
@@ -252,11 +215,11 @@ class ReportController(
     ): ReportOut {
         val currentUser = request.getAttribute("currentUser") as? User
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
-        val saved = reportService.submitReport(reportId, body?.expenseIds, currentUser)
-        return reportMapper.mapReportToOut(saved)
+        val outcome = lifecycle.submit(reportId, SubmitReportCommand(body?.expenseIds), currentUser)
+        notificationAdapter.dispatch(outcome.events)
+        return reportMapper.mapReportToOut(outcome.report)
     }
 
-    @Transactional
     @PostMapping("/{reportId}/recall")
     fun recallReport(
         @PathVariable reportId: Int,
@@ -264,11 +227,11 @@ class ReportController(
     ): ReportOut {
         val currentUser = request.getAttribute("currentUser") as? User
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
-        val saved = reportService.recallReport(reportId, currentUser)
-        return reportMapper.mapReportToOut(saved)
+        val outcome = lifecycle.recall(reportId, currentUser)
+        notificationAdapter.dispatch(outcome.events)
+        return reportMapper.mapReportToOut(outcome.report)
     }
 
-    @Transactional
     @PostMapping("/{reportId}/pay")
     fun payReport(
         @PathVariable reportId: Int,
@@ -276,11 +239,11 @@ class ReportController(
     ): ReportOut {
         val currentUser = request.getAttribute("currentUser") as? User
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
-        val saved = reportService.payReport(reportId, currentUser)
-        return reportMapper.mapReportToOut(saved)
+        val outcome = lifecycle.pay(reportId, currentUser)
+        notificationAdapter.dispatch(outcome.events)
+        return reportMapper.mapReportToOut(outcome.report)
     }
 
-    @Transactional
     @PostMapping("/{reportId}/approve")
     fun approveReport(
         @PathVariable reportId: Int,
@@ -288,11 +251,11 @@ class ReportController(
     ): ReportOut {
         val currentUser = request.getAttribute("currentUser") as? User
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
-        val saved = reportService.approveReport(reportId, currentUser)
-        return reportMapper.mapReportToOut(saved)
+        val outcome = lifecycle.approve(reportId, currentUser)
+        notificationAdapter.dispatch(outcome.events)
+        return reportMapper.mapReportToOut(outcome.report)
     }
 
-    @Transactional
     @PostMapping("/{reportId}/reject")
     fun rejectReport(
         @PathVariable reportId: Int,
@@ -302,11 +265,11 @@ class ReportController(
         val currentUser = request.getAttribute("currentUser") as? User
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
         val reason = body?.reason ?: ""
-        val saved = reportService.rejectReport(reportId, reason, currentUser)
-        return reportMapper.mapReportToOut(saved)
+        val outcome = lifecycle.reject(reportId, RejectReportCommand(reason), currentUser)
+        notificationAdapter.dispatch(outcome.events)
+        return reportMapper.mapReportToOut(outcome.report)
     }
 
-    @Transactional
     @PostMapping("/{reportId}/sign")
     fun signReport(
         @PathVariable reportId: Int,
@@ -314,30 +277,9 @@ class ReportController(
     ): ReportOut {
         val currentUser = request.getAttribute("currentUser") as? User
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
-
-        val report = expenseReportRepository.findById(reportId).orElseThrow {
-            ResponseStatusException(HttpStatus.NOT_FOUND, "Report not found")
-        }
-
-        if (report.user?.id != currentUser.id) {
-            throw ResponseStatusException(HttpStatus.FORBIDDEN, "Only the report owner can sign")
-        }
-
-        if (currentUser.signaturePath.isNullOrEmpty()) {
-            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "No signature saved. Record your signature first.")
-        }
-
-        if (report.status !in listOf("submitted", "approved")) {
-            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Only submitted or approved reports can be signed")
-        }
-
-        val now = Instant.now()
-        report.signer = currentUser
-        report.signedAt = now
-        report.updatedAt = now
-
-        val saved = expenseReportRepository.save(report)
-        return reportMapper.mapReportToOut(saved)
+        val outcome = lifecycle.sign(reportId, currentUser)
+        notificationAdapter.dispatch(outcome.events)
+        return reportMapper.mapReportToOut(outcome.report)
     }
 
     @GetMapping("/{reportId}/export")

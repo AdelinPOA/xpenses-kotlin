@@ -1,7 +1,0 @@
-{
-  "name": "xpenses-kotlin",
-  "private": true,
-  "devDependencies": {
-    "@fission-ai/openspec": "^1.4.1"
-  }
-}

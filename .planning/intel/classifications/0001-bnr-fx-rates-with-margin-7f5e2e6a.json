@@ -1,0 +1,13 @@
+{
+  "source_path": "docs/adr/0001-bnr-fx-rates-with-margin.md",
+  "type": "ADR",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "Expenses convert to EUR at the BNR reference rate plus a per-currency margin",
+  "summary": "Defines BNR-based EUR conversion with per-currency margins, date locking, fallback behavior, and historical-rate preservation.",
+  "scope": ["FX conversion", "BNR rates", "currency margins", "expenses", "advances", "mileage"],
+  "cross_refs": [],
+  "locked": true,
+  "precedence": null,
+  "notes": ""
+}

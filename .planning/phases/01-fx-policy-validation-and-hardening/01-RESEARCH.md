@@ -21,8 +21,11 @@
 ### Historical and manual-rate safeguards
 - **D-04:** Use automated regression tests and migration/cache-cleanup safety checks. Posted records must retain their frozen rate and EUR total after relevant maintenance paths, while manual rate overrides must continue to take precedence.
 
+### Mileage FX semantics
+- **D-05:** Mileage reimbursement remains EUR-denominated under the existing EUR/km product semantics. Mileage uses `FxService` through the EUR identity path, derives its business date as the UTC calendar date of `start_time`, persists an FX snapshot, and does not add a foreign-currency mileage setting.
+
 ### the agent's Discretion
-- Exact test fixture builders, assertion organization, error-message wording, and the implementation mechanism used to persist the provider's actual source date remain open to the researcher and planner, provided D-01 through D-04 hold.
+- Exact test fixture builders, assertion organization, error-message wording, and the implementation mechanism used to persist the provider's actual source date remain open to the researcher and planner, provided D-01 through D-05 hold.
 
 ### Deferred Ideas (OUT OF SCOPE)
 
@@ -34,7 +37,7 @@ None — discussion stayed within the phase scope.
 
 | ID | Description | Research support |
 |---|---|---|
-| FX-01 | One policy across expenses, advances, mileage | `ExpenseService` and `AdvanceController` call `FxService`; mileage has no FX input/rate persistence and is the compliance gap. [VERIFIED: `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/ExpenseService.kt:84-105`; `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/AdvanceController.kt:101-130`; `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/MileageController.kt:29-94`] |
+| FX-01 | One policy across expenses, advances, mileage | `ExpenseService` and `AdvanceController` call `FxService`; per D-05, mileage closes its compliance gap by calling the same service with `EUR` and the UTC calendar date of `start_time`, then persisting the identity-rate snapshot. [VERIFIED: `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/ExpenseService.kt:84-105`; `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/AdvanceController.kt:101-130`; `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/MileageController.kt:29-94`] |
 | FX-02 | BNR + source-leg margin and fallback | Centralize the full matrix in `FxService`; retain its BNR calculation, repair source-date propagation, and remove the historical `latest` substitution path. [VERIFIED: `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/FxService.kt:119-145`; `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/FxService.kt:189-238`] |
 | FX-03 | Configurable `fx_margins` | Keep the existing authenticated PATCH/UI seam, validate the complete payload before its only save, and return structured field errors. [VERIFIED: `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/AppSettingsController.kt:121-155`; `frontend/app/admin/settings/SettingsClient.tsx:81-115`] |
 | FX-04 | Expense-date lock plus banking-day fallback | Make a resolution carry both requested and provider dates; cache by requested date while persisting the published source date. [VERIFIED: `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/FxService.kt:53-89`; `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/FxService.kt:127-145`] |
@@ -43,7 +46,7 @@ None — discussion stayed within the phase scope.
 
 ## Summary
 
-The safest implementation is a small FX-resolution result at the `FxService` boundary: retain the requested date as the cache lookup key and persist a separate actual source/publication date on each cache row. BNR parsing already identifies the selected banking-day date but returns only a number; the Frankfurter call parses only `rates.EUR` and drops provider metadata. [VERIFIED: `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/FxService.kt:127-145`; `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/FxService.kt:151-183`; `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/FxService.kt:195-209`] Frankfurter’s current documented v2 responses include a `date` field, making it suitable for D-01 when its supported response shape is adopted. [CITED: https://frankfurter.dev/]
+The safest implementation is a small FX-resolution result at the `FxService` boundary: retain the requested date as the cache lookup key and persist a separate actual source/publication date on each cache row. BNR parsing already identifies the selected banking-day date but returns only a number; the Frankfurter call parses only `rates.EUR` and drops provider metadata. [VERIFIED: `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/FxService.kt:127-145`; `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/FxService.kt:151-183`; `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/FxService.kt:195-209`] Frankfurter’s current documented v2 responses include a `date` field, making it suitable for D-01 when its supported response shape is adopted. [CITED: https://frankfurter.dev/] D-05 resolves the mileage ambiguity: mileage remains EUR/km, resolves `EUR` through `FxService` using the UTC date of `start_time`, and stores an identity-rate snapshot without introducing foreign-currency configuration.
 
 No new dependencies are required. The backend already has Spring Validation, Flyway, JUnit, Mockito, and Testcontainers; the frontend already has TanStack Query and Playwright. [VERIFIED: `backend-kotlin-jpa/build.gradle.kts:23-43,67-95`; `frontend/package.json`] The plan should lead with deterministic unit tests by extracting/injecting the HTTP provider seam, not by relying on the current FX test that calls real endpoints. [VERIFIED: `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/FxService.kt:31-37`; `backend-kotlin-jpa/src/test/kotlin/eu/nt/xpenses/services/FxServiceTest.kt:81-92`]
 
@@ -56,7 +59,7 @@ No new dependencies are required. The backend already has Spring Validation, Fly
 | Rate policy, provider fallback, source-date selection | API / Backend | Database / Storage | `FxService` owns provider calls and the JPA cache. [VERIFIED: `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/FxService.kt:25-89`] |
 | Margin configuration and all-or-nothing update | API / Backend | Browser / Client | Controller owns authorization/persistence; the client owns local numeric feedback and query invalidation. [VERIFIED: `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/AppSettingsController.kt:121-155`; `frontend/app/admin/settings/SettingsClient.tsx:81-115`] |
 | Frozen financial totals | Database / Storage | API / Backend | Expenses and advances persist original amount, EUR total, and FX rate; lifecycle transitions use stored totals. [VERIFIED: `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/model/Expense.kt:33-58`; `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/model/AdvancePayment.kt:24-42`; `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/report/lifecycle/ExpenseReportLifecycle.kt:55-63`] |
-| Mileage policy compliance | API / Backend | Database / Storage | Existing mileage persistence contains reimbursement amounts/rates but neither source currency nor FX rate, so it cannot yet demonstrate D-03. [VERIFIED: `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/model/MileageRecord.kt:24-61`; `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/dto/report/MileageRecordCreate.kt:8-15`] |
+| Mileage policy compliance | API / Backend | Database / Storage | Per D-05, mileage preserves EUR/km semantics, calls the shared resolver with `EUR` and UTC `start_time` date, and persists native amount/currency/rate attribution; no foreign-currency setting belongs in this tier. [VERIFIED: `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/model/MileageRecord.kt:24-61`; `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/dto/report/MileageRecordCreate.kt:8-15`] |
 
 ## Standard Stack
 
@@ -66,7 +69,7 @@ Use the existing Spring Boot 3.4.5/Kotlin 2.4.0/Flyway stack and existing JUnit/
 
 ### Recommended data flow
 
-`expense / paid advance / compliant mileage` → `FxService.resolve(currency, requestedDate)` → cache hit **or** BNR → Frankfurter fallback → `{ rate, requestedDate, sourceDate }` → persist cache → persist frozen workflow fields. Existing mileage currently branches directly to EUR reimbursement arithmetic rather than this flow. [VERIFIED: `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/FxService.kt:47-89`; `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/MileageController.kt:71-94`]
+`expense / paid advance` → `FxService.resolve(currency, requestedDate)` → cache hit **or** BNR → Frankfurter fallback → `{ rate, requestedDate, sourceDate }` → persist cache → persist frozen workflow fields. `mileage` follows the same entry point with `currency=EUR` and `requestedDate=start_time.atZone(UTC).toLocalDate()`, then persists its identity-rate snapshot alongside the EUR reimbursement amount per D-05. [VERIFIED: `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/FxService.kt:47-89`; `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/MileageController.kt:71-94`]
 
 ### Pattern 1: Separate requested date from source date
 
@@ -108,7 +111,7 @@ Expense create/update multiplies the resolved rate into `amountEur` and persists
 
 3. **Inverting the stored conversion rate.** `getRate` documents/source-calculates source-currency→EUR and all workflows multiply it, while unused `convert` divides by it. Either correct or remove `convert` and add a direct unit test before any caller uses it. [VERIFIED: `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/FxService.kt:92-97,119-145`; `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/ExpenseService.kt:104-105`] 
 
-4. **False mileage compliance.** Mileage takes only distance/times and writes EUR reimbursement amounts; it has no source currency, business date, or FX rate. D-03 cannot be proven with the current model. [VERIFIED: `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/dto/report/MileageRecordCreate.kt:8-15`; `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/model/MileageRecord.kt:30-49`]
+4. **False mileage compliance.** Do not treat direct EUR arithmetic or a controller constant as shared-policy use. Per D-05, call `FxService.getRate("EUR", utcStartDate)`, persist the resulting identity-rate snapshot, and keep the existing EUR/km setting unchanged. [VERIFIED: `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/dto/report/MileageRecordCreate.kt:8-15`; `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/model/MileageRecord.kt:30-49`]
 
 5. **UI tests never resolve the FX query.** `SettingsClient` always requests `/settings/fx-margins`, but `setupAdminMocks` currently mocks mileage and allowance settings without that route. Add the GET/PATCH mock and assert the invalid-save state. [VERIFIED: `frontend/app/admin/settings/SettingsClient.tsx:32-37,81-115`; `frontend/tests/shared/mocks.ts:169-206`] 
 
@@ -117,7 +120,7 @@ Expense create/update multiplies the resolved rate into `amountEur` and persists
 - **Matrix unit tests:** extend `FxServiceTest`, but first inject/extract the HTTP provider seam because the service creates a private `RestClient`; tests must provide fixtures for BNR cube dates and Frankfurter response dates rather than call the network. [VERIFIED: `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/FxService.kt:31-37,151-183`; `backend-kotlin-jpa/src/test/kotlin/eu/nt/xpenses/services/FxServiceTest.kt:15-27,81-92`]
 - **Expense/manual override:** extend `ExpenseServiceTest` tests that already verify a manual rate skips `getRate` and persisted values are multiplied. [VERIFIED: `backend-kotlin-jpa/src/test/kotlin/eu/nt/xpenses/services/ExpenseServiceTest.kt:161-205,208-251`]
 - **Advance:** extend `AdvanceControllerTest` with a paid advance and payment of a requested advance, verifying the mocked shared resolver arguments and stored response fields. Existing integration base already supplies `@MockitoBean FxService`. [VERIFIED: `backend-kotlin-jpa/src/test/kotlin/eu/nt/xpenses/controllers/AdvanceControllerTest.kt:12-83`; `backend-kotlin-jpa/src/test/kotlin/eu/nt/xpenses/IntegrationTestBase.kt:66-90`]
-- **Mileage:** add a focused controller/integration test only after the chosen FX-capable mileage data path exists; current tests cover CRUD and date ordering only. [VERIFIED: `backend-kotlin-jpa/src/test/kotlin/eu/nt/xpenses/controllers/MileageControllerTest.kt:39-137`]
+- **Mileage:** add a focused controller/integration test for D-05: EUR identity resolution, UTC `start_time` business date, persisted snapshot, and no re-resolution on reads or unrelated edits. Current tests cover CRUD and date ordering only. [VERIFIED: `backend-kotlin-jpa/src/test/kotlin/eu/nt/xpenses/controllers/MileageControllerTest.kt:39-137`]
 - **Settings:** extend `FxMarginsControllerTest` with a mixed-valid/invalid payload and a follow-up GET proving no persisted partial update; extend the Playwright mock/spec for field feedback. [VERIFIED: `backend-kotlin-jpa/src/test/kotlin/eu/nt/xpenses/controllers/FxMarginsControllerTest.kt:27-96`; `frontend/tests/admin/settings.spec.ts:9-35`]
 - **Historical safety:** create posted expense/paid-advance fixtures with non-default rates and EUR totals, execute the cache cleanup/migration-equivalent maintenance path, then reload and compare unchanged financial columns. Lifecycle transitions only update statuses/timestamps and report totals from stored expense EUR values. [VERIFIED: `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/report/lifecycle/ExpenseReportLifecycle.kt:55-63,107-114,177-183`]
 
@@ -144,12 +147,12 @@ Expense create/update multiplies the resolved rate into `amountEur` and persists
 | Property | Value |
 |---|---|
 | Backend framework | JUnit Platform with Spring Boot Test, Mockito, and Testcontainers. [VERIFIED: `backend-kotlin-jpa/build.gradle.kts:67-95`] |
-| Backend focused command | `cd backend-kotlin-jpa && ./gradlew test --tests eu.nt.xpenses.services.FxServiceTest --tests eu.nt.xpenses.services.ExpenseServiceTest --tests eu.nt.xpenses.controllers.FxMarginsControllerTest --tests eu.nt.xpenses.controllers.AdvanceControllerTest --tests eu.nt.xpenses.controllers.MileageControllerTest` [VERIFIED: test class paths above] |
+| Backend focused command | `cd backend-kotlin-jpa && ./gradlew test --tests eu.nt.xpenses.services.FxServiceTest --tests eu.nt.xpenses.services.ExpenseServiceTest --tests eu.nt.xpenses.controllers.FxMarginsControllerTest --tests eu.nt.xpenses.controllers.AdvanceControllerTest --tests eu.nt.xpenses.controllers.MileageControllerTest --tests eu.nt.xpenses.migrations.HistoricalFxMigrationRegressionTest` [VERIFIED: existing test class paths above; historical regression class is created by Plan 01-06] |
 | Full backend command | `cd backend-kotlin-jpa && ./gradlew test` [VERIFIED: `backend-kotlin-jpa/build.gradle.kts:91-95`] |
 | Frontend focused command | `cd frontend && npx playwright test tests/admin/settings.spec.ts` [VERIFIED: `frontend/playwright.config.ts:11-54`] |
 | Frontend static command | `cd frontend && npm run lint && npm run i18n:check` [VERIFIED: `frontend/package.json`] |
 
-**Wave 0 gaps:** deterministic provider fixtures/injection for `FxService`; FX settings routes in `setupAdminMocks`; an FX-capable mileage persistence/API seam; a migration/cache-cleanup regression fixture. [VERIFIED: `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/FxService.kt:31-37`; `frontend/tests/shared/mocks.ts:169-206`; `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/model/MileageRecord.kt:24-61`]
+**Wave 0 gaps:** deterministic provider fixtures/injection for `FxService`; FX settings routes in `setupAdminMocks`; the D-05 mileage FX snapshot seam; and `HistoricalFxMigrationRegressionTest` with pre-V30 posted financial fixtures. [VERIFIED: `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/FxService.kt:31-37`; `frontend/tests/shared/mocks.ts:169-206`; `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/model/MileageRecord.kt:24-61`]
 
 ## Security Domain
 
@@ -164,15 +167,11 @@ Expense create/update multiplies the resolved rate into `amountEur` and persists
 
 | # | Claim | Section | Risk if wrong |
 |---|---|---|---|
-| A1 | Mileage needs a new source-currency/date/rate representation to meet D-03, rather than being explicitly defined as a native-EUR reimbursement. | Common Pitfalls | Planner could add unnecessary schema/API scope or choose the wrong business date. |
 | A2 | A provider abstraction is the lowest-risk test seam; an alternative may retain `FxService` structure and inject `RestClient` directly. | Code and Test Seams | Minor design divergence, not policy divergence. |
 
 ## Open Questions
 
-1. **What is the authoritative business date and source currency for mileage FX?**
-   - What we know: the model accepts start/end instants and only stores EUR reimbursement values. [VERIFIED: `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/model/MileageRecord.kt:30-49`]
-   - What is unclear: whether mileage is intrinsically EUR or must represent a foreign-currency reimbursement and which local-date rule applies. [ASSUMED]
-   - Recommendation: resolve this before implementation; D-03 requires a focused proof of shared-policy use and resolved-rate persistence.
+None. D-05 explicitly fixes mileage as EUR-denominated, routes it through the `FxService` EUR identity path, defines the business date as the UTC calendar date of `start_time`, requires a persisted FX snapshot, and excludes a foreign-currency mileage setting.
 
 ## Sources
 

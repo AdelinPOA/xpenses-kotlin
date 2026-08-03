@@ -25,8 +25,11 @@ Validate and harden the locked FX conversion policy across expenses, advances, m
 ### Historical and manual-rate safeguards
 - **D-04:** Use automated regression tests and migration/cache-cleanup safety checks. Posted records must retain their frozen rate and EUR total after relevant maintenance paths, while manual rate overrides must continue to take precedence.
 
+### Mileage FX semantics
+- **D-05:** Mileage reimbursement remains EUR-denominated under the existing EUR/km product semantics. Mileage must call `FxService` through the EUR identity path, use the UTC calendar date derived from `start_time` as its FX business date, and persist an FX snapshot for auditability. Do not add a foreign-currency mileage setting.
+
 ### the agent's Discretion
-- Exact test fixture builders, assertion organization, error-message wording, and the implementation mechanism used to persist the provider's actual source date remain open to the researcher and planner, provided D-01 through D-04 hold.
+- Exact test fixture builders, assertion organization, error-message wording, and the implementation mechanism used to persist the provider's actual source date remain open to the researcher and planner, provided D-01 through D-05 hold.
 
 </decisions>
 
@@ -36,6 +39,7 @@ Validate and harden the locked FX conversion policy across expenses, advances, m
 - The locked policy is defined by ADR-0001 and must remain the source of truth.
 - Financial configuration updates should behave transactionally: no partial or silently clamped margin configuration.
 - Historical correctness needs repeatable automated evidence, not only a one-time database inspection.
+- Mileage remains a native-EUR reimbursement: the shared policy proof is `FxService.getRate("EUR", utcStartDate)` plus a persisted identity-rate snapshot, not a new currency input or setting.
 
 </specifics>
 
@@ -79,6 +83,7 @@ Validate and harden the locked FX conversion policy across expenses, advances, m
 ### Integration Points
 - BNR and ECB/Frankfurter provider calls and cache persistence live in `FxService`.
 - Expense, advance, and mileage controllers/services consume the shared FX behavior.
+- Mileage uses the shared resolver with currency `EUR` and the UTC date of `start_time`; its persisted snapshot records the identity-path rate without changing EUR/km semantics.
 - `AppSettingsController`/`SettingsClient` own configurable `fx_margins` updates.
 - Flyway/cache maintenance paths must be checked for historical-rate preservation.
 

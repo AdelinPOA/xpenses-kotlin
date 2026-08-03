@@ -8,6 +8,7 @@ import { reportKeys } from "@/lib/queryKeys";
 import AppShell from "@/components/layout/AppShell";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 
 const inputCls =
   "w-full border border-input-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100";
@@ -31,6 +32,7 @@ export default function EditReportPage({ params }: { params: Promise<{ id: strin
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [error, setError] = useState("");
+  const t = useTranslations("reports");
 
   // Delegation fields
   const [kundenauftrag, setKundenauftrag] = useState("");
@@ -98,17 +100,17 @@ export default function EditReportPage({ params }: { params: Promise<{ id: strin
       qc.invalidateQueries({ queryKey: reportKeys.all });
       router.push(`/reports/${id}`);
     },
-    onError: (e: any) => setError(e.response?.data?.detail ?? "Failed to save"),
+    onError: (e: any) => setError(e.response?.data?.detail ?? t("edit_error_save")),
   });
 
-  if (isLoading) return <AppShell><p className="text-muted-foreground text-base sm:text-sm mt-8">Loading...</p></AppShell>;
-  if (!report) return <AppShell><p className="text-red-500 text-sm">Report not found</p></AppShell>;
+  if (isLoading) return <AppShell><p className="text-muted-foreground text-base sm:text-sm mt-8">{t("edit_loading")}</p></AppShell>;
+  if (!report) return <AppShell><p className="text-red-500 text-sm">{t("edit_not_found")}</p></AppShell>;
   if (report.status !== "draft") {
     return (
       <AppShell>
-        <p className="text-amber-600 dark:text-amber-400 text-sm mt-8">Only draft reports can be edited.</p>
+        <p className="text-amber-600 dark:text-amber-400 text-sm mt-8">{t("edit_only_draft")}</p>
         <Link href={`/reports/${id}`} className="text-blue-600 dark:text-blue-400 hover:underline text-sm mt-2 inline-block">
-          Back to report
+          {t("edit_back")}
         </Link>
       </AppShell>
     );
@@ -118,9 +120,9 @@ export default function EditReportPage({ params }: { params: Promise<{ id: strin
     <AppShell>
       <div className="mb-6">
         <Link href={`/reports/${id}`} className="flex items-center gap-1 text-sm text-muted hover:text-slate-800 dark:hover:text-slate-200 mb-4">
-          <ArrowLeft className="w-4 h-4" /> Back to report
+          <ArrowLeft className="w-4 h-4" /> {t("edit_back")}
         </Link>
-        <h1 className="text-2xl font-bold text-foreground">Edit Report</h1>
+        <h1 className="text-2xl font-bold text-foreground">{t("edit_heading")}</h1>
       </div>
 
       <form
@@ -130,7 +132,7 @@ export default function EditReportPage({ params }: { params: Promise<{ id: strin
         {error && <p className="text-red-600 text-sm">{error}</p>}
 
         <div>
-          <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Title *</label>
+          <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("edit_label_title")}</label>
           <input
             type="text"
             required
@@ -142,7 +144,7 @@ export default function EditReportPage({ params }: { params: Promise<{ id: strin
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Date from *</label>
+            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("edit_label_date_from")}</label>
             <input
               type="date"
               required
@@ -152,7 +154,7 @@ export default function EditReportPage({ params }: { params: Promise<{ id: strin
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Date to *</label>
+            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("edit_label_date_to")}</label>
             <input
               type="date"
               required
@@ -164,7 +166,7 @@ export default function EditReportPage({ params }: { params: Promise<{ id: strin
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Description</label>
+          <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("edit_label_description")}</label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
@@ -176,7 +178,7 @@ export default function EditReportPage({ params }: { params: Promise<{ id: strin
         {hasDelegation && (
           <div className="border border-border rounded-lg p-4 space-y-3">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Delegation Details
+              {t("edit_section_delegation")}
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Field label="Kundenauftrag" value={kundenauftrag} onChange={setKundenauftrag} />
@@ -203,14 +205,14 @@ export default function EditReportPage({ params }: { params: Promise<{ id: strin
             disabled={save.isPending}
             className="px-5 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-hover disabled:opacity-50"
           >
-            {save.isPending ? "Saving..." : "Save changes"}
+            {save.isPending ? t("edit_saving") : t("edit_save")}
           </button>
           <button
             type="button"
             onClick={() => router.push(`/reports/${id}`)}
             className="px-5 py-2 border border-input-border text-slate-600 dark:text-slate-400 text-sm font-medium rounded-lg hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700"
           >
-            Cancel
+            {t("edit_cancel")}
           </button>
         </div>
       </form>

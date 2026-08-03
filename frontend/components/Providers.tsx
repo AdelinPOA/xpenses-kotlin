@@ -5,6 +5,7 @@ import { useState } from "react";
 import AuthProvider from "./AuthProvider";
 import ThemeProvider from "./ThemeProvider";
 import { ToastProvider } from "./ToastProvider";
+import LocaleProvider from "@/i18n/LocaleProvider";
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -20,7 +21,9 @@ export default function Providers({ children }: { children: React.ReactNode }) {
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <ToastProvider>{children}</ToastProvider>
+          <LocaleProvider>
+            <ToastProvider>{children}</ToastProvider>
+          </LocaleProvider>
         </AuthProvider>
       </QueryClientProvider>
     </ThemeProvider>

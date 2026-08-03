@@ -10,10 +10,14 @@ import EmptyState from "@/components/ui/EmptyState";
 import { useAuth } from "@/components/AuthProvider";
 import { Banknote, XCircle } from "lucide-react";
 import { formatEur } from "@/lib/format";
+import { useTranslations } from "next-intl";
 
 export default function PaymentsPage() {
   const { user, loading } = useAuth();
   const qc = useQueryClient();
+  const t = useTranslations("payments");
+  const tc = useTranslations("common");
+  const tr = useTranslations("reports");
 
   const { data: reports, isLoading, error: fetchError } = useQuery<Report[]>({
     queryKey: reportKeys.list({ status: "approved", all: true }),
@@ -30,7 +34,7 @@ export default function PaymentsPage() {
       setMutationError(null);
     },
     onError: (err: any) => {
-      const msg = err.response?.data?.detail || "Failed to process payment";
+      const msg = err.response?.data?.detail || t("payment_failed");
       setMutationError(msg);
     },
   });
@@ -50,9 +54,9 @@ export default function PaymentsPage() {
       <AppShell>
         <div className="flex flex-col items-center justify-center mt-24 text-center">
           <XCircle className="w-12 h-12 text-red-400 mb-4" />
-          <h2 className="text-xl font-semibold text-slate-700 dark:text-slate-300">Access Denied</h2>
+          <h2 className="text-xl font-semibold text-slate-700 dark:text-slate-300">{tc("access_denied")}</h2>
           <p className="text-muted text-sm mt-2">
-            You do not have permission to view this page.
+            {tc("access_denied_description")}
           </p>
         </div>
       </AppShell>
@@ -62,15 +66,15 @@ export default function PaymentsPage() {
   return (
     <AppShell>
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-foreground">Payments</h1>
+        <h1 className="text-2xl font-bold text-foreground">{t("heading")}</h1>
         <p className="text-muted text-sm mt-1">
-          Approved reports ready to be paid
+          {t("subtitle")}
         </p>
       </div>
 
       {(fetchError || mutationError) && (
         <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-xl text-sm text-red-800 dark:text-red-300 flex justify-between items-center">
-          <span>{mutationError || "Failed to load reports. Please refresh the page."}</span>
+          <span>{mutationError || t("load_error")}</span>
           <button
             onClick={() => setMutationError(null)}
             className="text-red-500 hover:text-red-700 font-bold px-2"
@@ -81,9 +85,9 @@ export default function PaymentsPage() {
       )}
 
       {isLoading ? (
-        <div className="text-muted-foreground text-sm mt-8">Loading...</div>
+        <div className="text-muted-foreground text-sm mt-8">{tc("loading")}</div>
       ) : !reports?.length ? (
-        <EmptyState message="No approved reports awaiting payment" />
+        <EmptyState message={t("no_reports")} />
       ) : (
         <div className="space-y-4">
           {reports.map((report) => (
@@ -97,7 +101,7 @@ export default function PaymentsPage() {
                 </h3>
                 {report.user_display_name && (
                   <p className="text-xs text-muted mt-1">
-                    Submitted by:{" "}
+                    {t("submitted_by")}{" "}
                     <Link href={`/profile/${report.user_id}`} className="font-semibold text-blue-600 dark:text-blue-400 hover:underline">
                       {report.user_display_name}
                     </Link>
@@ -106,11 +110,11 @@ export default function PaymentsPage() {
                 <p className="text-xs text-muted mt-1">
                   {report.date_from && report.date_to
                     ? `${report.date_from} — ${report.date_to}`
-                    : "No date range set"}
+                    : tc("no_date_range")}
                 </p>
                 {report.approved_at && (
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Approved {new Date(report.approved_at).toLocaleDateString()}
+                    {t("approved")} {new Date(report.approved_at).toLocaleDateString()}
                   </p>
                 )}
               </div>
@@ -121,7 +125,9 @@ export default function PaymentsPage() {
                     {formatEur(report.total_amount)}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {report.expenses.length} expense{report.expenses.length !== 1 ? "s" : ""}
+                    {report.expenses.length === 1
+                      ? tr("expense_count_one", { count: report.expenses.length })
+                      : tr("expense_count_other", { count: report.expenses.length })}
                   </p>
                 </div>
                 <button
@@ -130,7 +136,7 @@ export default function PaymentsPage() {
                   className="flex items-center gap-2 px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-hover disabled:opacity-50"
                 >
                   <Banknote className="w-4 h-4" />
-                  Mark as Paid
+                  {t("mark_paid")}
                 </button>
               </div>
             </div>

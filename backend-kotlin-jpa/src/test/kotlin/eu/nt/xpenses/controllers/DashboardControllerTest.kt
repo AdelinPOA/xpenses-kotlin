@@ -2,12 +2,14 @@ package eu.nt.xpenses.controllers
 
 import eu.nt.xpenses.IntegrationTestBase
 import eu.nt.xpenses.model.Expense
+import eu.nt.xpenses.model.ExpenseReport
 import jakarta.persistence.EntityManager
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.*
 import java.math.BigDecimal
+import java.time.Instant
 
 class DashboardControllerTest : IntegrationTestBase() {
 
@@ -58,6 +60,38 @@ class DashboardControllerTest : IntegrationTestBase() {
         val cookie = authHelper.loginAs("tech1", "tech1")
         mockMvc.perform(get("/api/dashboard/manager").cookie(cookie))
             .andExpect(status().isForbidden)
+    }
+
+    @Test
+    fun `manager dashboard uses actionable queue projection for count and total`() {
+        val manager = userRepository.findByUsername("manager1")!!
+        val technician = userRepository.findByUsername("tech1")!!
+        expenseReportRepository.save(
+            ExpenseReport(
+                user = technician,
+                title = "Technician submission",
+                status = "submitted",
+                submittedAt = Instant.parse("2026-07-01T10:00:00Z"),
+                totalAmount = BigDecimal("125.00")
+            )
+        )
+        expenseReportRepository.save(
+            ExpenseReport(
+                user = manager,
+                title = "Manager submission",
+                status = "submitted",
+                submittedAt = Instant.parse("2026-06-01T10:00:00Z"),
+                totalAmount = BigDecimal("999.00")
+            )
+        )
+        entityManager.flush()
+
+        val cookie = authHelper.loginAs("manager1", "manager1")
+        mockMvc.perform(get("/api/dashboard/manager").cookie(cookie))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.kpis.pending_reports_count").value(1))
+            .andExpect(jsonPath("$.kpis.pending_reports_total_eur").value(125.00))
+            .andExpect(jsonPath("$.pending_reports[0].title").value("Technician submission"))
     }
 
     @Test

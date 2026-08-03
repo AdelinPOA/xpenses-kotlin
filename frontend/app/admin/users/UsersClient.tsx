@@ -8,13 +8,21 @@ import AppShell from "@/components/layout/AppShell";
 import EmptyState from "@/components/ui/EmptyState";
 import { useAuth } from "@/components/AuthProvider";
 import { Shield, ShieldOff, XCircle, Plus } from "lucide-react";
+import { useTranslations } from "next-intl";
 
-const ROLE_OPTIONS: { value: User["role"]; label: string }[] = [
-  { value: "technician", label: "Technician" },
-  { value: "manager", label: "Manager" },
-  { value: "chef_finance", label: "Chef of Finances" },
-  { value: "mod", label: "Moderator" },
+const ROLE_OPTIONS: User["role"][] = [
+  "technician",
+  "manager",
+  "chef_finance",
+  "mod",
 ];
+
+const ROLE_I18N: Record<User["role"], "role_technician" | "role_manager" | "role_chef_finance" | "role_moderator"> = {
+  technician: "role_technician",
+  manager: "role_manager",
+  chef_finance: "role_chef_finance",
+  mod: "role_moderator",
+};
 
 const userKeys = {
   all: ["users"] as const,
@@ -32,6 +40,8 @@ interface CreateUserForm {
 export default function UsersClient() {
   const { user: currentUser, loading } = useAuth();
   const qc = useQueryClient();
+  const t = useTranslations("admin");
+  const tc = useTranslations("common");
 
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [createForm, setCreateForm] = useState<CreateUserForm>({
@@ -88,11 +98,11 @@ export default function UsersClient() {
     onError: (err: unknown) => {
       const status = (err as { response?: { status?: number } })?.response?.status;
       if (status === 409) {
-        setCreateError("Username already taken");
+        setCreateError(t("username_taken"));
       } else if (status === 400) {
         setCreateError("Invalid role");
       } else {
-        setCreateError("Failed to create user");
+        setCreateError(t("failed_create_user"));
       }
     },
   });
@@ -112,9 +122,9 @@ export default function UsersClient() {
       <AppShell>
         <div className="flex flex-col items-center justify-center mt-24 text-center">
           <XCircle className="w-12 h-12 text-red-400 mb-4" />
-          <h2 className="text-xl font-semibold text-slate-700 dark:text-slate-300">Access Denied</h2>
+          <h2 className="text-xl font-semibold text-slate-700 dark:text-slate-300">{t("access_denied")}</h2>
           <p className="text-muted text-sm mt-2">
-            You do not have permission to view this page.
+            {t("access_denied_description")}
           </p>
         </div>
       </AppShell>
@@ -125,9 +135,9 @@ export default function UsersClient() {
     <AppShell>
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">User Directory</h1>
+          <h1 className="text-2xl font-bold text-foreground">{t("users_heading")}</h1>
           <p className="text-muted text-sm mt-1">
-            {canEdit ? "Manage user roles and access" : "Directory roster of company staff"}
+            {canEdit ? t("users_description") : "Directory roster of company staff"}
           </p>
         </div>
         {canEdit && (
@@ -136,14 +146,14 @@ export default function UsersClient() {
             className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover text-white text-sm font-medium rounded-lg transition-colors"
           >
             <Plus className="w-4 h-4" />
-            Create User
+            {t("create_user")}
           </button>
         )}
       </div>
 
       {showCreateForm && (
         <div className="mb-6 bg-card rounded-xl shadow-sm p-6 border border-border">
-          <h2 className="text-base font-semibold text-slate-800 dark:text-slate-100 mb-4">New User</h2>
+          <h2 className="text-base font-semibold text-slate-800 dark:text-slate-100 mb-4">{t("new_user")}</h2>
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -154,7 +164,7 @@ export default function UsersClient() {
           >
             <div>
               <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
-                Username <span className="text-red-500">*</span>
+                {t("username")} <span className="text-red-500">*</span>
               </label>
               <input
                 required
@@ -166,7 +176,7 @@ export default function UsersClient() {
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
-                Display Name <span className="text-red-500">*</span>
+                {t("display_name")} <span className="text-red-500">*</span>
               </label>
               <input
                 required
@@ -178,7 +188,7 @@ export default function UsersClient() {
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
-                Password <span className="text-red-500">*</span>
+                {t("password")} <span className="text-red-500">*</span>
               </label>
               <input
                 required
@@ -189,19 +199,19 @@ export default function UsersClient() {
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Role <span className="text-red-500">*</span></label>
+              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("role")} <span className="text-red-500">*</span></label>
               <select
                 value={createForm.role}
                 onChange={(e) => setCreateForm((f) => ({ ...f, role: e.target.value as User["role"] }))}
                 className="w-full text-base sm:text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-input dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-300"
               >
-                {ROLE_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                {ROLE_OPTIONS.map((role) => (
+                  <option key={role} value={role}>{t(ROLE_I18N[role])}</option>
                 ))}
               </select>
             </div>
             <div className="sm:col-span-2">
-              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Email (optional)</label>
+              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("email")} (optional)</label>
               <input
                 type="email"
                 value={createForm.email}
@@ -218,14 +228,14 @@ export default function UsersClient() {
                 disabled={createMutation.isPending}
                 className="px-4 py-2 bg-primary hover:bg-primary-hover disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors"
               >
-                {createMutation.isPending ? "Creating..." : "Create User"}
+                {createMutation.isPending ? t("saving") : t("create_user")}
               </button>
               <button
                 type="button"
                 onClick={() => { setShowCreateForm(false); setCreateError(null); }}
                 className="px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 text-sm font-medium rounded-lg transition-colors"
               >
-                Cancel
+                {tc("cancel")}
               </button>
             </div>
           </form>
@@ -233,9 +243,9 @@ export default function UsersClient() {
       )}
 
       {isLoading ? (
-        <div className="text-muted-foreground text-sm mt-8">Loading...</div>
+        <div className="text-muted-foreground text-sm mt-8">{tc("loading")}</div>
       ) : !users?.length ? (
-        <EmptyState message="No users found" />
+        <EmptyState message={t("empty_no_users")} />
       ) : (
         <div className="bg-card rounded-xl shadow-sm overflow-hidden">
           <>
@@ -262,7 +272,7 @@ export default function UsersClient() {
                             : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
                         }`}
                       >
-                        {u.is_active ? "Active" : "Inactive"}
+                        {u.is_active ? t("status_active") : t("status_inactive")}
                       </span>
                     </div>
                     <div className="flex items-center justify-between mt-3">
@@ -283,9 +293,9 @@ export default function UsersClient() {
                           }
                           className="text-base sm:text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-2 py-1 bg-input dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-300 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          {ROLE_OPTIONS.map((opt) => (
-                            <option key={opt.value} value={opt.value}>
-                              {opt.label}
+                          {ROLE_OPTIONS.map((role) => (
+                            <option key={role} value={role}>
+                              {t(ROLE_I18N[role])}
                             </option>
                           ))}
                         </select>
@@ -300,8 +310,8 @@ export default function UsersClient() {
                             isSelf
                               ? "Cannot deactivate yourself"
                               : u.is_active
-                              ? "Deactivate user"
-                              : "Activate user"
+                              ? t("deactivate_user")
+                              : t("activate_user")
                           }
                           className="inline-flex items-center justify-center p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed"
                         >
@@ -325,12 +335,12 @@ export default function UsersClient() {
               <table className="w-full text-sm">
                 <thead className="bg-slate-50 dark:bg-slate-800 text-xs text-muted uppercase">
                   <tr>
-                    <th className="text-left px-4 py-3">User</th>
-                    <th className="text-left px-4 py-3">Username</th>
-                    <th className="text-left px-4 py-3">Role</th>
-                    <th className="text-left px-4 py-3">Auth Source</th>
-                    <th className="text-center px-4 py-3">Status</th>
-                    <th className="text-center px-4 py-3">Actions</th>
+                    <th className="text-left px-4 py-3">{t("display_name")}</th>
+                    <th className="text-left px-4 py-3">{t("username")}</th>
+                    <th className="text-left px-4 py-3">{t("role")}</th>
+                    <th className="text-left px-4 py-3">{t("auth_source")}</th>
+                    <th className="text-center px-4 py-3">{tc("status")}</th>
+                    <th className="text-center px-4 py-3">{t("actions")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -364,9 +374,9 @@ export default function UsersClient() {
                             }
                             className="text-base sm:text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-2 py-1 bg-input dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-300 disabled:opacity-50 disabled:cursor-not-allowed"
                           >
-                            {ROLE_OPTIONS.map((opt) => (
-                              <option key={opt.value} value={opt.value}>
-                                {opt.label}
+                            {ROLE_OPTIONS.map((role) => (
+                              <option key={role} value={role}>
+                                {t(ROLE_I18N[role])}
                               </option>
                             ))}
                           </select>
@@ -390,7 +400,7 @@ export default function UsersClient() {
                                 : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
                             }`}
                           >
-                            {u.is_active ? "Active" : "Inactive"}
+                        {u.is_active ? t("status_active") : t("status_inactive")}
                           </span>
                         </td>
 
@@ -406,8 +416,8 @@ export default function UsersClient() {
                                 isSelf
                                   ? "Cannot deactivate yourself"
                                   : u.is_active
-                                  ? "Deactivate user"
-                                  : "Activate user"
+                                  ? t("deactivate_user")
+                                  : t("activate_user")
                               }
                               className="inline-flex items-center justify-center p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed"
                             >

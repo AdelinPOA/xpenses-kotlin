@@ -12,6 +12,7 @@ import AppShell from "@/components/layout/AppShell";
 import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/ToastProvider";
 import { Cpu, Sparkles, CheckCircle, AlertCircle } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 type FormState = OcrConfig;
 
@@ -62,6 +63,7 @@ export default function OcrAdminPage() {
   const router = useRouter();
   const qc = useQueryClient();
   const toast = useToast();
+  const t = useTranslations("admin");
 
   const [pwChanged, setPwChanged] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -115,15 +117,15 @@ export default function OcrAdminPage() {
   const saveMutation = useMutation({
     mutationFn: (payload: Partial<OcrConfig>) => updateOcrConfig(payload),
     onSuccess: () => {
-      toast.success("Configuration saved successfully");
+      toast.success(t("config_saved"));
       setSaveError(null);
       setPwChanged(false);
       qc.invalidateQueries({ queryKey: ocrKeys.all });
     },
     onError: (e: unknown) => {
-      const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? "Save failed";
+      const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? t("failed_save");
       setSaveError(msg);
-      toast.error(`Failed to save settings: ${msg}`);
+      toast.error(`${t("failed_save")}: ${msg}`);
     },
   });
 
@@ -150,11 +152,11 @@ export default function OcrAdminPage() {
     try {
       const res = await testOcrConfig({ gemini_api_key: payloadKey, provider: watch("provider") });
       setTestResult(res);
-      if (res.success) toast.success("Gemini API connection verified!");
-      else toast.error(`Gemini connection test failed: ${res.message}`);
+      if (res.success) toast.success(t("connection_verified"));
+      else toast.error(`${t("connection_failed")}: ${res.message}`);
     } catch {
       setTestResult({ success: false, message: "Test request failed" });
-      toast.error("Gemini connection test failed: Request error");
+      toast.error(t("connection_failed"));
     } finally {
       setTesting(false);
     }
@@ -189,7 +191,7 @@ export default function OcrAdminPage() {
       ) : (
         <div className="px-4 py-8 space-y-6">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 max-w-2xl mx-auto">
-            <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">OCR Scanner Settings</h1>
+            <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">{t("ocr_heading")}</h1>
 
             {saveError && (
               <div className="bg-rose-50 border-l-4 border-rose-500 text-rose-700 dark:bg-rose-950/20 dark:text-rose-300 rounded-r-lg p-4 text-sm flex items-start gap-2 shadow-sm transition-all duration-200 animate-fadeIn">
@@ -212,12 +214,12 @@ export default function OcrAdminPage() {
                   className="h-4 w-4 rounded border-input-border text-blue-600 focus:ring-primary/20 focus:ring-2 focus:ring-offset-0 transition-all duration-200"
                   {...register("ocr_enabled")}
                 />
-                <span className="text-slate-700 dark:text-slate-300 font-medium">Enable automatic receipt OCR scanning</span>
+                <span className="text-slate-700 dark:text-slate-300 font-medium">{t("enable_ocr")}</span>
               </label>
 
               {ocrEnabled && (
                 <div>
-                  <label className="block text-xs font-semibold text-muted mb-1.5">OCR engine / provider</label>
+                  <label className="block text-xs font-semibold text-muted mb-1.5">{t("ocr_engine")}</label>
                   <div className="relative">
                     <select
                       className="w-full border rounded-lg px-3 py-2 text-base sm:text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
@@ -262,7 +264,7 @@ export default function OcrAdminPage() {
                         disabled={testing}
                         className="shrink-0 px-4 py-2 border border-border text-xs font-semibold text-slate-700 dark:text-slate-300 rounded-lg hover:bg-card-hover focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all duration-200 disabled:opacity-50"
                       >
-                        {testing ? "Testing..." : "Test Connection"}
+                        {testing ? t("testing") : t("test_connection")}
                       </button>
                     </div>
                     {errors.gemini_api_key && (
@@ -293,7 +295,7 @@ export default function OcrAdminPage() {
                 disabled={!isDirty || saveMutation.isPending}
                 className="px-5 py-2.5 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-primary/20 shadow-sm transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {saveMutation.isPending ? "Saving..." : "Save Configuration"}
+                {saveMutation.isPending ? t("saving") : t("save")}
               </button>
             </div>
           </form>
@@ -304,7 +306,7 @@ export default function OcrAdminPage() {
               <div className="flex items-center gap-2 border-b border-border-subtle pb-3">
                 <Sparkles className="w-5 h-5 text-indigo-500" />
                 <h2 className="text-sm font-semibold uppercase tracking-wider text-foreground">
-                  OCR Engine Accuracy Comparison
+                  {t("ocr_accuracy")}
                 </h2>
               </div>
 

@@ -10,6 +10,7 @@ import Badge from "@/components/ui/Badge";
 import { ArrowLeft, Plus, Check, X, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { formatAmount } from "@/lib/format";
+import { useTranslations } from "next-intl";
 
 export default function AdvancesPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -27,6 +28,7 @@ export default function AdvancesPage({ params }: { params: Promise<{ id: string 
   const [payAmount, setPayAmount] = useState("");
   const [payCurrency, setPayCurrency] = useState("EUR");
   const [payDate, setPayDate] = useState("");
+  const t = useTranslations("reports");
 
   const { data: report, isLoading } = useQuery<Report>({
     queryKey: reportKeys.detail(reportId),
@@ -93,8 +95,8 @@ export default function AdvancesPage({ params }: { params: Promise<{ id: string 
     payAdvance.mutate({ advanceId, amount: amt, currency: payCurrency, date: payDate });
   };
 
-  if (isLoading) return <AppShell><p className="text-muted-foreground text-sm mt-8">Loading...</p></AppShell>;
-  if (!report) return <AppShell><p className="text-red-500 text-sm">Report not found</p></AppShell>;
+  if (isLoading) return <AppShell><p className="text-muted-foreground text-sm mt-8">{t("advances_loading")}</p></AppShell>;
+  if (!report) return <AppShell><p className="text-red-500 text-sm">{t("advances_not_found")}</p></AppShell>;
 
   const isOwner = user?.id === report.user_id;
   const isPrivileged = user && ["manager", "chef_finance", "mod"].includes(user.role);
@@ -111,10 +113,10 @@ export default function AdvancesPage({ params }: { params: Promise<{ id: string 
       {/* Header */}
       <div className="mb-6">
         <Link href={`/reports/${id}`} className="flex items-center gap-1 text-sm text-muted hover:text-slate-800 dark:hover:text-slate-200 mb-4">
-          <ArrowLeft className="w-4 h-4" /> Back to report
+          <ArrowLeft className="w-4 h-4" /> {t("advances_back")}
         </Link>
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold text-foreground">Advance Payments</h1>
+          <h1 className="text-2xl font-bold text-foreground">{t("advances_heading")}</h1>
           <Badge status={report.status} />
         </div>
         <p className="text-sm text-muted mt-1">{report.title}</p>
@@ -123,18 +125,18 @@ export default function AdvancesPage({ params }: { params: Promise<{ id: string 
       {/* Summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
         <div className="bg-card rounded-xl shadow-sm p-4">
-          <p className="text-xs text-emerald-500 uppercase mb-1">Total Paid</p>
+          <p className="text-xs text-emerald-500 uppercase mb-1">{t("advances_total_paid")}</p>
           <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400">{formatAmount(totalPaid, "EUR")}</p>
         </div>
         <div className="bg-card rounded-xl shadow-sm p-4">
-          <p className="text-xs text-orange-500 uppercase mb-1">Pending Requests</p>
+          <p className="text-xs text-orange-500 uppercase mb-1">{t("advances_pending")}</p>
           <p className="text-xl font-bold text-orange-600 dark:text-orange-400">
             {requestedAdvances.length} — {formatAmount(totalRequested, "EUR")}
           </p>
         </div>
         {rejectedAdvances.length > 0 && (
           <div className="bg-card rounded-xl shadow-sm p-4">
-            <p className="text-xs text-red-500 uppercase mb-1">Rejected</p>
+            <p className="text-xs text-red-500 uppercase mb-1">{t("advances_rejected")}</p>
             <p className="text-xl font-bold text-red-600 dark:text-red-400">{rejectedAdvances.length}</p>
           </div>
         )}
@@ -152,7 +154,7 @@ export default function AdvancesPage({ params }: { params: Promise<{ id: string 
                   : "border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
               }`}
             >
-              <Plus className="w-4 h-4" /> Add self-paid
+              <Plus className="w-4 h-4" /> {t("advances_add_self_paid")}
             </button>
           )}
           {isOwner && (
@@ -164,7 +166,7 @@ export default function AdvancesPage({ params }: { params: Promise<{ id: string 
                   : "border border-orange-300 dark:border-orange-700 text-orange-700 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/30"
               }`}
             >
-              <Plus className="w-4 h-4" /> Request advance
+              <Plus className="w-4 h-4" /> {t("advances_request")}
             </button>
           )}
           {isPrivileged && !isOwner && (
@@ -176,7 +178,7 @@ export default function AdvancesPage({ params }: { params: Promise<{ id: string 
                   : "border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
               }`}
             >
-              <Plus className="w-4 h-4" /> Add paid advance
+              <Plus className="w-4 h-4" /> {t("advances_add_paid")}
             </button>
           )}
         </div>
@@ -190,7 +192,7 @@ export default function AdvancesPage({ params }: { params: Promise<{ id: string 
             : "bg-orange-50 dark:bg-orange-950/30 border-orange-200 dark:border-orange-800/50"
         }`}>
           <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">
-            {formType === "paid" ? "Add paid advance:" : "Request advance from company:"}
+            {formType === "paid" ? t("advances_form_add_paid") : t("advances_form_request")}
           </p>
           <div className="flex flex-col sm:flex-row gap-3">
             {formType === "paid" && (
@@ -205,7 +207,7 @@ export default function AdvancesPage({ params }: { params: Promise<{ id: string 
               type="number"
               step="0.01"
               min="0"
-              placeholder="Amount"
+              placeholder={t("advances_amount")}
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               className="px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground w-32"
@@ -219,7 +221,7 @@ export default function AdvancesPage({ params }: { params: Promise<{ id: string 
             </select>
             <input
               type="text"
-              placeholder="Description (optional)"
+              placeholder={t("advances_desc_optional")}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               className="px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground flex-1"
@@ -232,7 +234,7 @@ export default function AdvancesPage({ params }: { params: Promise<{ id: string 
               }`}
             >
               <Plus className="w-4 h-4" />
-              {addAdvance.isPending ? "Adding..." : formType === "paid" ? "Add advance" : "Submit request"}
+              {addAdvance.isPending ? t("advances_adding") : formType === "paid" ? t("advances_add_advance") : t("advances_submit_request")}
             </button>
           </div>
         </div>
@@ -242,11 +244,11 @@ export default function AdvancesPage({ params }: { params: Promise<{ id: string 
       <div className="bg-card rounded-xl shadow-sm">
         <div className="p-4 border-b border-slate-100 dark:border-slate-700">
           <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-            All Advances ({report.advances.length})
+            {t("advances_all")} ({report.advances.length})
           </h2>
         </div>
         {report.advances.length === 0 ? (
-          <p className="p-6 text-sm text-muted-foreground text-center">No advance payments yet</p>
+          <p className="p-6 text-sm text-muted-foreground text-center">{t("advances_no_payments")}</p>
         ) : (
           <>
             {/* Mobile: stacked cards */}
@@ -270,7 +272,7 @@ export default function AdvancesPage({ params }: { params: Promise<{ id: string 
                       </p>
                       {a.requested_amount ? (
                         <p className="text-xs text-muted-foreground">
-                          Req: {formatAmount(a.requested_amount, a.requested_currency || "EUR")}
+                          {t("advances_requested")} {formatAmount(a.requested_amount, a.requested_currency || "EUR")}
                         </p>
                       ) : null}
                     </div>
@@ -279,7 +281,7 @@ export default function AdvancesPage({ params }: { params: Promise<{ id: string 
                     <p className="text-sm text-muted mt-2">{a.description}</p>
                   )}
                   <div className="flex items-center justify-between mt-3">
-                    <span className="text-xs text-muted-foreground">Paid by: {a.paid_by_name || "—"}</span>
+                    <span className="text-xs text-muted-foreground">{t("advances_pay_by")} {a.paid_by_name || "—"}</span>
                     <div className="flex items-center gap-2">
                       {a.status === "requested" && canManage && payingId !== a.id && (
                         <>
@@ -287,13 +289,7 @@ export default function AdvancesPage({ params }: { params: Promise<{ id: string 
                             onClick={() => { setPayingId(a.id); setPayAmount(String(a.requested_amount || "")); setPayCurrency(a.requested_currency || "EUR"); }}
                             className="text-xs px-2 py-1 bg-emerald-600 text-white rounded hover:bg-emerald-700"
                           >
-                            Pay
-                          </button>
-                          <button
-                            onClick={() => rejectAdvance.mutate({ advanceId: a.id, reason: "" })}
-                            className="text-xs px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700"
-                          >
-                            Reject
+                            {t("advances_pay")}
                           </button>
                         </>
                       )}
@@ -323,13 +319,13 @@ export default function AdvancesPage({ params }: { params: Promise<{ id: string 
               <table className="w-full text-sm">
                 <thead className="bg-slate-50 dark:bg-slate-800 text-xs text-muted uppercase">
                   <tr>
-                    <th className="text-left px-4 py-3">Status</th>
-                    <th className="text-left px-4 py-3">Date</th>
-                    <th className="text-left px-4 py-3">Description</th>
-                    <th className="text-right px-4 py-3">Requested</th>
-                    <th className="text-right px-4 py-3">Paid (EUR)</th>
-                    <th className="text-left px-4 py-3">Paid By</th>
-                    <th className="text-right px-4 py-3">Actions</th>
+                    <th className="text-left px-4 py-3">{t("advances_table_status")}</th>
+                    <th className="text-left px-4 py-3">{t("advances_table_date")}</th>
+                    <th className="text-left px-4 py-3">{t("advances_table_description")}</th>
+                    <th className="text-right px-4 py-3">{t("advances_table_requested")}</th>
+                    <th className="text-right px-4 py-3">{t("advances_table_paid")}</th>
+                    <th className="text-left px-4 py-3">{t("advances_table_paid_by")}</th>
+                    <th className="text-right px-4 py-3">{t("advances_table_actions")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -361,13 +357,13 @@ export default function AdvancesPage({ params }: { params: Promise<{ id: string 
                                 onClick={() => { setPayingId(a.id); setPayAmount(String(a.requested_amount || "")); setPayCurrency(a.requested_currency || "EUR"); }}
                                 className="text-xs px-2 py-1 bg-emerald-600 text-white rounded hover:bg-emerald-700"
                               >
-                                Pay
+                            {t("advances_pay")}
                               </button>
                               <button
                                 onClick={() => rejectAdvance.mutate({ advanceId: a.id, reason: "" })}
                                 className="text-xs px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700"
                               >
-                                Reject
+                            {t("advances_reject")}
                               </button>
                             </>
                           )}
@@ -401,7 +397,7 @@ export default function AdvancesPage({ params }: { params: Promise<{ id: string 
       {payingId && (
         <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50 rounded-xl p-4 mt-4">
           <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">
-            Set payment amount for request #{payingId}:
+            {t("advances_set_payment")}#{payingId}:
           </p>
           <div className="flex flex-col sm:flex-row gap-3">
             <input
@@ -414,7 +410,7 @@ export default function AdvancesPage({ params }: { params: Promise<{ id: string 
               type="number"
               step="0.01"
               min="0"
-              placeholder="Final amount"
+              placeholder={t("advances_final_amount")}
               value={payAmount}
               onChange={(e) => setPayAmount(e.target.value)}
               className="px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground w-32"
@@ -432,13 +428,13 @@ export default function AdvancesPage({ params }: { params: Promise<{ id: string 
               className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 disabled:opacity-50"
             >
               <Check className="w-4 h-4" />
-              {payAdvance.isPending ? "Paying..." : "Confirm payment"}
+              {payAdvance.isPending ? t("advances_paying") : t("advances_confirm_payment")}
             </button>
             <button
               onClick={() => setPayingId(null)}
               className="flex items-center gap-2 px-4 py-2 border border-input-border text-slate-600 dark:text-slate-400 text-sm rounded-lg hover:bg-card-hover"
             >
-              <X className="w-4 h-4" /> Cancel
+              <X className="w-4 h-4" /> {t("advances_cancel")}
             </button>
           </div>
         </div>

@@ -41,6 +41,7 @@ Adresse                  Kleparivska Str., 18
 import AppShell from "@/components/layout/AppShell";
 import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/ToastProvider";
+import { useTranslations } from "next-intl";
 
 type FormState = Omit<ImapConfig, "imap_port"> & { imap_port: string };
 
@@ -97,6 +98,8 @@ export default function ImapAdminPage() {
   const router = useRouter();
   const qc = useQueryClient();
   const toast = useToast();
+  const t = useTranslations("admin");
+  const tc = useTranslations("common");
 
   const [pwChanged, setPwChanged] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -153,15 +156,15 @@ export default function ImapAdminPage() {
   const saveMutation = useMutation({
     mutationFn: (payload: ImapConfig) => api.patch("/settings/imap", payload),
     onSuccess: () => {
-      toast.success("IMAP configuration saved successfully");
+      toast.success(t("config_saved"));
       setSaveError(null);
       setPwChanged(false);
       qc.invalidateQueries({ queryKey: imapKeys.all });
     },
     onError: (e: unknown) => {
-      const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? "Save failed";
+      const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? t("failed_save");
       setSaveError(msg);
-      toast.error(`Failed to save IMAP settings: ${msg}`);
+      toast.error(`${t("failed_save")}: ${msg}`);
     },
   });
 
@@ -202,13 +205,13 @@ export default function ImapAdminPage() {
       const res = await api.post<ImapTestResult>("/settings/imap/test", payload);
       setTestResult(res.data);
       if (res.data.success) {
-        toast.success("IMAP connection test successful!");
+        toast.success(t("imap_test_successful"));
       } else {
-        toast.error(`IMAP connection test failed: ${res.data.message}`);
+        toast.error(`${t("connection_failed")}: ${res.data.message}`);
       }
     } catch {
       setTestResult({ success: false, message: "Test connection request failed." });
-      toast.error("IMAP connection test failed: Request error");
+      toast.error(t("connection_failed"));
     } finally {
       setTesting(false);
     }
@@ -234,14 +237,14 @@ export default function ImapAdminPage() {
       });
       setSimulationResult(res);
       if (res.success) {
-        toast.success("Simulation successful! Draft report created.");
+        toast.success(t("simulation_success"));
       } else {
-        toast.error(`Simulation failed: ${res.error}`);
+        toast.error(`${t("simulation_failed")}: ${res.error}`);
       }
     } catch (err) {
       console.error("IMAP simulation error:", err);
       const axiosErr = err as { response?: { data?: { detail?: string } } };
-      toast.error(axiosErr?.response?.data?.detail || "Simulation failed to run.");
+      toast.error(axiosErr?.response?.data?.detail || t("simulation_failed"));
     } finally {
       setSimulating(false);
     }
@@ -254,7 +257,7 @@ export default function ImapAdminPage() {
       <div className="max-w-2xl mx-auto px-4 py-8 space-y-10">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">
-            IMAP Ingestion Settings (Delegation Emails)
+            {t("imap_heading")}
           </h1>
 
           {data && (
@@ -302,13 +305,13 @@ export default function ImapAdminPage() {
                 {...register("enabled")}
               />
               <span className="text-slate-700 dark:text-slate-300 font-medium">
-                Enable IMAP polling for delegation emails
+                {t("enable_imap")}
               </span>
             </label>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-muted mb-1.5">IMAP Host</label>
+                <label className="block text-xs font-semibold text-muted mb-1.5">{t("imap_host_label")}</label>
                 <input
                   className="w-full border rounded-lg px-3 py-2 text-base sm:text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
                   {...register("imap_host")}
@@ -319,7 +322,7 @@ export default function ImapAdminPage() {
                 )}
               </div>
               <div>
-                <label className="block text-xs font-semibold text-muted mb-1.5">IMAP Port</label>
+                <label className="block text-xs font-semibold text-muted mb-1.5">{t("imap_port")}</label>
                 <input
                   type="text"
                   inputMode="numeric"
@@ -338,7 +341,7 @@ export default function ImapAdminPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-muted mb-1.5">Folder to poll</label>
+              <label className="block text-xs font-semibold text-muted mb-1.5">{t("imap_folder")}</label>
               <input
                 className="w-full border rounded-lg px-3 py-2 text-base sm:text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
                 {...register("imap_folder")}
@@ -355,7 +358,7 @@ export default function ImapAdminPage() {
               Credentials
             </h2>
             <div>
-              <label className="block text-xs font-semibold text-muted mb-1.5">Username / Email</label>
+              <label className="block text-xs font-semibold text-muted mb-1.5">{t("imap_username")}</label>
               <input
                 className="w-full border rounded-lg px-3 py-2 text-base sm:text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
                 {...register("imap_user")}
@@ -366,7 +369,7 @@ export default function ImapAdminPage() {
               )}
             </div>
             <div>
-              <label className="block text-xs font-semibold text-muted mb-1.5">Password</label>
+              <label className="block text-xs font-semibold text-muted mb-1.5">{t("imap_password")}</label>
               <div className="space-y-1.5">
                 <input
                   type="password"
@@ -376,7 +379,7 @@ export default function ImapAdminPage() {
                     setValue("imap_pass", e.target.value, { shouldDirty: true });
                     setPwChanged(true);
                   }}
-                  placeholder={passwordSet ? "••••••••" : "IMAP Password"}
+                  placeholder={passwordSet ? "••••••••" : t("imap_password")}
                 />
                 {passwordSet && !pwChanged && (
                   <span className="text-[10px] text-slate-400 block font-medium">(currently set)</span>
@@ -391,7 +394,7 @@ export default function ImapAdminPage() {
               disabled={saveMutation.isPending}
               className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-hover active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none transition-all duration-200 shadow-sm shadow-blue-500/10 cursor-pointer"
             >
-              {saveMutation.isPending ? "Saving…" : "Save Configuration"}
+              {saveMutation.isPending ? tc("saving") : tc("save")}
             </button>
             <button
               type="button"
@@ -399,7 +402,7 @@ export default function ImapAdminPage() {
               disabled={testing}
               className="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium bg-white hover:bg-slate-50 dark:bg-transparent dark:border-slate-700 dark:hover:bg-slate-800 dark:text-slate-200 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none transition-all duration-200 cursor-pointer"
             >
-              {testing ? "Testing Connection…" : "Test Connection"}
+              {testing ? tc("loading") : t("test_connection")}
             </button>
           </div>
 
@@ -427,15 +430,15 @@ export default function ImapAdminPage() {
         {/* Email Forward Simulator (Local Testing) */}
         <section className="bg-card border border-border rounded-xl p-6 shadow-sm space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300 delay-150">
           <div>
-            <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 tracking-tight flex items-center gap-2">
-              <span className="p-1 rounded bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400">
-                ✉
-              </span>
-              Email Forward Ingestion Simulator
-            </h2>
-            <p className="text-xs text-muted mt-1">
-              Simulate forwarding a standardized job delegation email from a company mailbox. This tool parses the text and automatically inserts a draft report for the matched active user in the database.
-            </p>
+              <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 tracking-tight flex items-center gap-2">
+                <span className="p-1 rounded bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400">
+                  ✉
+                </span>
+                {t("email_simulation")}
+              </h2>
+              <p className="text-xs text-muted mt-1">
+                {t("email_simulation_description")}
+              </p>
           </div>
 
           <div className="space-y-4">
@@ -529,10 +532,10 @@ export default function ImapAdminPage() {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                     </svg>
-                    Simulating...
+                    {t("simulating")}
                   </>
                 ) : (
-                  <>Simulate Email Forward</>
+                  <>{t("simulate_button")}</>
                 )}
               </button>
             </div>
@@ -558,7 +561,7 @@ export default function ImapAdminPage() {
                   <span className="text-xl font-bold">✗</span>
                   <div>
                     <h4 className="font-semibold text-rose-900 dark:text-rose-200">
-                      Simulation Failed
+                      {t("simulation_failed")}
                     </h4>
                     <p className="text-xs mt-1 leading-relaxed">
                       {simulationResult.error}
@@ -669,7 +672,7 @@ export default function ImapAdminPage() {
                     href={`/reports/${simulationResult.report_id}`}
                     className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 active:scale-[0.98] transition-all duration-200 cursor-pointer shadow-md shadow-indigo-500/10"
                   >
-                    View Created Draft Report
+                    {t("view_draft")}
                   </Link>
                 </div>
               )}

@@ -1,21 +1,64 @@
-// Cached Intl.NumberFormat instances — created once, reused everywhere
-const eurFormatter = new Intl.NumberFormat("en-GB", { style: "currency", currency: "EUR" });
+import { mapLocaleToBcp47, type Locale } from "@/i18n/config";
 
-const formatterCache = new Map<string, Intl.NumberFormat>();
+let currentLocale: Locale = "en";
 
-function getFormatter(currency: string): Intl.NumberFormat {
-  let f = formatterCache.get(currency);
+export function setCurrentLocale(locale: Locale) {
+  currentLocale = locale;
+}
+
+function getBcp47(locale: Locale): string {
+  return mapLocaleToBcp47[locale];
+}
+
+const eurFormatters = new Map<string, Intl.NumberFormat>();
+
+function getEurFormatter(locale: string): Intl.NumberFormat {
+  const key = locale;
+  let f = eurFormatters.get(key);
   if (!f) {
-    f = new Intl.NumberFormat("en-GB", { style: "currency", currency });
-    formatterCache.set(currency, f);
+    f = new Intl.NumberFormat(getBcp47(currentLocale), {
+      style: "currency",
+      currency: "EUR",
+      currencyDisplay: "narrowSymbol",
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+    eurFormatters.set(key, f);
+  }
+  return f;
+}
+
+const currencyFormatters = new Map<string, Intl.NumberFormat>();
+
+function getFormatter(currency: string, locale: string): Intl.NumberFormat {
+  const key = `${locale}:${currency}`;
+  let f = currencyFormatters.get(key);
+  if (!f) {
+    f = new Intl.NumberFormat(getBcp47(currentLocale), {
+      style: "currency",
+      currency,
+      currencyDisplay: "narrowSymbol",
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+    currencyFormatters.set(key, f);
   }
   return f;
 }
 
 export function formatEur(amount: number): string {
-  return eurFormatter.format(amount);
+  return getEurFormatter(getBcp47(currentLocale)).format(amount);
 }
 
 export function formatAmount(amount: number, currency: string): string {
-  return getFormatter(currency).format(amount);
+  return getFormatter(currency, getBcp47(currentLocale)).format(amount);
+}
+
+export function formatDate(date: Date | string): string {
+  const d = typeof date === "string" ? new Date(date) : date;
+  return new Intl.DateTimeFormat(getBcp47(currentLocale), {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
 }

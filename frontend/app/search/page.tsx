@@ -9,13 +9,16 @@ import AppShell from "@/components/layout/AppShell";
 import Badge from "@/components/ui/Badge";
 import EmptyState from "@/components/ui/EmptyState";
 import Link from "next/link";
-import { FileText, Receipt, Search } from "lucide-react";
+import { FileText, Receipt } from "lucide-react";
 import { formatEur } from "@/lib/format";
+import { useTranslations } from "next-intl";
 
 function SearchPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const query = searchParams.get("q") || "";
+  const t = useTranslations("search");
+  const tc = useTranslations("common");
 
   const { data, isLoading } = useQuery<SearchResult>({
     queryKey: searchKeys.query(query),
@@ -29,15 +32,18 @@ function SearchPageContent() {
     <AppShell>
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-foreground">
-          Search Results
+          {t("heading")}
         </h1>
         {query && (
           <p className="text-muted text-sm mt-1">
             {isLoading ? (
-              "Searching..."
+              t("searching")
             ) : (
               <>
-                {(data?.report_count ?? 0) + (data?.expense_count ?? 0)} result{((data?.report_count ?? 0) + (data?.expense_count ?? 0)) === 1 ? "" : "s"} for &ldquo;{query}&rdquo;
+                {(() => {
+                  const n = (data?.report_count ?? 0) + (data?.expense_count ?? 0);
+                  return `${n} ${n === 1 ? t("result_one") : t("result_other")}`;
+                })()} &ldquo;{query}&rdquo;
               </>
             )}
           </p>
@@ -46,7 +52,7 @@ function SearchPageContent() {
 
       {!query ? (
         <EmptyState
-          message="Enter a search term to find reports and expenses"
+          message={t("empty_prompt")}
         />
       ) : isLoading ? (
         <div className="space-y-6">
@@ -71,7 +77,7 @@ function SearchPageContent() {
             <div className="bg-card rounded-xl shadow-sm overflow-hidden">
               <div className="px-4 py-3 border-b border-border bg-muted/50">
                 <h2 className="text-sm font-bold text-foreground uppercase tracking-wider">
-                  Reports ({data.report_count})
+                  {t("reports_section")} ({data.report_count})
                 </h2>
               </div>
               <div className="divide-y divide-border">
@@ -110,7 +116,7 @@ function SearchPageContent() {
             <div className="bg-card rounded-xl shadow-sm overflow-hidden">
               <div className="px-4 py-3 border-b border-border bg-muted/50">
                 <h2 className="text-sm font-bold text-foreground uppercase tracking-wider">
-                  Expenses ({data.expense_count})
+                  {t("expenses_section")} ({data.expense_count})
                 </h2>
               </div>
               <div className="divide-y divide-border">
@@ -126,7 +132,7 @@ function SearchPageContent() {
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-semibold text-foreground truncate">{expense.merchant || "—"}</div>
                       <div className="text-xs text-muted-foreground">
-                        {expense.date} · {expense.category_name || "Uncategorized"}
+                        {expense.date} · {expense.category_name || tc("uncategorized")}
                       </div>
                     </div>
                     <div className="text-right shrink-0">
@@ -142,8 +148,8 @@ function SearchPageContent() {
           {/* No Results */}
           {!isLoading && data && data.report_count === 0 && data.expense_count === 0 && (
             <EmptyState
-              message={`No results found for "${query}"`}
-              actionLabel="Clear search"
+              message={`${t("no_results")} "${query}"`}
+              actionLabel={t("clear_search")}
               onAction={() => router.push("/dashboard")}
             />
           )}

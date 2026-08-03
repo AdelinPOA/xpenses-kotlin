@@ -4,26 +4,27 @@ import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
 import org.slf4j.LoggerFactory
-import org.springframework.cache.CacheManager
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Component
 import org.springframework.web.filter.OncePerRequestFilter
+import java.util.ArrayDeque
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicInteger
 
 import org.springframework.beans.factory.annotation.Value
 
 @Component
 class RateLimitingFilter(
-    private val cacheManager: CacheManager,
     @Value("\${rate-limiting.enabled:true}")
-    private val enabled: Boolean = true
+    private val enabled: Boolean = true,
+    private val windowMillis: Long = WINDOW_MILLIS,
+    private val clock: () -> Long = System::currentTimeMillis
 ) : OncePerRequestFilter() {
 
     private val log = LoggerFactory.getLogger(RateLimitingFilter::class.java)
 
     companion object {
         private val EXPORT_REPORT_PATH = Regex("^/api/reports/\\d+/(pdf|receipts-zip)$")
+        private const val WINDOW_MILLIS = 60_000L
     }
 
     // Rate limits (requests per 60-second window per IP)
@@ -32,7 +33,7 @@ class RateLimitingFilter(
         "/api/expenses/scan" to 10
     )
 
-    private val requestCounts = ConcurrentHashMap<String, AtomicInteger>()
+    private val requestTimes = ConcurrentHashMap<String, ArrayDeque<Long>>()
 
     override fun doFilterInternal(
         request: HttpServletRequest,
@@ -53,16 +54,7 @@ class RateLimitingFilter(
 
         if (limit != null) {
             val cacheKey = "rl:${matchedLimitKey}:${clientIp}"
-            val cache = cacheManager.getCache("rate-limit-cache")
-            
-            val count = if (cache != null) {
-                val counter = requestCounts.computeIfAbsent(cacheKey) { AtomicInteger(0) }
-                val newCount = counter.incrementAndGet()
-                cache.put(cacheKey, newCount)
-                newCount
-            } else {
-                1
-            }
+            val count = recordRequest(cacheKey, limit)
 
             if (count > limit) {
                 log.warn("Rate limit exceeded for IP {} on path {}: {} > {}", clientIp, path, count, limit)
@@ -74,6 +66,23 @@ class RateLimitingFilter(
         }
 
         filterChain.doFilter(request, response)
+    }
+
+    private fun recordRequest(cacheKey: String, limit: Int): Int {
+        val now = clock()
+        val windowStart = now - windowMillis
+        val timestamps = requestTimes.computeIfAbsent(cacheKey) { ArrayDeque() }
+
+        synchronized(timestamps) {
+            while (!timestamps.isEmpty() && timestamps.peekFirst() <= windowStart) {
+                timestamps.removeFirst()
+            }
+            if (timestamps.size >= limit) {
+                return timestamps.size + 1
+            }
+            timestamps.addLast(now)
+            return timestamps.size
+        }
     }
 
     private fun extractClientIp(request: HttpServletRequest): String {

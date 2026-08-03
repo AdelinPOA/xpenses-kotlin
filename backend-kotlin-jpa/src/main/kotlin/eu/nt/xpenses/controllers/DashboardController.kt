@@ -8,6 +8,7 @@ import eu.nt.xpenses.dto.dashboard.ManagerKpis
 import eu.nt.xpenses.dto.dashboard.PendingAdvanceSummary
 import eu.nt.xpenses.dto.dashboard.PendingReportSummary
 import eu.nt.xpenses.model.*
+import eu.nt.xpenses.report.review.ReviewQueueReader
 import eu.nt.xpenses.repositories.*
 import eu.nt.xpenses.services.Authorization
 import eu.nt.xpenses.services.mapper.ExpenseMapper
@@ -30,6 +31,7 @@ class DashboardController(
     private val advancePaymentRepository: AdvancePaymentRepository,
     private val expenseMapper: ExpenseMapper,
     private val authorization: Authorization,
+    private val reviewQueueReader: ReviewQueueReader,
 ) {
 
     @GetMapping
@@ -132,27 +134,13 @@ class DashboardController(
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden: Manager access required")
         }
 
-        val submittedReports = expenseReportRepository.findAllByStatusWithExpenses("submitted")
-        val pendingReportsTotalEur = submittedReports.fold(BigDecimal.ZERO) { acc, report ->
-            val reportTotal = report.expenses.map { it.amountEur }.fold(BigDecimal.ZERO) { rAcc, v -> rAcc.add(v) }
-            acc.add(reportTotal)
+        val pendingReportSummaries: List<PendingReportSummary> = if (authorization.canManage(currentUser)) {
+            reviewQueueReader.read(currentUser)
+        } else {
+            emptyList()
         }
-
-        val pendingReportSummaries = submittedReports.map { report ->
-            val totalEur = report.expenses.map { it.amountEur }.fold(BigDecimal.ZERO) { rAcc, v -> rAcc.add(v) }
-            PendingReportSummary(
-                id = report.id!!,
-                title = report.title,
-                userId = report.user?.id ?: 0,
-                userName = report.user?.displayName ?: "Unknown User",
-                dateSubmitted = report.submittedAt?.toString() ?: report.updatedAt.toString(),
-                dateFrom = report.dateFrom,
-                dateTo = report.dateTo,
-                totalAmountEur = totalEur,
-                expenseCount = report.expenses.size,
-                description = report.description,
-                status = report.status
-            )
+        val pendingReportsTotalEur = pendingReportSummaries.fold(BigDecimal.ZERO) { acc, report ->
+            acc.add(report.totalAmountEur)
         }
 
         val requestedAdvances = advancePaymentRepository.findAllByStatus("requested")
@@ -180,7 +168,7 @@ class DashboardController(
         val monthlyTeamSpendEur = monthExpenses.map { it.amountEur }.fold(BigDecimal.ZERO) { acc, v -> acc.add(v) }
 
         val kpis = ManagerKpis(
-            pendingReportsCount = submittedReports.size,
+            pendingReportsCount = pendingReportSummaries.size,
             pendingReportsTotalEur = pendingReportsTotalEur,
             pendingAdvancesCount = requestedAdvances.size,
             pendingAdvancesTotalEur = pendingAdvancesTotalEur,

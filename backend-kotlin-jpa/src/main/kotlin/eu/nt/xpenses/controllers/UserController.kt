@@ -29,6 +29,7 @@ class UserController(
     private val authorization: Authorization,
 ) {
     private val validRoles = setOf("technician", "manager", "chef_finance", "mod")
+    private val validLanguages = setOf("en", "ro")
 
     @PostMapping
     @PreAuthorize("hasRole('mod')")
@@ -157,6 +158,13 @@ class UserController(
         }
         if (body.notificationsEnabled != null) {
             currentUser.notificationsEnabled = body.notificationsEnabled
+            changed = true
+        }
+        if (body.language != null) {
+            if (body.language !in validLanguages) {
+                return ResponseEntity.status(400).body(mapOf("detail" to "Invalid language. Must be one of: $validLanguages"))
+            }
+            currentUser.language = body.language
             changed = true
         }
 

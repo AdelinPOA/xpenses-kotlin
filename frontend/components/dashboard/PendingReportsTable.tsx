@@ -24,8 +24,8 @@ export default function PendingReportsTable({
 
   if (reports.length === 0) {
     return (
-      <div className="bg-card rounded-xl p-8 border border-border text-center shadow-sm">
-        <div className="mx-auto w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500 mb-3">
+      <div className="border border-dashed border-emerald-500/40 bg-emerald-500/5 p-8 text-center">
+        <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
           <Check className="w-6 h-6" />
         </div>
         <h3 className="text-base font-semibold text-foreground">{t("all_clear")}</h3>
@@ -35,12 +35,15 @@ export default function PendingReportsTable({
   }
 
   return (
-    <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden flex flex-col h-full">
-      <div className="p-4 border-b border-border flex items-center justify-between gap-3">
+    <div className="flex h-full flex-col overflow-hidden border border-border bg-card shadow-sm">
+      <div className="flex items-center justify-between gap-3 border-b border-border bg-amber-500/[0.035] p-4">
         <div className="flex items-center gap-2">
           <FileText className="w-5 h-5 text-amber-500" />
-          <h3 className="font-semibold text-foreground text-lg">{t("pending_reports")}</h3>
-          <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-amber-700 dark:text-amber-400">{t("review_queue_label")}</p>
+            <h3 className="font-semibold text-foreground text-lg">{t("pending_reports")}</h3>
+          </div>
+          <span className="rounded-full bg-amber-500/10 px-2.5 py-0.5 text-xs font-semibold text-amber-700 dark:text-amber-400">
             {reports.length}
           </span>
         </div>
@@ -49,15 +52,20 @@ export default function PendingReportsTable({
         </Link>
       </div>
 
-      <div className="p-3 space-y-3 overflow-y-auto flex-1 max-h-[520px]">
-        {reports.map((report) => (
+      <div className="max-h-[560px] flex-1 space-y-3 overflow-y-auto p-3">
+        {reports.map((report, index) => (
           <article
             key={report.id}
             onClick={() => onSelectReport(report.id)}
-            className="rounded-lg border border-border bg-background/50 p-4 hover:bg-muted/30 cursor-pointer transition-colors"
+            className={`cursor-pointer border bg-background/50 p-4 transition-colors hover:bg-muted/30 ${
+              index === 0 ? "border-amber-400/70 border-l-4 border-l-primary shadow-sm" : "border-border"
+            }`}
           >
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0 flex-1">
+                {index === 0 && (
+                  <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em] text-primary">{t("next_to_review")}</p>
+                )}
                 <h4 className="font-semibold text-foreground truncate">{report.title}</h4>
                 <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                   <span className="inline-flex items-center gap-1 font-medium text-foreground">
@@ -76,7 +84,10 @@ export default function PendingReportsTable({
                   <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{report.description}</p>
                 )}
               </div>
-              <p className="shrink-0 text-xl font-bold text-foreground">{formatEur(report.total_amount_eur)}</p>
+              <div className="shrink-0 text-right">
+                <p className="text-xl font-bold tabular-nums text-foreground">{formatEur(report.total_amount_eur)}</p>
+                <p className="text-xs text-muted-foreground">{report.currency}</p>
+              </div>
             </div>
 
             <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border/70 pt-3" onClick={(e) => e.stopPropagation()}>

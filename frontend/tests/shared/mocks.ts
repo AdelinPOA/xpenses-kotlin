@@ -25,6 +25,23 @@ export const DASHBOARD_DATA = {
   ],
 };
 
+export const REVIEW_QUEUE = [
+  {
+    id: 1,
+    title: "July Business Trip",
+    user_id: 4,
+    user_name: "Technician One",
+    date_submitted: "2026-07-16T10:00:00Z",
+    date_from: "2026-07-01",
+    date_to: "2026-07-15",
+    expense_count: 1,
+    total_amount_eur: 1250,
+    currency: "EUR",
+    description: "Business trip to Vienna for client meetings",
+    status: "submitted",
+  },
+];
+
 export const MANAGER_DASHBOARD_DATA = {
   kpis: {
     pending_reports_count: 1,
@@ -44,6 +61,7 @@ export const MANAGER_DASHBOARD_DATA = {
       date_from: "2026-07-01",
       date_to: "2026-07-15",
       total_amount_eur: 1250,
+      currency: "EUR",
       expense_count: 1,
       description: "Business trip to Vienna for client meetings",
       status: "submitted",
@@ -137,6 +155,7 @@ export async function setupCommonMocks(page: Page, opts?: { role?: keyof typeof 
   await page.route("**/api/categories**", (route) => route.fulfill({ json: CATEGORIES }));
   await page.route("**/api/expenses**", (route) => route.fulfill({ json: EXPENSES }));
   await page.route("**/api/reports**", (route) => route.fulfill({ json: REPORTS }));
+  await page.route("**/api/review-queue*", (route) => route.fulfill({ json: REVIEW_QUEUE }));
   await page.route("**/api/dashboard**", (route, req) => {
     if (new URL(req.url()).pathname.endsWith("/api/dashboard/manager")) {
       route.fulfill({ json: MANAGER_DASHBOARD_DATA });

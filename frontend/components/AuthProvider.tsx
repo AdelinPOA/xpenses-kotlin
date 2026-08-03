@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState, useCallback, useRef } f
 import { useRouter, usePathname } from "next/navigation";
 import { User } from "@/lib/api";
 import { getMe, logout as apiLogout, refreshTokens } from "@/lib/auth";
+import { writeLangCookie } from "@/i18n/LocaleProvider";
 
 interface AuthContextType {
   user: User | null;
@@ -63,6 +64,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
         .then((u) => {
           if (!mounted) return;
           setUser(u);
+          writeLangCookie(u.language || "en");
           scheduleProactiveRefresh();
         })
         .catch(() => {

@@ -16,6 +16,7 @@ import { storageKeys } from "@/lib/queryKeys";
 import AppShell from "@/components/layout/AppShell";
 import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/ToastProvider";
+import { useTranslations } from "next-intl";
 import {
   Database,
   HardDrive,
@@ -43,6 +44,8 @@ export default function StorageAdminPage() {
   const router = useRouter();
   const qc = useQueryClient();
   const toast = useToast();
+  const t = useTranslations("admin");
+  const tc = useTranslations("common");
 
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
@@ -94,13 +97,13 @@ export default function StorageAdminPage() {
     mutationFn: ({ data, migrate }: { data: FormState; migrate: boolean }) =>
       updateStorageConfig(data, migrate),
     onSuccess: () => {
-      toast.success("Storage settings saved successfully");
+      toast.success(t("config_saved"));
       setShowMigrateModal(false);
       setPendingFormData(null);
       qc.invalidateQueries({ queryKey: storageKeys.all });
     },
     onError: (err: any) => {
-      const msg = err?.response?.data?.detail ?? "Failed to save storage configuration";
+      const msg = err?.response?.data?.detail ?? t("failed_save");
       toast.error(msg);
     },
   });
@@ -144,13 +147,13 @@ export default function StorageAdminPage() {
       const res = await testStorageConfig(formValues);
       setTestResult(res);
       if (res.success) {
-        toast.success("Connection verified successfully!");
+        toast.success(t("connection_verified"));
       } else {
-        toast.error(`Connection test failed: ${res.message}`);
+        toast.error(`${t("connection_failed")}: ${res.message}`);
       }
     } catch (err: any) {
       setTestResult({ success: false, message: err?.response?.data?.detail ?? "Request error" });
-      toast.error("Connection test failed: Network error");
+      toast.error(t("connection_failed"));
     } finally {
       setTesting(false);
     }
@@ -162,9 +165,9 @@ export default function StorageAdminPage() {
         <div className="flex items-center gap-3">
           <Database className="w-8 h-8 text-blue-600 dark:text-blue-400" />
           <div>
-            <h1 className="text-2xl font-bold text-foreground tracking-tight">Storage Settings</h1>
+            <h1 className="text-2xl font-bold text-foreground tracking-tight">{t("storage_heading")}</h1>
             <p className="text-sm text-muted">
-              Configure dynamic receipt & report storage backends (Local, SMB, WebDAV, SFTP, S3).
+              {t("storage_description")}
             </p>
           </div>
         </div>
@@ -174,7 +177,7 @@ export default function StorageAdminPage() {
           <div className="p-6 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/10 space-y-4">
             <div className="flex items-center gap-3">
               <RefreshCw className="w-5 h-5 text-blue-600 dark:text-blue-400 animate-spin" />
-              <h2 className="text-md font-semibold text-blue-800 dark:text-blue-300">File Migration in Progress</h2>
+              <h2 className="text-md font-semibold text-blue-800 dark:text-blue-300">{t("migration_in_progress")}</h2>
             </div>
             <div>
               <div className="flex justify-between text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
@@ -217,11 +220,11 @@ export default function StorageAdminPage() {
                   {...register("provider_type")}
                   className="w-full max-w-xs px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground"
                 >
-                  <option value="local">Local Directory / Mounted Drive</option>
-                  <option value="smb">SMB / CIFS Share</option>
-                  <option value="webdav">WebDAV Server (Synology NAS)</option>
-                  <option value="sftp">SFTP Server (SSH)</option>
-                  <option value="s3">S3 Compatible Bucket (MinIO / AWS)</option>
+                  <option value="local">{t("local_storage")}</option>
+                  <option value="smb">{t("smb_config")}</option>
+                  <option value="webdav">{t("webdav_server")}</option>
+                  <option value="sftp">{t("sftp_server")}</option>
+                  <option value="s3">{t("s3_bucket")}</option>
                 </select>
               </div>
 
@@ -230,18 +233,18 @@ export default function StorageAdminPage() {
               {/* Local Storage form fields */}
               {providerType === "local" && (
                 <div className="space-y-4">
-                  <h3 className="text-md font-semibold text-foreground">Local Storage Configuration</h3>
+                  <h3 className="text-md font-semibold text-foreground">{t("local_storage")}</h3>
                   <div>
                     <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">
-                      Target Receipts Directory
+                      {t("local_path")}
                     </label>
                     <input
                       type="text"
                       {...register("local.path")}
-                      placeholder="/app/data/receipts"
+                      placeholder={t("local_placeholder")}
                       className="w-full px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground"
                     />
-                    <p className="text-xs text-slate-400 mt-1">Must be an absolute path reachable by the backend server.</p>
+                    <p className="text-xs text-slate-400 mt-1">{t("local_hint")}</p>
                   </div>
                 </div>
               )}
@@ -249,22 +252,22 @@ export default function StorageAdminPage() {
               {/* SMB Storage form fields */}
               {providerType === "smb" && (
                 <div className="space-y-4">
-                  <h3 className="text-md font-semibold text-foreground">SMB Configuration</h3>
+                  <h3 className="text-md font-semibold text-foreground">{t("smb_config")}</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Server Host / IP</label>
+                      <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">{t("smb_host")}</label>
                       <input type="text" {...register("smb.host")} placeholder="192.168.1.100" className="w-full px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground" />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Share Name</label>
+                      <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">{t("smb_share")}</label>
                       <input type="text" {...register("smb.share")} placeholder="shared_folder" className="w-full px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground" />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Username</label>
+                      <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">{t("username")}</label>
                       <input type="text" {...register("smb.username")} className="w-full px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground" />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Password</label>
+                      <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">{t("password")}</label>
                       <input type="password" {...register("smb.password")} className="w-full px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground" />
                     </div>
                     <div>
@@ -272,7 +275,7 @@ export default function StorageAdminPage() {
                       <input type="text" {...register("smb.domain")} className="w-full px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground" />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Subfolder inside share</label>
+                      <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">{t("smb_subfolder")}</label>
                       <input type="text" {...register("smb.folder")} placeholder="receipts" className="w-full px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground" />
                     </div>
                   </div>
@@ -282,22 +285,22 @@ export default function StorageAdminPage() {
               {/* WebDAV Storage form fields */}
               {providerType === "webdav" && (
                 <div className="space-y-4">
-                  <h3 className="text-md font-semibold text-foreground">WebDAV Configuration</h3>
+                  <h3 className="text-md font-semibold text-foreground">{t("webdav_config")}</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="md:col-span-2">
-                      <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">WebDAV URL</label>
+                      <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">{t("webdav_url")}</label>
                       <input type="text" {...register("webdav.url")} placeholder="https://nas.local:5006/dav" className="w-full px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground" />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Username</label>
+                      <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">{t("username")}</label>
                       <input type="text" {...register("webdav.username")} className="w-full px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground" />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Password</label>
+                      <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">{t("password")}</label>
                       <input type="password" {...register("webdav.password")} className="w-full px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground" />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Subfolder inside webdav</label>
+                      <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">{t("webdav_subfolder")}</label>
                       <input type="text" {...register("webdav.folder")} placeholder="receipts" className="w-full px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground" />
                     </div>
                   </div>
@@ -307,26 +310,26 @@ export default function StorageAdminPage() {
               {/* SFTP Storage form fields */}
               {providerType === "sftp" && (
                 <div className="space-y-4">
-                  <h3 className="text-md font-semibold text-foreground">SFTP Configuration</h3>
+                  <h3 className="text-md font-semibold text-foreground">{t("sftp_config")}</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Host</label>
+                      <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">{t("sftp_host")}</label>
                       <input type="text" {...register("sftp.host")} placeholder="sftp.company.com" className="w-full px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground" />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Port</label>
+                      <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">{t("sftp_port")}</label>
                       <input type="number" {...register("sftp.port")} placeholder="22" className="w-full px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground" />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Username</label>
+                      <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">{t("username")}</label>
                       <input type="text" {...register("sftp.username")} className="w-full px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground" />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Password</label>
+                      <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">{t("password")}</label>
                       <input type="password" {...register("sftp.password")} className="w-full px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground" />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Target Folder Path</label>
+                      <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">{t("sftp_folder")}</label>
                       <input type="text" {...register("sftp.folder")} placeholder="receipts" className="w-full px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground" />
                     </div>
                   </div>
@@ -336,26 +339,26 @@ export default function StorageAdminPage() {
               {/* S3 Storage form fields */}
               {providerType === "s3" && (
                 <div className="space-y-4">
-                  <h3 className="text-md font-semibold text-foreground">S3 / MinIO Configuration</h3>
+                  <h3 className="text-md font-semibold text-foreground">{t("s3_config")}</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="md:col-span-2">
-                      <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Endpoint URL (Optional for AWS, Required for MinIO)</label>
+                      <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">{t("s3_endpoint")}</label>
                       <input type="text" {...register("s3.endpoint_url")} placeholder="https://minio.company.com" className="w-full px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground" />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Access Key</label>
+                      <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">{t("s3_access_key")}</label>
                       <input type="text" {...register("s3.access_key")} className="w-full px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground" />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Secret Key</label>
+                      <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">{t("s3_secret_key")}</label>
                       <input type="password" {...register("s3.secret_key")} className="w-full px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground" />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Bucket Name</label>
+                      <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">{t("s3_bucket_name")}</label>
                       <input type="text" {...register("s3.bucket_name")} placeholder="company-receipts" className="w-full px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground" />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Region</label>
+                      <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">{t("s3_region")}</label>
                       <input type="text" {...register("s3.region_name")} placeholder="us-east-1" className="w-full px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground" />
                     </div>
                   </div>
@@ -371,14 +374,14 @@ export default function StorageAdminPage() {
                   className="px-4 py-2 border border-slate-300 dark:border-slate-700 hover:bg-card-hover rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300 transition-colors disabled:opacity-50 inline-flex items-center gap-2 cursor-pointer"
                 >
                   <RefreshCw className={`w-4 h-4 ${testing ? "animate-spin" : ""}`} />
-                  {testing ? "Testing..." : "Test Connection"}
+                  {testing ? t("testing") : t("test_connection")}
                 </button>
                 <button
                   type="submit"
                   className="px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-sm font-semibold shadow-sm transition-colors inline-flex items-center gap-2 cursor-pointer"
                 >
                   <Save className="w-4 h-4" />
-                  Save Settings
+                  {t("save")}
                 </button>
               </div>
 
@@ -390,7 +393,7 @@ export default function StorageAdminPage() {
                     <AlertCircle className="w-5 h-5 shrink-0" />
                   )}
                   <div>
-                    <span className="font-semibold block">{testResult.success ? "Connection verified!" : "Connection test failed"}</span>
+                    <span className="font-semibold block">{testResult.success ? t("connection_verified") : t("connection_failed")}</span>
                     {!testResult.success && <p className="text-xs mt-1">{testResult.message}</p>}
                   </div>
                 </div>
@@ -411,7 +414,7 @@ export default function StorageAdminPage() {
               <div>
                 <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">Migrate Existing Receipts?</h3>
                 <p className="text-sm text-muted mt-1">
-                  You are changing storage configuration. Would you like to automatically copy all existing files from the old storage to the new location in the background?
+                  {t("migrate_description")}
                 </p>
               </div>
             </div>
@@ -422,14 +425,14 @@ export default function StorageAdminPage() {
                 onClick={() => setShowMigrateModal(false)}
                 className="px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg text-sm hover:bg-card-hover transition-colors cursor-pointer"
               >
-                Cancel
+                {tc("cancel")}
               </button>
               <button
                 type="button"
                 onClick={() => handleConfirmMigration(false)}
                 className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-foreground rounded-lg text-sm transition-colors cursor-pointer"
               >
-                No, Keep Files As-Is
+                {t("migrate_no")}
               </button>
               <button
                 type="button"
@@ -437,7 +440,7 @@ export default function StorageAdminPage() {
                 className="px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-sm transition-colors flex items-center gap-1.5 cursor-pointer"
               >
                 <Play className="w-4 h-4" />
-                Yes, Migrate Files
+                {t("migrate_yes")}
               </button>
             </div>
           </div>

@@ -14,6 +14,7 @@ import dynamic from "next/dynamic";
 import BulkUploadZone from "@/components/expenses/BulkUploadZone";
 import { Plus, Trash2, Pencil, Copy, Download } from "lucide-react";
 import { formatAmount } from "@/lib/format";
+import { useTranslations } from "next-intl";
 
 const BulkReviewDrawer = dynamic(() => import("@/components/expenses/BulkReviewDrawer"), {
   loading: () => <div className="animate-pulse bg-card h-96 rounded-xl" />,
@@ -24,6 +25,8 @@ function ExpensesPageContent() {
   const router = useRouter();
   const toast = useToast();
   const searchParams = useSearchParams();
+  const t = useTranslations("expenses");
+  const tc = useTranslations("common");
   const [statusFilter, setStatusFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [exporting, setExporting] = useState(false);
@@ -77,7 +80,7 @@ function ExpensesPageContent() {
         `expenses_${today}.${format}`
       );
     } catch {
-      toast.error("Export failed. Please try again.");
+      toast.error(t("export_failed"));
     } finally {
       setExporting(false);
     }
@@ -108,7 +111,7 @@ function ExpensesPageContent() {
   });
 
   const confirmDelete = (id: number) => {
-    if (window.confirm("Delete this expense? This cannot be undone.")) {
+    if (window.confirm(t("delete_confirm"))) {
       del.mutate(id);
     }
   };
@@ -138,8 +141,8 @@ function ExpensesPageContent() {
 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Expenses</h1>
-          <p className="text-muted text-sm mt-1">{expenses?.length ?? 0} total</p>
+          <h1 className="text-2xl font-bold text-foreground">{t("title")}</h1>
+          <p className="text-muted text-sm mt-1">{expenses?.length ?? 0} {t("total")}</p>
         </div>
         <div className="flex items-center gap-2">
           <BulkUploadZone isDragging={isDragging} onFilesDropped={handleFilesDropped} />
@@ -151,7 +154,7 @@ function ExpensesPageContent() {
               className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 disabled:opacity-50 cursor-pointer"
             >
               <Download className="w-4 h-4" />
-              {exporting ? "Exporting…" : "Export"}
+              {exporting ? t("exporting") : t("export")}
             </button>
             {exportOpen && (
               <>
@@ -161,13 +164,13 @@ function ExpensesPageContent() {
                     onClick={() => handleExport("csv")}
                     className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-t-lg"
                   >
-                    Download CSV
+                    {t("download_csv")}
                   </button>
                   <button
                     onClick={() => handleExport("xlsx")}
                     className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-b-lg"
                   >
-                    Download XLSX
+                    {t("download_xlsx")}
                   </button>
                 </div>
               </>
@@ -178,7 +181,7 @@ function ExpensesPageContent() {
             className="flex items-center gap-2 px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-hover w-fit"
           >
             <Plus className="w-4 h-4" />
-            Add expense
+            {t("add_expense")}
           </Link>
         </div>
       </div>
@@ -195,7 +198,7 @@ function ExpensesPageContent() {
                   : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700"
               }`}
             >
-              {s === "" ? "All" : s.charAt(0).toUpperCase() + s.slice(1)}
+              {s === "" ? t("status_all") : s === "draft" ? t("status_draft") : s === "submitted" ? t("status_submitted") : t("status_paid")}
             </button>
           ))}
           <select
@@ -203,7 +206,7 @@ function ExpensesPageContent() {
             onChange={(e) => setCategoryFilter(e.target.value)}
             className="ml-auto px-3 py-1 border border-border rounded-lg text-xs bg-input text-slate-700 dark:text-slate-300"
           >
-            <option value="">All categories</option>
+            <option value="">{t("all_categories")}</option>
             {categories?.map((c) => (
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
@@ -211,9 +214,9 @@ function ExpensesPageContent() {
         </div>
 
         {isLoading ? (
-          <div className="p-8 text-center text-muted-foreground text-sm">Loading...</div>
+          <div className="p-8 text-center text-muted-foreground text-sm">{tc("loading")}</div>
         ) : !expenses?.length ? (
-          <EmptyState message="No expenses found" />
+          <EmptyState message={t("no_expenses_found")} />
         ) : (
           <>
             {/* Mobile: stacked cards */}
@@ -231,7 +234,7 @@ function ExpensesPageContent() {
                         <p className="text-xs text-muted-foreground">
                           {formatAmount(e.amount_original, e.currency_original)}
                           {e.fx_rate_manual && (
-                            <span className="ml-1 text-[10px] text-amber-600 dark:text-amber-400 font-medium">manual</span>
+                            <span className="ml-1 text-[10px] text-amber-600 dark:text-amber-400 font-medium">{t("manual_rate")}</span>
                           )}
                         </p>
                       )}
@@ -251,7 +254,7 @@ function ExpensesPageContent() {
                               onClick={() => downloadBlob(`/expenses/${e.id}/receipts/${r.id}`, {}, r.original_name || `receipt_${r.id}`)}
                               className="text-blue-600 dark:text-blue-400 hover:underline text-xs cursor-pointer"
                             >
-                              {e.receipts.length === 1 ? "View" : (r.original_name?.split(".").pop()?.toUpperCase() || "View")}
+                              {e.receipts.length === 1 ? t("view_receipt") : (r.original_name?.split(".").pop()?.toUpperCase() || t("view_receipt"))}
                             </button>
                           ))}
                         </div>
@@ -259,7 +262,7 @@ function ExpensesPageContent() {
                       <button
                         onClick={() => duplicate.mutate(e.id)}
                         disabled={duplicate.isPending}
-                        title="Duplicate Expense"
+                        title={t("duplicate_tooltip")}
                         className="text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 disabled:opacity-50"
                       >
                         <Copy className="w-4 h-4" />
@@ -285,13 +288,13 @@ function ExpensesPageContent() {
               <table className="w-full text-sm">
                 <thead className="bg-slate-50 dark:bg-slate-800 text-xs text-muted uppercase">
                   <tr>
-                    <th className="text-left px-4 py-3">Date</th>
-                    <th className="text-left px-4 py-3">Merchant</th>
-                    <th className="text-left px-4 py-3">Category</th>
-                    <th className="text-left px-4 py-3">Description</th>
-                    <th className="text-right px-4 py-3">EUR</th>
-                    <th className="text-center px-4 py-3">Status</th>
-                    <th className="text-right px-4 py-3">Receipt</th>
+                    <th className="text-left px-4 py-3">{t("table_date")}</th>
+                    <th className="text-left px-4 py-3">{t("table_merchant")}</th>
+                    <th className="text-left px-4 py-3">{t("table_category")}</th>
+                    <th className="text-left px-4 py-3">{t("table_description")}</th>
+                    <th className="text-right px-4 py-3">{t("table_eur")}</th>
+                    <th className="text-center px-4 py-3">{t("table_status")}</th>
+                    <th className="text-right px-4 py-3">{t("table_receipt")}</th>
                     <th className="px-4 py-3"></th>
                   </tr>
                 </thead>
@@ -310,7 +313,7 @@ function ExpensesPageContent() {
                           <span className="block text-xs text-muted-foreground font-normal">
                             {formatAmount(e.amount_original, e.currency_original)}
                             {e.fx_rate_manual && (
-                              <span className="ml-1 text-[10px] text-amber-600 dark:text-amber-400 font-medium">manual</span>
+                              <span className="ml-1 text-[10px] text-amber-600 dark:text-amber-400 font-medium">{t("manual_rate")}</span>
                             )}
                           </span>
                         )}
@@ -327,7 +330,7 @@ function ExpensesPageContent() {
                                 onClick={() => downloadBlob(`/expenses/${e.id}/receipts/${r.id}`, {}, r.original_name || `receipt_${r.id}`)}
                                 className="text-blue-600 dark:text-blue-400 hover:underline text-xs cursor-pointer"
                               >
-                                {e.receipts.length === 1 ? "View" : (r.original_name?.split(".").pop()?.toUpperCase() || "View")}
+                                {e.receipts.length === 1 ? t("view_receipt") : (r.original_name?.split(".").pop()?.toUpperCase() || t("view_receipt"))}
                               </button>
                             ))}
                           </div>
@@ -340,7 +343,7 @@ function ExpensesPageContent() {
                           <button
                             onClick={() => duplicate.mutate(e.id)}
                             disabled={duplicate.isPending}
-                            title="Duplicate Expense"
+                            title={t("duplicate_tooltip")}
                             className="text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 disabled:opacity-50"
                           >
                             <Copy className="w-4 h-4" />

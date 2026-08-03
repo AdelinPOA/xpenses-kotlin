@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { login } from "@/lib/auth";
 import { useAuth } from "@/components/AuthProvider";
 import Image from "next/image";
+import { useTranslations } from "next-intl";
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");
@@ -13,6 +14,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const { setUser } = useAuth();
+  const t = useTranslations("auth.login");
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -23,7 +25,7 @@ export default function LoginPage() {
       setUser(user);
       router.push("/dashboard");
     } catch {
-      setError("Invalid username or password");
+      setError(t("error_invalid_credentials"));
     } finally {
       setLoading(false);
     }
@@ -34,15 +36,15 @@ export default function LoginPage() {
       <div className="bg-card p-8 rounded-xl shadow-lg border border-border w-full max-w-sm">
         <div className="flex flex-col items-center mb-6">
           <Image src="/logo.png" alt="Newtech Automation" width={56} height={56} className="rounded-full mb-3" />
-          <h1 className="text-xl font-bold text-foreground">xpenses</h1>
-          <p className="text-sm text-muted mt-1">Sign in to your account</p>
+          <h1 className="text-xl font-bold text-foreground">{t("app_name")}</h1>
+          <p className="text-sm text-muted mt-1">{t("subtitle")}</p>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
             <div className="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-sm px-3 py-2 rounded-lg">{error}</div>
           )}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1">Username</label>
+            <label className="block text-sm font-medium text-foreground mb-1">{t("label_username")}</label>
             <input
               type="text"
               value={username}
@@ -55,7 +57,7 @@ export default function LoginPage() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1">Password</label>
+            <label className="block text-sm font-medium text-foreground mb-1">{t("label_password")}</label>
             <input
               type="password"
               value={password}
@@ -70,7 +72,7 @@ export default function LoginPage() {
             disabled={loading}
             className="w-full bg-primary text-white py-2 rounded-lg font-medium hover:bg-primary-hover transition-colors disabled:opacity-50 cursor-pointer"
           >
-            {loading ? "Signing in..." : "Sign in"}
+            {loading ? t("button_sign_in_loading") : t("button_sign_in")}
           </button>
         </form>
       </div>

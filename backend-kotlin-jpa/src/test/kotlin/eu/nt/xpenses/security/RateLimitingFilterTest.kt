@@ -5,24 +5,25 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.Mockito.*
-import org.springframework.cache.Cache
-import org.springframework.cache.CacheManager
-import org.springframework.cache.concurrent.ConcurrentMapCache
 import org.springframework.mock.web.MockHttpServletRequest
 import org.springframework.mock.web.MockHttpServletResponse
+import java.util.concurrent.atomic.AtomicLong
 
 class RateLimitingFilterTest {
 
-    private lateinit var cacheManager: CacheManager
-    private lateinit var cache: Cache
+    private lateinit var clock: AtomicLong
     private lateinit var filter: RateLimitingFilter
 
     @BeforeEach
     fun setup() {
-        cacheManager = mock(CacheManager::class.java)
-        cache = ConcurrentMapCache("rate-limit-cache")
-        `when`(cacheManager.getCache("rate-limit-cache")).thenReturn(cache)
-        filter = RateLimitingFilter(cacheManager, enabled = true)
+        clock = AtomicLong(0)
+        filter = RateLimitingFilter(enabled = true, windowMillis = 60_000L, clock = { clock.get() })
+    }
+
+    private fun login(ip: String = "192.168.1.100"): Pair<MockHttpServletRequest, MockHttpServletResponse> {
+        val req = MockHttpServletRequest("POST", "/api/auth/login")
+        req.remoteAddr = ip
+        return req to MockHttpServletResponse()
     }
 
     @Test
@@ -51,19 +52,58 @@ class RateLimitingFilterTest {
 
         // /api/auth/login has limit of 5
         for (i in 1..5) {
-            val req = MockHttpServletRequest("POST", "/api/auth/login")
-            req.remoteAddr = "192.168.1.100"
-            val res = MockHttpServletResponse()
+            val (req, res) = login()
             filter.doFilter(req, res, filterChain)
             assertEquals(200, res.status)
         }
 
         // 6th request should be rate limited (429)
-        val blockedReq = MockHttpServletRequest("POST", "/api/auth/login")
-        blockedReq.remoteAddr = "192.168.1.100"
-        val blockedRes = MockHttpServletResponse()
+        val (blockedReq, blockedRes) = login()
         filter.doFilter(blockedReq, blockedRes, filterChain)
 
+        assertEquals(429, blockedRes.status)
+    }
+
+    @Test
+    fun `should allow requests again after the window expires`() {
+        val filterChain = mock(FilterChain::class.java)
+
+        repeat(5) {
+            val (req, res) = login()
+            filter.doFilter(req, res, filterChain)
+            assertEquals(200, res.status)
+        }
+
+        val (blockedReq, blockedRes) = login()
+        filter.doFilter(blockedReq, blockedRes, filterChain)
+        assertEquals(429, blockedRes.status)
+
+        // Advance past the 60-second window: the same IP must be allowed again
+        clock.set(60_001)
+
+        val (newReq, newRes) = login()
+        filter.doFilter(newReq, newRes, filterChain)
+        assertEquals(200, newRes.status)
+    }
+
+    @Test
+    fun `should rate limit each IP independently`() {
+        val filterChain = mock(FilterChain::class.java)
+
+        repeat(5) {
+            val (req, res) = login("192.168.1.100")
+            filter.doFilter(req, res, filterChain)
+            assertEquals(200, res.status)
+        }
+
+        // A different IP is not affected
+        val (otherReq, otherRes) = login("192.168.1.200")
+        filter.doFilter(otherReq, otherRes, filterChain)
+        assertEquals(200, otherRes.status)
+
+        // Original IP is still blocked
+        val (blockedReq, blockedRes) = login("192.168.1.100")
+        filter.doFilter(blockedReq, blockedRes, filterChain)
         assertEquals(429, blockedRes.status)
     }
 }

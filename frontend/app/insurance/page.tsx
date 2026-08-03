@@ -8,12 +8,15 @@ import AppShell from "@/components/layout/AppShell";
 import EmptyState from "@/components/ui/EmptyState";
 import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/ToastProvider";
-import { Plus, Download, Trash2, Shield, FileText, Upload } from "lucide-react";
+import { Download, Trash2, Shield, FileText, Upload } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 export default function InsurancePage() {
   const { user } = useAuth();
   const qc = useQueryClient();
   const toast = useToast();
+  const t = useTranslations("insurance");
+  const tc = useTranslations("common");
   const [showAll, setShowAll] = useState(false);
   const [showUpload, setShowUpload] = useState(false);
   const [showDeleteId, setShowDeleteId] = useState<number | null>(null);
@@ -50,19 +53,19 @@ export default function InsurancePage() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: insuranceKeys.all });
-      toast.success("File uploaded");
+      toast.success(t("file_uploaded"));
       resetForm();
     },
-    onError: () => toast.error("Upload failed"),
+    onError: () => toast.error(t("upload_failed")),
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => api.delete(`/insurance/${id}`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: insuranceKeys.all });
-      toast.success("File deleted");
+      toast.success(t("file_deleted"));
     },
-    onError: () => toast.error("Delete failed"),
+    onError: () => toast.error(t("delete_failed")),
   });
 
   function resetForm() {
@@ -97,10 +100,11 @@ export default function InsurancePage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <Shield className="w-6 h-6" /> Insurance
+            <Shield className="w-6 h-6" /> {t("title")}
           </h1>
           <p className="text-muted text-sm mt-1">
-            {files?.length ?? 0} file{files?.length !== 1 ? "s" : ""}
+            {files?.length ?? 0}{" "}
+            {(files?.length ?? 0) === 1 ? t("file_count_one") : t("file_count_other")}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -114,14 +118,14 @@ export default function InsurancePage() {
                     : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-300"
                 }`}
               >
-                {showAll ? "My Files" : "All Files"}
+                {showAll ? t("my_files") : t("all_files")}
               </button>
               <button
                 onClick={() => setShowUpload(true)}
                 className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700"
               >
                 <Upload className="w-4 h-4" />
-                Upload File
+                {t("upload_file")}
               </button>
             </>
           )}
@@ -136,37 +140,37 @@ export default function InsurancePage() {
             <div className="bg-card rounded-xl shadow-xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
               <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
                 <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
-                  <Upload className="w-5 h-5 text-emerald-500" /> Upload Insurance File
+                  <Upload className="w-5 h-5 text-emerald-500" /> {t("upload_heading")}
                 </h2>
                 <button onClick={resetForm} className="text-slate-400 hover:text-slate-600 text-xl">&times;</button>
               </div>
               <form onSubmit={handleUpload} className="p-6 space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Assign to *</label>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t("assign_to")}</label>
                   <select
                     required
                     value={formUserId}
                     onChange={(e) => setFormUserId(e.target.value)}
                     className="w-full px-3 py-2 border border-input-border rounded-lg bg-input text-foreground text-base sm:text-sm"
                   >
-                    <option value="">Select technician...</option>
+                    <option value="">{t("select_technician")}</option>
                     {(users ?? []).filter((u) => u.role === "technician").map((u) => (
                       <option key={u.id} value={u.id}>{u.display_name} ({u.username})</option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Title *</label>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t("label_title")}</label>
                   <input
                     required
                     value={formTitle}
                     onChange={(e) => setFormTitle(e.target.value)}
-                    placeholder="e.g. RCA Insurance 2026"
+                    placeholder={t("placeholder_title")}
                     className="w-full px-3 py-2 border border-input-border rounded-lg bg-input text-foreground text-base sm:text-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Description</label>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t("label_description")}</label>
                   <textarea
                     value={formDescription}
                     onChange={(e) => setFormDescription(e.target.value)}
@@ -175,7 +179,7 @@ export default function InsurancePage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">File *</label>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t("label_file")}</label>
                   <input
                     type="file"
                     required
@@ -184,8 +188,8 @@ export default function InsurancePage() {
                   />
                 </div>
                 <div className="flex justify-end gap-3 pt-2">
-                  <button type="button" onClick={resetForm} className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700">Cancel</button>
-                  <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700">Upload</button>
+                  <button type="button" onClick={resetForm} className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700">{tc("cancel")}</button>
+                  <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700">{t("upload")}</button>
                 </div>
               </form>
             </div>
@@ -195,12 +199,12 @@ export default function InsurancePage() {
 
       {/* Files List */}
       {isLoading ? (
-        <div className="text-center py-12 text-slate-400">Loading...</div>
+        <div className="text-center py-12 text-slate-400">{tc("loading")}</div>
       ) : !files || files.length === 0 ? (
         <EmptyState
           icon={Shield}
-          message="No insurance files"
-          actionLabel={isManager ? "Upload a file" : undefined}
+          message={t("no_files")}
+          actionLabel={isManager ? t("upload_prompt") : undefined}
           onAction={isManager ? () => setShowUpload(true) : undefined}
         />
       ) : (
@@ -217,8 +221,8 @@ export default function InsurancePage() {
                   <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground mt-1">
                     <span>{f.file_name}</span>
                     <span>{formatSize(f.file_size)}</span>
-                    {f.user_display_name && showAll && <span>Assigned: {f.user_display_name}</span>}
-                    {f.uploaded_by_name && showAll && <span>Uploaded by: {f.uploaded_by_name}</span>}
+                    {f.user_display_name && showAll && <span>{t("assigned")} {f.user_display_name}</span>}
+                    {f.uploaded_by_name && showAll && <span>{t("uploaded_by")} {f.uploaded_by_name}</span>}
                     <span>{new Date(f.created_at).toLocaleDateString()}</span>
                   </div>
                 </div>
@@ -228,12 +232,12 @@ export default function InsurancePage() {
                   onClick={() => handleDownload(f)}
                   className="flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:hover:bg-blue-900/30 text-xs font-medium rounded-lg transition-colors"
                 >
-                  <Download className="w-3.5 h-3.5" /> Download
+                  <Download className="w-3.5 h-3.5" /> {t("download")}
                 </button>
                 {isManager && (showDeleteId === f.id ? (
                   <div className="flex items-center gap-1">
-                    <button onClick={() => { deleteMutation.mutate(f.id); setShowDeleteId(null); }} className="text-xs text-red-600 font-semibold px-2">Confirm</button>
-                    <button onClick={() => setShowDeleteId(null)} className="text-xs text-slate-400 px-2">Cancel</button>
+                    <button onClick={() => { deleteMutation.mutate(f.id); setShowDeleteId(null); }} className="text-xs text-red-600 font-semibold px-2">{tc("confirm")}</button>
+                    <button onClick={() => setShowDeleteId(null)} className="text-xs text-slate-400 px-2">{tc("cancel")}</button>
                   </div>
                 ) : (
                   <button onClick={() => setShowDeleteId(f.id)} className="flex items-center gap-1 px-3 py-1.5 text-xs text-red-500 hover:text-red-600 font-medium rounded-lg">

@@ -5,5 +5,6 @@ import jakarta.validation.constraints.Size
 
 data class UserUpdateMeRequest(
     @JsonProperty("display_name") @field:Size(min = 1) val displayName: String? = null,
-    @JsonProperty("notifications_enabled") val notificationsEnabled: Boolean? = null
+    @JsonProperty("notifications_enabled") val notificationsEnabled: Boolean? = null,
+    @JsonProperty("language") val language: String? = null
 )

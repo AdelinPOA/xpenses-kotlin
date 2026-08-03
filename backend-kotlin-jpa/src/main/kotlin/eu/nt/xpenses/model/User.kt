@@ -38,6 +38,9 @@ class User(
     @Column(name = "notifications_enabled", nullable = false)
     var notificationsEnabled: Boolean = true,
 
+    @Column(nullable = false)
+    var language: String = "en",
+
     @Column(name = "token_version", nullable = false)
     var tokenVersion: Int = 0,
 

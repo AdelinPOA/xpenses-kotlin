@@ -11,6 +11,7 @@ import { formatEur } from "@/lib/format";
 import ReceiptScanner from "./ReceiptScanner";
 import FxRateInput from "./FxRateInput";
 import ReceiptPreview from "./ReceiptPreview";
+import { useTranslations } from "next-intl";
 
 function sanitizeUrl(url: string): string {
   try {
@@ -46,6 +47,8 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
   const router = useRouter();
   const qc = useQueryClient();
   const isEdit = !!expense;
+  const t = useTranslations("expenses");
+  const tc = useTranslations("common");
 
   const [form, setForm] = useState<FormFields>({
     amount: expense?.amount_original?.toString() ?? "",
@@ -129,7 +132,7 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
   const items = [
     ...existingReceipts.map((r) => ({
       key: `existing-${r.id}`,
-      name: r.original_name || r.file_path.split("/").pop() || "Receipt",
+      name: r.original_name || r.file_path.split("/").pop() || t("mobile_receipt"),
       url: `${API_BASE_URL}/expenses/${expense!.id}/receipts/${r.id}`,
       isImage: /\.(jpg|jpeg|png|webp)$/i.test(r.file_path || r.original_name || ""),
       isPdf: /\.pdf$/i.test(r.file_path || r.original_name || ""),
@@ -167,7 +170,7 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
           ? await api.patch(`/expenses/${expense.id}`, payload).then((r) => r.data)
           : await api.post("/expenses", payload).then((r) => r.data);
       } catch (e: any) {
-        throw new Error(e.response?.data?.detail ?? "Failed to save expense details");
+        throw new Error(e.response?.data?.detail ?? t("error_save"));
       }
       try {
         for (const rid of deletedReceiptIds) await api.delete(`/expenses/${result.id}/receipts/${rid}`);
@@ -179,7 +182,7 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
       } catch (e: any) {
         qc.invalidateQueries({ queryKey: expenseKeys.all });
         qc.invalidateQueries({ queryKey: dashboardKeys.all });
-        throw new Error("Expense saved, but failed to upload or delete some receipts.");
+        throw new Error(t("error_receipt_upload"));
       }
       return result;
     },
@@ -194,7 +197,7 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
         router.push(destination);
       }
     },
-    onError: (e: any) => setError(e.message ?? e.response?.data?.detail ?? "Failed to save"),
+    onError: (e: any) => setError(e.message ?? e.response?.data?.detail ?? t("error_save_generic")),
   });
 
   const setField = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
@@ -258,9 +261,9 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
             await new Promise(resolve => setTimeout(resolve, 1500));
             const statusRes = await api.get(res.data.status_url, { signal: abortController.signal });
             if (statusRes.data.status === "completed") { result = statusRes.data.result; isCompleted = true; }
-            else if (statusRes.data.status === "failed") throw new Error(statusRes.data.error || "OCR job failed");
+            else if (statusRes.data.status === "failed") throw new Error(statusRes.data.error || t("error_ocr_job"));
           }
-          if (!isCompleted) throw new Error("OCR job timed out after 90 seconds");
+          if (!isCompleted) throw new Error(t("error_ocr_timeout"));
         } finally { abortController.abort(); }
       } else { result = res.data; }
       setScanResult(result!);
@@ -278,7 +281,7 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
       }));
       setReceiptFiles((prev) => [...prev, { id: crypto.randomUUID(), file }]);
     } catch (e: any) {
-      setError(e.response?.data?.detail ?? e.message ?? "OCR scan failed");
+      setError(e.response?.data?.detail ?? e.message ?? t("error_ocr_scan"));
     } finally { setIsScanning(false); }
   };
 
@@ -304,12 +307,12 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
         <button type="button" onClick={() => setActiveMobileTab('details')}
           className={clsx("flex-1 py-2 text-center text-xs font-semibold rounded-md transition-colors",
             activeMobileTab === 'details' ? "bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400" : "text-muted hover:bg-card-hover")}>
-          Details
+          {t("mobile_details")}
         </button>
         <button type="button" onClick={() => setActiveMobileTab('receipt')}
           className={clsx("flex-1 py-2 text-center text-xs font-semibold rounded-md transition-colors",
             activeMobileTab === 'receipt' ? "bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400" : "text-muted hover:bg-card-hover")}>
-          Receipt ({items.length})
+          {t("mobile_receipt")} ({items.length})
         </button>
       </div>
 
@@ -341,12 +344,12 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Amount *</label>
+              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("label_amount")}</label>
               <input type="number" step="0.01" min="0" inputMode="decimal" required value={form.amount} onChange={setField("amount")}
                 className="w-full border border-input-border rounded-lg px-3 py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Currency *</label>
+              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("label_currency")}</label>
               <select value={form.currency} onChange={setField("currency")}
                 className="w-full border border-input-border rounded-lg px-3 py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100">
                 {CURRENCIES.map((c) => (<option key={c} value={c}>{c}</option>))}
@@ -376,34 +379,34 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
           )}
 
           <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Date *</label>
+            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("label_date")}</label>
             <input type="date" required value={form.date} onChange={setField("date")}
               className="w-full border border-input-border rounded-lg px-3 py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100" />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Merchant</label>
-            <input type="text" value={form.merchant} onChange={setField("merchant")} placeholder="e.g. McDonald's, Uber"
+            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("label_merchant")}</label>
+            <input type="text" value={form.merchant} onChange={setField("merchant")} placeholder={t("placeholder_merchant")}
               className="w-full border border-input-border rounded-lg px-3 py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100" />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Category</label>
+            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("label_category")}</label>
             <select value={form.category_id} onChange={setField("category_id")}
               className="w-full border border-input-border rounded-lg px-3 py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100">
-              <option value="">— Select category —</option>
+              <option value="">{t("select_category")}</option>
               {categories?.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
             </select>
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Description</label>
-            <textarea value={form.description} onChange={setField("description")} rows={2} placeholder="Brief description..."
+            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("label_description")}</label>
+            <textarea value={form.description} onChange={setField("description")} rows={2} placeholder={t("placeholder_description")}
               className="w-full border border-input-border rounded-lg px-3 py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none dark:bg-slate-800 dark:text-slate-100" />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Receipts</label>
+            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("label_receipts")}</label>
             <input type="file" accept=".jpg,.jpeg,.png,.pdf,.webp" multiple onChange={addFiles}
               className="w-full text-base sm:text-sm text-slate-600 dark:text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:border file:border-slate-300 dark:file:border-slate-600 file:rounded-lg file:text-xs file:bg-slate-50 dark:file:bg-slate-800 hover:file:bg-slate-100 dark:hover:file:bg-slate-700" />
 
@@ -437,11 +440,11 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
           <div className="flex gap-3 pt-2">
             <button type="submit" disabled={save.isPending}
               className="px-5 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-hover disabled:opacity-50">
-              {save.isPending ? "Saving..." : isEdit ? "Save changes" : "Create expense"}
+              {save.isPending ? tc("saving") : isEdit ? t("save_changes") : t("create_expense")}
             </button>
             <button type="button" onClick={() => router.back()}
               className="px-5 py-2 border border-input-border text-slate-600 dark:text-slate-400 text-sm font-medium rounded-lg hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700">
-              Cancel
+              {tc("cancel")}
             </button>
           </div>
         </form>

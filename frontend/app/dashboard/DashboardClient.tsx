@@ -12,6 +12,8 @@ import EmptyState from "@/components/ui/EmptyState";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
+import { useToast } from "@/components/ToastProvider";
+import { useReviewQueueActions } from "@/lib/reviewQueueActions";
 import clsx from "clsx";
 import { 
   Bell, Download, Plus, ChevronDown, 
@@ -52,6 +54,7 @@ export default function DashboardClient() {
   const tc = useTranslations("common");
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
+  const toast = useToast();
   const isOrgWideRole = user?.role === "chef_finance" || user?.role === "mod";
   const [showAll, setShowAll] = useState(false);
 
@@ -61,8 +64,10 @@ export default function DashboardClient() {
 
   const canToggle = user?.role === "chef_finance" || user?.role === "mod" || user?.role === "manager";
   const isManagerRole = user?.role === "manager" || user?.role === "chef_finance" || user?.role === "mod";
+  const canManageReviews = user?.role === "manager" || user?.role === "chef_finance";
   const isManagerWorkHub = user?.role === "manager";
   const [selectedReportId, setSelectedReportId] = useState<number | null>(null);
+  const [reviewActionError, setReviewActionError] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery<DashboardStats>({
     queryKey: [...dashboardKeys.all, user?.id, "all", showAll],
@@ -79,14 +84,23 @@ export default function DashboardClient() {
     staleTime: 30_000,
   });
 
-  const handleApproveReport = async (reportId: number, e: React.MouseEvent) => {
+  const reviewActions = useReviewQueueActions({
+    approveErrorMessage: t("failed_approve"),
+    rejectErrorMessage: t("failed_reject"),
+    onSuccess: (action) => {
+      setReviewActionError(null);
+      setSelectedReportId(null);
+      toast.success(action === "approve" ? tc("approve") : tc("reject"));
+    },
+    onError: (message) => {
+      setReviewActionError(message);
+      toast.error(message);
+    },
+  });
+
+  const handleApproveReport = (reportId: number, e: React.MouseEvent) => {
     e.stopPropagation();
-    try {
-      await api.post(`/reports/${reportId}/approve`);
-      refetchManagerStats();
-    } catch (err) {
-      console.error("Approve report error", err);
-    }
+    reviewActions.approve.mutate(reportId);
   };
 
   const handleRejectReport = (reportId: number, e: React.MouseEvent) => {
@@ -214,28 +228,41 @@ export default function DashboardClient() {
 
         {/* ── MANAGER WORKFLOW DASHBOARD ────────────────────────────────────────── */}
         {isManagerRole && managerStats && (
-          <div className="space-y-6 mb-8 border-b border-border pb-8">
-            <div>
-              <h2 className="text-xl font-bold text-foreground">{t("manager_work_hub")}</h2>
-              <p className="mt-1 text-sm text-muted-foreground">{t("manager_work_hub_subtitle")}</p>
+          <section className="space-y-5 border-b border-border pb-8">
+            <div className="flex flex-col gap-4 border-l-4 border-primary pl-4 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">{t("review_desk")}</p>
+                <h2 className="mt-1 text-2xl font-bold text-foreground">{t("manager_work_hub")}</h2>
+                <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{t("manager_work_hub_subtitle")}</p>
+              </div>
+              <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
+                <span className="border-l border-border pl-3 font-semibold text-foreground">
+                  {t("reports_ready", { count: canManageReviews ? managerStats.pending_reports.length : 0 })}
+                </span>
+                <span className="border-l border-border pl-3 font-semibold text-foreground">
+                  {t("advances_ready", { count: managerStats.pending_advances.length })}
+                </span>
+              </div>
             </div>
 
-            <PendingReportsTable
-              reports={managerStats.pending_reports}
-              onSelectReport={(id) => setSelectedReportId(id)}
-              onApprove={handleApproveReport}
-              onReject={handleRejectReport}
-            />
+            <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1.65fr)_minmax(19rem,0.85fr)]">
+              <PendingReportsTable
+                reports={canManageReviews ? managerStats.pending_reports : []}
+                onSelectReport={(id) => setSelectedReportId(id)}
+                onApprove={handleApproveReport}
+                onReject={handleRejectReport}
+              />
 
-            <PendingAdvancesList
-              advances={managerStats.pending_advances}
-              onSelectAdvance={(reportId) => setSelectedReportId(reportId)}
-              onPay={handlePayAdvance}
-              onReject={handleRejectAdvance}
-            />
+              <PendingAdvancesList
+                advances={managerStats.pending_advances}
+                onSelectAdvance={(reportId) => setSelectedReportId(reportId)}
+                onPay={handlePayAdvance}
+                onReject={handleRejectAdvance}
+              />
+            </div>
 
             <RecentActivityStream activities={managerStats.recent_activity} />
-          </div>
+          </section>
         )}
 
         {/* 2x2 Desktop Grid */}
@@ -426,8 +453,14 @@ export default function DashboardClient() {
 
         {isManagerWorkHub && managerStats ? (
           <>
+            <div className="border-l-4 border-primary pl-3">
+              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-primary">{t("review_desk")}</p>
+              <p className="mt-1 text-sm font-semibold text-muted-foreground">
+                {t("reports_ready", { count: managerStats.pending_reports.length })}
+              </p>
+            </div>
             <PendingReportsTable
-              reports={managerStats.pending_reports}
+              reports={canManageReviews ? managerStats.pending_reports : []}
               onSelectReport={(id) => setSelectedReportId(id)}
               onApprove={handleApproveReport}
               onReject={handleRejectReport}
@@ -525,6 +558,10 @@ export default function DashboardClient() {
           setSelectedReportId(null);
           refetchManagerStats();
         }}
+        onApprove={() => selectedReportId !== null && reviewActions.approve.mutate(selectedReportId)}
+        onReject={(reason) => selectedReportId !== null && reviewActions.reject.mutate({ id: selectedReportId, reason })}
+        actionPending={reviewActions.approve.isPending || reviewActions.reject.isPending}
+        actionError={reviewActionError}
       />
     </AppShell>
   );

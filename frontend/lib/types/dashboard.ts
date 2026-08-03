@@ -1,4 +1,5 @@
 import type { Expense } from "./expense";
+import type { ReviewQueueItem } from "./reviewQueue";
 
 export interface DashboardStats {
   expense_count_total: number;
@@ -27,19 +28,7 @@ export interface ManagerKpis {
   avg_turnaround_days: number;
 }
 
-export interface PendingReportSummary {
-  id: number;
-  title: string;
-  user_id: number;
-  user_name: string;
-  date_submitted: string | null;
-  date_from: string | null;
-  date_to: string | null;
-  total_amount_eur: number;
-  expense_count: number;
-  description: string | null;
-  status: string;
-}
+export type PendingReportSummary = ReviewQueueItem;
 
 export interface PendingAdvanceSummary {
   id: number;

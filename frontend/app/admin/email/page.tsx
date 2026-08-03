@@ -12,6 +12,7 @@ import AppShell from "@/components/layout/AppShell";
 import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/ToastProvider";
 import { Banknote, XCircle } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 type FormState = Omit<SmtpConfig, "smtp_port"> & { smtp_port: string };
 
@@ -71,6 +72,7 @@ export default function EmailAdminPage() {
   const router = useRouter();
   const qc = useQueryClient();
   const toast = useToast();
+  const t = useTranslations("admin");
 
   const [pwChanged, setPwChanged] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -107,15 +109,15 @@ export default function EmailAdminPage() {
   const saveMutation = useMutation({
     mutationFn: (payload: SmtpConfig) => api.patch("/settings/email", payload),
     onSuccess: () => {
-      toast.success("Configuration saved successfully");
+      toast.success(t("config_saved"));
       setSaveError(null);
       setPwChanged(false);
       qc.invalidateQueries({ queryKey: emailKeys.all });
     },
     onError: (e: unknown) => {
-      const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? "Save failed";
+      const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? t("failed_save");
       setSaveError(msg);
-      toast.error(`Failed to save settings: ${msg}`);
+      toast.error(`${t("failed_save")}: ${msg}`);
     },
   });
 
@@ -157,13 +159,13 @@ export default function EmailAdminPage() {
       });
       setTestResult(res.data);
       if (res.data.success) {
-        toast.success("SMTP test email sent successfully!");
+        toast.success(t("smtp_test_sent"));
       } else {
-        toast.error(`SMTP test connection failed: ${res.data.message}`);
+        toast.error(`${t("connection_failed")}: ${res.data.message}`);
       }
     } catch {
       setTestResult({ success: false, message: "Test request failed" });
-      toast.error("SMTP test connection failed: Request error");
+      toast.error(t("connection_failed"));
     } finally {
       setTesting(false);
     }
@@ -172,7 +174,7 @@ export default function EmailAdminPage() {
   return (
     <AppShell>
       <form onSubmit={handleSubmit(onSubmit)} className="max-w-2xl mx-auto px-4 py-8 space-y-6">
-        <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">Email / SMTP Settings</h1>
+        <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">{t("email_heading")}</h1>
 
         {saveError && (
           <div className="bg-rose-50 border-l-4 border-rose-500 text-rose-700 dark:bg-rose-950/20 dark:text-rose-300 rounded-r-lg p-4 text-sm flex items-start gap-2 shadow-sm transition-all duration-200">
@@ -195,12 +197,12 @@ export default function EmailAdminPage() {
               className="h-4 w-4 rounded border-input-border text-blue-600 focus:ring-primary/20 focus:ring-2 focus:ring-offset-0 transition-all duration-200"
               {...register("emails_enabled")}
             />
-            <span className="text-slate-700 dark:text-slate-300 font-medium">Enable email notifications</span>
+            <span className="text-slate-700 dark:text-slate-300 font-medium">{t("enable_email_notifications")}</span>
           </label>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-muted mb-1.5">Host</label>
+              <label className="block text-xs font-semibold text-muted mb-1.5">{t("smtp_host")}</label>
               <input
                 className="w-full border rounded-lg px-3 py-2 text-base sm:text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
                 {...register("smtp_host")}
@@ -211,7 +213,7 @@ export default function EmailAdminPage() {
               )}
             </div>
             <div>
-              <label className="block text-xs font-semibold text-muted mb-1.5">Port</label>
+              <label className="block text-xs font-semibold text-muted mb-1.5">{t("smtp_port")}</label>
               <input
                 type="text"
                 inputMode="numeric"
@@ -229,7 +231,7 @@ export default function EmailAdminPage() {
         <section className="bg-card border border-border rounded-xl p-6 shadow-sm space-y-4">
           <h2 className="text-sm font-semibold uppercase tracking-wider text-muted">Credentials & Sender</h2>
           <div>
-            <label className="block text-xs font-semibold text-muted mb-1.5">Username</label>
+            <label className="block text-xs font-semibold text-muted mb-1.5">{t("smtp_user")}</label>
             <input
               className="w-full border rounded-lg px-3 py-2 text-base sm:text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
               {...register("smtp_user")}
@@ -237,7 +239,7 @@ export default function EmailAdminPage() {
             />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-muted mb-1.5">Password</label>
+            <label className="block text-xs font-semibold text-muted mb-1.5">{t("smtp_password")}</label>
             <div className="space-y-1.5">
               <input
                 type="password"
@@ -247,7 +249,7 @@ export default function EmailAdminPage() {
                   setValue("smtp_pass", e.target.value, { shouldDirty: true });
                   setPwChanged(true);
                 }}
-                placeholder={passwordSet ? "••••••••" : "SMTP Password"}
+                placeholder={passwordSet ? "••••••••" : t("smtp_password")}
               />
               {passwordSet && !pwChanged && (
                 <span className="text-[10px] text-slate-400 block font-medium">(currently set)</span>
@@ -255,7 +257,7 @@ export default function EmailAdminPage() {
             </div>
           </div>
           <div>
-            <label className="block text-xs font-semibold text-muted mb-1.5">From Address</label>
+            <label className="block text-xs font-semibold text-muted mb-1.5">{t("smtp_from")}</label>
             <input
               type="text"
               className="w-full border rounded-lg px-3 py-2 text-base sm:text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
@@ -274,7 +276,7 @@ export default function EmailAdminPage() {
             disabled={saveMutation.isPending}
             className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-hover active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none transition-all duration-200 shadow-sm shadow-blue-500/10"
           >
-            {saveMutation.isPending ? "Saving…" : "Save Configuration"}
+            {saveMutation.isPending ? t("saving") : t("save")}
           </button>
         </div>
 

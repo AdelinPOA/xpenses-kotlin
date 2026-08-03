@@ -10,11 +10,14 @@ import { useAuth } from "@/components/AuthProvider";
 import { Check, X } from "lucide-react";
 import Link from "next/link";
 import { formatAmount } from "@/lib/format";
+import { useTranslations } from "next-intl";
 
 export default function GlobalAdvancesPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const qc = useQueryClient();
+  const t = useTranslations("advances");
+  const tc = useTranslations("common");
 
   const isAllowed = user?.role === "manager" || user?.role === "chef_finance" || user?.role === "mod";
 
@@ -81,15 +84,15 @@ export default function GlobalAdvancesPage() {
   return (
     <AppShell>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground">Advance Requests</h1>
-        <p className="text-sm text-muted mt-1">Pending advance payment requests from technicians</p>
+        <h1 className="text-2xl font-bold text-foreground">{t("heading")}</h1>
+        <p className="text-sm text-muted mt-1">{t("subtitle")}</p>
       </div>
 
       {isLoading ? (
-        <p className="text-muted-foreground text-sm">Loading...</p>
+        <p className="text-muted-foreground text-sm">{tc("loading")}</p>
       ) : pending.length === 0 ? (
         <div className="bg-card rounded-xl shadow-sm p-8 text-center">
-          <p className="text-muted-foreground text-sm">No pending advance requests</p>
+          <p className="text-muted-foreground text-sm">{t("no_requests")}</p>
         </div>
       ) : (
         <div className="bg-card rounded-xl shadow-sm">
@@ -125,14 +128,14 @@ export default function GlobalAdvancesPage() {
                       }}
                       className="text-xs px-2 py-1 bg-emerald-600 text-white rounded hover:bg-emerald-700"
                     >
-                      Pay
+                      {tc("paid")}
                     </button>
                     <button
                       onClick={() => rejectAdvance.mutate({ reportId: a.report_id, advanceId: a.id })}
                       disabled={rejectAdvance.isPending}
                       className="text-xs px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
                     >
-                      Reject
+                      {tc("rejected")}
                     </button>
                   </div>
                 </div>
@@ -145,12 +148,12 @@ export default function GlobalAdvancesPage() {
             <table className="w-full text-sm">
               <thead className="bg-slate-50 dark:bg-slate-800 text-xs text-muted uppercase">
                 <tr>
-                  <th className="text-left px-4 py-3">Technician</th>
-                  <th className="text-left px-4 py-3">Report</th>
-                  <th className="text-right px-4 py-3">Requested Amount</th>
-                  <th className="text-left px-4 py-3">Description</th>
-                  <th className="text-left px-4 py-3">Date Requested</th>
-                  <th className="text-right px-4 py-3">Actions</th>
+                  <th className="text-left px-4 py-3">{t("technician")}</th>
+                  <th className="text-left px-4 py-3">{t("report")}</th>
+                  <th className="text-right px-4 py-3">{t("requested_amount")}</th>
+                  <th className="text-left px-4 py-3">{t("description")}</th>
+                  <th className="text-left px-4 py-3">{t("date_requested")}</th>
+                  <th className="text-right px-4 py-3">{t("actions")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -180,14 +183,14 @@ export default function GlobalAdvancesPage() {
                           }}
                           className="text-xs px-2 py-1 bg-emerald-600 text-white rounded hover:bg-emerald-700"
                         >
-                          Pay
+                          {tc("paid")}
                         </button>
                         <button
                           onClick={() => rejectAdvance.mutate({ reportId: a.report_id, advanceId: a.id })}
                           disabled={rejectAdvance.isPending}
                           className="text-xs px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
                         >
-                          Reject
+                          {tc("rejected")}
                         </button>
                       </div>
                     </td>
@@ -203,7 +206,7 @@ export default function GlobalAdvancesPage() {
       {payingId && (
         <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50 rounded-xl p-4 mt-4">
           <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">
-            Set payment amount:
+            {t("set_payment")}
           </p>
           <div className="flex flex-col sm:flex-row gap-3">
             <input
@@ -216,7 +219,7 @@ export default function GlobalAdvancesPage() {
               type="number"
               step="0.01"
               min="0"
-              placeholder="Final amount"
+              placeholder={t("final_amount")}
               value={payAmount}
               onChange={(e) => setPayAmount(e.target.value)}
               className="px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground w-32"
@@ -234,13 +237,13 @@ export default function GlobalAdvancesPage() {
               className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 disabled:opacity-50"
             >
               <Check className="w-4 h-4" />
-              {payAdvance.isPending ? "Paying..." : "Confirm payment"}
+              {payAdvance.isPending ? t("paying") : t("confirm_payment")}
             </button>
             <button
               onClick={() => { setPayingId(null); setPayReportId(null); }}
               className="flex items-center gap-2 px-4 py-2 border border-input-border text-slate-600 dark:text-slate-400 text-sm rounded-lg hover:bg-card-hover"
             >
-              <X className="w-4 h-4" /> Cancel
+              <X className="w-4 h-4" /> {tc("cancel")}
             </button>
           </div>
         </div>

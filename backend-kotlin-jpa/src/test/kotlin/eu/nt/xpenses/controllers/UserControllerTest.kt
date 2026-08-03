@@ -107,4 +107,51 @@ class UserControllerTest : IntegrationTestBase() {
             .andExpect(status().`is`(409))
             .andExpect(jsonPath("$.detail").isString)
     }
+
+    @Test
+    fun `PATCH me with language ro updates language`() {
+        val cookie = authHelper.loginAs("tech1", "tech1")
+        mockMvc.perform(
+            patch("/api/users/me")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"language":"ro"}""")
+                .cookie(cookie)
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.language").value("ro"))
+    }
+
+    @Test
+    fun `PATCH me with invalid language returns 400`() {
+        val cookie = authHelper.loginAs("tech1", "tech1")
+        mockMvc.perform(
+            patch("/api/users/me")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"language":"xx"}""")
+                .cookie(cookie)
+        )
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.detail").isString)
+    }
+
+    @Test
+    fun `PATCH me without language leaves existing value unchanged`() {
+        val cookie = authHelper.loginAs("tech1", "tech1")
+        mockMvc.perform(
+            patch("/api/users/me")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"display_name":"Updated Name"}""")
+                .cookie(cookie)
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.language").value("en"))
+    }
+
+    @Test
+    fun `GET me returns language field`() {
+        val cookie = authHelper.loginAs("tech1", "tech1")
+        mockMvc.perform(get("/api/auth/me").cookie(cookie))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.language").isString)
+    }
 }

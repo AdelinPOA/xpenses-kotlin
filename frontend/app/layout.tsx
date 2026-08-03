@@ -51,6 +51,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             document.documentElement.classList.toggle('dark', isDark);
           } catch (_) {}
         `}</Script>
+        <Script id="lang-init" strategy="beforeInteractive">{`
+          try {
+            const match = document.cookie.match(/(?:^|; )lang=([^;]*)/);
+            const lang = match ? decodeURIComponent(match[1]) : 'en';
+            document.documentElement.lang = (lang === 'ro') ? 'ro' : 'en';
+          } catch (_) {}
+        `}</Script>
       </head>
       <body>
         <Providers>

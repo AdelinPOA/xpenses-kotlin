@@ -11,6 +11,7 @@ import { ldapKeys } from "@/lib/queryKeys";
 import AppShell from "@/components/layout/AppShell";
 import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/ToastProvider";
+import { useTranslations } from "next-intl";
 
 const ROLE_OPTIONS = ["technician", "manager", "chef_finance", "mod"];
 
@@ -104,6 +105,7 @@ export default function LdapAdminPage() {
   const router = useRouter();
   const qc = useQueryClient();
   const toast = useToast();
+  const t = useTranslations("admin");
 
   const [pwChanged, setPwChanged] = useState(false);
   const [roleEntries, setRoleEntries] = useState<RoleMapEntry[]>([]);
@@ -147,7 +149,7 @@ export default function LdapAdminPage() {
   const saveMutation = useMutation({
     mutationFn: (payload: LdapConfig) => api.patch("/settings/ldap", payload),
     onSuccess: () => {
-      toast.success("LDAP configuration saved successfully");
+      toast.success(t("config_saved"));
       setSaveError(null);
       setPwChanged(false);
       setRoleEntriesDirty(false);
@@ -155,9 +157,9 @@ export default function LdapAdminPage() {
       qc.invalidateQueries({ queryKey: ldapKeys.all });
     },
     onError: (e: unknown) => {
-      const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? "Save failed";
+      const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? t("failed_save");
       setSaveError(msg);
-      toast.error(`Failed to save LDAP settings: ${msg}`);
+      toast.error(`${t("failed_save")}: ${msg}`);
     },
   });
 
@@ -200,13 +202,13 @@ export default function LdapAdminPage() {
       const res = await api.post<LdapTestResult>("/settings/ldap/test", payload);
       setTestResult(res.data);
       if (res.data.ok) {
-        toast.success("LDAP test connection successful!");
+        toast.success(t("ldap_test_successful"));
       } else {
-        toast.error(`LDAP test connection failed: ${res.data.error}`);
+        toast.error(`${t("connection_failed")}: ${res.data.error}`);
       }
     } catch {
       setTestResult({ ok: false, preview: [], error: "Request failed" });
-      toast.error("LDAP test connection failed: Request error");
+      toast.error(t("connection_failed"));
     } finally {
       setTesting(false);
     }
@@ -219,11 +221,11 @@ export default function LdapAdminPage() {
     try {
       const res = await api.post<LdapSyncResult>("/settings/ldap/sync");
       setSyncResult(res.data);
-      toast.success("LDAP user sync completed successfully!");
+      toast.success(t("ldap_sync_complete"));
     } catch (e: unknown) {
       const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? "Sync failed";
       setSyncError(msg);
-      toast.error(`LDAP user sync failed: ${msg}`);
+      toast.error(`${t("failed_save")}: ${msg}`);
     } finally {
       setSyncing(false);
     }
@@ -236,7 +238,7 @@ export default function LdapAdminPage() {
   return (
     <AppShell>
       <form onSubmit={handleSubmit(onSubmit)} className="max-w-2xl mx-auto px-4 py-8 space-y-6">
-        <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">LDAP / Active Directory</h1>
+        <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">{t("ldap_heading")}</h1>
 
         {data?.bind_password_invalid && (
           <div className="bg-amber-50 border-l-4 border-amber-500 text-amber-800 dark:bg-amber-950/20 dark:text-amber-300 rounded-r-lg p-4 text-sm flex items-start gap-2 shadow-sm transition-all duration-200">
@@ -264,7 +266,7 @@ export default function LdapAdminPage() {
               className="h-4 w-4 rounded border-input-border text-blue-600 focus:ring-primary/20 focus:ring-2 focus:ring-offset-0 transition-all duration-200"
               {...register("enabled")}
             />
-            <span className="text-slate-700 dark:text-slate-300 font-medium">Enable LDAP authentication</span>
+            <span className="text-slate-700 dark:text-slate-300 font-medium">{t("enable_ldap")}</span>
           </label>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -468,7 +470,7 @@ export default function LdapAdminPage() {
             disabled={saveMutation.isPending}
             className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-hover active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none transition-all duration-200 shadow-sm shadow-blue-500/10"
           >
-            {saveMutation.isPending ? "Saving…" : "Save"}
+            {saveMutation.isPending ? t("saving") : t("save")}
           </button>
           <button
             type="button"
@@ -476,7 +478,7 @@ export default function LdapAdminPage() {
             disabled={testing}
             className="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium bg-white hover:bg-slate-50 dark:bg-transparent dark:border-slate-700 dark:hover:bg-slate-800 dark:text-slate-200 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none transition-all duration-200"
           >
-            {testing ? "Testing…" : "Test Connection"}
+            {testing ? t("testing") : t("test_connection")}
           </button>
           <button
             type="button"
@@ -484,7 +486,7 @@ export default function LdapAdminPage() {
             disabled={!enabled || syncing}
             className="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium bg-white hover:bg-slate-50 dark:bg-transparent dark:border-slate-700 dark:hover:bg-slate-800 dark:text-slate-200 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none transition-all duration-200"
           >
-            {syncing ? "Syncing…" : "Sync Now"}
+            {syncing ? t("syncing") : t("sync_now")}
           </button>
         </div>
 
@@ -501,7 +503,7 @@ export default function LdapAdminPage() {
                         <div key={i} className="py-2">
                           <p className="text-slate-700 dark:text-slate-300 font-medium">{u.username}</p>
                           <p className="text-slate-600 dark:text-slate-400 text-[11px] mt-0.5">{u.email}</p>
-                          <p className="text-slate-700 dark:text-slate-300 text-[11px] mt-0.5">Role: {u.mapped_role}</p>
+                          <p className="text-slate-700 dark:text-slate-300 text-[11px] mt-0.5">{t("role")}: {u.mapped_role}</p>
                         </div>
                       ))}
                     </div>
@@ -509,7 +511,7 @@ export default function LdapAdminPage() {
                     {/* Desktop: table */}
                     <div className="hidden md:block overflow-x-auto">
                       <table className="w-full text-xs">
-                        <thead><tr className="text-left text-muted font-semibold"><th className="pb-2 pr-3">Username</th><th className="pb-2 pr-3">Email</th><th className="pb-2">Mapped role</th></tr></thead>
+                        <thead><tr className="text-left text-muted font-semibold"><th className="pb-2 pr-3">{t("username")}</th><th className="pb-2 pr-3">{t("email")}</th><th className="pb-2">{t("role")}</th></tr></thead>
                         <tbody className="divide-y divide-emerald-100 dark:divide-emerald-900/10">{testResult.preview.map((u, i) => <tr key={i}><td className="py-2 pr-3 text-slate-700 dark:text-slate-300 font-medium">{u.username}</td><td className="py-2 pr-3 text-slate-600 dark:text-slate-400">{u.email}</td><td className="py-2 text-slate-700 dark:text-slate-300">{u.mapped_role}</td></tr>)}</tbody>
                       </table>
                     </div>
@@ -524,7 +526,7 @@ export default function LdapAdminPage() {
 
         {syncResult && (
           <div className="bg-slate-50 border-l-4 border-slate-500 rounded-r-lg p-4 text-sm dark:bg-slate-900 dark:border-slate-800 shadow-sm flex flex-col gap-1">
-            <span className="font-semibold text-foreground">Sync complete</span>
+            <span className="font-semibold text-foreground">{t("sync_complete")}</span>
             <span className="text-slate-600 dark:text-slate-400 text-xs">Created: {syncResult.created}  |  Updated: {syncResult.updated}  |  Deactivated: {syncResult.deactivated}  |  Skipped: {syncResult.skipped}  |  Default role assigned: {syncResult.default_role_assigned}</span>
           </div>
         )}

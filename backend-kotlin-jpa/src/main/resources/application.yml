@@ -89,6 +89,12 @@ bucket4j:
 imap:
   poll-interval: ${IMAP_POLL_INTERVAL:300000}
 
+ocr:
+  cache:
+    retention-days: ${OCR_CACHE_RETENTION_DAYS:90}
+    cleanup-interval: ${OCR_CACHE_CLEANUP_INTERVAL:86400000}
+    cleanup-batch-size: ${OCR_CACHE_CLEANUP_BATCH_SIZE:100}
+
 springdoc:
   api-docs:
     enabled: ${SWAGGER_ENABLED:false}
@@ -97,5 +103,4 @@ springdoc:
 
 server:
   forward-headers-strategy: framework
-
 

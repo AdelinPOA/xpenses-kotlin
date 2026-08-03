@@ -7,10 +7,13 @@ import { settingsKeys } from "@/lib/queryKeys";
 import AppShell from "@/components/layout/AppShell";
 import { useAuth } from "@/components/AuthProvider";
 import { Settings, Save } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 export default function SettingsClient() {
   const { user } = useAuth();
   const qc = useQueryClient();
+  const t = useTranslations("admin");
+  const tc = useTranslations("common");
 
   const { data: rates, isLoading: ratesLoading } = useQuery<MileageRates>({
     queryKey: settingsKeys.mileageRates(),
@@ -69,31 +72,31 @@ export default function SettingsClient() {
   };
 
   if (user?.role !== "chef_finance") {
-    return <AppShell><p className="text-red-500 text-sm">Access denied</p></AppShell>;
+    return <AppShell><p className="text-red-500 text-sm">{t("access_denied")}</p></AppShell>;
   }
 
-  if (ratesLoading || allowanceLoading) return <AppShell><p className="text-slate-400 text-sm mt-8">Loading...</p></AppShell>;
+  if (ratesLoading || allowanceLoading) return <AppShell><p className="text-slate-400 text-sm mt-8">{tc("loading")}</p></AppShell>;
 
   return (
     <AppShell>
       <div className="mb-6">
         <div className="flex items-center gap-3">
           <Settings className="w-6 h-6 text-muted" />
-          <h1 className="text-2xl font-bold text-foreground">Settings</h1>
+          <h1 className="text-2xl font-bold text-foreground">{t("settings_heading")}</h1>
         </div>
       </div>
 
       <div className="space-y-6 max-w-lg">
         <div className="bg-card rounded-xl shadow-sm p-6">
-          <h2 className="text-lg font-semibold text-foreground mb-4">Mileage Rates</h2>
+          <h2 className="text-lg font-semibold text-foreground mb-4">{t("mileage_rates")}</h2>
           <p className="text-sm text-muted mb-6">
-            These rates apply to new mileage records. Existing records keep their historical rates.
+            {t("mileage_rates_description")}
           </p>
 
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                Rate Before Tax (€/km)
+                {t("rate_before_tax")}
               </label>
               <input
                 type="number"
@@ -108,7 +111,7 @@ export default function SettingsClient() {
 
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                Rate After Tax (€/km)
+                {t("rate_after_tax")}
               </label>
               <input
                 type="number"
@@ -127,25 +130,25 @@ export default function SettingsClient() {
               className="flex items-center gap-2 px-4 py-2 bg-slate-800 dark:bg-slate-700 text-white text-sm font-medium rounded-lg hover:bg-slate-900 dark:hover:bg-slate-600 disabled:opacity-50 transition-colors"
             >
               <Save className="w-4 h-4" />
-              {updateRates.isPending ? "Saving..." : "Save Rates"}
+              {updateRates.isPending ? t("saving") : t("save")}
             </button>
 
             {updateRates.isSuccess && (
-              <p className="text-sm text-emerald-600 dark:text-emerald-400">Rates updated successfully.</p>
+              <p className="text-sm text-emerald-600 dark:text-emerald-400">{t("config_saved")}</p>
             )}
           </div>
         </div>
 
         <div className="bg-card rounded-xl shadow-sm p-6">
-          <h2 className="text-lg font-semibold text-foreground mb-4">Daily Allowance</h2>
+          <h2 className="text-lg font-semibold text-foreground mb-4">{t("daily_allowance")}</h2>
           <p className="text-sm text-muted mb-6">
-            Per-diem rate added automatically to reports based on the number of travel days.
+            {t("daily_allowance_description")}
           </p>
 
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                Daily Allowance Rate (€/day)
+                {t("daily_allowance_rate")}
               </label>
               <input
                 type="number"
@@ -164,11 +167,11 @@ export default function SettingsClient() {
               className="flex items-center gap-2 px-4 py-2 bg-slate-800 dark:bg-slate-700 text-white text-sm font-medium rounded-lg hover:bg-slate-900 dark:hover:bg-slate-600 disabled:opacity-50 transition-colors"
             >
               <Save className="w-4 h-4" />
-              {updateAllowance.isPending ? "Saving..." : "Save Allowance"}
+              {updateAllowance.isPending ? t("saving") : t("save")}
             </button>
 
             {updateAllowance.isSuccess && (
-              <p className="text-sm text-emerald-600 dark:text-emerald-400">Daily allowance updated successfully.</p>
+              <p className="text-sm text-emerald-600 dark:text-emerald-400">{t("config_saved")}</p>
             )}
           </div>
         </div>

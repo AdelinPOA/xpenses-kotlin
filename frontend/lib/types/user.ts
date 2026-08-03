@@ -8,6 +8,7 @@ export interface User {
   auth_source: "local" | "ldap";
   has_signature?: boolean;
   notifications_enabled?: boolean;
+  language?: string;
   created_at: string;
   updated_at: string;
 }

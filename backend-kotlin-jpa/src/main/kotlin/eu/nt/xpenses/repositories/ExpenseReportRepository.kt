@@ -1,6 +1,7 @@
 package eu.nt.xpenses.repositories
 
 import eu.nt.xpenses.model.ExpenseReport
+import eu.nt.xpenses.report.review.ReviewQueueProjection
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.EntityGraph
@@ -25,6 +26,35 @@ interface ExpenseReportRepository : JpaRepository<ExpenseReport, Int> {
 
     @Query("SELECT DISTINCT r FROM ExpenseReport r LEFT JOIN FETCH r.expenses LEFT JOIN FETCH r.user WHERE r.status = :status ORDER BY r.id DESC")
     fun findAllByStatusWithExpenses(@Param("status") status: String): List<ExpenseReport>
+
+    @Query("""
+        SELECT new eu.nt.xpenses.report.review.ReviewQueueProjection(
+            r.id,
+            r.title,
+            u.id,
+            u.displayName,
+            r.submittedAt,
+            r.dateFrom,
+            r.dateTo,
+            r.description,
+            COUNT(e),
+            r.totalAmount,
+            r.currency,
+            r.status
+        )
+        FROM ExpenseReport r
+        JOIN r.user u
+        LEFT JOIN r.expenses e
+        WHERE r.status = 'submitted'
+          AND u.id <> :actorId
+        GROUP BY r.id, r.title, u.id, u.displayName, r.submittedAt,
+                 r.dateFrom, r.dateTo, r.description, r.totalAmount,
+                 r.currency, r.status
+        ORDER BY CASE WHEN r.submittedAt IS NULL THEN 1 ELSE 0 END,
+                 r.submittedAt ASC,
+                 r.id ASC
+    """)
+    fun findReviewQueue(@Param("actorId") actorId: Int): List<ReviewQueueProjection>
 
     @Query("SELECT DISTINCT r FROM ExpenseReport r LEFT JOIN FETCH r.expenses LEFT JOIN FETCH r.user WHERE r.user.id = :userId AND r.status = :status ORDER BY r.id DESC")
     fun findAllByUserIdAndStatusWithExpenses(@Param("userId") userId: Int, @Param("status") status: String): List<ExpenseReport>

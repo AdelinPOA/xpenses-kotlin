@@ -8,6 +8,7 @@ import { reportKeys, expenseKeys, dashboardKeys } from "@/lib/queryKeys";
 import AppShell from "@/components/layout/AppShell";
 import Badge from "@/components/ui/Badge";
 import { formatEur } from "@/lib/format";
+import { useTranslations } from "next-intl";
 
 export default function NewReportPage() {
   const router = useRouter();
@@ -20,6 +21,7 @@ export default function NewReportPage() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [currency, setCurrency] = useState("EUR");
   const [error, setError] = useState("");
+  const t = useTranslations("reports");
 
   const { data: draftExpenses } = useQuery<Expense[]>({
     queryKey: expenseKeys.list({ status: "draft" }),
@@ -51,7 +53,7 @@ export default function NewReportPage() {
       qc.invalidateQueries({ queryKey: dashboardKeys.all });
       router.push(`/reports/${report.id}`);
     },
-    onError: (e: any) => setError(e.response?.data?.detail ?? "Failed to create report"),
+    onError: (e: any) => setError(e.response?.data?.detail ?? t("new_error_create")),
   });
 
   const toggleExpense = (id: number) => {
@@ -65,31 +67,31 @@ export default function NewReportPage() {
   return (
     <AppShell>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground">New Report</h1>
+        <h1 className="text-2xl font-bold text-foreground">{t("new_title")}</h1>
         <p className="text-muted text-sm mt-1">
-          Create a report and optionally attach draft expenses to submit them together.
+          {t("new_description")}
         </p>
       </div>
 
       <div className="max-w-2xl space-y-6">
         <div className="bg-card rounded-xl shadow-sm p-6 space-y-4">
-          <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Report details</h2>
+          <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">{t("new_section_details")}</h2>
           {error && <p className="text-red-600 text-sm">{error}</p>}
 
           <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Title *</label>
+            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("new_label_title")}</label>
             <input
               required
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. March 2026 travel expenses"
+              placeholder={t("new_placeholder_title")}
               className="w-full border border-input-border rounded-lg px-3 py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100"
             />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Date from *</label>
+              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("new_label_date_from")}</label>
               <input
                 type="date"
                 required
@@ -99,7 +101,7 @@ export default function NewReportPage() {
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Date to *</label>
+              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("new_label_date_to")}</label>
               <input
                 type="date"
                 required
@@ -111,7 +113,7 @@ export default function NewReportPage() {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Default Currency</label>
+            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("new_label_currency")}</label>
             <select
               value={currency}
               onChange={(e) => setCurrency(e.target.value)}
@@ -126,7 +128,7 @@ export default function NewReportPage() {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Description</label>
+            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("new_label_description")}</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -139,11 +141,11 @@ export default function NewReportPage() {
         {/* Draft expenses to attach */}
         <div className="bg-card rounded-xl shadow-sm p-6">
           <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">
-            Attach draft expenses{" "}
-            <span className="text-muted-foreground font-normal">(optional — submits them immediately)</span>
+            {t("new_section_attach")}{" "}
+            <span className="text-muted-foreground font-normal">{t("new_attach_note")}</span>
           </h2>
           {!draftExpenses?.length ? (
-            <p className="text-muted-foreground text-sm">No draft expenses available.</p>
+            <p className="text-muted-foreground text-sm">{t("new_empty_drafts")}</p>
           ) : (
             <div className="space-y-2">
               {draftExpenses.map((e) => (
@@ -159,7 +161,7 @@ export default function NewReportPage() {
                   />
                   <div className="flex-1">
                     <p className="text-sm font-medium text-foreground">{e.merchant || e.description || "—"}</p>
-                    <p className="text-xs text-muted-foreground">{e.date} · {e.category_name || "Uncategorized"}</p>
+                    <p className="text-xs text-muted-foreground">{e.date} · {e.category_name || t("new_category_uncategorized")}</p>
                   </div>
                   <p className="text-sm font-semibold text-foreground">
                     {formatEur(e.amount_eur)}
@@ -173,17 +175,17 @@ export default function NewReportPage() {
 
         <div className="flex gap-3">
           <button
-            onClick={() => { if (title) create.mutate(); else setError("Title is required"); }}
+            onClick={() => { if (title) create.mutate(); else setError(t("new_error_title_required")); }}
             disabled={create.isPending}
             className="px-5 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-hover disabled:opacity-50"
           >
-            {create.isPending ? "Creating..." : selectedIds.size > 0 ? "Create & attach" : "Create report"}
+            {create.isPending ? t("new_creating") : selectedIds.size > 0 ? t("new_create_attach") : t("new_create")}
           </button>
           <button
             onClick={() => router.back()}
             className="px-5 py-2 border border-input-border text-slate-600 dark:text-slate-400 text-sm font-medium rounded-lg hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700"
           >
-            Cancel
+            {t("new_cancel")}
           </button>
         </div>
       </div>

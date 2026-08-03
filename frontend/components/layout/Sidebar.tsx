@@ -8,33 +8,34 @@ import clsx from "clsx";
 import { useAuth } from "@/components/AuthProvider";
 import { useTheme } from "@/components/ThemeProvider";
 import { useBodyScrollLock } from "@/lib/useBodyScrollLock";
+import { useTranslations } from "next-intl";
 
 interface NavItem {
   href: string;
-  label: string;
+  labelKey: string;
   icon: typeof LayoutDashboard;
   roles: string[];
 }
 
 const NAV: NavItem[] = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["technician", "manager", "chef_finance", "mod"] },
-  { href: "/expenses", label: "Expenses", icon: Receipt, roles: ["technician", "manager", "chef_finance", "mod"] },
-  { href: "/inventory", label: "Inventory", icon: Package, roles: ["technician", "manager", "chef_finance", "mod"] },
-  { href: "/insurance", label: "Insurance", icon: Shield, roles: ["technician", "manager", "chef_finance", "mod"] },
-  { href: "/reports", label: "Reports", icon: FileText, roles: ["technician", "manager", "chef_finance", "mod"] },
-  { href: "/approvals", label: "Review Reports", icon: CheckSquare, roles: ["manager", "chef_finance"] },
-  { href: "/advances", label: "Advances", icon: Wallet, roles: ["manager", "chef_finance", "mod"] },
-  { href: "/payments", label: "Process Payments", icon: Banknote, roles: ["chef_finance"] },
-  { href: "/categories", label: "Expense Categories", icon: Tag, roles: ["mod"] },
-  { href: "/admin/settings", label: "Settings", icon: Settings, roles: ["chef_finance"] },
-  { href: "/profile/signature", label: "Signature", icon: PenLine, roles: ["technician", "manager", "chef_finance", "mod"] },
+  { href: "/dashboard", labelKey: "dashboard", icon: LayoutDashboard, roles: ["technician", "manager", "chef_finance", "mod"] },
+  { href: "/expenses", labelKey: "expenses", icon: Receipt, roles: ["technician", "manager", "chef_finance", "mod"] },
+  { href: "/inventory", labelKey: "inventory", icon: Package, roles: ["technician", "manager", "chef_finance", "mod"] },
+  { href: "/insurance", labelKey: "insurance", icon: Shield, roles: ["technician", "manager", "chef_finance", "mod"] },
+  { href: "/reports", labelKey: "reports", icon: FileText, roles: ["technician", "manager", "chef_finance", "mod"] },
+  { href: "/approvals", labelKey: "review_reports", icon: CheckSquare, roles: ["manager", "chef_finance"] },
+  { href: "/advances", labelKey: "advances", icon: Wallet, roles: ["manager", "chef_finance", "mod"] },
+  { href: "/payments", labelKey: "process_payments", icon: Banknote, roles: ["chef_finance"] },
+  { href: "/categories", labelKey: "expense_categories", icon: Tag, roles: ["mod"] },
+  { href: "/admin/settings", labelKey: "settings", icon: Settings, roles: ["chef_finance"] },
+  { href: "/profile/signature", labelKey: "signature", icon: PenLine, roles: ["technician", "manager", "chef_finance", "mod"] },
 ];
 
 const ROLE_LABELS: Record<string, string> = {
-  technician: "Technician",
-  manager: "Manager",
-  chef_finance: "Finance Lead",
-  mod: "Administrator",
+  technician: "role_technician",
+  manager: "role_manager",
+  chef_finance: "role_finance_lead",
+  mod: "role_administrator",
 };
 
 const THEME_CYCLE: Array<"light" | "dark" | "system"> = ["light", "dark", "system"];
@@ -50,6 +51,8 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const { theme, setTheme } = useTheme();
+  const tNav = useTranslations("nav");
+  const tCommon = useTranslations("common");
 
   const visibleNav = NAV.filter((item) => user && item.roles.includes(user.role));
   useBodyScrollLock(open);
@@ -102,7 +105,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
           </button>
         </div>
         <nav className="flex-1 py-4 px-3 overflow-y-auto">
-          {visibleNav.filter(({ href }) => href !== "/profile/signature").map(({ href, label, icon: Icon }) => {
+          {visibleNav.filter(({ href }) => href !== "/profile/signature").map(({ href, labelKey, icon: Icon }) => {
             const active = pathname.startsWith(href);
             return (
               <Link
@@ -117,7 +120,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                 )}
               >
                 <Icon className="w-4 h-4" />
-                {label}
+                {tNav(labelKey)}
               </Link>
             );
           })}
@@ -125,17 +128,17 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
             <>
               <hr className="my-2 border-sidebar-border" />
               <p className="px-3 py-1 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                {user.role === "mod" ? "Admin" : "Directory"}
+                {user.role === "mod" ? tNav("admin_section") : tNav("directory_section")}
               </p>
               {[
-                { href: "/admin/users", label: "Users", icon: Users, roles: ["mod", "manager", "chef_finance"] },
-                { href: "/admin/ldap", label: "LDAP / AD", icon: Server, roles: ["mod"] },
-                { href: "/admin/email", label: "Email / SMTP", icon: Mail, roles: ["mod"] },
-                { href: "/admin/imap", label: "Email / IMAP", icon: Inbox, roles: ["mod"] },
-                { href: "/admin/ocr", label: "OCR Scanner", icon: Sparkles, roles: ["mod"] },
-                { href: "/admin/receipts", label: "Receipts Cleanup", icon: Trash2, roles: ["mod"] },
-                { href: "/admin/storage", label: "Storage Settings", icon: Database, roles: ["mod"] },
-              ].filter(({ roles }) => roles.includes(user.role)).map(({ href, label, icon: Icon }) => {
+                { href: "/admin/users", labelKey: "users", icon: Users, roles: ["mod", "manager", "chef_finance"] },
+                { href: "/admin/ldap", labelKey: "ldap_ad", icon: Server, roles: ["mod"] },
+                { href: "/admin/email", labelKey: "email_smtp", icon: Mail, roles: ["mod"] },
+                { href: "/admin/imap", labelKey: "email_imap", icon: Inbox, roles: ["mod"] },
+                { href: "/admin/ocr", labelKey: "ocr_scanner", icon: Sparkles, roles: ["mod"] },
+                { href: "/admin/receipts", labelKey: "receipts_cleanup", icon: Trash2, roles: ["mod"] },
+                { href: "/admin/storage", labelKey: "storage_settings", icon: Database, roles: ["mod"] },
+              ].filter(({ roles }) => roles.includes(user.role)).map(({ href, labelKey, icon: Icon }) => {
                 const active = pathname.startsWith(href);
                 return (
                   <Link
@@ -150,7 +153,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                     )}
                   >
                     <Icon className="w-4 h-4" />
-                    {label}
+                    {tNav(labelKey)}
                   </Link>
                 );
               })}
@@ -159,7 +162,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
           {visibleNav.some(({ href }) => href === "/profile/signature") && (
             <>
               <hr className="my-2 border-sidebar-border" />
-              {visibleNav.filter(({ href }) => href === "/profile/signature").map(({ href, label, icon: Icon }) => {
+              {visibleNav.filter(({ href }) => href === "/profile/signature").map(({ href, labelKey, icon: Icon }) => {
                 const active = pathname.startsWith(href);
                 return (
                   <Link
@@ -174,7 +177,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                     )}
                   >
                     <Icon className="w-4 h-4" />
-                    {label}
+                    {tNav(labelKey)}
                   </Link>
                 );
               })}
@@ -185,7 +188,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
           {user && (
             <div className="mb-3">
               <p className="text-sm font-medium text-white truncate">{user.display_name}</p>
-              <p className="text-xs text-slate-400">{ROLE_LABELS[user.role] || user.role}</p>
+              <p className="text-xs text-slate-400">{tNav(ROLE_LABELS[user.role] || user.role)}</p>
             </div>
           )}
           <div className="flex items-center justify-between">
@@ -194,7 +197,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
               className="flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors"
             >
               <LogOut className="w-4 h-4" />
-              Sign out
+              {tNav("sign_out")}
             </button>
             <button
               onClick={cycleTheme}

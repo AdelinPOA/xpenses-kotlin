@@ -10,9 +10,10 @@ import { useAuth } from "@/components/AuthProvider";
 import EmptyState from "@/components/ui/EmptyState";
 import { Plus, Pencil, X } from "lucide-react";
 import { formatEur } from "@/lib/format";
+import { useTranslations } from "next-intl";
 
-function formatLimit(limit: number | null) {
-  if (limit === null) return "No limit";
+function formatLimit(limit: number | null, noLimitLabel: string) {
+  if (limit === null) return noLimitLabel;
   return formatEur(limit);
 }
 
@@ -25,6 +26,8 @@ export default function CategoriesPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const qc = useQueryClient();
+  const t = useTranslations("categories");
+  const tc = useTranslations("common");
   const [editId, setEditId] = useState<number | null>(null);
   const [showNew, setShowNew] = useState(false);
   const [form, setForm] = useState<FormState>({ name: "", limit_amount: "" });
@@ -53,7 +56,7 @@ export default function CategoriesPage() {
       setForm({ name: "", limit_amount: "" });
       setError("");
     },
-    onError: (e: any) => setError(e.response?.data?.detail ?? "Failed to save"),
+    onError: (e: any) => setError(e.response?.data?.detail ?? t("save_failed")),
   });
 
   const deactivate = useMutation({
@@ -96,27 +99,27 @@ export default function CategoriesPage() {
     <AppShell>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Categories</h1>
-          <p className="text-muted text-sm mt-1">Manage expense categories and spending limits</p>
+          <h1 className="text-2xl font-bold text-foreground">{t("heading")}</h1>
+          <p className="text-muted text-sm mt-1">{t("subtitle")}</p>
         </div>
         <button
           onClick={() => { setShowNew(true); setEditId(null); setForm({ name: "", limit_amount: "" }); }}
           className="flex items-center gap-2 px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-hover"
         >
           <Plus className="w-4 h-4" />
-          New category
+          {t("new_category")}
         </button>
       </div>
 
       {(showNew || editId !== null) && (
         <div className="bg-card rounded-xl shadow-sm p-6 mb-6 max-w-md">
           <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">
-            {editId !== null ? "Edit category" : "New category"}
+            {editId !== null ? t("edit_category") : t("new_category")}
           </h2>
           {error && <p className="text-red-600 text-sm mb-3">{error}</p>}
           <div className="space-y-3">
             <div>
-              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Name *</label>
+              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("label_name")}</label>
               <input
                 value={form.name}
                 onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
@@ -125,27 +128,27 @@ export default function CategoriesPage() {
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
-                Spending limit (EUR) <span className="text-muted-foreground">optional</span>
+                {t("label_limit")} <span className="text-muted-foreground">{t("limit_optional")}</span>
               </label>
               <input
                 type="number"
                 step="0.01"
                 value={form.limit_amount}
                 onChange={(e) => setForm((f) => ({ ...f, limit_amount: e.target.value }))}
-                placeholder="Leave empty for no limit"
+                placeholder={t("limit_hint")}
                 className="w-full border border-input-border rounded-lg px-3 py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100"
               />
             </div>
             <div className="flex gap-3">
               <button
-                onClick={() => { if (form.name) save.mutate(); else setError("Name is required"); }}
+                onClick={() => { if (form.name) save.mutate(); else setError(t("name_required")); }}
                 disabled={save.isPending}
                 className="px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-hover disabled:opacity-50"
               >
-                {save.isPending ? "Saving..." : "Save"}
+                {save.isPending ? tc("saving") : tc("save")}
               </button>
               <button onClick={cancelEdit} className="px-4 py-2 border border-input-border text-slate-600 dark:text-slate-400 text-sm rounded-lg hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700">
-                Cancel
+                {tc("cancel")}
               </button>
             </div>
           </div>
@@ -154,9 +157,9 @@ export default function CategoriesPage() {
 
       <div className="bg-card rounded-xl shadow-sm">
         {isLoading ? (
-          <div className="p-8 text-center text-muted-foreground text-sm">Loading...</div>
+          <div className="p-8 text-center text-muted-foreground text-sm">{tc("loading")}</div>
         ) : !categories?.length ? (
-          <EmptyState message="No categories yet" />
+          <EmptyState message={t("no_categories")} />
         ) : (
           <>
             {/* Mobile: stacked cards */}
@@ -168,7 +171,7 @@ export default function CategoriesPage() {
                       <span className={`inline-block w-2 h-2 rounded-full ${cat.is_active ? "bg-emerald-500" : "bg-slate-300 dark:bg-slate-600"}`} />
                       <p className="font-medium text-foreground">{cat.name}</p>
                     </div>
-                    <p className="text-sm text-muted shrink-0">{formatLimit(cat.limit_amount)}</p>
+                    <p className="text-sm text-muted shrink-0">{formatLimit(cat.limit_amount, t("no_limit"))}</p>
                   </div>
                   <div className="flex items-center justify-end gap-3 mt-3">
                     <button onClick={() => startEdit(cat)}>
@@ -189,9 +192,9 @@ export default function CategoriesPage() {
               <table className="w-full text-sm">
                 <thead className="bg-slate-50 dark:bg-slate-800 text-xs text-muted uppercase">
                   <tr>
-                    <th className="text-left px-4 py-3">Name</th>
-                    <th className="text-left px-4 py-3">Spending limit</th>
-                    <th className="text-center px-4 py-3">Active</th>
+                    <th className="text-left px-4 py-3">{t("table_name")}</th>
+                    <th className="text-left px-4 py-3">{t("table_limit")}</th>
+                    <th className="text-center px-4 py-3">{tc("active")}</th>
                     <th className="px-4 py-3"></th>
                   </tr>
                 </thead>
@@ -199,7 +202,7 @@ export default function CategoriesPage() {
                   {categories.map((cat) => (
                     <tr key={cat.id} className="border-t border-slate-100 dark:border-slate-700 hover:bg-card-hover">
                       <td className="px-4 py-3 font-medium text-foreground">{cat.name}</td>
-                      <td className="px-4 py-3 text-muted">{formatLimit(cat.limit_amount)}</td>
+                      <td className="px-4 py-3 text-muted">{formatLimit(cat.limit_amount, t("no_limit"))}</td>
                       <td className="px-4 py-3 text-center">
                         <span className={`inline-block w-2 h-2 rounded-full ${cat.is_active ? "bg-emerald-500" : "bg-slate-300 dark:bg-slate-600"}`} />
                       </td>

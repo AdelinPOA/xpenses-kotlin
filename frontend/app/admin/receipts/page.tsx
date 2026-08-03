@@ -7,6 +7,7 @@ import api from "@/lib/api";
 import AppShell from "@/components/layout/AppShell";
 import { useAuth } from "@/components/AuthProvider";
 import { AlertCircle, CheckCircle, RefreshCw, Trash2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 export default function ReceiptsCleanupPage() {
   const { user, loading } = useAuth();
@@ -16,6 +17,8 @@ export default function ReceiptsCleanupPage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [showConfirmClean, setShowConfirmClean] = useState(false);
+  const t = useTranslations("admin");
+  const tc = useTranslations("common");
 
   useEffect(() => {
     if (!loading && (!user || user.role !== "mod")) router.replace("/dashboard");
@@ -71,9 +74,9 @@ export default function ReceiptsCleanupPage() {
       <div className="max-w-4xl mx-auto py-6">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-2xl font-bold text-foreground tracking-tight">Receipts Cleanup</h1>
+            <h1 className="text-2xl font-bold text-foreground tracking-tight">{t("receipts_heading")}</h1>
             <p className="text-sm text-muted mt-1">
-              Scan the filesystem storage for uploaded files that are no longer linked to any database records.
+              {t("receipts_description")}
             </p>
           </div>
           <div className="flex gap-3">
@@ -83,7 +86,7 @@ export default function ReceiptsCleanupPage() {
               className="inline-flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover disabled:opacity-50 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors cursor-pointer"
             >
               <RefreshCw className={`w-4 h-4 ${scanMutation.isPending ? "animate-spin" : ""}`} />
-              {scanMutation.isPending ? "Scanning..." : "Scan Storage"}
+              {scanMutation.isPending ? t("scanning") : t("scan_storage")}
             </button>
             {scanned && orphans.length > 0 && (
                 <button
@@ -92,7 +95,7 @@ export default function ReceiptsCleanupPage() {
                 className="inline-flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors cursor-pointer"
               >
                 <Trash2 className="w-4 h-4" />
-                {cleanMutation.isPending ? "Cleaning..." : "Delete All Orphans"}
+                {cleanMutation.isPending ? t("scanning") : t("clean_orphans")}
               </button>
             )}
           </div>
@@ -115,7 +118,7 @@ export default function ReceiptsCleanupPage() {
         <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
           <div className="px-6 py-4 border-b border-border bg-slate-50 dark:bg-slate-900/50 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-foreground uppercase tracking-wider">
-              {scanned ? `Orphan Files Found (${orphans.length})` : "Unscanned State"}
+              {scanned ? t("orphan_files", { count: orphans.length }) : "Unscanned State"}
             </h2>
           </div>
 
@@ -123,17 +126,17 @@ export default function ReceiptsCleanupPage() {
             {!scanned ? (
               <div className="text-center py-12">
                 <Trash2 className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-4" />
-                <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">No scan executed</h3>
+                <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">{t("no_scan")}</h3>
                 <p className="text-xs text-muted max-w-sm mx-auto">
-                  Click the &quot;Scan Storage&quot; button above to find files that can be safely deleted.
+                  {t("no_scan_description")}
                 </p>
               </div>
             ) : orphans.length === 0 ? (
               <div className="text-center py-12">
                 <CheckCircle className="w-12 h-12 text-green-400 mx-auto mb-4" />
-                <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Storage is clean!</h3>
+                <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">{t("storage_clean")}</h3>
                 <p className="text-xs text-muted max-w-sm mx-auto">
-                  All receipt files in the storage volume are correctly matched with expense records in the database.
+                  {t("storage_clean_description")}
                 </p>
               </div>
             ) : (
@@ -173,16 +176,16 @@ export default function ReceiptsCleanupPage() {
       {showConfirmClean && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
           <div className="bg-card rounded-xl border border-border shadow-xl max-w-sm w-full p-6 space-y-4">
-            <h3 className="text-lg font-bold text-foreground">Clean Orphan Receipts</h3>
+            <h3 className="text-lg font-bold text-foreground">{t("clean_orphans")}</h3>
             <p className="text-sm text-muted">
-              Are you sure you want to permanently delete all {orphans.length} orphan receipt files from disk? This action cannot be undone.
+              {t("clean_description", { count: orphans.length })}
             </p>
             <div className="flex justify-end gap-3 pt-2">
               <button
                 onClick={() => setShowConfirmClean(false)}
                 className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-lg transition-colors cursor-pointer"
               >
-                Cancel
+                {t("cancel")}
               </button>
               <button
                 onClick={() => {
@@ -191,7 +194,7 @@ export default function ReceiptsCleanupPage() {
                 }}
                 className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-lg transition-colors cursor-pointer"
               >
-                Clean
+                {tc("confirm")}
               </button>
             </div>
           </div>

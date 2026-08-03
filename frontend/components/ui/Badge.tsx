@@ -1,4 +1,7 @@
+"use client";
+
 import clsx from "clsx";
+import { useTranslations } from "next-intl";
 
 const STATUS_STYLES: Record<string, string> = {
   draft: "bg-slate-100/80 border border-slate-200/60 text-slate-600 dark:bg-slate-800/80 dark:border-slate-700/60 dark:text-slate-300",
@@ -15,8 +18,26 @@ const ROLE_STYLES: Record<string, string> = {
   mod: "bg-slate-100/80 border border-slate-200/60 text-slate-600 dark:bg-slate-800/80 dark:border-slate-700/60 dark:text-slate-300",
 };
 
+const STATUS_KEYS = new Set(["draft", "submitted", "approved", "rejected", "paid", "active", "inactive"]);
+const ROLE_KEYS: Record<string, string> = {
+  technician: "role_technician",
+  manager: "role_manager",
+  chef_finance: "role_chef_finance",
+  mod: "role_moderator",
+};
+
 export default function Badge({ status, type = "status" }: { status: string; type?: "status" | "role" }) {
+  const tc = useTranslations("common");
+  const tAdmin = useTranslations("admin");
   const styles = type === "status" ? STATUS_STYLES : ROLE_STYLES;
+
+  let label = status.replace("_", " ");
+  if (type === "status" && STATUS_KEYS.has(status)) {
+    label = tc(status as "draft" | "submitted" | "approved" | "rejected" | "paid" | "active" | "inactive");
+  } else if (type === "role" && ROLE_KEYS[status]) {
+    label = tAdmin(ROLE_KEYS[status] as "role_technician" | "role_manager" | "role_chef_finance" | "role_moderator");
+  }
+
   return (
     <span
       className={clsx(
@@ -25,7 +46,7 @@ export default function Badge({ status, type = "status" }: { status: string; typ
       )}
     >
       <span className="w-1.5 h-1.5 rounded-full bg-current mr-1.5 opacity-80 shrink-0" />
-      {status.replace("_", " ")}
+      {label}
     </span>
   );
 }

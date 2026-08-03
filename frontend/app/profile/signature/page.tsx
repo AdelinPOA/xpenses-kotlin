@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import AppShell from "@/components/layout/AppShell";
 import { ArrowLeft, Trash2 } from "lucide-react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 
 const SignaturePad = dynamic(() => import("@/components/signature/SignaturePad"), {
   ssr: false,
@@ -14,6 +15,8 @@ const SignaturePad = dynamic(() => import("@/components/signature/SignaturePad")
 
 export default function SignaturePage() {
   const queryClient = useQueryClient();
+  const t = useTranslations("profile");
+  const tc = useTranslations("common");
   const [message, setMessage] = useState<string | null>(null);
   const [cacheBuster, setCacheBuster] = useState(() => Date.now());
   const messageTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -44,10 +47,10 @@ export default function SignaturePage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["signature"] });
       setCacheBuster(Date.now());
-      showMessage("Signature saved!");
+      showMessage(t("signature_saved"));
     },
     onError: () => {
-      showMessage("Failed to save signature.");
+      showMessage(t("signature_save_failed"));
     },
   });
 
@@ -56,10 +59,10 @@ export default function SignaturePage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["signature"] });
       setCacheBuster(Date.now());
-      showMessage("Signature deleted.");
+      showMessage(t("signature_deleted"));
     },
     onError: () => {
-      showMessage("Failed to delete signature.");
+      showMessage(t("signature_delete_failed"));
     },
   });
 
@@ -73,10 +76,10 @@ export default function SignaturePage() {
             className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-slate-800 dark:hover:text-slate-200 transition-colors mb-4"
           >
             <ArrowLeft className="w-4 h-4" />
-            Back to Dashboard
+            {tc("back_to_dashboard")}
           </Link>
           <h1 className="text-2xl font-bold text-foreground">
-            My Signature
+            {t("signature_heading")}
           </h1>
         </div>
 
@@ -91,12 +94,12 @@ export default function SignaturePage() {
         {hasSignature && (
           <div className="bg-card rounded-xl shadow-sm p-6 mb-6">
             <p className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">
-              Current Signature
+              {t("current_signature")}
             </p>
             <div className="border border-border rounded-lg p-4 bg-slate-50 dark:bg-slate-800 inline-block mb-4">
               <img
                 src={`${API_BASE_URL}/users/me/signature?${cacheBuster}`}
-                alt="Your signature"
+                alt={t("your_signature")}
                 className="max-h-40 max-w-full"
               />
             </div>
@@ -108,7 +111,7 @@ export default function SignaturePage() {
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Trash2 className="w-4 h-4" />
-                {deleteMutation.isPending ? "Deleting..." : "Delete Signature"}
+                {deleteMutation.isPending ? t("deleting") : t("delete_signature")}
               </button>
             </div>
           </div>
@@ -117,14 +120,14 @@ export default function SignaturePage() {
         {/* Draw new signature */}
         <div className="bg-card rounded-xl shadow-sm p-6">
           <p className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">
-            {hasSignature ? "Draw a New Signature" : "Draw Your Signature"}
+            {hasSignature ? t("draw_new") : t("draw_heading")}
           </p>
           <SignaturePad
             onSave={(dataUrl) => saveMutation.mutate(dataUrl)}
           />
           {saveMutation.isPending && (
             <p className="mt-3 text-sm text-muted">
-              Saving...
+              {tc("saving")}
             </p>
           )}
         </div>

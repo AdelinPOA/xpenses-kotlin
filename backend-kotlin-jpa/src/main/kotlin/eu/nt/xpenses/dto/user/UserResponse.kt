@@ -12,7 +12,8 @@ data class UserResponse(
     @JsonProperty("is_active") val isActive: Boolean,
     @JsonProperty("auth_source") val authSource: String,
     @JsonProperty("has_signature") val hasSignature: Boolean,
-    @JsonProperty("notifications_enabled") val notificationsEnabled: Boolean
+    @JsonProperty("notifications_enabled") val notificationsEnabled: Boolean,
+    val language: String
 ) {
     companion object {
         fun fromUser(user: User): UserResponse = UserResponse(
@@ -24,7 +25,8 @@ data class UserResponse(
             isActive = user.isActive,
             authSource = user.authSource,
             hasSignature = !user.signaturePath.isNullOrEmpty(),
-            notificationsEnabled = user.notificationsEnabled
+            notificationsEnabled = user.notificationsEnabled,
+            language = user.language
         )
     }
 }

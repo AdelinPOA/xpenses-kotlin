@@ -4,13 +4,17 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 import eu.nt.xpenses.model.AppSetting
+import eu.nt.xpenses.model.Category
 import eu.nt.xpenses.model.OcrComparison
+import eu.nt.xpenses.model.OcrResultCache
 import eu.nt.xpenses.repositories.AppSettingRepository
 import eu.nt.xpenses.repositories.CategoryRepository
 import eu.nt.xpenses.repositories.OcrComparisonRepository
+import eu.nt.xpenses.repositories.OcrResultCacheRepository
 import org.springframework.http.HttpEntity
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.client.RestClient
 import org.springframework.web.client.body
 import org.springframework.http.client.JdkClientHttpRequestFactory
@@ -35,12 +39,16 @@ class OcrService(
     private val appSettingRepository: AppSettingRepository,
     private val categoryRepository: CategoryRepository,
     private val ocrComparisonRepository: OcrComparisonRepository,
+    private val ocrResultCacheRepository: OcrResultCacheRepository,
     private val cryptoService: CryptoService,
     private val objectMapper: ObjectMapper
 ) {
     private val log = LoggerFactory.getLogger(OcrService::class.java)
 
     companion object {
+        const val CACHE_PROVIDER = "gemini"
+        const val CACHE_CONTRACT_VERSION = "1"
+
         // Tried in order; the first tier to return a parseable, non-empty result wins.
         val GEMINI_FALLBACK_CHAIN = listOf(
             "gemini-3.1-flash-lite",
@@ -117,6 +125,7 @@ class OcrService(
         }
     }
 
+    @Transactional
     fun scanReceipt(fileBytes: ByteArray, filename: String): Map<String, Any?> {
         val config = getOcrConfig()
         if (!config.ocrEnabled) {
@@ -133,63 +142,33 @@ class OcrService(
         val hashBytes = digest.digest(fileBytes)
         val sha256 = hashBytes.joinToString("") { "%02x".format(it) }
 
-        // Try to find the best existing comparison with this hash (preferring linked expenses or populated records)
-        val cachedComparison = ocrComparisonRepository.findBestCachedComparison(sha256).firstOrNull()
+        val cacheModel = config.provider
+        val cacheLockKey = "$sha256|$CACHE_PROVIDER|$cacheModel|$CACHE_CONTRACT_VERSION"
+        ocrResultCacheRepository.acquireScanLock(cacheLockKey)
 
-        if (cachedComparison != null) {
-            val isPopulated = cachedComparison.geminiAmount != null || cachedComparison.geminiDate != null ||
-                cachedComparison.geminiMerchant != null || cachedComparison.geminiCategoryId != null
+        val cachedResult = ocrResultCacheRepository
+            .findBySha256AndProviderAndModelAndContractVersion(
+                sha256, CACHE_PROVIDER, cacheModel, CACHE_CONTRACT_VERSION
+            )
+            .orElse(null)
 
-            if (isPopulated) {
-                log.info("OCR cache hit for hash: {}", sha256)
-                val newComparison = OcrComparison(
-                    receiptFilename = filename,
-                    provider = config.provider,
-                    sha256 = sha256,
-                    geminiAmount = cachedComparison.geminiAmount,
-                    geminiDate = cachedComparison.geminiDate,
-                    geminiMerchant = cachedComparison.geminiMerchant,
-                    geminiCategoryId = cachedComparison.geminiCategoryId,
-                    geminiError = cachedComparison.geminiError,
-                    createdAt = Instant.now()
-                )
-                val savedComparison = try {
-                    ocrComparisonRepository.save(newComparison)
-                } catch (e: Exception) {
-                    log.warn("Failed to save cached OCR comparison record: {}", e.message)
-                    null
+        if (cachedResult != null) {
+            val cachedPayload = try {
+                objectMapper.readValue(cachedResult.resultJson, Map::class.java)
+                    .toStringKeyedMap()
+            } catch (e: Exception) {
+                log.warn("Ignoring unreadable OCR cache entry {}: {}", cachedResult.id, e.message)
+                null
+            }
+            if (cachedPayload != null) {
+                val normalized = normalizeCachedResult(cachedPayload, categories)
+                cachedResult.lastUsedAt = Instant.now()
+                ocrResultCacheRepository.save(cachedResult)
+                val savedComparison = saveComparisonFromResult(filename, config.provider, sha256, normalized)
+                log.info("OCR result cache hit for hash: {}", sha256)
+                return normalized.toMutableMap().apply {
+                    savedComparison.id?.let { put("comparison_id", it) }
                 }
-
-                val cachedExp = cachedComparison.expense
-                val providerError = cachedComparison.geminiError
-
-                if (providerError != null) {
-                    val errorRes = errorResult(providerError).toMutableMap()
-                    if (savedComparison?.id != null) {
-                        errorRes["comparison_id"] = savedComparison.id
-                    }
-                    return errorRes
-                }
-
-                val amount = cachedComparison.geminiAmount?.toDouble()
-                val merchant = cachedComparison.geminiMerchant
-                val finalResult = mutableMapOf<String, Any?>(
-                    "amount" to amount,
-                    "currency" to (cachedExp?.currencyOriginal ?: "EUR"),
-                    "tax_amount" to (cachedExp?.taxAmount?.toDouble() ?: 0.0),
-                    "tax_rate" to (cachedExp?.taxRate?.toDouble()),
-                    "date" to cachedComparison.geminiDate,
-                    "merchant" to merchant,
-                    "category_id" to cachedComparison.geminiCategoryId,
-                    "description" to (cachedExp?.description ?: if (merchant != null) "Scanned receipt from $merchant (cached)" else "Scanned receipt (cached)"),
-                    "raw_text" to (cachedExp?.rawOcrText ?: ""),
-                    "confidence" to 1.0,
-                    "warnings" to emptyList<String>()
-                )
-                if (savedComparison?.id != null) {
-                    finalResult["comparison_id"] = savedComparison.id
-                }
-                return finalResult
             }
         }
 
@@ -228,6 +207,9 @@ class OcrService(
 
         if (comparisonId != null) {
             updateGeminiComparison(comparisonId, finalResult)
+            if (finalResult["amount"] != null) {
+                saveCacheResult(sha256, cacheModel, finalResult)
+            }
         }
 
         val mutableResult = finalResult.toMutableMap()
@@ -383,6 +365,64 @@ class OcrService(
             "warnings" to warnings
         )
     }
+
+    private fun saveComparisonFromResult(
+        filename: String,
+        provider: String,
+        sha256: String,
+        result: Map<String, Any?>
+    ): OcrComparison {
+        return ocrComparisonRepository.save(
+            OcrComparison(
+                receiptFilename = filename,
+                provider = provider,
+                sha256 = sha256,
+                geminiAmount = result["amount"].toBigDecimalOrNull(),
+                geminiDate = result["date"]?.toString(),
+                geminiMerchant = result["merchant"]?.toString(),
+                geminiCategoryId = result["category_id"].toIntOrNull()
+            )
+        )
+    }
+
+    private fun saveCacheResult(sha256: String, model: String, result: Map<String, Any?>) {
+        val cache = OcrResultCache(
+            sha256 = sha256,
+            provider = CACHE_PROVIDER,
+            model = model,
+            contractVersion = CACHE_CONTRACT_VERSION,
+            resultJson = objectMapper.writeValueAsString(result)
+        )
+        ocrResultCacheRepository.save(cache)
+    }
+
+    private fun normalizeCachedResult(
+        payload: Map<String, Any?>,
+        categories: List<Category>
+    ): Map<String, Any?> {
+        val result = payload.toMutableMap()
+        val categoryId = result["category_id"].toIntOrNull()
+        if (categoryId != null && categories.none { it.id == categoryId }) {
+            result["category_id"] = null
+        }
+        return result
+    }
+
+    private fun Any?.toIntOrNull(): Int? = when (this) {
+        is Number -> toInt()
+        is String -> toIntOrNull()
+        else -> null
+    }
+
+    private fun Any?.toBigDecimalOrNull(): BigDecimal? = when (this) {
+        is BigDecimal -> this
+        is Number -> BigDecimal.valueOf(toDouble())
+        is String -> runCatching { BigDecimal(this) }.getOrNull()
+        else -> null
+    }
+
+    private fun Map<*, *>.toStringKeyedMap(): Map<String, Any?> =
+        entries.associate { (key, value) -> key.toString() to value }
 
     private fun emptyResult(warnings: List<String>): Map<String, Any?> {
         return mapOf(

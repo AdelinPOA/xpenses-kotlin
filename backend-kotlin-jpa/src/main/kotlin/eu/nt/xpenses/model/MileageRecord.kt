@@ -42,6 +42,15 @@ class MileageRecord(
     @Column(name = "amount_eur", nullable = false)
     var amountEur: BigDecimal,
 
+    @Column(name = "amount_original", nullable = false)
+    var amountOriginal: BigDecimal,
+
+    @Column(name = "currency_original", nullable = false, length = 3)
+    var currencyOriginal: String,
+
+    @Column(name = "fx_rate", nullable = false)
+    var fxRate: BigDecimal,
+
     @Column(name = "start_time", nullable = false)
     var startTime: Instant,
 

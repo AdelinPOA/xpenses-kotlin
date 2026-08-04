@@ -5,6 +5,7 @@ import eu.nt.xpenses.dto.report.MileageRecordOut
 import eu.nt.xpenses.dto.report.MileageRecordUpdate
 import eu.nt.xpenses.model.*
 import eu.nt.xpenses.repositories.*
+import eu.nt.xpenses.services.FxService
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
@@ -16,6 +17,7 @@ import java.math.BigDecimal
 import java.math.RoundingMode
 import java.time.Duration
 import java.time.Instant
+import java.time.ZoneOffset
 
 @RestController
 @RequestMapping("/api/reports/{reportId}/mileage")
@@ -23,7 +25,8 @@ class MileageController(
     private val mileageRecordRepository: MileageRecordRepository,
     private val expenseReportRepository: ExpenseReportRepository,
     private val appSettingRepository: AppSettingRepository,
-    private val reportOwnership: ReportOwnership
+    private val reportOwnership: ReportOwnership,
+    private val fxService: FxService
 ) {
 
     private fun getMileageRates(): Pair<BigDecimal, BigDecimal> {
@@ -71,7 +74,9 @@ class MileageController(
         val (rateBt, rateAt) = getMileageRates()
         val distanceBd = BigDecimal.valueOf(body.distanceKm)
         val amountBeforeTax = distanceBd.multiply(rateBt).setScale(2, RoundingMode.HALF_UP)
-        val amountEur = distanceBd.multiply(rateAt).setScale(2, RoundingMode.HALF_UP)
+        val amountOriginal = distanceBd.multiply(rateAt).setScale(2, RoundingMode.HALF_UP)
+        val fxRate = resolveFxRate(body.startTime)
+        val amountEur = amountOriginal.multiply(fxRate).setScale(2, RoundingMode.HALF_UP)
 
         val record = MileageRecord(
             report = report,
@@ -83,6 +88,9 @@ class MileageController(
             rateAfterTax = rateAt,
             amountBeforeTax = amountBeforeTax,
             amountEur = amountEur,
+            amountOriginal = amountOriginal,
+            currencyOriginal = "EUR",
+            fxRate = fxRate,
             startTime = body.startTime,
             endTime = body.endTime,
             description = body.description,
@@ -125,6 +133,7 @@ class MileageController(
         if (body.destination != null) rec.destination = body.destination
         if (body.description != null) rec.description = body.description
 
+        val previousBusinessDate = businessDate(rec.startTime)
         if (body.startTime != null) rec.startTime = body.startTime
         if (body.endTime != null) rec.endTime = body.endTime
 
@@ -136,7 +145,13 @@ class MileageController(
             rec.distanceKm = body.distanceKm
             val distanceBd = BigDecimal.valueOf(body.distanceKm)
             rec.amountBeforeTax = distanceBd.multiply(rec.rateBeforeTax).setScale(2, RoundingMode.HALF_UP)
-            rec.amountEur = distanceBd.multiply(rec.rateAfterTax).setScale(2, RoundingMode.HALF_UP)
+            rec.amountOriginal = distanceBd.multiply(rec.rateAfterTax).setScale(2, RoundingMode.HALF_UP)
+            rec.amountEur = rec.amountOriginal.multiply(rec.fxRate).setScale(2, RoundingMode.HALF_UP)
+        }
+
+        if (businessDate(rec.startTime) != previousBusinessDate) {
+            rec.fxRate = resolveFxRate(rec.startTime)
+            rec.amountEur = rec.amountOriginal.multiply(rec.fxRate).setScale(2, RoundingMode.HALF_UP)
         }
 
         rec.updatedAt = Instant.now()
@@ -187,6 +202,9 @@ class MileageController(
             rateAfterTax = m.rateAfterTax,
             amountBeforeTax = m.amountBeforeTax,
             amountEur = m.amountEur,
+            amountOriginal = m.amountOriginal,
+            currencyOriginal = m.currencyOriginal,
+            fxRate = m.fxRate,
             startTime = m.startTime,
             endTime = m.endTime,
             description = m.description,
@@ -194,5 +212,14 @@ class MileageController(
             updatedAt = m.updatedAt,
             durationMinutes = durationMins
         )
+    }
+
+    private fun businessDate(startTime: Instant): String =
+        startTime.atZone(ZoneOffset.UTC).toLocalDate().toString()
+
+    private fun resolveFxRate(startTime: Instant): BigDecimal = try {
+        fxService.getRate("EUR", businessDate(startTime))
+    } catch (e: Exception) {
+        throw ResponseStatusException(HttpStatus.BAD_GATEWAY, "Failed to fetch exchange rate: ${e.message}")
     }
 }

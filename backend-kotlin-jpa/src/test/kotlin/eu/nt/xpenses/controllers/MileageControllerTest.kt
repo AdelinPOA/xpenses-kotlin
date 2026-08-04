@@ -8,6 +8,11 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.*
+import org.mockito.ArgumentMatchers.anyString
+import org.mockito.Mockito.clearInvocations
+import org.mockito.Mockito.times
+import org.mockito.Mockito.verify
+import java.math.BigDecimal
 import java.time.Instant
 
 class MileageControllerTest : IntegrationTestBase() {
@@ -53,6 +58,99 @@ class MileageControllerTest : IntegrationTestBase() {
             .andExpect(jsonPath("$.origin").value("Office"))
             .andExpect(jsonPath("$.destination").value("Client"))
             .andExpect(jsonPath("$.distance_km").value(50.0))
+    }
+
+    @Test
+    fun `POST mileage stores EUR FX snapshot using UTC start date`() {
+        val report = makeTechReport()
+        entityManager.flush()
+        entityManager.clear()
+        val cookie = authHelper.loginAs("tech1", "tech1")
+        val start = "2026-06-01T00:30:00+03:00"
+        val end = "2026-06-01T02:00:00+03:00"
+
+        org.mockito.Mockito.`when`(fxService.getRate("EUR", "2026-05-31"))
+            .thenReturn(BigDecimal.ONE)
+
+        mockMvc.perform(
+            post("/api/reports/${report.id}/mileage")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"origin":"Office","destination":"Client","distance_km":50.0,"start_time":"$start","end_time":"$end"}""")
+                .cookie(cookie)
+        )
+            .andExpect(status().isCreated)
+            .andExpect(jsonPath("$.amount_original").value(20.0))
+            .andExpect(jsonPath("$.currency_original").value("EUR"))
+            .andExpect(jsonPath("$.fx_rate").value(1.0))
+            .andExpect(jsonPath("$.amount_eur").value(20.0))
+
+        verify(fxService).getRate("EUR", "2026-05-31")
+    }
+
+    @Test
+    fun `GET and unrelated mileage update retain stored FX snapshot without resolving`() {
+        val report = makeTechReport()
+        entityManager.flush()
+        entityManager.clear()
+        val cookie = authHelper.loginAs("tech1", "tech1")
+
+        org.mockito.Mockito.`when`(fxService.getRate("EUR", "2026-06-01"))
+            .thenReturn(BigDecimal.ONE)
+        val createRes = mockMvc.perform(
+            post("/api/reports/${report.id}/mileage")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(mileageBody)
+                .cookie(cookie)
+        ).andExpect(status().isCreated).andReturn()
+        val mileageId = com.jayway.jsonpath.JsonPath.read<Int>(createRes.response.contentAsString, "$.id")
+        clearInvocations(fxService)
+
+        mockMvc.perform(get("/api/reports/${report.id}/mileage").cookie(cookie))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$[0].currency_original").value("EUR"))
+            .andExpect(jsonPath("$[0].fx_rate").value(1.0))
+        verify(fxService, times(0)).getRate(anyString(), anyString())
+
+        mockMvc.perform(
+            patch("/api/reports/${report.id}/mileage/$mileageId")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"origin":"New Office","description":"Updated"}""")
+                .cookie(cookie)
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.fx_rate").value(1.0))
+        verify(fxService, times(0)).getRate(anyString(), anyString())
+    }
+
+    @Test
+    fun `changing mileage UTC business date resolves a fresh snapshot`() {
+        val report = makeTechReport()
+        entityManager.flush()
+        entityManager.clear()
+        val cookie = authHelper.loginAs("tech1", "tech1")
+
+        val createRes = mockMvc.perform(
+            post("/api/reports/${report.id}/mileage")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(mileageBody)
+                .cookie(cookie)
+        ).andExpect(status().isCreated).andReturn()
+        val mileageId = com.jayway.jsonpath.JsonPath.read<Int>(createRes.response.contentAsString, "$.id")
+        clearInvocations(fxService)
+        org.mockito.Mockito.`when`(fxService.getRate("EUR", "2026-06-02"))
+            .thenReturn(BigDecimal("1.0001"))
+
+        mockMvc.perform(
+            patch("/api/reports/${report.id}/mileage/$mileageId")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"start_time":"2026-06-02T08:00:00Z","end_time":"2026-06-02T09:30:00Z"}""")
+                .cookie(cookie)
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.fx_rate").value(1.0001))
+            .andExpect(jsonPath("$.amount_eur").value(20.0))
+
+        verify(fxService).getRate("EUR", "2026-06-02")
     }
 
     @Test

@@ -174,27 +174,29 @@ class ExpenseService(
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Only draft expenses can be edited")
         }
 
-        val hasManualRate = body.fxRate != null
-        val needFxRecalc = hasManualRate || body.amount != null || body.currency != null || body.date != null || body.taxAmount != null || body.taxRate != null
+        val hasRateInputs = body.fxRate != null || body.amount != null || body.currency != null || body.date != null || body.taxAmount != null || body.taxRate != null
 
-        if (needFxRecalc) {
+        if (hasRateInputs) {
             val effAmount = body.amount ?: expense.amountOriginal
             val effCurrency = (body.currency ?: expense.currencyOriginal).uppercase()
             val effDate = body.date ?: expense.date
             val effTaxAmount = body.taxAmount ?: expense.taxAmount
             val effTaxRate = body.taxRate ?: expense.taxRate
+            val unchangedBasis = effCurrency == expense.currencyOriginal && effDate == expense.date
 
-            val fxRate = if (hasManualRate) {
-                body.fxRate
+            val (fxRate, fxRateManual) = if (body.fxRate != null) {
+                body.fxRate to true
+            } else if (unchangedBasis) {
+                expense.fxRate to expense.fxRateManual
             } else {
                 try {
-                    fxService.getRate(effCurrency, effDate)
+                    fxService.getRate(effCurrency, effDate) to false
                 } catch (e: Exception) {
                     throw ResponseStatusException(HttpStatus.BAD_GATEWAY, "Failed to fetch exchange rate: ${e.message}")
                 }
             }
 
-            expense.fxRateManual = hasManualRate
+            expense.fxRateManual = fxRateManual
             expense.amountOriginal = effAmount
             expense.currencyOriginal = effCurrency
             expense.fxRate = fxRate

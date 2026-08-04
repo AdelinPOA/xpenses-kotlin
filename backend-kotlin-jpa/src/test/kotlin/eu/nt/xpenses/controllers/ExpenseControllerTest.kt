@@ -59,6 +59,23 @@ class ExpenseControllerTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `POST expense rejects non-positive manual FX rate before persistence`() {
+        val cat = categoryRepository.findAll().firstOrNull() ?: error("No seeded category")
+        val cookie = authHelper.loginAs("tech1", "tech1")
+        val expenseCountBefore = expenseRepository.count()
+
+        mockMvc.perform(
+            post("/api/expenses")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"category_id":${cat.id},"amount":75.0,"currency":"USD","date":"2026-06-10","fx_rate":0}""")
+                .cookie(cookie)
+        )
+            .andExpect(status().isBadRequest)
+
+        org.junit.jupiter.api.Assertions.assertEquals(expenseCountBefore, expenseRepository.count())
+    }
+
+    @Test
     fun `DELETE draft expense returns 204`() {
         val expense = saveTechExpense()
         entityManager.flush()

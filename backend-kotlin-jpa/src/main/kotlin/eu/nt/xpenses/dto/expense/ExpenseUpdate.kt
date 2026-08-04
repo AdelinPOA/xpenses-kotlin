@@ -1,6 +1,7 @@
 package eu.nt.xpenses.dto.expense
 
 import com.fasterxml.jackson.annotation.JsonProperty
+import jakarta.validation.constraints.DecimalMin
 import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.Pattern
 import java.math.BigDecimal
@@ -17,6 +18,6 @@ data class ExpenseUpdate(
     val merchant: String? = null,
     @JsonProperty("raw_ocr_text") val rawOcrText: String? = null,
     @JsonProperty("comparison_id") val comparisonId: Int? = null,
-    @JsonProperty("fx_rate") val fxRate: BigDecimal? = null,
+    @JsonProperty("fx_rate") @field:DecimalMin(value = "0.0", inclusive = false) val fxRate: BigDecimal? = null,
     @JsonProperty("fx_rate_manual") val fxRateManual: Boolean? = null
 )

@@ -225,6 +225,68 @@ class ExpenseServiceTest {
     }
 
     @Test
+    fun `updateExpense amount and tax only retains existing manual rate`() {
+        val expense = Expense(
+            id = 1, user = techUser, status = "draft", amountOriginal = BigDecimal("50.00"),
+            amountEur = BigDecimal("45.00"), currencyOriginal = "USD", fxRate = BigDecimal("0.90"),
+            fxRateManual = true, taxAmount = BigDecimal("5.00"), taxAmountEur = BigDecimal("4.50"),
+            date = "2024-01-01"
+        )
+        doReturn(Optional.of(expense)).`when`(expenseRepository).findById(1)
+        doAnswer { it.arguments[0] as Expense }.`when`(expenseRepository).save(anyObject(dummyExpense))
+
+        val result = expenseService.updateExpense(
+            1,
+            ExpenseUpdate(amount = BigDecimal("100.00"), taxAmount = BigDecimal("10.00")),
+            techUser
+        )
+
+        assertEquals(BigDecimal("0.90"), result.fxRate)
+        assertTrue(result.fxRateManual)
+        assertEquals(BigDecimal("90.00"), result.amountEur)
+        assertEquals(BigDecimal("9.00"), result.taxAmountEur)
+        verify(fxService, times(0)).getRate(anyString(), anyString())
+    }
+
+    @Test
+    fun `updateExpense amount only retains existing automatic rate`() {
+        val expense = Expense(
+            id = 1, user = techUser, status = "draft", amountOriginal = BigDecimal("50.00"),
+            amountEur = BigDecimal("42.50"), currencyOriginal = "USD", fxRate = BigDecimal("0.85"),
+            fxRateManual = false, date = "2024-01-01"
+        )
+        doReturn(Optional.of(expense)).`when`(expenseRepository).findById(1)
+        doAnswer { it.arguments[0] as Expense }.`when`(expenseRepository).save(anyObject(dummyExpense))
+
+        val result = expenseService.updateExpense(1, ExpenseUpdate(amount = BigDecimal("100.00")), techUser)
+
+        assertEquals(BigDecimal("0.85"), result.fxRate)
+        assertFalse(result.fxRateManual)
+        assertEquals(BigDecimal("85.00"), result.amountEur)
+        verify(fxService, times(0)).getRate(anyString(), anyString())
+    }
+
+    @Test
+    fun `updateExpense currency change resolves fresh policy rate and clears manual provenance`() {
+        val expense = Expense(
+            id = 1, user = techUser, status = "draft", amountOriginal = BigDecimal("50.00"),
+            amountEur = BigDecimal("45.00"), currencyOriginal = "USD", fxRate = BigDecimal("0.90"),
+            fxRateManual = true, date = "2024-01-01"
+        )
+        doReturn(Optional.of(expense)).`when`(expenseRepository).findById(1)
+        doReturn(BigDecimal("0.82")).`when`(fxService).getRate("GBP", "2024-01-01")
+        doAnswer { it.arguments[0] as Expense }.`when`(expenseRepository).save(anyObject(dummyExpense))
+
+        val result = expenseService.updateExpense(1, ExpenseUpdate(currency = "GBP"), techUser)
+
+        assertEquals("GBP", result.currencyOriginal)
+        assertEquals(BigDecimal("0.82"), result.fxRate)
+        assertFalse(result.fxRateManual)
+        assertEquals(BigDecimal("41.00"), result.amountEur)
+        verify(fxService).getRate("GBP", "2024-01-01")
+    }
+
+    @Test
     fun `duplicateExpense should preserve fxRate and fxRateManual from source`() {
         val sourceExpense = Expense(
             id = 1, user = techUser, status = "draft",

@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: in_progress
-stopped_at: Phase 1 plan 05 complete
-last_updated: "2026-08-04T17:40:00.000Z"
+status: complete
+stopped_at: Phase 1 plan 06 complete
+last_updated: "2026-08-04T17:50:00.000Z"
 progress:
   total_phases: 1
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 6
-  completed_plans: 5
+  completed_plans: 6
 ---
 
 # Project State
@@ -18,8 +18,8 @@ progress:
 
 - Milestone: 1 — Financial FX Reliability
 - Phase: 1 — FX Policy Validation and Hardening
-- Status: In progress
-- Progress: 83%
+- Status: Complete
+- Progress: 100%
 
 ## Baseline
 
@@ -35,14 +35,14 @@ progress:
 
 ## Next Action
 
-Execute Phase 1 plan `01-06` for final migration and cross-workflow verification.
+Run the phase-level audit/review workflow, then decide whether to close milestone v1.0 or promote the next backlog slice.
 
 ## Session Handoff
 
-Onboarding artifacts are staged under `.planning/intel/`; the conflict report has zero blockers and zero warnings. Plans `01-01` through `01-05` have been executed and summarized.
+Onboarding artifacts are staged under `.planning/intel/`; the conflict report has zero blockers and zero warnings. Plans `01-01` through `01-06` have been executed and summarized.
 
 ## Session
 
-**Last session:** 2026-08-04T17:40:00.000Z
-**Stopped at:** Phase 1 plan 05 complete
+**Last session:** 2026-08-04T17:50:00.000Z
+**Stopped at:** Phase 1 plan 06 complete
 **Resume file:** .planning/phases/01-fx-policy-validation-and-hardening/01-CONTEXT.md

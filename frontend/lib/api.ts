@@ -80,7 +80,12 @@ export type { AdvancePayment, PendingAdvance, MileageRecord, MileageRates, Repor
 export type { ReviewQueueItem } from "./types/reviewQueue";
 export type { User } from "./types/user";
 export type { DashboardStats, ManagerKpis, PendingReportSummary, PendingAdvanceSummary, ActivityFeedItem, ManagerDashboardStats } from "./types/dashboard";
-export type { LdapConfig, LdapSyncResult, LdapTestResult, SmtpConfig, SmtpTestResult, ImapConfig, ImapTestResult, OcrConfig, StorageConfig, StorageMigrationStatus, OCRComparisonStats, OCRComparisonRow, OCRComparisonHistoryResponse } from "./types/admin";
+export type { LdapConfig, LdapSyncResult, LdapTestResult, SmtpConfig, SmtpTestResult, ImapConfig, ImapTestResult, OcrConfig, StorageConfig, StorageMigrationStatus, OCRComparisonStats, OCRComparisonRow, OCRComparisonHistoryResponse, FxMargins } from "./types/admin";
+
+export interface ApiValidationError {
+  detail?: string;
+  errors?: Record<string, string>;
+}
 export type { InventoryItem, InventoryItemCreate, InventoryItemUpdate, InventoryRequest, InventoryRequestCreate, InventoryRejectBody, InventoryApproveResponse } from "./types/inventory";
 export type { Category } from "./types/expense";
 export type { InsuranceFile } from "./types/insurance";

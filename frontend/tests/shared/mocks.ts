@@ -141,6 +141,12 @@ export const MILEAGE_RATES = { mileage_rate_before_tax: 0.42, mileage_rate_after
 
 export const DAILY_ALLOWANCE_RATE = { daily_allowance_rate: 45.0 };
 
+export const FX_MARGINS = {
+  margins: { EUR: 2.0, USD: 2.5, GBP: 2.0, CHF: 2.0, RON: 0.0 },
+  default_margin: 2.0,
+  currencies: ["EUR", "USD", "GBP", "CHF", "RON"],
+};
+
 export const USERS_LIST = Object.values(USERS);
 
 export async function setupCommonMocks(page: Page, opts?: { role?: keyof typeof USERS }) {
@@ -166,7 +172,25 @@ export async function setupCommonMocks(page: Page, opts?: { role?: keyof typeof 
   await setupAdminMocks(page);
 }
 
-export async function setupAdminMocks(page: Page) {
+export async function setupAdminMocks(page: Page, options?: { fxMarginsPatchResponse?: { status: number; body: unknown } }) {
+  let fxMargins = { ...FX_MARGINS, margins: { ...FX_MARGINS.margins } };
+  await page.route("**/api/settings/fx-margins", async (route, req) => {
+    if (req.method() === "GET") {
+      await route.fulfill({ json: fxMargins });
+      return;
+    }
+    if (options?.fxMarginsPatchResponse) {
+      await route.fulfill({ status: options.fxMarginsPatchResponse.status, json: options.fxMarginsPatchResponse.body });
+      return;
+    }
+    const payload = req.postDataJSON() as { margins?: Record<string, number>; default_margin?: number };
+    fxMargins = {
+      ...fxMargins,
+      margins: { ...fxMargins.margins, ...(payload.margins ?? {}) },
+      default_margin: payload.default_margin ?? fxMargins.default_margin,
+    };
+    await route.fulfill({ json: fxMargins });
+  });
   await page.route("**/api/settings/email", (route, req) => {
     if (req.method() === "GET") route.fulfill({ json: EMAIL_SETTINGS });
     else route.fulfill({ status: 200, json: EMAIL_SETTINGS });

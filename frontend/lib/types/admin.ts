@@ -84,6 +84,12 @@ export interface StorageMigrationStatus {
   errors: string[];
 }
 
+export interface FxMargins {
+  margins: Record<string, number>;
+  defaultMargin: number;
+  currencies: string[];
+}
+
 export interface OCRComparisonStats {
   total_scanned: number;
   gemini_amount_accuracy: number;

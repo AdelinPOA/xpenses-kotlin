@@ -2,12 +2,13 @@
 
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import api, { MileageRates } from "@/lib/api";
+import api, { ApiValidationError, FxMargins, MileageRates } from "@/lib/api";
 import { settingsKeys } from "@/lib/queryKeys";
 import AppShell from "@/components/layout/AppShell";
 import { useAuth } from "@/components/AuthProvider";
 import { Settings, Save } from "lucide-react";
 import { useTranslations } from "next-intl";
+import type { AxiosError } from "axios";
 
 export default function SettingsClient() {
   const { user } = useAuth();
@@ -29,9 +30,20 @@ export default function SettingsClient() {
     gcTime: 600_000,
   });
 
+  const { data: fxMarginsData, isLoading: fxMarginsLoading } = useQuery<FxMargins>({
+    queryKey: settingsKeys.fxMargins(),
+    queryFn: () => api.get("/settings/fx-margins").then((r) => ({ ...r.data, defaultMargin: r.data.default_margin })),
+    staleTime: 300_000,
+    gcTime: 600_000,
+  });
+
   const [bt, setBt] = useState("");
   const [at, setAt] = useState("");
   const [dailyRate, setDailyRate] = useState("");
+  const [fxMargins, setFxMargins] = useState<Record<string, string>>({});
+  const [fxDefaultMargin, setFxDefaultMargin] = useState("");
+  const [fxErrors, setFxErrors] = useState<Record<string, string>>({});
+  const [fxFormError, setFxFormError] = useState("");
 
   useEffect(() => {
     if (rates) {
@@ -46,6 +58,13 @@ export default function SettingsClient() {
     }
   }, [allowanceData]);
 
+  useEffect(() => {
+    if (fxMarginsData) {
+      setFxMargins(Object.fromEntries(Object.entries(fxMarginsData.margins).map(([key, value]) => [key, String(value)])));
+      setFxDefaultMargin(String(fxMarginsData.defaultMargin));
+    }
+  }, [fxMarginsData]);
+
   const updateRates = useMutation({
     mutationFn: (data: { mileage_rate_before_tax?: number; mileage_rate_after_tax?: number }) =>
       api.patch("/settings/mileage-rates", data),
@@ -56,6 +75,21 @@ export default function SettingsClient() {
     mutationFn: (data: { daily_allowance_rate: number }) =>
       api.patch("/settings/daily-allowance-rate", data),
     onSuccess: () => qc.invalidateQueries({ queryKey: settingsKeys.dailyAllowanceRate() }),
+  });
+
+  const updateFxMargins = useMutation<FxMargins, AxiosError<ApiValidationError>, { margins: Record<string, number>; default_margin: number }>({
+    mutationFn: (data) => api.patch("/settings/fx-margins", data).then((response) => response.data),
+    onSuccess: (data) => {
+      setFxMargins(Object.fromEntries(Object.entries(data.margins).map(([key, value]) => [key, String(value)])));
+      setFxDefaultMargin(String(data.defaultMargin));
+      setFxErrors({});
+      setFxFormError("");
+      qc.invalidateQueries({ queryKey: settingsKeys.fxMargins() });
+    },
+    onError: (error) => {
+      setFxErrors(error.response?.data?.errors ?? {});
+      setFxFormError(error.response?.data?.detail ?? t("fx_margins_save_failed"));
+    },
   });
 
   const handleSaveRates = () => {
@@ -71,11 +105,35 @@ export default function SettingsClient() {
     updateAllowance.mutate({ daily_allowance_rate: val });
   };
 
+  const handleSaveFxMargins = () => {
+    const errors: Record<string, string> = {};
+    const values: Record<string, number> = {};
+    const normalizedKeys = new Set<string>();
+    for (const [currency, rawValue] of Object.entries(fxMargins)) {
+      const key = currency.trim().toUpperCase();
+      const value = Number(rawValue);
+      if (normalizedKeys.has(key)) errors[`margins.${currency}`] = t("fx_margin_duplicate");
+      normalizedKeys.add(key);
+      if (!Number.isFinite(value) || value < 0 || value > 100) errors[`margins.${currency}`] = t("fx_margin_range");
+      if (key === "RON" && value !== 0) errors[`margins.${currency}`] = t("fx_margin_ron");
+      if (Number.isFinite(value) && value >= 0 && value <= 100 && key !== "RON") values[key] = value;
+      if (key === "RON" && value === 0) values[key] = value;
+    }
+    const defaultValue = Number(fxDefaultMargin);
+    if (!Number.isFinite(defaultValue) || defaultValue < 0 || defaultValue > 100) {
+      errors.defaultMargin = t("fx_margin_range");
+    }
+    setFxErrors(errors);
+    setFxFormError(Object.keys(errors).length > 0 ? t("fx_margins_validation_failed") : "");
+    if (Object.keys(errors).length > 0) return;
+    updateFxMargins.mutate({ margins: values, default_margin: defaultValue });
+  };
+
   if (user?.role !== "chef_finance") {
     return <AppShell><p className="text-red-500 text-sm">{t("access_denied")}</p></AppShell>;
   }
 
-  if (ratesLoading || allowanceLoading) return <AppShell><p className="text-slate-400 text-sm mt-8">{tc("loading")}</p></AppShell>;
+  if (ratesLoading || allowanceLoading || fxMarginsLoading) return <AppShell><p className="text-slate-400 text-sm mt-8">{tc("loading")}</p></AppShell>;
 
   return (
     <AppShell>
@@ -173,6 +231,72 @@ export default function SettingsClient() {
             {updateAllowance.isSuccess && (
               <p className="text-sm text-emerald-600 dark:text-emerald-400">{t("config_saved")}</p>
             )}
+          </div>
+        </div>
+
+        <div className="bg-card rounded-xl shadow-sm p-6">
+          <h2 className="text-lg font-semibold text-foreground mb-2">{t("fx_margins")}</h2>
+          <p className="text-sm text-muted mb-6">{t("fx_margins_description")}</p>
+          <div className="space-y-4">
+            {Object.entries(fxMargins).map(([currency, value]) => {
+              const errorKey = `margins.${currency}`;
+              const inputId = `fx-margin-${currency}`;
+              const errorId = `${inputId}-error`;
+              return (
+                <div key={currency}>
+                  <label htmlFor={inputId} className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                    {t("fx_margin_label", { currency })}
+                  </label>
+                  <input
+                    id={inputId}
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.1"
+                    value={value}
+                    onChange={(event) => {
+                      setFxMargins((current) => ({ ...current, [currency]: event.target.value }));
+                      setFxErrors((current) => { const next = { ...current }; delete next[errorKey]; return next; });
+                    }}
+                    aria-invalid={Boolean(fxErrors[errorKey])}
+                    aria-describedby={fxErrors[errorKey] ? errorId : undefined}
+                    className="w-full px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground"
+                  />
+                  {fxErrors[errorKey] && <p id={errorId} className="text-sm text-red-600 mt-1">{fxErrors[errorKey]}</p>}
+                </div>
+              );
+            })}
+            <div>
+              <label htmlFor="fx-default-margin" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                {t("fx_default_margin")}
+              </label>
+              <input
+                id="fx-default-margin"
+                type="number"
+                min="0"
+                max="100"
+                step="0.1"
+                value={fxDefaultMargin}
+                onChange={(event) => {
+                  setFxDefaultMargin(event.target.value);
+                  setFxErrors((current) => { const next = { ...current }; delete next.defaultMargin; return next; });
+                }}
+                aria-invalid={Boolean(fxErrors.defaultMargin)}
+                aria-describedby={fxErrors.defaultMargin ? "fx-default-margin-error" : undefined}
+                className="w-full px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground"
+              />
+              {fxErrors.defaultMargin && <p id="fx-default-margin-error" className="text-sm text-red-600 mt-1">{fxErrors.defaultMargin}</p>}
+            </div>
+            {fxFormError && <p role="alert" className="text-sm text-red-600">{fxFormError}</p>}
+            <button
+              onClick={handleSaveFxMargins}
+              disabled={updateFxMargins.isPending}
+              className="flex items-center gap-2 px-4 py-2 bg-slate-800 dark:bg-slate-700 text-white text-sm font-medium rounded-lg hover:bg-slate-900 dark:hover:bg-slate-600 disabled:opacity-50 transition-colors"
+            >
+              <Save className="w-4 h-4" />
+              {updateFxMargins.isPending ? t("saving") : t("save")}
+            </button>
+            {updateFxMargins.isSuccess && <p role="status" className="text-sm text-emerald-600 dark:text-emerald-400">{t("fx_margins_saved")}</p>}
           </div>
         </div>
       </div>

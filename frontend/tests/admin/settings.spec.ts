@@ -33,4 +33,55 @@ test.describe("Admin Settings (chef_finance)", () => {
     const hasOverflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
     expect(hasOverflow).toBe(false);
   });
+
+  test("FX margin server validation renders the matching field and preserves edits", async ({ page }) => {
+    await setupAuthMocks(page, "cfo");
+    await setupAdminMocks(page, {
+      fxMarginsPatchResponse: {
+        status: 400,
+        body: { detail: "Invalid FX margins", errors: { "margins.USD": "USD margin is invalid" } },
+      },
+    });
+    await page.goto("/admin/settings", { waitUntil: "load" });
+    await expect(page.locator("#fx-margin-USD")).toHaveValue("2.5", { timeout: 15000 });
+    await page.locator("#fx-margin-USD").fill("3.5");
+    await page.getByRole("button", { name: /save/i }).nth(2).click();
+    await expect(page.locator("#fx-margin-USD-error")).toHaveText("USD margin is invalid");
+    await expect(page.locator("#fx-margin-USD")).toHaveValue("3.5");
+    await expect(page.locator("#fx-margin-USD")).toHaveAttribute("aria-invalid", "true");
+    await expect(page.locator("#fx-margin-USD")).toHaveAttribute("aria-describedby", "fx-margin-USD-error");
+  });
+
+  test("FX margin client validation sends no request for mixed invalid values", async ({ page }) => {
+    await setupAuthMocks(page, "cfo");
+    await setupAdminMocks(page);
+    let patchCount = 0;
+    page.on("request", (request) => {
+      if (request.method() === "PATCH" && request.url().includes("/api/settings/fx-margins")) patchCount++;
+    });
+    await page.goto("/admin/settings", { waitUntil: "load" });
+    await expect(page.locator("#fx-margin-USD")).toBeVisible({ timeout: 15000 });
+    await page.locator("#fx-margin-USD").fill("101");
+    await page.locator("#fx-margin-RON").fill("1");
+    await page.getByRole("button", { name: /save/i }).nth(2).click();
+    await expect(page.locator("#fx-margin-USD-error")).toBeVisible();
+    await expect(page.locator("#fx-margin-RON-error")).toBeVisible();
+    expect(patchCount).toBe(0);
+  });
+
+  test("FX margin valid save sends one complete payload and shows canonical values", async ({ page }) => {
+    await setupAuthMocks(page, "cfo");
+    await setupAdminMocks(page);
+    const payloads: unknown[] = [];
+    page.on("request", (request) => {
+      if (request.method() === "PATCH" && request.url().includes("/api/settings/fx-margins")) payloads.push(request.postDataJSON());
+    });
+    await page.goto("/admin/settings", { waitUntil: "load" });
+    await expect(page.locator("#fx-margin-USD")).toBeVisible({ timeout: 15000 });
+    await page.locator("#fx-margin-USD").fill("3");
+    await page.getByRole("button", { name: /save/i }).nth(2).click();
+    await expect(page.getByRole("status")).toHaveText(/saved/i);
+    expect(payloads).toHaveLength(1);
+    expect(payloads[0]).toMatchObject({ margins: { USD: 3 }, default_margin: 2 });
+  });
 });

@@ -52,7 +52,12 @@ class DataInitializer(
             appSettingRepository.save(AppSetting("mileage_rate_after_tax", "0.40"))
         }
 
-        // 3. Seed users (only when SEED_DEMO_USERS=true)
+        // 3. Seed FX margins as decimal fractions used by FxService.
+        if (!appSettingRepository.existsById("fx_margins")) {
+            appSettingRepository.save(AppSetting("fx_margins", "{\"EUR\":0.02,\"USD\":0.025,\"GBP\":0.02,\"CHF\":0.02,\"*\":0.02}"))
+        }
+
+        // 4. Seed users (only when SEED_DEMO_USERS=true)
         if (seedDemoUsers && userRepository.count() == 0L) {
             val users = listOf(
                 User(
@@ -88,7 +93,7 @@ class DataInitializer(
             log.info("Seeded default users")
         }
 
-        // 4. Seed sample reports and expenses for tech1 if no reports exist (demo only)
+        // 5. Seed sample reports and expenses for tech1 if no reports exist (demo only)
         if (seedDemoUsers && expenseReportRepository.count() == 0L) {
             val tech1 = userRepository.findByUsername("tech1")
             val transportCategory = categoryRepository.findByName("Transport")

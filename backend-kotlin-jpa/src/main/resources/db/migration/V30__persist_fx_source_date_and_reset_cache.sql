@@ -1,0 +1,7 @@
+ALTER TABLE fx_rates ADD COLUMN source_date DATE;
+ALTER TABLE fx_rates ADD COLUMN source VARCHAR(32);
+
+DELETE FROM fx_rates;
+
+ALTER TABLE fx_rates ALTER COLUMN source_date SET NOT NULL;
+ALTER TABLE fx_rates ALTER COLUMN source SET NOT NULL;

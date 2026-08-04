@@ -1,5 +1,21 @@
 # Xpenses
 
+## What This Is
+
+Xpenses is a full-stack expense-management application for submitting, reviewing, approving, paying, and exporting employee expenses and related financial records.
+
+## Core Value
+
+Financial records must remain correct and historically stable while FX policy behavior stays explicit, configurable, and verifiable across every financial workflow.
+
+## Requirements
+
+- FX-01: Apply one FX policy across expenses, advances, and mileage.
+- FX-02: Calculate conversions using BNR rates plus source-currency margins, with ECB/Frankfurter fallback where required.
+- FX-03: Support configurable currency margins with validated defaults.
+- FX-04: Resolve rates for the expense date, including prior banking-day fallback and manual overrides.
+- FX-05: Preserve posted financial values and prevent migrations or cache cleanup from recomputing history.
+
 ## Overview
 
 Xpenses is a full-stack expense-management application for submitting, reviewing, approving, paying, and exporting employee expenses, reports, advances, mileage, receipts, inventory, and insurance records.

@@ -3,6 +3,8 @@ package eu.nt.xpenses.model
 import jakarta.persistence.*
 import java.math.BigDecimal
 import java.time.Instant
+import java.time.LocalDate
+import eu.nt.xpenses.services.fx.FxRateSource
 
 @Entity
 @Table(name = "fx_rates")
@@ -19,6 +21,13 @@ class FxRate(
 
     @Column(name = "rate_date", nullable = false)
     var rateDate: String,
+
+    @Column(name = "source_date", nullable = false)
+    var sourceDate: LocalDate,
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    var source: FxRateSource,
 
     @Column(nullable = false)
     var rate: BigDecimal,

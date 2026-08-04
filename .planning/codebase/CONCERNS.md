@@ -1,6 +1,6 @@
 # Concerns and Technical Debt
 
-**Analysis Date:** 2026-08-03
+**Analysis Date:** 2026-08-04
 
 ## High-Impact Risks
 
@@ -29,9 +29,10 @@
 - Multipart size failures should map to 413 before large content is buffered.
 - CSV export must neutralize formula prefixes; email import needs message-id deduplication and sender validation.
 - The working tree contains user changes and untracked project/planning material; review the intended diff before committing future fixes.
+- The refreshed map includes the current uncommitted FX changes, including `services/fx/FxRateProvider.kt`, `V30__persist_fx_source_date_and_reset_cache.sql`, and `V31__add_mileage_fx_snapshot.sql`; these should be validated together rather than reviewed as isolated edits.
 
 ## Source of Truth
 
 `todo.md` contains the detailed reviewed backlog, including fixed/partial/verify markers. Treat it as a triage input, not proof that every item is currently reproducible. The FX policy and historical-rate requirements are in `docs/adr/0001-bnr-fx-rates-with-margin.md`.
 
-*Mapped from current repository state on 2026-08-03.*
+*Mapped from current repository state on 2026-08-04.*

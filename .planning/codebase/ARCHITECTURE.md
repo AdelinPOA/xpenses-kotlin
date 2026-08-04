@@ -1,6 +1,6 @@
 # Architecture
 
-**Analysis Date:** 2026-08-03
+**Analysis Date:** 2026-08-04
 
 ## System Shape
 
@@ -28,6 +28,8 @@ Xpenses is a containerized full-stack expense-management application with a Next
 - Expense/report state transitions are centralized in `report/lifecycle/ExpenseReportLifecycle.kt`.
 - Review queue projections are under `report/review/`.
 - FX policy is centralized in `services/FxService.kt` and applies to expenses, advances, and mileage.
+- Provider selection and source-date fallback are isolated in `services/fx/FxRateProvider.kt`.
+- FX source dates and mileage snapshots are persisted through `V30__persist_fx_source_date_and_reset_cache.sql` and `V31__add_mileage_fx_snapshot.sql`.
 - Receipt files are abstracted behind `services/storage/StorageProvider.kt` and selected by `StorageService.kt`.
 
 ## Entry Points
@@ -41,4 +43,4 @@ Xpenses is a containerized full-stack expense-management application with a Next
 
 Add a backend feature as controller → service → repository/entity/DTO, with a Flyway migration when persistence changes. Add frontend routes under `frontend/app/`, reusable UI under `frontend/components/`, and API functions under `frontend/lib/api/` or `api.ts`. Preserve lifecycle transitions in the lifecycle package instead of duplicating status mutation in controllers.
 
-*Mapped from current repository state on 2026-08-03.*
+*Mapped from current repository state on 2026-08-04.*

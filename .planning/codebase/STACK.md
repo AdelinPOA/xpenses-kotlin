@@ -1,6 +1,6 @@
 # Technology Stack
 
-**Analysis Date:** 2026-08-03
+**Analysis Date:** 2026-08-04
 
 ## Languages
 
@@ -39,4 +39,4 @@
 - Development requires Java 21, Node/npm, Docker for PostgreSQL and integration tests, and a reachable PostgreSQL instance.
 - Production is container-oriented: PostgreSQL, Spring Boot backend on port 8080, and Next.js frontend on port 3000.
 
-*Mapped from current repository state on 2026-08-03.*
+*Mapped from current repository state on 2026-08-04.*

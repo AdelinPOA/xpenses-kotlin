@@ -1,6 +1,6 @@
 # Testing
 
-**Analysis Date:** 2026-08-03
+**Analysis Date:** 2026-08-04
 
 ## Frontend Test Stack
 
@@ -15,6 +15,7 @@
 - Gradle uses JUnit Platform through `tasks.withType<Test> { useJUnitPlatform() }`.
 - Spring Boot starter test, Spring Security test, Testcontainers JUnit, and Testcontainers PostgreSQL are configured in `backend-kotlin-jpa/build.gradle.kts`.
 - Existing tests are under `backend-kotlin-jpa/src/test/kotlin/`, including FX service and FX margins controller coverage.
+- Current FX provider behavior is covered by `backend-kotlin-jpa/src/test/kotlin/eu/nt/xpenses/services/fx/FxRateProviderTest.kt`, while policy orchestration is covered by `FxServiceTest.kt`.
 - Testcontainers is pinned through a BOM and Docker API compatibility is set by the Gradle test task.
 
 ## Repository Checks
@@ -31,4 +32,4 @@
 - For translation changes, update both locale files and run the parity check.
 - Do not treat a passing lint or unit test as coverage of concurrency, storage, security, or external-provider behavior; those areas need focused reproduction tests.
 
-*Mapped from current repository state on 2026-08-03.*
+*Mapped from current repository state on 2026-08-04.*

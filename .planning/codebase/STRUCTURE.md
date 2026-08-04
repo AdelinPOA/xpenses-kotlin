@@ -1,6 +1,6 @@
 # Repository Structure
 
-**Analysis Date:** 2026-08-03
+**Analysis Date:** 2026-08-04
 
 ## Top-Level Areas
 
@@ -9,6 +9,7 @@
 - `scripts/` — repository-level validation and maintenance scripts.
 - `docs/adr/` — architecture decisions; current FX decision is `0001-bnr-fx-rates-with-margin.md`.
 - `openspec/` — change proposals/specifications, including FX margin work.
+- `.agents/`, `.codex/`, `.opencode/`, and `.pi/` — local GSD/runtime integrations; these are tooling artifacts, not application runtime code.
 - `docker-compose.yml` — local/production-like service topology.
 
 ## Backend Layout
@@ -20,6 +21,7 @@
 - `.../repositories/` — persistence interfaces.
 - `.../config/` and `.../security/` — application/security infrastructure.
 - `src/main/resources/db/migration/` — ordered Flyway SQL migrations.
+- `src/main/kotlin/eu/nt/xpenses/services/fx/` — FX provider abstraction and external-rate retrieval.
 
 ## Frontend Layout
 
@@ -41,4 +43,4 @@ Use PascalCase for React components and Kotlin classes, camelCase for functions/
 - `frontend/playwright.config.ts` — browser test projects and server startup.
 - `.env.example` — safe environment variable reference.
 
-*Mapped from current repository state on 2026-08-03.*
+*Mapped from current repository state on 2026-08-04.*

@@ -1,6 +1,6 @@
 # Integrations
 
-**Analysis Date:** 2026-08-03
+**Analysis Date:** 2026-08-04
 
 ## Database
 
@@ -16,7 +16,7 @@
 
 ## External Services
 
-- FX rates are fetched and cached by `services/FxService.kt`; the current policy is documented in `docs/adr/0001-bnr-fx-rates-with-margin.md`.
+- FX rates are fetched and cached by `services/FxService.kt`, with provider selection in `services/fx/FxRateProvider.kt`; the current policy is documented in `docs/adr/0001-bnr-fx-rates-with-margin.md`.
 - Email/IMAP integrations are implemented by `services/EmailImportService.kt`, `EmailSettingsService.kt`, and `AppSettingsController.kt`.
 - SMTP is configured through Spring Mail settings.
 - OCR is orchestrated by `services/OcrService.kt` and `AsyncOcrService.kt`, with provider settings exposed through the admin API.
@@ -40,4 +40,4 @@
 - Treat uploaded files as untrusted; storage and download behavior crosses the application/browser trust boundary.
 - Do not read or commit `.env`; use `.env.example` and deployment configuration as the safe configuration reference.
 
-*Mapped from current repository state on 2026-08-03.*
+*Mapped from current repository state on 2026-08-04.*

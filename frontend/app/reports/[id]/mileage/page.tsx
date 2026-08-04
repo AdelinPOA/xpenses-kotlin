@@ -248,6 +248,12 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
                       </button>
                     )}
                   </div>
+                  {m.fuel_cost_eur != null && (
+                    <details className="mt-2 text-xs text-muted-foreground">
+                      <summary className="cursor-pointer">Calculation details</summary>
+                      <p className="mt-1">Fuel: {m.fuel_cost_eur.toFixed(2)} EUR · Taxable: {(m.taxable_amount ?? 0).toFixed(2)} EUR · Withholding: {(m.withholding_amount ?? 0).toFixed(2)} EUR</p>
+                    </details>
+                  )}
                 </div>
               ))}
               <div className="p-4 bg-slate-50 dark:bg-slate-800">
@@ -278,6 +284,7 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
                     <th className="text-right px-4 py-3">{t("mileage_table_gross")}</th>
                     <th className="text-right px-4 py-3">{t("mileage_table_rate_at")}</th>
                     <th className="text-right px-4 py-3">{t("mileage_table_net")}</th>
+                    <th className="text-right px-4 py-3">Fuel deduction</th>
                     {report.status === "draft" && <th className="text-right px-4 py-3">{t("mileage_table_actions")}</th>}
                   </tr>
                 </thead>
@@ -295,6 +302,7 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
                       <td className="px-4 py-3 text-right text-slate-600 dark:text-slate-400">{formatAmount(m.amount_before_tax, "EUR")}</td>
                       <td className="px-4 py-3 text-right text-muted-foreground">{formatAmount(m.rate_after_tax, "EUR")}</td>
                       <td className="px-4 py-3 text-right font-semibold text-foreground">{formatAmount(m.amount_eur, "EUR")}</td>
+                      <td className="px-4 py-3 text-right text-xs text-muted-foreground">{m.fuel_cost_eur != null ? `${m.fuel_cost_eur.toFixed(2)} EUR` : "—"}</td>
                       {report.status === "draft" && (
                         <td className="px-4 py-3 text-right">
                           <button onClick={() => deleteMileage.mutate(m.id)} className="text-slate-400 hover:text-red-500">
@@ -313,6 +321,7 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
                     <td className="px-4 py-3 text-right font-bold text-slate-700 dark:text-slate-300">{formatAmount(totalGross, "EUR")}</td>
                     <td className="px-4 py-3"></td>
                     <td className="px-4 py-3 text-right font-bold text-emerald-600 dark:text-emerald-400">{formatAmount(totalNet, "EUR")}</td>
+                    <td className="px-4 py-3"></td>
                     {report.status === "draft" && <td></td>}
                   </tr>
                 </tbody>

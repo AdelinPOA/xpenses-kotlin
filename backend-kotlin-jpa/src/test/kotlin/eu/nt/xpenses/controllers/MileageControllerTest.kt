@@ -69,8 +69,8 @@ class MileageControllerTest : IntegrationTestBase() {
         val start = "2026-06-01T00:30:00+03:00"
         val end = "2026-06-01T02:00:00+03:00"
 
-        org.mockito.Mockito.`when`(fxService.getRate("EUR", "2026-05-31"))
-            .thenReturn(BigDecimal.ONE)
+        org.mockito.Mockito.`when`(fxService.getRate("RON", "2026-05-31"))
+            .thenReturn(BigDecimal("0.1964636542"))
 
         mockMvc.perform(
             post("/api/reports/${report.id}/mileage")
@@ -79,12 +79,12 @@ class MileageControllerTest : IntegrationTestBase() {
                 .cookie(cookie)
         )
             .andExpect(status().isCreated)
-            .andExpect(jsonPath("$.amount_original").value(20.0))
+            .andExpect(jsonPath("$.amount_original").value(20.36))
             .andExpect(jsonPath("$.currency_original").value("EUR"))
             .andExpect(jsonPath("$.fx_rate").value(1.0))
-            .andExpect(jsonPath("$.amount_eur").value(20.0))
+            .andExpect(jsonPath("$.amount_eur").value(20.36))
 
-        verify(fxService).getRate("EUR", "2026-05-31")
+        verify(fxService).getRate("RON", "2026-05-31")
     }
 
     @Test
@@ -94,7 +94,7 @@ class MileageControllerTest : IntegrationTestBase() {
         entityManager.clear()
         val cookie = authHelper.loginAs("tech1", "tech1")
 
-        org.mockito.Mockito.`when`(fxService.getRate("EUR", "2026-06-01"))
+        org.mockito.Mockito.`when`(fxService.getRate("RON", "2026-06-01"))
             .thenReturn(BigDecimal.ONE)
         val createRes = mockMvc.perform(
             post("/api/reports/${report.id}/mileage")
@@ -137,8 +137,8 @@ class MileageControllerTest : IntegrationTestBase() {
         ).andExpect(status().isCreated).andReturn()
         val mileageId = com.jayway.jsonpath.JsonPath.read<Int>(createRes.response.contentAsString, "$.id")
         clearInvocations(fxService)
-        org.mockito.Mockito.`when`(fxService.getRate("EUR", "2026-06-02"))
-            .thenReturn(BigDecimal("1.0001"))
+        org.mockito.Mockito.`when`(fxService.getRate("RON", "2026-06-02"))
+            .thenReturn(BigDecimal("0.1964"))
 
         mockMvc.perform(
             patch("/api/reports/${report.id}/mileage/$mileageId")
@@ -148,9 +148,9 @@ class MileageControllerTest : IntegrationTestBase() {
         )
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.fx_rate").value(1.0001))
-            .andExpect(jsonPath("$.amount_eur").value(20.0))
+            .andExpect(jsonPath("$.amount_eur").value(30.54))
 
-        verify(fxService).getRate("EUR", "2026-06-02")
+        verify(fxService).getRate("RON", "2026-06-02")
     }
 
     @Test

@@ -39,6 +39,19 @@ export interface MileageRecord {
   rate_after_tax: number;
   amount_before_tax: number;
   amount_eur: number;
+  amount_original: number;
+  currency_original: string;
+  fx_rate: number;
+  fuel_consumption_l_per_100km: number | null;
+  fuel_price_ron_per_liter: number | null;
+  fuel_exchange_rate: number | null;
+  fuel_cost_eur: number | null;
+  taxable_amount: number | null;
+  withholding_amount: number | null;
+  pension_rate: number | null;
+  health_rate: number | null;
+  income_tax_rate: number | null;
+  tax_deduction_eur: number | null;
   start_time: string;
   end_time: string;
   duration_minutes: number;
@@ -50,6 +63,12 @@ export interface MileageRecord {
 export interface MileageRates {
   mileage_rate_before_tax: number;
   mileage_rate_after_tax: number;
+  fuel_consumption_l_per_100km: number;
+  fuel_price_ron_per_liter: number;
+  pension_rate: number;
+  health_rate: number;
+  income_tax_rate: number;
+  tax_deduction_eur: number;
 }
 
 export interface Report {

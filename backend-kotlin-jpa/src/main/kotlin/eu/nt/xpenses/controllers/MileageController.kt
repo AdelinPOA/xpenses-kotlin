@@ -6,6 +6,8 @@ import eu.nt.xpenses.dto.report.MileageRecordUpdate
 import eu.nt.xpenses.model.*
 import eu.nt.xpenses.repositories.*
 import eu.nt.xpenses.services.FxService
+import eu.nt.xpenses.services.MileageCalculationService
+import eu.nt.xpenses.services.MileageCalculationSettings
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
@@ -26,13 +28,28 @@ class MileageController(
     private val expenseReportRepository: ExpenseReportRepository,
     private val appSettingRepository: AppSettingRepository,
     private val reportOwnership: ReportOwnership,
-    private val fxService: FxService
+    private val fxService: FxService,
+    private val mileageCalculationService: MileageCalculationService = MileageCalculationService()
 ) {
 
     private fun getMileageRates(): Pair<BigDecimal, BigDecimal> {
         val rateBt = appSettingRepository.findById("mileage_rate_before_tax").orElse(null)?.value?.let { BigDecimal(it) } ?: BigDecimal("0.60")
         val rateAt = appSettingRepository.findById("mileage_rate_after_tax").orElse(null)?.value?.let { BigDecimal(it) } ?: BigDecimal("0.40")
         return Pair(rateBt, rateAt)
+    }
+
+    private fun getCalculationSettings(): MileageCalculationSettings {
+        val (grossRate, _) = getMileageRates()
+        fun setting(key: String, default: String) = appSettingRepository.findById(key).orElse(null)?.value?.let { BigDecimal(it) } ?: BigDecimal(default)
+        return MileageCalculationSettings(
+            grossRate = grossRate,
+            fuelConsumption = setting("mileage_fuel_consumption_l_per_100km", "7.5"),
+            fuelPriceRonPerLiter = setting("mileage_fuel_price_ron_per_liter", "9.20"),
+            pensionRate = setting("mileage_pension_rate", "0.25"),
+            healthRate = setting("mileage_health_rate", "0.10"),
+            incomeTaxRate = setting("mileage_income_tax_rate", "0.10"),
+            deduction = setting("mileage_tax_deduction_eur", "0.00")
+        )
     }
 
     @GetMapping
@@ -71,12 +88,13 @@ class MileageController(
             throw ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "end_time must be after start_time")
         }
 
-        val (rateBt, rateAt) = getMileageRates()
         val distanceBd = BigDecimal.valueOf(body.distanceKm)
-        val amountBeforeTax = distanceBd.multiply(rateBt).setScale(2, RoundingMode.HALF_UP)
-        val amountOriginal = distanceBd.multiply(rateAt).setScale(2, RoundingMode.HALF_UP)
-        val fxRate = resolveFxRate(body.startTime)
-        val amountEur = amountOriginal.multiply(fxRate).setScale(2, RoundingMode.HALF_UP)
+        val fxRate = resolveFuelExchangeRate(body.startTime)
+        val settings = getCalculationSettings()
+        val calculation = mileageCalculationService.calculate(distanceBd, fxRate, settings)
+        val amountBeforeTax = calculation.grossAmount.setScale(2, RoundingMode.HALF_UP)
+        val amountOriginal = calculation.netAmount.setScale(2, RoundingMode.HALF_UP)
+        val amountEur = amountOriginal
 
         val record = MileageRecord(
             report = report,
@@ -84,13 +102,23 @@ class MileageController(
             origin = body.origin,
             destination = body.destination,
             distanceKm = body.distanceKm,
-            rateBeforeTax = rateBt,
-            rateAfterTax = rateAt,
+            rateBeforeTax = settings.grossRate,
+            rateAfterTax = calculation.netRate,
             amountBeforeTax = amountBeforeTax,
             amountEur = amountEur,
             amountOriginal = amountOriginal,
             currencyOriginal = "EUR",
-            fxRate = fxRate,
+            fxRate = BigDecimal.ONE,
+            fuelConsumptionLitersPer100Km = settings.fuelConsumption,
+            fuelPriceRonPerLiter = settings.fuelPriceRonPerLiter,
+            fuelExchangeRate = fxRate,
+            fuelCostEur = calculation.fuelCostEur,
+            taxableAmount = calculation.taxableAmount,
+            withholdingAmount = calculation.withholdingAmount,
+            pensionRate = settings.pensionRate,
+            healthRate = settings.healthRate,
+            incomeTaxRate = settings.incomeTaxRate,
+            taxDeductionEur = settings.deduction,
             startTime = body.startTime,
             endTime = body.endTime,
             description = body.description,
@@ -144,14 +172,15 @@ class MileageController(
         if (body.distanceKm != null) {
             rec.distanceKm = body.distanceKm
             val distanceBd = BigDecimal.valueOf(body.distanceKm)
-            rec.amountBeforeTax = distanceBd.multiply(rec.rateBeforeTax).setScale(2, RoundingMode.HALF_UP)
-            rec.amountOriginal = distanceBd.multiply(rec.rateAfterTax).setScale(2, RoundingMode.HALF_UP)
-            rec.amountEur = rec.amountOriginal.multiply(rec.fxRate).setScale(2, RoundingMode.HALF_UP)
+            recalculate(rec, distanceBd)
         }
 
         if (businessDate(rec.startTime) != previousBusinessDate) {
-            rec.fxRate = resolveFxRate(rec.startTime)
-            rec.amountEur = rec.amountOriginal.multiply(rec.fxRate).setScale(2, RoundingMode.HALF_UP)
+            if (rec.fuelConsumptionLitersPer100Km != null) recalculate(rec, BigDecimal.valueOf(rec.distanceKm))
+            else {
+                rec.fxRate = resolveFxRate(rec.startTime)
+                rec.amountEur = rec.amountOriginal.multiply(rec.fxRate).setScale(2, RoundingMode.HALF_UP)
+            }
         }
 
         rec.updatedAt = Instant.now()
@@ -203,6 +232,16 @@ class MileageController(
             amountBeforeTax = m.amountBeforeTax,
             amountEur = m.amountEur,
             amountOriginal = m.amountOriginal,
+            fuelConsumptionLitersPer100Km = m.fuelConsumptionLitersPer100Km,
+            fuelPriceRonPerLiter = m.fuelPriceRonPerLiter,
+            fuelExchangeRate = m.fuelExchangeRate,
+            fuelCostEur = m.fuelCostEur,
+            taxableAmount = m.taxableAmount,
+            withholdingAmount = m.withholdingAmount,
+            pensionRate = m.pensionRate,
+            healthRate = m.healthRate,
+            incomeTaxRate = m.incomeTaxRate,
+            taxDeductionEur = m.taxDeductionEur,
             currencyOriginal = m.currencyOriginal,
             fxRate = m.fxRate,
             startTime = m.startTime,
@@ -221,5 +260,37 @@ class MileageController(
         fxService.getRate("EUR", businessDate(startTime))
     } catch (e: Exception) {
         throw ResponseStatusException(HttpStatus.BAD_GATEWAY, "Failed to fetch exchange rate: ${e.message}")
+    }
+
+    private fun resolveFuelExchangeRate(startTime: Instant): BigDecimal = try {
+        // FxService exposes RON->EUR; the workbook needs RON per EUR.
+        val ronToEur = fxService.getRate("RON", businessDate(startTime))
+        if (ronToEur <= BigDecimal.ZERO) throw IllegalArgumentException("RON FX rate must be positive")
+        BigDecimal.ONE.divide(ronToEur, 12, RoundingMode.HALF_UP)
+    } catch (e: Exception) {
+        throw ResponseStatusException(HttpStatus.BAD_GATEWAY, "Failed to fetch RON exchange rate: ${e.message}")
+    }
+
+    private fun recalculate(rec: MileageRecord, distance: BigDecimal) {
+        val fuelFx = resolveFuelExchangeRate(rec.startTime)
+        val settings = getCalculationSettings().copy(
+            grossRate = rec.rateBeforeTax,
+            fuelConsumption = rec.fuelConsumptionLitersPer100Km ?: return,
+            fuelPriceRonPerLiter = rec.fuelPriceRonPerLiter ?: return,
+            pensionRate = rec.pensionRate ?: return,
+            healthRate = rec.healthRate ?: return,
+            incomeTaxRate = rec.incomeTaxRate ?: return,
+            deduction = rec.taxDeductionEur ?: return
+        )
+        val calculation = mileageCalculationService.calculate(distance, fuelFx, settings)
+        rec.rateAfterTax = calculation.netRate
+        rec.amountBeforeTax = calculation.grossAmount.setScale(2, RoundingMode.HALF_UP)
+        rec.amountOriginal = calculation.netAmount.setScale(2, RoundingMode.HALF_UP)
+        rec.amountEur = rec.amountOriginal
+        rec.fxRate = BigDecimal.ONE
+        rec.fuelExchangeRate = fuelFx
+        rec.fuelCostEur = calculation.fuelCostEur
+        rec.taxableAmount = calculation.taxableAmount
+        rec.withholdingAmount = calculation.withholdingAmount
     }
 }

@@ -68,8 +68,17 @@ class AppSettingsController(
     @GetMapping("/mileage-rates")
     fun readMileageRates(): ResponseEntity<MileageRatesOut> {
         val btStr = appSettingRepository.findById("mileage_rate_before_tax").orElse(null)?.value ?: "0.60"
-        val atStr = appSettingRepository.findById("mileage_rate_after_tax").orElse(null)?.value ?: "0.40"
-        return ResponseEntity.ok(MileageRatesOut(BigDecimal(btStr), BigDecimal(atStr)))
+        fun value(key: String, default: String) = appSettingRepository.findById(key).orElse(null)?.value?.let { BigDecimal(it) } ?: BigDecimal(default)
+        return ResponseEntity.ok(MileageRatesOut(
+            BigDecimal(btStr),
+            value("mileage_rate_after_tax", "0.40"),
+            value("mileage_fuel_consumption_l_per_100km", "7.5"),
+            value("mileage_fuel_price_ron_per_liter", "9.20"),
+            value("mileage_pension_rate", "0.25"),
+            value("mileage_health_rate", "0.10"),
+            value("mileage_income_tax_rate", "0.10"),
+            value("mileage_tax_deduction_eur", "0.00")
+        ))
     }
 
     @PatchMapping("/mileage-rates")
@@ -83,9 +92,17 @@ class AppSettingsController(
         if (body.mileageRateAfterTax != null) {
             appSettingRepository.save(AppSetting("mileage_rate_after_tax", body.mileageRateAfterTax.toString(), now))
         }
+        val values = mapOf(
+            "mileage_fuel_consumption_l_per_100km" to body.fuelConsumptionLitersPer100Km,
+            "mileage_fuel_price_ron_per_liter" to body.fuelPriceRonPerLiter,
+            "mileage_pension_rate" to body.pensionRate,
+            "mileage_health_rate" to body.healthRate,
+            "mileage_income_tax_rate" to body.incomeTaxRate,
+            "mileage_tax_deduction_eur" to body.taxDeductionEur
+        )
+        values.forEach { (key, value) -> if (value != null) appSettingRepository.save(AppSetting(key, value.toString(), now)) }
         val btStr = appSettingRepository.findById("mileage_rate_before_tax").orElse(null)?.value ?: "0.60"
-        val atStr = appSettingRepository.findById("mileage_rate_after_tax").orElse(null)?.value ?: "0.40"
-        return ResponseEntity.ok(MileageRatesOut(BigDecimal(btStr), BigDecimal(atStr)))
+        return readMileageRates()
     }
 
     // --- FX Margins ---
@@ -527,12 +544,24 @@ data class DailyAllowanceUpdate(
 
 data class MileageRatesOut(
     @JsonProperty("mileage_rate_before_tax") val mileageRateBeforeTax: BigDecimal,
-    @JsonProperty("mileage_rate_after_tax") val mileageRateAfterTax: BigDecimal
+    @JsonProperty("mileage_rate_after_tax") val mileageRateAfterTax: BigDecimal,
+    @JsonProperty("fuel_consumption_l_per_100km") val fuelConsumptionLitersPer100Km: BigDecimal,
+    @JsonProperty("fuel_price_ron_per_liter") val fuelPriceRonPerLiter: BigDecimal,
+    @JsonProperty("pension_rate") val pensionRate: BigDecimal,
+    @JsonProperty("health_rate") val healthRate: BigDecimal,
+    @JsonProperty("income_tax_rate") val incomeTaxRate: BigDecimal,
+    @JsonProperty("tax_deduction_eur") val taxDeductionEur: BigDecimal
 )
 
 data class MileageRatesUpdate(
     @JsonProperty("mileage_rate_before_tax") val mileageRateBeforeTax: BigDecimal? = null,
-    @JsonProperty("mileage_rate_after_tax") val mileageRateAfterTax: BigDecimal? = null
+    @JsonProperty("mileage_rate_after_tax") val mileageRateAfterTax: BigDecimal? = null,
+    @JsonProperty("fuel_consumption_l_per_100km") val fuelConsumptionLitersPer100Km: BigDecimal? = null,
+    @JsonProperty("fuel_price_ron_per_liter") val fuelPriceRonPerLiter: BigDecimal? = null,
+    @JsonProperty("pension_rate") val pensionRate: BigDecimal? = null,
+    @JsonProperty("health_rate") val healthRate: BigDecimal? = null,
+    @JsonProperty("income_tax_rate") val incomeTaxRate: BigDecimal? = null,
+    @JsonProperty("tax_deduction_eur") val taxDeductionEur: BigDecimal? = null
 )
 
 data class FxMarginsOut(

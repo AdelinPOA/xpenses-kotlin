@@ -39,6 +39,12 @@ export default function SettingsClient() {
 
   const [bt, setBt] = useState("");
   const [at, setAt] = useState("");
+  const [fuelConsumption, setFuelConsumption] = useState("");
+  const [fuelPrice, setFuelPrice] = useState("");
+  const [pensionRate, setPensionRate] = useState("");
+  const [healthRate, setHealthRate] = useState("");
+  const [incomeTaxRate, setIncomeTaxRate] = useState("");
+  const [taxDeduction, setTaxDeduction] = useState("");
   const [dailyRate, setDailyRate] = useState("");
   const [fxMargins, setFxMargins] = useState<Record<string, string>>({});
   const [fxDefaultMargin, setFxDefaultMargin] = useState("");
@@ -49,6 +55,12 @@ export default function SettingsClient() {
     if (rates) {
       setBt(rates.mileage_rate_before_tax.toString());
       setAt(rates.mileage_rate_after_tax.toString());
+      setFuelConsumption(rates.fuel_consumption_l_per_100km.toString());
+      setFuelPrice(rates.fuel_price_ron_per_liter.toString());
+      setPensionRate((rates.pension_rate * 100).toString());
+      setHealthRate((rates.health_rate * 100).toString());
+      setIncomeTaxRate((rates.income_tax_rate * 100).toString());
+      setTaxDeduction(rates.tax_deduction_eur.toString());
     }
   }, [rates]);
 
@@ -66,7 +78,7 @@ export default function SettingsClient() {
   }, [fxMarginsData]);
 
   const updateRates = useMutation({
-    mutationFn: (data: { mileage_rate_before_tax?: number; mileage_rate_after_tax?: number }) =>
+    mutationFn: (data: Record<string, number>) =>
       api.patch("/settings/mileage-rates", data),
     onSuccess: () => qc.invalidateQueries({ queryKey: settingsKeys.all }),
   });
@@ -95,8 +107,14 @@ export default function SettingsClient() {
   const handleSaveRates = () => {
     const btVal = parseFloat(bt);
     const atVal = parseFloat(at);
-    if (isNaN(btVal) || isNaN(atVal) || btVal <= 0 || atVal <= 0) return;
-    updateRates.mutate({ mileage_rate_before_tax: btVal, mileage_rate_after_tax: atVal });
+    const consumption = parseFloat(fuelConsumption);
+    const price = parseFloat(fuelPrice);
+    const pension = parseFloat(pensionRate) / 100;
+    const health = parseFloat(healthRate) / 100;
+    const incomeTax = parseFloat(incomeTaxRate) / 100;
+    const deduction = parseFloat(taxDeduction);
+    if ([btVal, atVal, consumption, price, pension, health, incomeTax, deduction].some(Number.isNaN) || btVal <= 0 || atVal <= 0 || consumption <= 0 || price < 0 || pension < 0 || health < 0 || incomeTax < 0 || deduction < 0) return;
+    updateRates.mutate({ mileage_rate_before_tax: btVal, mileage_rate_after_tax: atVal, fuel_consumption_l_per_100km: consumption, fuel_price_ron_per_liter: price, pension_rate: pension, health_rate: health, income_tax_rate: incomeTax, tax_deduction_eur: deduction });
   };
 
   const handleSaveAllowance = () => {
@@ -165,6 +183,24 @@ export default function SettingsClient() {
                 className="w-full px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground"
               />
               <p className="text-xs text-slate-400 mt-1">Gross rate for accounting purposes</p>
+            </div>
+
+            <div className="border-t border-slate-200 dark:border-slate-700 pt-4 space-y-4">
+              <p className="text-sm font-medium text-foreground">Fuel and tax calculation</p>
+              {[
+                ["Fuel consumption (L/100 km)", fuelConsumption, setFuelConsumption, "0.1"],
+                ["Diesel price (RON/liter)", fuelPrice, setFuelPrice, "0.01"],
+                ["Pension contribution (%)", pensionRate, setPensionRate, "0.1"],
+                ["Health contribution (%)", healthRate, setHealthRate, "0.1"],
+                ["Income tax (%)", incomeTaxRate, setIncomeTaxRate, "0.1"],
+                ["Tax deduction (€)", taxDeduction, setTaxDeduction, "0.01"],
+              ].map(([label, value, setter, step]) => (
+                <div key={label as string}>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{label as string}</label>
+                  <input type="number" step={step as string} min="0" value={value as string} onChange={(e) => (setter as (v: string) => void)(e.target.value)} className="w-full px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground" />
+                </div>
+              ))}
+              <p className="text-xs text-slate-400">The EUR/RON exchange rate is fetched automatically for each trip date.</p>
             </div>
 
             <div>

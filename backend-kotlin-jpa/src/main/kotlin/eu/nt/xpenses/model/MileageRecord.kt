@@ -42,6 +42,36 @@ class MileageRecord(
     @Column(name = "amount_eur", nullable = false)
     var amountEur: BigDecimal,
 
+    @Column(name = "fuel_consumption_l_per_100km")
+    var fuelConsumptionLitersPer100Km: BigDecimal? = null,
+
+    @Column(name = "fuel_price_ron_per_liter")
+    var fuelPriceRonPerLiter: BigDecimal? = null,
+
+    @Column(name = "fuel_exchange_rate")
+    var fuelExchangeRate: BigDecimal? = null,
+
+    @Column(name = "fuel_cost_eur")
+    var fuelCostEur: BigDecimal? = null,
+
+    @Column(name = "taxable_amount")
+    var taxableAmount: BigDecimal? = null,
+
+    @Column(name = "withholding_amount")
+    var withholdingAmount: BigDecimal? = null,
+
+    @Column(name = "pension_rate")
+    var pensionRate: BigDecimal? = null,
+
+    @Column(name = "health_rate")
+    var healthRate: BigDecimal? = null,
+
+    @Column(name = "income_tax_rate")
+    var incomeTaxRate: BigDecimal? = null,
+
+    @Column(name = "tax_deduction_eur")
+    var taxDeductionEur: BigDecimal? = null,
+
     @Column(name = "amount_original", nullable = false)
     var amountOriginal: BigDecimal,
 

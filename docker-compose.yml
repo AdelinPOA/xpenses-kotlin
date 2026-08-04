@@ -56,8 +56,8 @@ services:
       test: ["CMD-SHELL", "curl -f http://localhost:8080/api/health || exit 1"]
       interval: 10s
       timeout: 5s
-      retries: 3
-      start_period: 15s
+      retries: 12
+      start_period: 180s
     restart: unless-stopped
 
   frontend:

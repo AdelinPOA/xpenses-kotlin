@@ -88,6 +88,93 @@ class AppSettingsController(
         return ResponseEntity.ok(MileageRatesOut(BigDecimal(btStr), BigDecimal(atStr)))
     }
 
+    // --- FX Margins ---
+    private val defaultFxMargin = BigDecimal("0.02")
+    private val defaultFxCurrencies = listOf("EUR", "USD", "GBP", "CHF", "RON")
+
+    private fun readFxMarginsSetting(): Map<String, BigDecimal> {
+        val stored = appSettingRepository.findById("fx_margins").orElse(null)?.value ?: return emptyMap()
+        return try {
+            objectMapper.readValue(stored, Map::class.java).entries.associate { entry ->
+                entry.key.toString().uppercase().trim() to BigDecimal(entry.value.toString())
+            }
+        } catch (_: Exception) {
+            emptyMap()
+        }
+    }
+
+    private fun toFxMarginsOut(parsed: Map<String, BigDecimal>): FxMarginsOut {
+        val defaultFraction = parsed["*"] ?: defaultFxMargin
+        val currencies = (defaultFxCurrencies + parsed.keys.filter { it != "*" }).distinct()
+        val margins = currencies.associateWith { currency ->
+            when (currency) {
+                "RON" -> BigDecimal.ZERO
+                else -> (parsed[currency] ?: defaultFraction).movePointRight(2).setScale(2, RoundingMode.HALF_UP)
+            }
+        }
+        return FxMarginsOut(
+            margins = margins,
+            defaultMargin = defaultFraction.movePointRight(2).setScale(2, RoundingMode.HALF_UP),
+            currencies = currencies
+        )
+    }
+
+    @GetMapping("/fx-margins")
+    fun readFxMargins(): ResponseEntity<FxMarginsOut> =
+        ResponseEntity.ok(toFxMarginsOut(readFxMarginsSetting()))
+
+    @PatchMapping("/fx-margins")
+    @PreAuthorize("hasRole('chef_finance')")
+    @Transactional
+    fun updateFxMargins(@Valid @RequestBody body: FxMarginsUpdate): ResponseEntity<FxMarginsOut> {
+        val current = readFxMarginsSetting()
+        val errors = linkedMapOf<String, String>()
+        val normalized = linkedMapOf<String, BigDecimal>()
+        val originalKeys = mutableMapOf<String, String>()
+
+        body.margins.orEmpty().forEach { (rawKey, percentage) ->
+            val key = rawKey.trim().uppercase()
+            val field = "margins.$rawKey"
+            val validKey = key == "*" || key.matches(Regex("^[A-Z]{3}$"))
+            if (!validKey) {
+                errors[field] = "Currency must be a three-letter ISO code or *"
+            } else if (originalKeys.putIfAbsent(key, rawKey) != null) {
+                errors[field] = "Currency key duplicates another key after normalization"
+            }
+
+            if (percentage < BigDecimal.ZERO || percentage > BigDecimal(100)) {
+                errors[field] = "Margin must be between 0 and 100 percent"
+            }
+            if (key == "RON" && percentage.compareTo(BigDecimal.ZERO) != 0) {
+                errors[field] = "RON cannot have a conversion margin"
+            }
+            if (validKey && !normalized.containsKey(key)) {
+                normalized[key] = percentage
+            }
+        }
+
+        body.defaultMargin?.let { percentage ->
+            if (percentage < BigDecimal.ZERO || percentage > BigDecimal(100)) {
+                errors["defaultMargin"] = "Margin must be between 0 and 100 percent"
+            } else if (normalized.containsKey("*")) {
+                errors["defaultMargin"] = "Use either margins.* or defaultMargin, not both"
+            } else {
+                normalized["*"] = percentage
+            }
+        }
+
+        if (errors.isNotEmpty()) {
+            throw eu.nt.xpenses.config.FxMarginsValidationException(errors)
+        }
+
+        val candidate = current.toMutableMap()
+        normalized.forEach { (key, percentage) -> candidate[key] = percentage.movePointLeft(2) }
+        if (normalized.isNotEmpty()) {
+            appSettingRepository.save(AppSetting("fx_margins", objectMapper.writeValueAsString(candidate), Instant.now()))
+        }
+        return ResponseEntity.ok(toFxMarginsOut(candidate))
+    }
+
     // --- OCR Settings ---
     @GetMapping("/ocr")
     @PreAuthorize("hasRole('mod')")
@@ -446,6 +533,17 @@ data class MileageRatesOut(
 data class MileageRatesUpdate(
     @JsonProperty("mileage_rate_before_tax") val mileageRateBeforeTax: BigDecimal? = null,
     @JsonProperty("mileage_rate_after_tax") val mileageRateAfterTax: BigDecimal? = null
+)
+
+data class FxMarginsOut(
+    val margins: Map<String, BigDecimal>,
+    @JsonProperty("default_margin") val defaultMargin: BigDecimal,
+    val currencies: List<String>
+)
+
+data class FxMarginsUpdate(
+    val margins: Map<String, BigDecimal>? = null,
+    @JsonProperty("default_margin") val defaultMargin: BigDecimal? = null
 )
 
 data class OCRConfigOut(

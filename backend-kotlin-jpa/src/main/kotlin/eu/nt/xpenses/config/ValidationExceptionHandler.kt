@@ -4,6 +4,7 @@ import jakarta.validation.ConstraintViolationException
 import org.slf4j.LoggerFactory
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
+import org.springframework.security.authorization.AuthorizationDeniedException
 import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.MissingServletRequestParameterException
 import org.springframework.web.bind.annotation.ExceptionHandler
@@ -11,10 +12,27 @@ import org.springframework.web.bind.annotation.RestControllerAdvice
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
 import org.springframework.web.server.ResponseStatusException
 
+class FxMarginsValidationException(
+    val errors: Map<String, String>
+) : RuntimeException("Invalid FX margins")
+
 @RestControllerAdvice
 class ValidationExceptionHandler {
 
     private val log = LoggerFactory.getLogger(ValidationExceptionHandler::class.java)
+
+    @ExceptionHandler(FxMarginsValidationException::class)
+    fun handleFxMarginsValidationException(ex: FxMarginsValidationException): ResponseEntity<Map<String, Any>> {
+        return ResponseEntity.badRequest().body(mapOf(
+            "detail" to "Invalid FX margins",
+            "errors" to ex.errors
+        ))
+    }
+
+    @ExceptionHandler(AuthorizationDeniedException::class)
+    fun handleAuthorizationDeniedException(ex: AuthorizationDeniedException): ResponseEntity<Map<String, String>> {
+        return ResponseEntity.status(403).body(mapOf("detail" to "Access denied"))
+    }
 
     @ExceptionHandler(MethodArgumentNotValidException::class)
     fun handleValidationException(ex: MethodArgumentNotValidException): ResponseEntity<Map<String, String>> {
@@ -69,4 +87,3 @@ class ValidationExceptionHandler {
         return ResponseEntity.status(500).body(mapOf("detail" to "Internal server error"))
     }
 }
-

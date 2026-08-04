@@ -25,4 +25,4 @@ The reviewed backlog in `todo.md` contains security, concurrency, storage, perfo
 
 | Phase | Status | Requirements |
 |-------|--------|--------------|
-| 1 | Not started | FX-01–FX-05 |
+| 1 | In progress | FX-01–FX-05 |

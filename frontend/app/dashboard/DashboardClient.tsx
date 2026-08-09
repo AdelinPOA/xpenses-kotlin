@@ -445,9 +445,9 @@ export default function DashboardClient() {
           </h1>
           <Link
             href="/expenses/new"
-            className="bg-primary hover:bg-primary-hover text-white text-[11px] font-bold uppercase tracking-wider px-3 py-2 rounded-full transition-colors flex items-center gap-1 shadow-sm"
+            className="min-h-11 bg-primary hover:bg-primary-hover text-white text-[11px] font-bold uppercase tracking-wider px-4 py-2 rounded-full transition-colors flex items-center gap-1 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           >
-            {t("quick_add_expense")} <Plus className="w-3.5 h-3.5" />
+            {t("quick_add_expense")} <Plus className="w-3.5 h-3.5" aria-hidden="true" />
           </Link>
         </div>
 
@@ -499,7 +499,7 @@ export default function DashboardClient() {
         <div className="bg-card border border-border rounded-xl p-4 shadow-sm flex flex-col">
           <div className="flex items-center justify-between mb-4">
             <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{t("recent_expenses")}</span>
-            <Link href="/expenses" className="text-[10px] font-bold text-primary uppercase tracking-widest hover:underline">
+            <Link href="/expenses" className="min-h-11 px-3 inline-flex items-center text-[10px] font-bold text-primary uppercase tracking-widest hover:underline rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
               {t("see_all")}
             </Link>
           </div>
@@ -519,7 +519,7 @@ export default function DashboardClient() {
                     <div className="flex items-center gap-3 min-w-0 flex-1">
                       {/* Circle Category Icon */}
                       <div className={clsx("w-9 h-9 rounded-full flex items-center justify-center shrink-0", bgClass, colorClass)}>
-                        <Icon className="w-4 h-4" />
+                        <Icon className="w-4 h-4" aria-hidden="true" />
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-bold text-foreground truncate">{e.merchant || "—"}</p>

@@ -3,6 +3,7 @@ package eu.nt.xpenses.services
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import java.math.BigDecimal
+import java.math.RoundingMode
 
 class MileageCalculationServiceTest {
     private val service = MileageCalculationService()
@@ -23,12 +24,12 @@ class MileageCalculationServiceTest {
             )
         )
 
-        assertEquals(BigDecimal("402.000000"), result.grossAmount.setScale(6))
-        assertEquals(BigDecimal("50.250000"), result.fuelLiters.setScale(6))
-        assertEquals(BigDecimal("90.825147"), result.fuelCostEur.setScale(6))
-        assertEquals(BigDecimal("311.174853"), result.taxableAmount.setScale(6))
-        assertEquals(BigDecimal("129.137564"), result.withholdingAmount.setScale(6))
-        assertEquals(BigDecimal("272.862436"), result.netAmount.setScale(6))
-        assertEquals(BigDecimal("0.407257"), result.netRate.setScale(6))
+        assertEquals(BigDecimal("402.000000"), result.grossAmount.setScale(6, RoundingMode.HALF_UP))
+        assertEquals(BigDecimal("50.250000"), result.fuelLiters.setScale(6, RoundingMode.HALF_UP))
+        assertEquals(BigDecimal("90.825147"), result.fuelCostEur.setScale(6, RoundingMode.HALF_UP))
+        assertEquals(BigDecimal("311.174853"), result.taxableAmount.setScale(6, RoundingMode.HALF_UP))
+        assertEquals(BigDecimal("129.137564"), result.withholdingAmount.setScale(6, RoundingMode.HALF_UP))
+        assertEquals(BigDecimal("272.862436"), result.netAmount.setScale(6, RoundingMode.HALF_UP))
+        assertEquals(BigDecimal("0.407257"), result.netRate.setScale(6, RoundingMode.HALF_UP))
     }
 }

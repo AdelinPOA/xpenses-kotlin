@@ -14,8 +14,8 @@
   --input-border: #cbd5e1;
   --muted: #64748b;
   --muted-foreground: #94a3b8;
-  --primary: #f97316;
-  --primary-hover: #ea580c;
+  --primary: #c2410c;
+  --primary-hover: #9a3412;
   --sidebar: #0f172a;
   --sidebar-border: #1e293b;
 }
@@ -31,8 +31,8 @@
   --input-border: #334155;
   --muted: #94a3b8;
   --muted-foreground: #64748b;
-  --primary: #f97316;
-  --primary-hover: #ea580c;
+  --primary: #c2410c;
+  --primary-hover: #9a3412;
   --sidebar: #0a0e1a;
   --sidebar-border: #1a2236;
 }

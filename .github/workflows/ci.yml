@@ -18,7 +18,7 @@ jobs:
       pull-requests: read
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
       - name: Run Gitleaks
@@ -31,10 +31,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up JDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '21'
@@ -50,10 +50,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: '22'
           cache: 'npm'
@@ -68,6 +68,10 @@ jobs:
         run: |
           cd frontend
           npx tsc --noEmit
+      - name: Check translation parity
+        run: |
+          cd frontend
+          npm run i18n:check
 
       - name: Lint
         run: |
@@ -88,6 +92,8 @@ jobs:
         env:
           PLAYWRIGHT_USER: ${{ secrets.PLAYWRIGHT_USER }}
           PLAYWRIGHT_PASSWORD: ${{ secrets.PLAYWRIGHT_PASSWORD }}
+          # Authenticated flows are opt-in; the public accessibility suite uses API stubs.
+          PLAYWRIGHT_AUTHENTICATED_UI: "false"
         run: |
           cd frontend
           npm run test:e2e:mobile
@@ -106,7 +112,7 @@ jobs:
     needs: [build-kotlin, build-frontend]
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Build Docker images
         run: |

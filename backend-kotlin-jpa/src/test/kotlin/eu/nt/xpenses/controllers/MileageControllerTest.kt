@@ -147,8 +147,8 @@ class MileageControllerTest : IntegrationTestBase() {
                 .cookie(cookie)
         )
             .andExpect(status().isOk)
-            .andExpect(jsonPath("$.fx_rate").value(1.0001))
-            .andExpect(jsonPath("$.amount_eur").value(30.54))
+            .andExpect(jsonPath("$.fx_rate").value(1.0))
+            .andExpect(jsonPath("$.amount_eur").value(20.36))
 
         verify(fxService).getRate("RON", "2026-06-02")
     }

@@ -48,6 +48,12 @@ cors:
 company:
   name: ${COMPANY_NAME:Newtech Automation}
 
+rate-limiting:
+  enabled: ${RATE_LIMITING_ENABLED:true}
+  # Only these immediate proxy addresses may provide X-Forwarded-For/X-Real-IP.
+  trusted-proxies: ${TRUSTED_PROXY_ADDRESSES:}
+  max-tracked-keys: ${RATE_LIMITING_MAX_TRACKED_KEYS:10000}
+
 management:
   endpoints:
     web:
@@ -103,4 +109,3 @@ springdoc:
 
 server:
   forward-headers-strategy: framework
-

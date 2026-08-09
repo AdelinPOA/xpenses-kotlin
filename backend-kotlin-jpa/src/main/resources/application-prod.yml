@@ -17,3 +17,8 @@ cors:
 
 cookie:
   secure: true
+
+rate-limiting:
+  # Empty means no forwarded headers are trusted; set this to the exact proxy IP(s).
+  trusted-proxies: ${TRUSTED_PROXY_ADDRESSES:}
+  max-tracked-keys: ${RATE_LIMITING_MAX_TRACKED_KEYS:10000}

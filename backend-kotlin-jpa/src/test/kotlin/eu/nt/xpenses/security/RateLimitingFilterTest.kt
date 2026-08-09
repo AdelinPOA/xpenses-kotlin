@@ -109,12 +109,12 @@ class RateLimitingFilterTest {
 
         repeat(5) {
             assertNotEquals(
-                HttpServletResponse.SC_TOO_MANY_REQUESTS,
+                429,
                 request(untrustedFilter, "10.0.0.9", "198.51.100.$it").status
             )
         }
         assertEquals(
-            HttpServletResponse.SC_TOO_MANY_REQUESTS,
+            429,
             request(untrustedFilter, "10.0.0.9", "203.0.113.1").status
         )
     }
@@ -127,7 +127,7 @@ class RateLimitingFilterTest {
             request(trustedFilter, "10.0.0.9", "198.51.100.1")
         }
         assertNotEquals(
-            HttpServletResponse.SC_TOO_MANY_REQUESTS,
+            429,
             request(trustedFilter, "10.0.0.9", "198.51.100.2").status
         )
     }
@@ -138,7 +138,7 @@ class RateLimitingFilterTest {
 
         repeat(6) {
             assertNotEquals(
-                HttpServletResponse.SC_TOO_MANY_REQUESTS,
+                429,
                 request(filterWithExactMatching, "198.51.100.9", null, "/api/auth/login-extra").status
             )
         }

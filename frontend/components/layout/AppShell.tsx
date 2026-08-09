@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Sidebar from "./Sidebar";
 import { Menu, LayoutDashboard, ReceiptText, FileText, User, CheckSquare } from "lucide-react";
 import Link from "next/link";
@@ -12,9 +12,15 @@ import { useTranslations } from "next-intl";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
   const pathname = usePathname();
   const { user } = useAuth();
   const tNav = useTranslations("nav");
+
+  const closeSidebar = () => {
+    setSidebarOpen(false);
+    requestAnimationFrame(() => menuButtonRef.current?.focus());
+  };
 
   const navItems = user?.role === "manager" ? [
     { href: "/dashboard", labelKey: "dashboard", icon: LayoutDashboard },
@@ -30,63 +36,69 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen min-h-dvh bg-background text-foreground flex flex-col">
-      {/* Mobile header matching mockup */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-30 bg-card border-b border-border shadow-sm pt-safe">
+      <header className="lg:hidden fixed top-0 left-0 right-0 z-30 bg-card border-b border-border shadow-sm pt-safe">
         <div className="h-14 px-4 flex items-center justify-between relative">
           <button
+            ref={menuButtonRef}
+            type="button"
             onClick={() => setSidebarOpen(true)}
-            className="p-2 -ml-2 text-muted hover:bg-card-hover rounded-lg flex items-center justify-center shrink-0 z-20"
+            className="min-w-11 min-h-11 -ml-2 text-muted hover:bg-card-hover rounded-lg flex items-center justify-center shrink-0 z-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             aria-label="Open sidebar"
+            aria-expanded={sidebarOpen}
+            aria-controls="app-sidebar"
           >
-            <Menu className="w-5 h-5" />
+            <Menu className="w-5 h-5" aria-hidden="true" />
           </button>
 
-          {/* Centered logo & brand */}
           <Link
             href="/dashboard"
-            className="absolute inset-0 flex items-center justify-center gap-2 hover:opacity-90 transition-opacity z-10 pointer-events-auto"
+            className="absolute left-1/2 -translate-x-1/2 min-h-11 px-3 flex items-center justify-center gap-2 hover:opacity-90 transition-opacity z-10 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
-            <Image src="/logo.png" alt="xpenses" width={26} height={26} className="rounded-full" />
+            <Image src="/logo.png" alt="" width={26} height={26} className="rounded-full" />
             <span className="text-base font-bold text-foreground tracking-tight">xpenses</span>
           </Link>
 
-          {/* Right side profile */}
           <Link
             href="/profile"
-            className="w-7 h-7 rounded-full bg-primary/20 border border-primary flex items-center justify-center text-primary font-bold text-xs shrink-0 z-20"
+            className="w-11 h-11 rounded-full bg-primary/20 border border-primary flex items-center justify-center text-primary font-bold text-sm shrink-0 z-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             aria-label="Profile"
           >
             {user?.display_name?.charAt(0) || "U"}
           </Link>
         </div>
-      </div>
+      </header>
 
-      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <Sidebar open={sidebarOpen} onClose={closeSidebar} />
 
-      {/* Main layout content area - padded at bottom on mobile to clear the tab bar */}
-      <main className="flex-1 lg:ml-[220px] pt-[calc(3.5rem+env(safe-area-inset-top,0px))] lg:pt-6 pb-[calc(4rem+env(safe-area-inset-bottom,0px)+1rem)] lg:pb-0 p-4 sm:p-6 lg:p-8">
+      <main
+        id="main-content"
+        className="flex-1 lg:ml-[220px] pt-[calc(3.5rem+env(safe-area-inset-top,0px))] lg:pt-6 pb-[calc(4rem+env(safe-area-inset-bottom,0px)+1rem)] lg:pb-0 p-4 sm:p-6 lg:p-8"
+      >
         {children}
       </main>
 
-      {/* Mobile bottom navigation tab bar */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 h-[calc(4rem+env(safe-area-inset-bottom,0px))] pb-safe box-border bg-card border-t border-border flex items-end justify-around z-30 shadow-lg">
+      <nav
+        aria-label="Primary mobile navigation"
+        className="lg:hidden fixed bottom-0 left-0 right-0 h-[calc(4rem+env(safe-area-inset-bottom,0px))] pb-safe box-border bg-card border-t border-border flex items-end justify-around z-30 shadow-lg"
+      >
         {navItems.map(({ href, labelKey, icon: Icon }) => {
           const active = pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
           return (
             <Link
               key={href}
               href={href}
+              aria-current={active ? "page" : undefined}
               className={clsx(
-                "flex flex-col items-center justify-center gap-1 w-16 h-16 text-[10px] font-bold uppercase tracking-wider transition-colors",
+                "flex flex-col items-center justify-center gap-1 min-w-16 min-h-16 text-[10px] font-bold uppercase tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary",
                 active ? "text-primary" : "text-muted hover:text-foreground"
               )}
             >
-              <Icon className="w-5 h-5" />
+              <Icon className="w-5 h-5" aria-hidden="true" />
               <span>{tNav(labelKey)}</span>
             </Link>
           );
         })}
-      </div>
+      </nav>
     </div>
   );
 }

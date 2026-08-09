@@ -10,15 +10,8 @@ class LocalStorageProvider(
     private val logger = LoggerFactory.getLogger(LocalStorageProvider::class.java)
     private val baseDir: File = File(basePath).canonicalFile
 
-    private fun resolveTargetFile(relativePath: String): File {
-        val target = File(baseDir, relativePath).canonicalFile
-        if (!target.canonicalPath.startsWith(baseDir.canonicalPath + File.separator) &&
-            target.canonicalPath != baseDir.canonicalPath
-        ) {
-            throw IllegalArgumentException("Invalid target filepath: path traversal detected")
-        }
-        return target
-    }
+    private fun resolveTargetFile(relativePath: String): File =
+        StoragePathResolver.resolve(baseDir, relativePath)
 
     override fun upload(relativePath: String, content: ByteArray) {
         val file = resolveTargetFile(relativePath)

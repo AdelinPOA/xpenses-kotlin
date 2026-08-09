@@ -38,7 +38,6 @@ export default function SettingsClient() {
   });
 
   const [bt, setBt] = useState("");
-  const [at, setAt] = useState("");
   const [fuelConsumption, setFuelConsumption] = useState("");
   const [fuelPrice, setFuelPrice] = useState("");
   const [pensionRate, setPensionRate] = useState("");
@@ -54,7 +53,6 @@ export default function SettingsClient() {
   useEffect(() => {
     if (rates) {
       setBt(rates.mileage_rate_before_tax.toString());
-      setAt(rates.mileage_rate_after_tax.toString());
       setFuelConsumption(rates.fuel_consumption_l_per_100km.toString());
       setFuelPrice(rates.fuel_price_ron_per_liter.toString());
       setPensionRate((rates.pension_rate * 100).toString());
@@ -106,15 +104,14 @@ export default function SettingsClient() {
 
   const handleSaveRates = () => {
     const btVal = parseFloat(bt);
-    const atVal = parseFloat(at);
     const consumption = parseFloat(fuelConsumption);
     const price = parseFloat(fuelPrice);
     const pension = parseFloat(pensionRate) / 100;
     const health = parseFloat(healthRate) / 100;
     const incomeTax = parseFloat(incomeTaxRate) / 100;
     const deduction = parseFloat(taxDeduction);
-    if ([btVal, atVal, consumption, price, pension, health, incomeTax, deduction].some(Number.isNaN) || btVal <= 0 || atVal <= 0 || consumption <= 0 || price < 0 || pension < 0 || health < 0 || incomeTax < 0 || deduction < 0) return;
-    updateRates.mutate({ mileage_rate_before_tax: btVal, mileage_rate_after_tax: atVal, fuel_consumption_l_per_100km: consumption, fuel_price_ron_per_liter: price, pension_rate: pension, health_rate: health, income_tax_rate: incomeTax, tax_deduction_eur: deduction });
+    if ([btVal, consumption, price, pension, health, incomeTax, deduction].some(Number.isNaN) || btVal <= 0 || consumption <= 0 || price < 0 || pension < 0 || health < 0 || incomeTax < 0 || deduction < 0) return;
+    updateRates.mutate({ mileage_rate_before_tax: btVal, fuel_consumption_l_per_100km: consumption, fuel_price_ron_per_liter: price, pension_rate: pension, health_rate: health, income_tax_rate: incomeTax, tax_deduction_eur: deduction });
   };
 
   const handleSaveAllowance = () => {
@@ -201,21 +198,6 @@ export default function SettingsClient() {
                 </div>
               ))}
               <p className="text-xs text-slate-400">The EUR/RON exchange rate is fetched automatically for each trip date.</p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                {t("rate_after_tax")}
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                min="0.01"
-                value={at}
-                onChange={(e) => setAt(e.target.value)}
-                className="w-full px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground"
-              />
-              <p className="text-xs text-slate-400 mt-1">Net rate used for reimbursement</p>
             </div>
 
             <button

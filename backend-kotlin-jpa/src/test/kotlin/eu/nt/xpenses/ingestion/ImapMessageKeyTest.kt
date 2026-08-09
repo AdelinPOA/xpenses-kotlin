@@ -22,8 +22,8 @@ class ImapMessageKeyTest {
     fun fallsBackToStableDigestWithoutMessageId() {
         val first = mimeMessage()
         val second = mimeMessage()
-        first.from = arrayOf(InternetAddress("sender@example.test"))
-        second.from = arrayOf(InternetAddress("sender@example.test"))
+        first.setFrom(InternetAddress("sender@example.test"))
+        second.setFrom(InternetAddress("sender@example.test"))
         first.subject = "Receipt"
         second.subject = "Receipt"
 

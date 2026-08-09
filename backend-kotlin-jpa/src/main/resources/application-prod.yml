@@ -3,6 +3,9 @@ spring:
   flyway:
     baseline-on-migrate: false
     validate-on-migrate: true
+  data:
+    redis:
+      url: ${REDIS_URL}
 
 jwt:
   # Production must provide both values; there are no safe defaults.
@@ -24,8 +27,3 @@ rate-limiting:
   max-tracked-keys: ${RATE_LIMITING_MAX_TRACKED_KEYS:10000}
   store: ${RATE_LIMITING_STORE:redis}
   fail-closed: ${RATE_LIMITING_FAIL_CLOSED:true}
-
-spring:
-  data:
-    redis:
-      url: ${REDIS_URL}

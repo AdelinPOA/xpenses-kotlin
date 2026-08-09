@@ -9,6 +9,7 @@ import eu.nt.xpenses.services.storage.LocalStorageProvider
 import eu.nt.xpenses.services.storage.S3StorageProvider
 import eu.nt.xpenses.services.storage.StorageMigrationEngine
 import eu.nt.xpenses.services.storage.StorageProvider
+import eu.nt.xpenses.services.storage.StoragePathResolver
 import jakarta.annotation.PostConstruct
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
@@ -200,26 +201,20 @@ open class StorageService(
     fun getLocalPath(relativePath: String): String {
         val config = getStorageConfig()
         val localDir = config.local?.path ?: defaultReceiptsDir
-        val localProvider = LocalStorageProvider(localDir)
-
         if (config.providerType == "local") {
-            // Local provider creates file structure via LocalStorageProvider logic
-            val target = File(File(localDir).canonicalFile, relativePath).canonicalFile
+            val target = StoragePathResolver.resolve(File(localDir), relativePath)
             target.parentFile?.mkdirs()
             return target.absolutePath
         }
 
-        // Remote provider: use cache directory
-        val cacheBase = File(File(localDir).canonicalFile, "cache").canonicalFile
-        val target = File(cacheBase, relativePath).canonicalFile
-        if (!target.canonicalPath.startsWith(cacheBase.canonicalPath + File.separator)) {
-            throw IllegalArgumentException("Invalid target cache path: path traversal detected")
-        }
+        // Remote provider: use cache directory.
+        val cacheBase = File(File(localDir).canonicalFile, "cache")
+        val target = StoragePathResolver.resolve(cacheBase, relativePath)
 
         if (!target.exists()) {
-            val fallbackBase = File(defaultReceiptsDir).canonicalFile
-            val fallbackTarget = File(fallbackBase, relativePath).canonicalFile
-            if (fallbackTarget.exists() && fallbackTarget.canonicalPath.startsWith(fallbackBase.canonicalPath + File.separator)) {
+            val fallbackBase = File(defaultReceiptsDir)
+            val fallbackTarget = StoragePathResolver.resolve(fallbackBase, relativePath)
+            if (fallbackTarget.exists()) {
                 return fallbackTarget.absolutePath
             }
 
@@ -303,6 +298,8 @@ open class StorageService(
         // Always write to local cache/storage first
         val config = getStorageConfig()
         val localDir = config.local?.path ?: defaultReceiptsDir
+        // Validate the path before passing it to any provider, including remote sync.
+        StoragePathResolver.resolve(File(localDir), relativePath)
         val localProvider = LocalStorageProvider(localDir)
         localProvider.upload(relativePath, content)
 

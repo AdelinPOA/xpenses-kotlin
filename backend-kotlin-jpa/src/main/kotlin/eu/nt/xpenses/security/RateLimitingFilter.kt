@@ -29,7 +29,7 @@ class RateLimitingFilter(
         .toSet()
 
     companion object {
-        private val EXPORT_REPORT_PATH = Regex("^/api/reports/$d+/(pdf|receipts-zip)$")
+        private val EXPORT_REPORT_PATH = Regex("^/api/reports/\\d+/(pdf|receipts-zip)$")
         private const val WINDOW_MILLIS = 60_000L
     }
 

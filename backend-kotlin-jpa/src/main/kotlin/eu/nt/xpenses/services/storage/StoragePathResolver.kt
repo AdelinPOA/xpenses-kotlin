@@ -8,6 +8,10 @@ import java.io.File
  */
 object StoragePathResolver {
     fun resolve(baseDir: File, relativePath: String): File {
+        if (File(relativePath).isAbsolute) {
+            throw IllegalArgumentException("Invalid target filepath: absolute paths are not allowed")
+        }
+
         val canonicalBase = baseDir.canonicalFile
         val target = File(canonicalBase, relativePath).canonicalFile
         val basePath = canonicalBase.path

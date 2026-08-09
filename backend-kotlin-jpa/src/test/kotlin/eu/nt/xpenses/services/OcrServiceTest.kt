@@ -18,6 +18,9 @@ import org.mockito.ArgumentMatchers.anyString
 import org.mockito.ArgumentMatchers.eq
 import org.mockito.ArgumentMatchers.isNull
 import org.mockito.Mockito.*
+import org.springframework.transaction.PlatformTransactionManager
+import org.springframework.transaction.TransactionStatus
+import org.springframework.transaction.support.TransactionTemplate
 import java.time.Instant
 import java.util.Optional
 
@@ -29,6 +32,8 @@ class OcrServiceTest {
     private val ocrResultCacheRepository = mock(OcrResultCacheRepository::class.java)
     private val cryptoService = mock(CryptoService::class.java)
     private val objectMapper = ObjectMapper().registerKotlinModule()
+    private val transactionManager = mock(PlatformTransactionManager::class.java)
+    private val transactionTemplate = TransactionTemplate(transactionManager)
 
     private val ocrService = OcrService(
         appSettingRepository,
@@ -36,7 +41,8 @@ class OcrServiceTest {
         ocrComparisonRepository,
         ocrResultCacheRepository,
         cryptoService,
-        objectMapper
+        objectMapper,
+        transactionTemplate
     )
 
     private val fakeBytes = "receipt image content".toByteArray()
@@ -45,6 +51,7 @@ class OcrServiceTest {
 
     @BeforeEach
     fun setup() {
+        doReturn(mock(TransactionStatus::class.java)).`when`(transactionManager).getTransaction(any())
         val digest = java.security.MessageDigest.getInstance("SHA-256")
         sha256 = digest.digest(fakeBytes).joinToString("") { "%02x".format(it) }
 

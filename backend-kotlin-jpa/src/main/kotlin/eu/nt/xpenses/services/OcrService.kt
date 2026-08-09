@@ -14,7 +14,7 @@ import eu.nt.xpenses.repositories.OcrResultCacheRepository
 import org.springframework.http.HttpEntity
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Service
-import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionTemplate
 import org.springframework.web.client.RestClient
 import org.springframework.web.client.body
 import org.springframework.http.client.JdkClientHttpRequestFactory
@@ -41,7 +41,8 @@ class OcrService(
     private val ocrComparisonRepository: OcrComparisonRepository,
     private val ocrResultCacheRepository: OcrResultCacheRepository,
     private val cryptoService: CryptoService,
-    private val objectMapper: ObjectMapper
+    private val objectMapper: ObjectMapper,
+    private val transactionTemplate: TransactionTemplate
 ) {
     private val log = LoggerFactory.getLogger(OcrService::class.java)
 
@@ -125,7 +126,10 @@ class OcrService(
         }
     }
 
-    @Transactional
+    /**
+     * The provider call intentionally runs outside a database transaction.
+     * Only cache/comparison state transitions use short TransactionTemplate scopes.
+     */
     fun scanReceipt(fileBytes: ByteArray, filename: String): Map<String, Any?> {
         val config = getOcrConfig()
         if (!config.ocrEnabled) {
@@ -137,55 +141,76 @@ class OcrService(
 
         val categories = categoryRepository.findAllByIsActiveTrue()
 
-        // Calculate SHA-256 of the receipt bytes
         val digest = java.security.MessageDigest.getInstance("SHA-256")
         val hashBytes = digest.digest(fileBytes)
         val sha256 = hashBytes.joinToString("") { "%02x".format(it) }
-
         val cacheModel = config.provider
-        val cacheLockKey = "$sha256|$CACHE_PROVIDER|$cacheModel|$CACHE_CONTRACT_VERSION"
-        ocrResultCacheRepository.acquireScanLock(cacheLockKey)
 
-        val cachedResult = ocrResultCacheRepository
-            .findBySha256AndProviderAndModelAndContractVersion(
-                sha256, CACHE_PROVIDER, cacheModel, CACHE_CONTRACT_VERSION
-            )
-            .orElse(null)
+        val preparation = transactionTemplate.execute {
+            val cacheLockKey = "$sha256|$CACHE_PROVIDER|$cacheModel|$CACHE_CONTRACT_VERSION"
+            ocrResultCacheRepository.acquireScanLock(cacheLockKey)
 
-        if (cachedResult != null) {
-            val cachedPayload = try {
-                objectMapper.readValue(cachedResult.resultJson, Map::class.java)
-                    .toStringKeyedMap()
-            } catch (e: Exception) {
-                log.warn("Ignoring unreadable OCR cache entry {}: {}", cachedResult.id, e.message)
+            val cachedResult = ocrResultCacheRepository
+                .findBySha256AndProviderAndModelAndContractVersion(
+                    sha256, CACHE_PROVIDER, cacheModel, CACHE_CONTRACT_VERSION
+                )
+                .orElse(null)
+
+            val cachedPreparation = if (cachedResult != null) {
+                val cachedPayload = try {
+                    objectMapper.readValue(cachedResult.resultJson, Map::class.java)
+                        .toStringKeyedMap()
+                } catch (e: Exception) {
+                    log.warn("Ignoring unreadable OCR cache entry {}: {}", cachedResult.id, e.message)
+                    null
+                }
+
+                if (cachedPayload != null) {
+                    val normalized = normalizeCachedResult(cachedPayload, categories)
+                    cachedResult.lastUsedAt = Instant.now()
+                    ocrResultCacheRepository.save(cachedResult)
+                    val savedComparison = saveComparisonFromResult(filename, config.provider, sha256, normalized)
+                    ScanPreparation(
+                        sha256 = sha256,
+                        cacheModel = cacheModel,
+                        comparisonId = savedComparison.id,
+                        cachedResult = normalized
+                    )
+                } else {
+                    null
+                }
+            } else {
                 null
             }
-            if (cachedPayload != null) {
-                val normalized = normalizeCachedResult(cachedPayload, categories)
-                cachedResult.lastUsedAt = Instant.now()
-                ocrResultCacheRepository.save(cachedResult)
-                val savedComparison = saveComparisonFromResult(filename, config.provider, sha256, normalized)
-                log.info("OCR result cache hit for hash: {}", sha256)
-                return normalized.toMutableMap().apply {
-                    savedComparison.id?.let { put("comparison_id", it) }
+
+            cachedPreparation ?: run {
+                val comparison = OcrComparison(
+                    receiptFilename = filename,
+                    provider = config.provider,
+                    sha256 = sha256,
+                    createdAt = Instant.now()
+                )
+                val savedComparison = try {
+                    ocrComparisonRepository.save(comparison)
+                } catch (e: Exception) {
+                    log.warn("Failed to pre-save OCR comparison record: {}", e.message)
+                    null
                 }
+                ScanPreparation(
+                    sha256 = sha256,
+                    cacheModel = cacheModel,
+                    comparisonId = savedComparison?.id,
+                    cachedResult = null
+                )
+            }
+        } ?: throw IllegalStateException("Unable to prepare OCR scan")
+
+        preparation.cachedResult?.let { cached ->
+            log.info("OCR result cache hit for hash: {}", sha256)
+            return cached.toMutableMap().apply {
+                preparation.comparisonId?.let { put("comparison_id", it) }
             }
         }
-
-        // Pre-save the comparison record to obtain an ID for the fallback-chain attempts
-        val comparison = OcrComparison(
-            receiptFilename = filename,
-            provider = config.provider,
-            sha256 = sha256,
-            createdAt = Instant.now()
-        )
-        val savedComparison = try {
-            ocrComparisonRepository.save(comparison)
-        } catch (e: Exception) {
-            log.warn("Failed to pre-save OCR comparison record: {}", e.message)
-            null
-        }
-        val comparisonId = savedComparison?.id
 
         var result: Map<String, Any?>? = null
         var lastError: String? = null
@@ -204,20 +229,26 @@ class OcrService(
         }
 
         val finalResult = result ?: errorResult(lastError ?: "All Gemini model tiers failed")
-
-        if (comparisonId != null) {
-            updateGeminiComparison(comparisonId, finalResult)
-            if (finalResult["amount"] != null) {
-                saveCacheResult(sha256, cacheModel, finalResult)
+        transactionTemplate.execute {
+            preparation.comparisonId?.let { comparisonId ->
+                updateGeminiComparison(comparisonId, finalResult)
+                if (finalResult["amount"] != null) {
+                    saveCacheResult(sha256, cacheModel, finalResult)
+                }
             }
         }
 
-        val mutableResult = finalResult.toMutableMap()
-        if (comparisonId != null) {
-            mutableResult["comparison_id"] = comparisonId
+        return finalResult.toMutableMap().apply {
+            preparation.comparisonId?.let { put("comparison_id", it) }
         }
-        return mutableResult
     }
+
+    private data class ScanPreparation(
+        val sha256: String,
+        val cacheModel: String,
+        val comparisonId: Int?,
+        val cachedResult: Map<String, Any?>?
+    )
 
     private fun updateGeminiComparison(id: Int, result: Map<String, Any?>) {
         try {

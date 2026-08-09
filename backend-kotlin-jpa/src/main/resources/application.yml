@@ -70,33 +70,6 @@ management:
         enabled: true
       show-details: when-authorized
 
-bucket4j:
-  enabled: true
-  cache-to-use: jcache
-  filters:
-    - cache-name: rate-limit-cache
-      filter-method: servlet
-      filter-order: -100
-      url: /api/auth/login
-      http-response-body: '{"detail": "Too many login requests. Please try again later."}'
-      rate-limits:
-        - cache-key: getRemoteAddr()
-          bandwidths:
-            - capacity: 10
-              time: 1
-              unit: minutes
-    - cache-name: rate-limit-cache
-      filter-method: servlet
-      filter-order: -100
-      url: /api/auth/refresh
-      http-response-body: '{"detail": "Too many token refresh requests. Please try again later."}'
-      rate-limits:
-        - cache-key: getRemoteAddr()
-          bandwidths:
-            - capacity: 20
-              time: 1
-              unit: minutes
-
 imap:
   poll-interval: ${IMAP_POLL_INTERVAL:300000}
 

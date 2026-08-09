@@ -175,7 +175,7 @@ class HistoricalFxMigrationRegressionTest {
     }
 
     private fun migrateThroughV31() {
-        flyway().migrate()
+        flyway(target = "31").migrate()
     }
 
     private fun flyway(target: String? = null): Flyway {

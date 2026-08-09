@@ -72,20 +72,22 @@ export default function ProfilePage() {
             <p className="text-sm text-slate-700 dark:text-slate-300">{user?.username}</p>
           </div>
           <div className="mb-4">
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("display_name")}</label>
+            <label htmlFor="profile-display-name" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("display_name")}</label>
             <input
+              id="profile-display-name"
+              name="display_name"
               type="text"
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
-              className="w-full text-base sm:text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-input dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-300"
+              className="w-full min-h-11 text-base sm:text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-input dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-300"
             />
           </div>
           <div className="mb-4">
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("language")}</label>
-            <select
+            <label htmlFor="profile-language" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("language")}</label>
+            <select id="profile-language" name="language"
               value={language}
               onChange={(e) => setLanguage(e.target.value as Locale)}
-              className="w-full text-base sm:text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-input dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-300"
+              className="w-full min-h-11 text-base sm:text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-input dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-300"
             >
               {LOCALES.map((loc) => (
                 <option key={loc} value={loc}>
@@ -106,7 +108,7 @@ export default function ProfilePage() {
               {t("enable_notifications")}
             </label>
           </div>
-          {profileMsg && <p className="text-sm text-green-600 dark:text-green-400 mb-3">{profileMsg}</p>}
+          {profileMsg && <p role="status" aria-live="polite" className="text-sm text-green-600 dark:text-green-400 mb-3">{profileMsg}</p>}
           <button
             onClick={() => {
               setProfileMsg(null);
@@ -117,7 +119,7 @@ export default function ProfilePage() {
               });
             }}
             disabled={profileMutation.isPending}
-            className="px-4 py-2 bg-primary hover:bg-primary-hover disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors"
+            className="min-h-11 px-4 py-2 bg-primary hover:bg-primary-hover disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors"
           >
             {profileMutation.isPending ? t("saving") : t("save_changes")}
           </button>
@@ -144,41 +146,41 @@ export default function ProfilePage() {
               className="space-y-4"
             >
               <div>
-                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("current_password")}</label>
-                <input
+                <label htmlFor="current-password" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("current_password")}</label>
+                <input id="current-password" name="current_password" autoComplete="current-password"
                   required
                   type="password"
                   value={oldPassword}
                   onChange={(e) => setOldPassword(e.target.value)}
-                  className="w-full text-base sm:text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-input dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                  className="w-full min-h-11 text-base sm:text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-input dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-300"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("new_password")}</label>
-                <input
+                <label htmlFor="new-password" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("new_password")}</label>
+                <input id="new-password" name="new_password" autoComplete="new-password"
                   required
                   type="password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  className="w-full text-base sm:text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-input dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                  className="w-full min-h-11 text-base sm:text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-input dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-300"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("confirm_password")}</label>
-                <input
+                <label htmlFor="confirm-password" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("confirm_password")}</label>
+                <input id="confirm-password" name="confirm_password" autoComplete="new-password"
                   required
                   type="password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full text-base sm:text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-input dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                  className="w-full min-h-11 text-base sm:text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-input dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-300"
                 />
               </div>
-              {passwordError && <p className="text-sm text-red-600 dark:text-red-400">{passwordError}</p>}
-              {passwordMsg && <p className="text-sm text-green-600 dark:text-green-400">{passwordMsg}</p>}
+              {passwordError && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{passwordError}</p>}
+              {passwordMsg && <p role="status" aria-live="polite" className="text-sm text-green-600 dark:text-green-400">{passwordMsg}</p>}
               <button
                 type="submit"
                 disabled={passwordMutation.isPending}
-                className="px-4 py-2 bg-primary hover:bg-primary-hover disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors"
+                className="min-h-11 px-4 py-2 bg-primary hover:bg-primary-hover disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors"
               >
                 {passwordMutation.isPending ? t("changing") : t("change_password")}
               </button>

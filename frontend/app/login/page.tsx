@@ -41,15 +41,17 @@ export default function LoginPage() {
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
-            <div className="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-sm px-3 py-2 rounded-lg">{error}</div>
+            <div role="alert" className="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-sm px-3 py-2 rounded-lg">{error}</div>
           )}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1">{t("label_username")}</label>
+            <label htmlFor="login-username" className="block text-sm font-medium text-foreground mb-1">{t("label_username")}</label>
             <input
+              id="login-username"
+              name="username"
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="w-full px-3 py-2 border border-input-border rounded-lg bg-input text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              className="w-full min-h-11 px-3 py-2 border border-input-border rounded-lg bg-input text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
               required
               autoCapitalize="none"
               autoCorrect="off"
@@ -57,8 +59,10 @@ export default function LoginPage() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1">{t("label_password")}</label>
+            <label htmlFor="login-password" className="block text-sm font-medium text-foreground mb-1">{t("label_password")}</label>
             <input
+              id="login-password"
+              name="password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -70,7 +74,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-primary text-white py-2 rounded-lg font-medium hover:bg-primary-hover transition-colors disabled:opacity-50 cursor-pointer"
+            className="w-full min-h-11 bg-primary text-white py-2 rounded-lg font-medium hover:bg-primary-hover transition-colors disabled:opacity-50 cursor-pointer"
           >
             {loading ? t("button_sign_in_loading") : t("button_sign_in")}
           </button>

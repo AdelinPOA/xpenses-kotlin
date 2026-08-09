@@ -79,6 +79,27 @@ jobs:
           cd frontend
           npm run build
 
+      - name: Install Playwright browsers
+        run: |
+          cd frontend
+          npx playwright install --with-deps chromium webkit
+
+      - name: Run mobile UI and accessibility tests
+        env:
+          PLAYWRIGHT_USER: ${{ secrets.PLAYWRIGHT_USER }}
+          PLAYWRIGHT_PASSWORD: ${{ secrets.PLAYWRIGHT_PASSWORD }}
+        run: |
+          cd frontend
+          npm run test:e2e:mobile
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-playwright-report
+          path: frontend/playwright-report
+          if-no-files-found: ignore
+
   build-docker:
     name: Build Docker Images
     runs-on: ubuntu-latest

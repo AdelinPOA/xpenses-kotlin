@@ -34,7 +34,7 @@ export default function ReceiptPreview({
   onPointerDown, onPointerMove, onPointerUp, sanitizeUrl,
 }: Props) {
   return (
-    <div className="w-full lg:flex-1 lg:sticky lg:top-6 bg-card rounded-xl shadow-sm border border-border-subtle/80 p-6 flex flex-col min-h-[450px] self-stretch">
+    <div className="w-full lg:flex-1 lg:sticky lg:top-6 bg-card rounded-xl shadow-sm border border-border-subtle/80 p-4 sm:p-6 flex flex-col min-h-[220px] lg:min-h-[450px] self-stretch">
       <div className="border-b border-border-subtle pb-3 mb-4 flex items-center justify-between">
         <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Receipt Preview</h2>
         {items.length > 0 && (
@@ -52,7 +52,7 @@ export default function ReceiptPreview({
               type="button"
               onClick={() => onSelectItem(it.key)}
               className={clsx(
-                "px-2.5 py-1 text-xs font-semibold rounded-md transition-colors",
+                "min-h-11 px-3 py-2 text-xs font-semibold rounded-md transition-colors",
                 (activeReceiptKey === it.key || (activeReceiptKey === null && idx === 0))
                   ? "bg-primary text-white shadow-sm"
                   : "bg-slate-50 dark:bg-slate-850 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400"
@@ -99,7 +99,7 @@ export default function ReceiptPreview({
 
               <a
                 href={sanitizeUrl(activeItem.url)}
-                className="absolute bottom-3 right-3 bg-black/60 hover:bg-black/80 text-white text-xs px-2.5 py-1.5 rounded-md backdrop-blur-sm transition-colors duration-150"
+                className="absolute bottom-3 right-3 min-h-11 inline-flex items-center bg-black/60 hover:bg-black/80 text-white text-xs px-2.5 py-1.5 rounded-md backdrop-blur-sm transition-colors duration-150"
               >
                 View Fullscreen
               </a>
@@ -108,20 +108,20 @@ export default function ReceiptPreview({
             <div className="flex-1 flex flex-col min-h-[350px] gap-3">
               <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/50 rounded-lg p-3 text-center">
                 <p className="text-xs text-blue-800 dark:text-blue-200 mb-2">PDF preview not loading? You can view or download it directly.</p>
-                <a href={sanitizeUrl(activeItem.url)} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary hover:bg-primary-hover text-white text-xs font-semibold rounded-md transition-colors cursor-pointer">Open PDF</a>
+                <a href={sanitizeUrl(activeItem.url)} className="inline-flex min-h-11 items-center gap-1.5 px-3 py-1.5 bg-primary hover:bg-primary-hover text-white text-xs font-semibold rounded-md transition-colors cursor-pointer">Open PDF</a>
               </div>
               <iframe src={sanitizeUrl(activeItem.url)} className="hidden lg:block w-full flex-1 rounded-lg border border-border min-h-[350px]" title="PDF Preview" />
             </div>
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center p-6 border border-dashed border-slate-300 dark:border-slate-700 rounded-lg text-slate-400">
               <p className="text-sm">No preview available for this file type.</p>
-              <a href={sanitizeUrl(activeItem.url)} className="mt-2 text-xs text-blue-600 dark:text-blue-400 hover:underline">Download File</a>
+              <a href={sanitizeUrl(activeItem.url)} className="mt-2 min-h-11 inline-flex items-center px-3 text-xs text-blue-600 dark:text-blue-400 hover:underline">Download File</a>
             </div>
           )}
         </div>
       ) : (
-        <div className="flex-1 flex flex-col items-center justify-center border border-dashed border-border rounded-xl p-8 text-center min-h-[350px]">
-          <Camera className="w-10 h-10 text-slate-300 dark:text-slate-700 mb-3 animate-pulse" />
+        <div className="flex-1 flex flex-col items-center justify-center border border-dashed border-border rounded-xl p-6 text-center min-h-[180px] lg:min-h-[350px]">
+          <Camera aria-hidden="true" className="w-10 h-10 text-slate-300 dark:text-slate-700 mb-3 animate-pulse" />
           <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">No Receipt Selected</h3>
           <p className="text-xs text-muted max-w-[200px]">Upload or scan a receipt to view its preview here.</p>
         </div>

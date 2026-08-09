@@ -1,7 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
 const VIEWPORTS = {
-  mobile: { width: 375, height: 812 },
+  mobile: { width: 412, height: 849 },
   tablet: { width: 768, height: 1024 },
   desktop: { width: 1280, height: 800 },
 };
@@ -34,8 +34,12 @@ export default defineConfig({
   },
   projects: [
     {
-      name: "mobile",
-      use: { ...devices["iPhone 12"], viewport: VIEWPORTS.mobile },
+      name: "mobile-chromium",
+      use: { ...devices["Pixel 7"], viewport: VIEWPORTS.mobile },
+    },
+    {
+      name: "mobile-webkit",
+      use: { ...devices["iPhone 13"], viewport: VIEWPORTS.mobile },
     },
     {
       name: "tablet",

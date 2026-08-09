@@ -10,6 +10,6 @@ class RateLimitStoreConfiguration {
     @Bean
     @ConditionalOnMissingBean(RateLimitStore::class)
     fun inMemoryRateLimitStore(
-        @Value("${rate-limiting.max-tracked-keys:10000}") maxTrackedKeys: Int
+        @Value("\${rate-limiting.max-tracked-keys:10000}") maxTrackedKeys: Int
     ): RateLimitStore = InMemoryRateLimitStore(maxTrackedKeys)
 }

@@ -3,6 +3,7 @@ import AxeBuilder from "@axe-core/playwright";
 
 const username = process.env.PLAYWRIGHT_USER;
 const password = process.env.PLAYWRIGHT_PASSWORD;
+const authenticatedUiEnabled = process.env.PLAYWRIGHT_AUTHENTICATED_UI === "true";
 
 async function login(page: Page) {
   test.skip(!username || !password, "PLAYWRIGHT_USER and PLAYWRIGHT_PASSWORD are required");
@@ -31,7 +32,17 @@ async function expectNoSeriousAxeViolations(page: Page) {
   expect(serious, JSON.stringify(serious, null, 2)).toEqual([]);
 }
 
+test("login is accessible and does not overflow", async ({ page }) => {
+  await page.goto("/login");
+  await expect(page.getByLabel("Username")).toBeVisible();
+  await expect(page.getByLabel("Password")).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+  await expectNoSeriousAxeViolations(page);
+});
+
 test.describe("mobile authenticated UI", () => {
+  test.skip(!authenticatedUiEnabled || !username || !password, "Set PLAYWRIGHT_AUTHENTICATED_UI=true with test credentials and a reachable API");
+
   test.beforeEach(async ({ page }) => {
     await login(page);
   });

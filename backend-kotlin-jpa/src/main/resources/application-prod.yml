@@ -6,14 +6,19 @@ spring:
 
 jwt:
   # Production must provide both values; there are no safe defaults.
-  secret: ${JWT_SECRET}
-  salt: ${JWT_SALT}
+  secret: \${JWT_SECRET}
+  salt: \${JWT_SALT}
 
 encryption:
-  secret: ${ENCRYPTION_SECRET}
+  secret: \${ENCRYPTION_SECRET}
 
 cors:
-  allowed-origins: ${CORS_ALLOWED_ORIGINS}
+  allowed-origins: \${CORS_ALLOWED_ORIGINS}
 
 cookie:
   secure: true
+
+rate-limiting:
+  # Empty means no forwarded headers are trusted; set this to the exact proxy IP(s).
+  trusted-proxies: \${TRUSTED_PROXY_ADDRESSES:}
+  max-tracked-keys: \${RATE_LIMITING_MAX_TRACKED_KEYS:10000}

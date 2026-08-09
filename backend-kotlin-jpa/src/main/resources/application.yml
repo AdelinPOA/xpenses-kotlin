@@ -4,9 +4,9 @@ spring:
   jackson:
     property-naming-strategy: SNAKE_CASE
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/xpenses}
-    username: ${SPRING_DATASOURCE_USERNAME:xpenses}
-    password: ${SPRING_DATASOURCE_PASSWORD:xpenses}
+    url: \${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/xpenses}
+    username: \${SPRING_DATASOURCE_USERNAME:xpenses}
+    password: \${SPRING_DATASOURCE_PASSWORD:xpenses}
     driver-class-name: org.postgresql.Driver
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
@@ -29,24 +29,30 @@ spring:
     type: jcache
 
 jwt:
-  secret: ${JWT_SECRET:}
+  secret: \${JWT_SECRET:}
   access-expires-minutes: 60
   refresh-expires-days: 30
   cookie:
     access-max-age-seconds: 2592000  # 30 days, matches refresh TTL by default
 
 encryption:
-  secret: ${ENCRYPTION_SECRET:}
+  secret: \${ENCRYPTION_SECRET:}
 
 seed:
   demo:
-    users: ${SEED_DEMO_USERS:false}
+    users: \${SEED_DEMO_USERS:false}
 
 cors:
-  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3001,http://127.0.0.1:3001}
+  allowed-origins: \${CORS_ALLOWED_ORIGINS:http://localhost:3001,http://127.0.0.1:3001}
 
 company:
-  name: ${COMPANY_NAME:Newtech Automation}
+  name: \${COMPANY_NAME:Newtech Automation}
+
+rate-limiting:
+  enabled: \${RATE_LIMITING_ENABLED:true}
+  # Only these immediate proxy addresses may provide X-Forwarded-For/X-Real-IP.
+  trusted-proxies: \${TRUSTED_PROXY_ADDRESSES:}
+  max-tracked-keys: \${RATE_LIMITING_MAX_TRACKED_KEYS:10000}
 
 management:
   endpoints:
@@ -87,20 +93,19 @@ bucket4j:
               unit: minutes
 
 imap:
-  poll-interval: ${IMAP_POLL_INTERVAL:300000}
+  poll-interval: \${IMAP_POLL_INTERVAL:300000}
 
 ocr:
   cache:
-    retention-days: ${OCR_CACHE_RETENTION_DAYS:90}
-    cleanup-interval: ${OCR_CACHE_CLEANUP_INTERVAL:86400000}
-    cleanup-batch-size: ${OCR_CACHE_CLEANUP_BATCH_SIZE:100}
+    retention-days: \${OCR_CACHE_RETENTION_DAYS:90}
+    cleanup-interval: \${OCR_CACHE_CLEANUP_INTERVAL:86400000}
+    cleanup-batch-size: \${OCR_CACHE_CLEANUP_BATCH_SIZE:100}
 
 springdoc:
   api-docs:
-    enabled: ${SWAGGER_ENABLED:false}
+    enabled: \${SWAGGER_ENABLED:false}
   swagger-ui:
-    enabled: ${SWAGGER_ENABLED:false}
+    enabled: \${SWAGGER_ENABLED:false}
 
 server:
   forward-headers-strategy: framework
-

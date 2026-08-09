@@ -305,12 +305,14 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
     <div className="flex flex-col gap-6 max-w-6xl w-full items-start">
       <div className="flex lg:hidden w-full border-b border-border-subtle/80 mb-1 bg-card rounded-lg p-1">
         <button type="button" onClick={() => setActiveMobileTab('details')}
-          className={clsx("flex-1 py-2 text-center text-xs font-semibold rounded-md transition-colors",
+          aria-pressed={activeMobileTab === 'details'}
+          className={clsx("flex-1 min-h-11 py-2 text-center text-xs font-semibold rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
             activeMobileTab === 'details' ? "bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400" : "text-muted hover:bg-card-hover")}>
           {t("mobile_details")}
         </button>
         <button type="button" onClick={() => setActiveMobileTab('receipt')}
-          className={clsx("flex-1 py-2 text-center text-xs font-semibold rounded-md transition-colors",
+          aria-pressed={activeMobileTab === 'receipt'}
+          className={clsx("flex-1 min-h-11 py-2 text-center text-xs font-semibold rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
             activeMobileTab === 'receipt' ? "bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400" : "text-muted hover:bg-card-hover")}>
           {t("mobile_receipt")} ({items.length})
         </button>
@@ -319,7 +321,7 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
       <div className="flex flex-col lg:flex-row gap-6 w-full items-start">
         <form onSubmit={(e) => { e.preventDefault(); save.mutate(); }}
           className={clsx("bg-card rounded-xl shadow-sm p-6 flex-1 w-full max-w-lg space-y-5", activeMobileTab !== 'details' && "hidden lg:block")}>
-          {error && <p className="text-red-600 text-sm">{error}</p>}
+          {error && <p id="expense-form-error" role="alert" className="text-red-600 text-sm">{error}</p>}
 
           {savedExpense && savedExpense.currency_original !== "EUR" && (
             <div className="bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 rounded-lg p-3 text-sm text-emerald-800 dark:text-emerald-400">
@@ -344,14 +346,14 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("label_amount")}</label>
-              <input type="number" step="0.01" min="0" inputMode="decimal" required value={form.amount} onChange={setField("amount")}
-                className="w-full border border-input-border rounded-lg px-3 py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100" />
+              <label htmlFor="expense-amount" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("label_amount")}</label>
+              <input id="expense-amount" name="amount" type="number" step="0.01" min="0" inputMode="decimal" required value={form.amount} onChange={setField("amount")}
+                className="w-full min-h-11 border border-input-border rounded-lg px-3 py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("label_currency")}</label>
-              <select value={form.currency} onChange={setField("currency")}
-                className="w-full border border-input-border rounded-lg px-3 py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100">
+              <label htmlFor="expense-currency" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("label_currency")}</label>
+              <select id="expense-currency" name="currency" value={form.currency} onChange={setField("currency")}
+                className="w-full min-h-11 border border-input-border rounded-lg px-3 py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100">
                 {CURRENCIES.map((c) => (<option key={c} value={c}>{c}</option>))}
               </select>
             </div>
@@ -379,36 +381,37 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
           )}
 
           <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("label_date")}</label>
-            <input type="date" required value={form.date} onChange={setField("date")}
-              className="w-full border border-input-border rounded-lg px-3 py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100" />
+            <label htmlFor="expense-date" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("label_date")}</label>
+            <input id="expense-date" name="date" type="date" required value={form.date} onChange={setField("date")}
+              className="w-full min-h-11 border border-input-border rounded-lg px-3 py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100" />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("label_merchant")}</label>
-            <input type="text" value={form.merchant} onChange={setField("merchant")} placeholder={t("placeholder_merchant")}
-              className="w-full border border-input-border rounded-lg px-3 py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100" />
+            <label htmlFor="expense-merchant" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("label_merchant")}</label>
+            <input id="expense-merchant" name="merchant" type="text" value={form.merchant} onChange={setField("merchant")} placeholder={t("placeholder_merchant")}
+              className="w-full min-h-11 border border-input-border rounded-lg px-3 py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100" />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("label_category")}</label>
-            <select value={form.category_id} onChange={setField("category_id")}
-              className="w-full border border-input-border rounded-lg px-3 py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100">
+            <label htmlFor="expense-category" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("label_category")}</label>
+            <select id="expense-category" name="category_id" value={form.category_id} onChange={setField("category_id")}
+              className="w-full min-h-11 border border-input-border rounded-lg px-3 py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100">
               <option value="">{t("select_category")}</option>
               {categories?.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
             </select>
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("label_description")}</label>
-            <textarea value={form.description} onChange={setField("description")} rows={2} placeholder={t("placeholder_description")}
-              className="w-full border border-input-border rounded-lg px-3 py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none dark:bg-slate-800 dark:text-slate-100" />
+            <label htmlFor="expense-description" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("label_description")}</label>
+            <textarea id="expense-description" name="description" value={form.description} onChange={setField("description")} rows={2} placeholder={t("placeholder_description")}
+              className="w-full min-h-11 border border-input-border rounded-lg px-3 py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none dark:bg-slate-800 dark:text-slate-100" />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("label_receipts")}</label>
-            <input type="file" accept=".jpg,.jpeg,.png,.pdf,.webp" multiple onChange={addFiles}
-              className="w-full text-base sm:text-sm text-slate-600 dark:text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:border file:border-slate-300 dark:file:border-slate-600 file:rounded-lg file:text-xs file:bg-slate-50 dark:file:bg-slate-800 hover:file:bg-slate-100 dark:hover:file:bg-slate-700" />
+            <label htmlFor="expense-receipts" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("label_receipts")}</label>
+            <p id="expense-receipts-help" className="text-xs text-muted mb-2">JPG, PNG, PDF or WEBP, up to 10 MB.</p>
+            <input id="expense-receipts" name="receipts" aria-describedby="expense-receipts-help" type="file" accept=".jpg,.jpeg,.png,.pdf,.webp" multiple onChange={addFiles}
+              className="w-full min-h-11 text-base sm:text-sm text-slate-600 dark:text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:border file:border-slate-300 dark:file:border-slate-600 file:rounded-lg file:text-xs file:bg-slate-50 dark:file:bg-slate-800 hover:file:bg-slate-100 dark:hover:file:bg-slate-700" />
 
             {existingReceipts.length > 0 && (
               <div className="mt-2 space-y-1">
@@ -418,7 +421,7 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
                       className="text-blue-600 dark:text-blue-400 hover:underline truncate max-w-[200px] cursor-pointer">
                       {r.original_name || r.file_path.split("/").pop()}
                     </button>
-                    <button type="button" onClick={() => markDeleteReceipt(r.id)} className="text-muted-foreground hover:text-red-500"><Camera className="w-3.5 h-3.5" /></button>
+                    <button type="button" onClick={() => markDeleteReceipt(r.id)} className="min-w-11 min-h-11 inline-flex items-center justify-center text-muted-foreground hover:text-red-500"><Camera className="w-3.5 h-3.5" aria-hidden="true" /></button>
                   </div>
                 ))}
               </div>
@@ -430,20 +433,20 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
                   <div key={entry.id} className="flex items-center gap-2 text-xs text-muted">
                     <span className="truncate max-w-[200px]">{entry.file.name}</span>
                     <span className="text-slate-300 dark:text-slate-600">({(entry.file.size / 1024).toFixed(0)} KB)</span>
-                    <button type="button" onClick={() => removeNewFile(i)} className="text-muted-foreground hover:text-red-500"><Camera className="w-3.5 h-3.5" /></button>
+                    <button type="button" onClick={() => removeNewFile(i)} className="min-w-11 min-h-11 inline-flex items-center justify-center text-muted-foreground hover:text-red-500"><Camera className="w-3.5 h-3.5" aria-hidden="true" /></button>
                   </div>
                 ))}
               </div>
             )}
           </div>
 
-          <div className="flex gap-3 pt-2">
+          <div className="sticky bottom-[calc(4rem+env(safe-area-inset-bottom,0px))] lg:static z-20 flex gap-3 pt-3 pb-3 bg-card border-t border-border lg:border-0">
             <button type="submit" disabled={save.isPending}
-              className="px-5 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-hover disabled:opacity-50">
+              className="min-h-11 px-5 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-hover disabled:opacity-50">
               {save.isPending ? tc("saving") : isEdit ? t("save_changes") : t("create_expense")}
             </button>
             <button type="button" onClick={() => router.back()}
-              className="px-5 py-2 border border-input-border text-slate-600 dark:text-slate-400 text-sm font-medium rounded-lg hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700">
+              className="min-h-11 px-5 py-2 border border-input-border text-slate-600 dark:text-slate-400 text-sm font-medium rounded-lg hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700">
               {tc("cancel")}
             </button>
           </div>

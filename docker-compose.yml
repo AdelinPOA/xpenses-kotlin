@@ -22,6 +22,21 @@ services:
       retries: 5
     restart: unless-stopped
 
+  redis:
+    image: redis:7.4-alpine
+    container_name: xpenses-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    networks:
+      - xpenses-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
   backend:
     image: xpenses-backend:latest
     build:
@@ -40,8 +55,11 @@ services:
       - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD:-xpenses}
       - SEED_DEMO_USERS=${SEED_DEMO_USERS:-true}
       - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-prod}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     volumes:
       - xpenses-data:/app/data
@@ -96,4 +114,5 @@ volumes:
     driver: local
   pgdata:
     driver: local
-
+  redisdata:
+    driver: local

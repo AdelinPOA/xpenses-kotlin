@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -55,7 +56,18 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
   const tCommon = useTranslations("common");
 
   const visibleNav = NAV.filter((item) => user && item.roles.includes(user.role));
+  const sidebarRef = useRef<HTMLElement>(null);
   useBodyScrollLock(open);
+
+  useEffect(() => {
+    if (!open) return;
+    sidebarRef.current?.focus();
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [open, onClose]);
 
   const cycleTheme = () => {
     const idx = THEME_CYCLE.indexOf(theme);
@@ -71,10 +83,15 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
         <div
           className="fixed inset-0 bg-black/50 z-30 lg:hidden"
           onClick={onClose}
+          aria-hidden="true"
         />
       )}
 
       <aside
+        id="app-sidebar"
+        ref={sidebarRef}
+        tabIndex={-1}
+        aria-label="Application navigation"
         className={clsx(
           "fixed top-0 left-0 h-full w-[220px] bg-sidebar text-slate-200 flex flex-col z-40 border-r border-sidebar-border",
           "transition-transform duration-200 ease-in-out",
@@ -100,8 +117,8 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
             />
             <span className="text-lg font-bold text-white tracking-tight">xpenses</span>
           </Link>
-          <button onClick={onClose} aria-label="Close navigation" className="lg:hidden p-3 -m-2 text-slate-400 hover:text-white">
-            <X className="w-5 h-5" />
+          <button onClick={onClose} aria-label="Close navigation" className="lg:hidden min-w-11 min-h-11 -m-2 text-slate-400 hover:text-white rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+            <X className="w-5 h-5" aria-hidden="true" />
           </button>
         </div>
         <nav className="flex-1 py-4 px-3 overflow-y-auto">
@@ -113,13 +130,13 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                 href={href}
                 onClick={onClose}
                 className={clsx(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-lg mb-1 text-sm font-semibold transition-all duration-200 border-l-4",
+                  "flex items-center gap-3 px-3 min-h-11 rounded-lg mb-1 text-sm font-semibold transition-all duration-200 border-l-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
                   active
                     ? "text-white bg-sidebar-border border-primary"
                     : "text-slate-400 border-transparent hover:bg-sidebar-border/40 hover:text-white"
                 )}
               >
-                <Icon className="w-4 h-4" />
+                <Icon className="w-4 h-4" aria-hidden="true" />
                 {tNav(labelKey)}
               </Link>
             );
@@ -146,13 +163,13 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                     href={href}
                     onClick={onClose}
                     className={clsx(
-                      "flex items-center gap-3 px-3 py-2.5 rounded-lg mb-1 text-sm font-semibold transition-all duration-200 border-l-4",
+                      "flex items-center gap-3 px-3 min-h-11 rounded-lg mb-1 text-sm font-semibold transition-all duration-200 border-l-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
                       active
                         ? "text-white bg-sidebar-border border-primary"
                         : "text-slate-400 border-transparent hover:bg-sidebar-border/40 hover:text-white"
                     )}
                   >
-                    <Icon className="w-4 h-4" />
+                    <Icon className="w-4 h-4" aria-hidden="true" />
                     {tNav(labelKey)}
                   </Link>
                 );
@@ -170,13 +187,13 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                     href={href}
                     onClick={onClose}
                     className={clsx(
-                      "flex items-center gap-3 px-3 py-2.5 rounded-lg mb-1 text-sm font-semibold transition-all duration-200 border-l-4",
+                      "flex items-center gap-3 px-3 min-h-11 rounded-lg mb-1 text-sm font-semibold transition-all duration-200 border-l-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
                       active
                         ? "text-white bg-sidebar-border border-primary"
                         : "text-slate-400 border-transparent hover:bg-sidebar-border/40 hover:text-white"
                     )}
                   >
-                    <Icon className="w-4 h-4" />
+                    <Icon className="w-4 h-4" aria-hidden="true" />
                     {tNav(labelKey)}
                   </Link>
                 );
@@ -194,17 +211,17 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
           <div className="flex items-center justify-between">
             <button
               onClick={logout}
-              className="flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors"
+              className="flex items-center gap-2 min-h-11 px-2 text-sm text-slate-400 hover:text-white transition-colors rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
-              <LogOut className="w-4 h-4" />
+              <LogOut className="w-4 h-4" aria-hidden="true" />
               {tNav("sign_out")}
             </button>
             <button
               onClick={cycleTheme}
               aria-label={`Current theme: ${THEME_LABELS[theme]}. Click to cycle.`}
-              className="flex items-center gap-1 p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-sidebar-border transition-colors text-xs"
+              className="flex items-center gap-1 min-h-11 px-3 rounded-lg text-slate-400 hover:text-white hover:bg-sidebar-border transition-colors text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
-              <ThemeIcon className="w-4 h-4" />
+              <ThemeIcon className="w-4 h-4" aria-hidden="true" />
               <span>{THEME_LABELS[theme]}</span>
             </button>
           </div>

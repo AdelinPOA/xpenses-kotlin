@@ -8,8 +8,6 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Component
 import org.springframework.web.filter.OncePerRequestFilter
-import java.util.ArrayDeque
-import java.util.concurrent.ConcurrentHashMap
 
 @Component
 class RateLimitingFilter(
@@ -20,7 +18,8 @@ class RateLimitingFilter(
     @Value("\${rate-limiting.max-tracked-keys:10000}")
     maxTrackedKeys: Int = 10_000,
     private val windowMillis: Long = WINDOW_MILLIS,
-    private val clock: () -> Long = System::currentTimeMillis
+    private val clock: () -> Long = System::currentTimeMillis,
+    private val rateLimitStore: RateLimitStore = InMemoryRateLimitStore(maxTrackedKeys)
 ) : OncePerRequestFilter() {
 
     private val log = LoggerFactory.getLogger(RateLimitingFilter::class.java)
@@ -28,7 +27,6 @@ class RateLimitingFilter(
         .map(String::trim)
         .filter(String::isNotEmpty)
         .toSet()
-    private val maxKeys = maxTrackedKeys.coerceAtLeast(1)
 
     companion object {
         private val EXPORT_REPORT_PATH = Regex("^/api/reports/\\d+/(pdf|receipts-zip)$")
@@ -41,13 +39,6 @@ class RateLimitingFilter(
         "/api/ocr/scan" to 10,
         "/api/expenses/scan" to 10
     )
-
-    /*
-     * This is a bounded fallback limiter. Production deployments with multiple
-     * backend replicas should use the distributed Bucket4j cache configuration;
-     * this map must never become an unbounded process-wide identity store.
-     */
-    private val requestTimes = ConcurrentHashMap<String, ArrayDeque<Long>>()
 
     override fun doFilterInternal(
         request: HttpServletRequest,
@@ -70,10 +61,10 @@ class RateLimitingFilter(
 
         if (limit != null) {
             val cacheKey = "rl:$matchedLimitKey:$clientIp"
-            val count = recordRequest(cacheKey, limit)
+            val count = rateLimitStore.record(cacheKey, limit, windowMillis, clock())
 
             if (count > limit) {
-                log.warn("Rate limit exceeded for client {} on path {}: {} > {}", clientIp, path, count, limit)
+                log.warn("Rate limit exceeded for client $clientIp on path $path: $count > $limit")
                 response.status = HttpStatus.TOO_MANY_REQUESTS.value()
                 response.contentType = "application/json"
                 response.writer.write("""{"detail":"Rate limit exceeded. Please try again later."}""")
@@ -86,41 +77,6 @@ class RateLimitingFilter(
 
     private fun matchesPath(path: String, configuredPath: String): Boolean =
         path == configuredPath || path.startsWith("$configuredPath/")
-
-    private fun recordRequest(cacheKey: String, limit: Int): Int {
-        val now = clock()
-        evictExpiredAndOverflowingEntries(now)
-        val windowStart = now - windowMillis
-        val timestamps = requestTimes.computeIfAbsent(cacheKey) { ArrayDeque() }
-
-        synchronized(timestamps) {
-            while (timestamps.isNotEmpty() && timestamps.peekFirst() <= windowStart) {
-                timestamps.removeFirst()
-            }
-            if (timestamps.size >= limit) {
-                return timestamps.size + 1
-            }
-            timestamps.addLast(now)
-            return timestamps.size
-        }
-    }
-
-    private fun evictExpiredAndOverflowingEntries(now: Long) {
-        val cutoff = now - windowMillis
-        requestTimes.entries.forEach { entry ->
-            val expired = synchronized(entry.value) {
-                entry.value.isEmpty() || entry.value.peekLast() <= cutoff
-            }
-            if (expired) {
-                requestTimes.remove(entry.key, entry.value)
-            }
-        }
-
-        val overflow = requestTimes.size - maxKeys
-        if (overflow > 0) {
-            requestTimes.keys.take(overflow).forEach(requestTimes::remove)
-        }
-    }
 
     private fun extractClientIp(request: HttpServletRequest): String {
         val remoteAddress = request.remoteAddr?.trim().orEmpty().ifBlank { "unknown" }

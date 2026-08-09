@@ -64,6 +64,29 @@ class RateLimitingFilterTest {
     }
 
     @Test
+    fun shouldRateLimitRefreshRequestsAfterLimitExceeded() {
+        val filterChain = mock(jakarta.servlet.FilterChain::class.java)
+
+        repeat(20) {
+            val request = MockHttpServletRequest("POST", "/api/auth/refresh")
+            request.remoteAddr = "192.168.1.100"
+            val response = MockHttpServletResponse()
+
+            filter.doFilter(request, response, filterChain)
+
+            assertEquals(200, response.status)
+        }
+
+        val blockedRequest = MockHttpServletRequest("POST", "/api/auth/refresh")
+        blockedRequest.remoteAddr = "192.168.1.100"
+        val blockedResponse = MockHttpServletResponse()
+
+        filter.doFilter(blockedRequest, blockedResponse, filterChain)
+
+        assertEquals(429, blockedResponse.status)
+    }
+
+    @Test
     fun shouldAllowRequestsAgainAfterTheWindowExpires() {
         val filterChain = mock(jakarta.servlet.FilterChain::class.java)
 

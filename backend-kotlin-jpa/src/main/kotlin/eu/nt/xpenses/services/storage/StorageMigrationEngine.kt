@@ -21,9 +21,9 @@ class StorageMigrationEngine(
         oldProvider: StorageProvider,
         newProvider: StorageProvider,
         filePaths: List<String>,
-        onProgress: (MigrationResult, isComplete: Boolean) -> Unit,
         jobId: String = UUID.randomUUID().toString(),
-        maxAttempts: Int = DEFAULT_MAX_ATTEMPTS
+        maxAttempts: Int = DEFAULT_MAX_ATTEMPTS,
+        onProgress: (MigrationResult, isComplete: Boolean) -> Unit
     ) {
         executor.execute {
             val errors = mutableListOf<String>()

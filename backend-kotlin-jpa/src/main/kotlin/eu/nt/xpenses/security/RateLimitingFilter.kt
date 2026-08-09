@@ -11,11 +11,11 @@ import org.springframework.web.filter.OncePerRequestFilter
 
 @Component
 class RateLimitingFilter(
-    @Value("${rate-limiting.enabled:true}")
+    @Value("\${rate-limiting.enabled:true}")
     private val enabled: Boolean = true,
-    @Value("${rate-limiting.trusted-proxies:}")
+    @Value("\${rate-limiting.trusted-proxies:}")
     trustedProxyAddresses: String = "",
-    @Value("${rate-limiting.max-tracked-keys:10000}")
+    @Value("\${rate-limiting.max-tracked-keys:10000}")
     maxTrackedKeys: Int = 10_000,
     private val windowMillis: Long = WINDOW_MILLIS,
     private val clock: () -> Long = System::currentTimeMillis,

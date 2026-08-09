@@ -36,9 +36,10 @@ test("login is accessible and does not overflow", async ({ page }) => {
   // The public login accessibility check must not depend on a running backend.
   await page.route("**/api/auth/me", (route) =>
     route.fulfill({
-      status: 401,
+      status: 200,
       contentType: "application/json",
-      body: JSON.stringify({ detail: "Not authenticated" }),
+      // A guest session keeps AuthProvider on /login without requiring a backend.
+      body: JSON.stringify({ id: 0, username: "playwright-guest", role: "technician", language: "en" }),
     })
   );
   await page.goto("/login");

@@ -61,12 +61,44 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
 
   useEffect(() => {
     if (!open) return;
-    sidebarRef.current?.focus();
+    const sidebar = sidebarRef.current;
+    const background = [
+      document.querySelector("main"),
+      document.querySelector('header'),
+      document.querySelector('nav[aria-label="Primary mobile navigation"]'),
+    ].filter(Boolean) as HTMLElement[];
+
+    background.forEach((element) => element.setAttribute("inert", ""));
+    sidebar?.focus();
+
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") {
+        onClose();
+        return;
+      }
+      if (event.key !== "Tab" || !sidebar) return;
+      const focusable = Array.from(
+        sidebar.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )
+      );
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     };
+
     document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      background.forEach((element) => element.removeAttribute("inert"));
+    };
   }, [open, onClose]);
 
   const cycleTheme = () => {

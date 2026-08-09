@@ -28,6 +28,10 @@ export default function ReceiptScanner({
         onDragLeave={onDragLeave}
         onDrop={onDrop}
         onClick={onClick}
+        role="button"
+        tabIndex={0}
+        aria-label="Choose a receipt to scan"
+        onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onClick(); } }}
         className={clsx(
           "border border-dashed rounded-lg p-6 text-center transition-all duration-200 cursor-pointer flex flex-col items-center justify-center min-h-[120px]",
           isDragging
@@ -37,6 +41,8 @@ export default function ReceiptScanner({
       >
         <input
           ref={scanInputRef}
+          id="receipt-scan-input"
+          aria-label="Choose receipt for OCR scanning"
           type="file"
           accept=".jpg,.jpeg,.png,.pdf,.webp"
           onChange={onScan}
@@ -44,6 +50,8 @@ export default function ReceiptScanner({
         />
         <input
           ref={cameraInputRef}
+          id="receipt-camera-input"
+          aria-label="Take a receipt photo"
           type="file"
           accept="image/*"
           capture="environment"
@@ -51,13 +59,13 @@ export default function ReceiptScanner({
           className="hidden"
         />
         {isScanning ? (
-          <div className="flex flex-col items-center gap-2">
-            <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+          <div role="status" aria-live="polite" className="flex flex-col items-center gap-2">
+            <div aria-hidden="true" className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
             <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Analyzing receipt...</p>
           </div>
         ) : (
           <div className="flex flex-col items-center gap-2">
-            <Camera className={clsx("w-8 h-8 transition-colors", isDragging ? "text-blue-500" : "text-slate-400")} />
+            <Camera aria-hidden="true" className={clsx("w-8 h-8 transition-colors", isDragging ? "text-blue-500" : "text-slate-400")} />
             <p className="hidden lg:block text-sm font-medium text-slate-700 dark:text-slate-300">
               {isDragging ? "Drop your receipt here!" : "Drag & drop receipt here, or click to browse"}
             </p>
@@ -75,9 +83,9 @@ export default function ReceiptScanner({
         type="button"
         onClick={() => cameraInputRef.current?.click()}
         disabled={isScanning}
-        className="lg:hidden flex items-center justify-center gap-2 w-full py-2.5 border border-input-border rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300 bg-input hover:bg-card-hover disabled:opacity-50 mt-2"
+        className="lg:hidden min-h-11 flex items-center justify-center gap-2 w-full py-2.5 border border-input-border rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300 bg-input hover:bg-card-hover disabled:opacity-50 mt-2"
       >
-        <Camera className="w-4 h-4" />
+        <Camera className="w-4 h-4" aria-hidden="true" />
         Take photo
       </button>
     </div>

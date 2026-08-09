@@ -151,7 +151,7 @@ function ExpensesPageContent() {
               disabled={exporting}
               onClick={() => setExportOpen((v) => !v)}
               aria-expanded={exportOpen}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 disabled:opacity-50 cursor-pointer"
+              className="flex min-h-11 items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 disabled:opacity-50 cursor-pointer"
             >
               <Download className="w-4 h-4" />
               {exporting ? t("exporting") : t("export")}
@@ -178,7 +178,7 @@ function ExpensesPageContent() {
           </div>
           <Link
             href="/expenses/new"
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-hover w-fit"
+            className="flex min-h-11 items-center gap-2 px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-hover w-fit"
           >
             <Plus className="w-4 h-4" />
             {t("add_expense")}
@@ -191,8 +191,10 @@ function ExpensesPageContent() {
           {["", "draft", "submitted", "paid"].map((s) => (
             <button
               key={s}
+              type="button"
               onClick={() => setStatusFilter(s)}
-              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+              aria-pressed={statusFilter === s}
+              className={`min-h-11 px-4 py-2 rounded-full text-xs font-medium transition-colors ${
                 statusFilter === s
                   ? "bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-900"
                   : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700"
@@ -201,10 +203,13 @@ function ExpensesPageContent() {
               {s === "" ? t("status_all") : s === "draft" ? t("status_draft") : s === "submitted" ? t("status_submitted") : t("status_paid")}
             </button>
           ))}
+          <label htmlFor="expense-category-filter" className="sr-only">{t("all_categories")}</label>
           <select
+            id="expense-category-filter"
+            aria-label={t("all_categories")}
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
-            className="ml-auto px-3 py-1 border border-border rounded-lg text-xs bg-input text-slate-700 dark:text-slate-300"
+            className="w-full sm:w-auto sm:ml-auto min-h-11 px-3 py-2 border border-border rounded-lg text-xs bg-input text-slate-700 dark:text-slate-300"
           >
             <option value="">{t("all_categories")}</option>
             {categories?.map((c) => (
@@ -214,7 +219,7 @@ function ExpensesPageContent() {
         </div>
 
         {isLoading ? (
-          <div className="p-8 text-center text-muted-foreground text-sm">{tc("loading")}</div>
+          <div role="status" aria-live="polite" className="p-8 text-center text-muted-foreground text-sm">{tc("loading")}</div>
         ) : !expenses?.length ? (
           <EmptyState message={t("no_expenses_found")} />
         ) : (
@@ -245,14 +250,14 @@ function ExpensesPageContent() {
                   )}
                   <div className="flex items-center justify-between mt-3">
                     <Badge status={e.status} />
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1">
                       {e.receipts?.length > 0 && (
                         <div className="flex items-center gap-2">
                           {e.receipts.map((r) => (
                             <button
                               key={r.id}
                               onClick={() => downloadBlob(`/expenses/${e.id}/receipts/${r.id}`, {}, r.original_name || `receipt_${r.id}`)}
-                              className="text-blue-600 dark:text-blue-400 hover:underline text-xs cursor-pointer"
+                              className="min-h-11 px-2 inline-flex items-center text-blue-600 dark:text-blue-400 hover:underline text-xs cursor-pointer"
                             >
                               {e.receipts.length === 1 ? t("view_receipt") : (r.original_name?.split(".").pop()?.toUpperCase() || t("view_receipt"))}
                             </button>
@@ -263,17 +268,18 @@ function ExpensesPageContent() {
                         onClick={() => duplicate.mutate(e.id)}
                         disabled={duplicate.isPending}
                         title={t("duplicate_tooltip")}
-                        className="text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 disabled:opacity-50"
+                        aria-label={`${t("duplicate_tooltip")} ${e.merchant || e.id}`}
+                        className="min-w-11 min-h-11 inline-flex items-center justify-center rounded-lg text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                       >
-                        <Copy className="w-4 h-4" />
+                        <Copy className="w-4 h-4" aria-hidden="true" />
                       </button>
                       {e.status === "draft" && (
                         <>
-                          <Link href={`/expenses/${e.id}/edit`}>
-                            <Pencil className="w-4 h-4 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400" />
+                          <Link href={`/expenses/${e.id}/edit`} aria-label={`Edit expense ${e.merchant || e.id}`} className="min-w-11 min-h-11 inline-flex items-center justify-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                            <Pencil className="w-4 h-4 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400" aria-hidden="true" />
                           </Link>
-                          <button onClick={() => confirmDelete(e.id)} disabled={del.isPending}>
-                            <Trash2 className="w-4 h-4 text-slate-400 hover:text-red-500" />
+                          <button type="button" onClick={() => confirmDelete(e.id)} disabled={del.isPending} aria-label={`Delete expense ${e.merchant || e.id}`} className="min-w-11 min-h-11 inline-flex items-center justify-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                            <Trash2 className="w-4 h-4 text-slate-400 hover:text-red-500" aria-hidden="true" />
                           </button>
                         </>
                       )}
@@ -328,7 +334,7 @@ function ExpensesPageContent() {
                               <button
                                 key={r.id}
                                 onClick={() => downloadBlob(`/expenses/${e.id}/receipts/${r.id}`, {}, r.original_name || `receipt_${r.id}`)}
-                                className="text-blue-600 dark:text-blue-400 hover:underline text-xs cursor-pointer"
+                                className="min-h-11 px-2 inline-flex items-center text-blue-600 dark:text-blue-400 hover:underline text-xs cursor-pointer"
                               >
                                 {e.receipts.length === 1 ? t("view_receipt") : (r.original_name?.split(".").pop()?.toUpperCase() || t("view_receipt"))}
                               </button>
@@ -346,7 +352,7 @@ function ExpensesPageContent() {
                             title={t("duplicate_tooltip")}
                             className="text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 disabled:opacity-50"
                           >
-                            <Copy className="w-4 h-4" />
+                            <Copy className="w-4 h-4" aria-hidden="true" />
                           </button>
                           {e.status === "draft" && (
                             <>
@@ -379,8 +385,8 @@ function ExpensesPageContent() {
 export default function ExpensesClient() {
   return (
     <Suspense fallback={
-      <div className="flex items-center justify-center min-h-[50vh]">
-        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+      <div role="status" aria-label="Loading expenses" className="flex items-center justify-center min-h-[50vh]">
+        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" aria-hidden="true" />
       </div>
     }>
       <ExpensesPageContent />

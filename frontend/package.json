@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "i18n:check": "node ../scripts/check-i18n-parity.mjs"
+    "i18n:check": "node ../scripts/check-i18n-parity.mjs",
+    "test:e2e": "playwright test",
+    "test:e2e:mobile": "playwright test --project=mobile-chromium --project=mobile-webkit"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",
@@ -38,7 +40,8 @@
     "globals": "^17.8.0",
     "postcss": "^8.5.10",
     "tailwindcss": "^4.0.0",
-    "typescript": "^5"
+    "typescript": "^5",
+    "@axe-core/playwright": "^4.10.2"
   },
   "overrides": {
     "postcss": "^8.5.10",

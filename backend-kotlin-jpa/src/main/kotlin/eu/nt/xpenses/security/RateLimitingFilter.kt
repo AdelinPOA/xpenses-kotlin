@@ -11,14 +11,15 @@ import org.springframework.web.filter.OncePerRequestFilter
 
 @Component
 class RateLimitingFilter(
-    @Value("\${rate-limiting.enabled:true}")
+    @Value("${rate-limiting.enabled:true}")
     private val enabled: Boolean = true,
-    @Value("\${rate-limiting.trusted-proxies:}")
+    @Value("${rate-limiting.trusted-proxies:}")
     trustedProxyAddresses: String = "",
-    @Value("\${rate-limiting.max-tracked-keys:10000}")
+    @Value("${rate-limiting.max-tracked-keys:10000}")
     maxTrackedKeys: Int = 10_000,
     private val windowMillis: Long = WINDOW_MILLIS,
-    private val clock: () -> Long = System::currentTimeMillis
+    private val clock: () -> Long = System::currentTimeMillis,
+    private val rateLimitStore: RateLimitStore = InMemoryRateLimitStore(maxTrackedKeys)
 ) : OncePerRequestFilter() {
 
     private val log = LoggerFactory.getLogger(RateLimitingFilter::class.java)
@@ -26,10 +27,9 @@ class RateLimitingFilter(
         .map(String::trim)
         .filter(String::isNotEmpty)
         .toSet()
-    private val maxKeys = maxTrackedKeys.coerceAtLeast(1)
 
     companion object {
-        private val EXPORT_REPORT_PATH = Regex("^/api/reports/\\d+/(pdf|receipts-zip)$")
+        private val EXPORT_REPORT_PATH = Regex("^/api/reports/$d+/(pdf|receipts-zip)$")
         private const val WINDOW_MILLIS = 60_000L
     }
 
@@ -39,7 +39,6 @@ class RateLimitingFilter(
         "/api/ocr/scan" to 10,
         "/api/expenses/scan" to 10
     )
-
 
     override fun doFilterInternal(
         request: HttpServletRequest,
@@ -65,7 +64,7 @@ class RateLimitingFilter(
             val count = rateLimitStore.record(cacheKey, limit, windowMillis, clock())
 
             if (count > limit) {
-                log.warn("Rate limit exceeded for client {} on path {}: {} > {}", clientIp, path, count, limit)
+                log.warn("Rate limit exceeded for client $clientIp on path $path: $count > $limit")
                 response.status = HttpStatus.TOO_MANY_REQUESTS.value()
                 response.contentType = "application/json"
                 response.writer.write("""{"detail":"Rate limit exceeded. Please try again later."}""")

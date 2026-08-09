@@ -51,7 +51,7 @@ class HistoricalFxMigrationRegressionTest {
         val ids = FixtureIds()
         val before = prepareV29Fixtures(ids)
 
-        migrateToLatest()
+        migrateThroughV31()
 
         newConnection().use { connection ->
             assertEquals(0, scalarInt(connection, "SELECT COUNT(*) FROM fx_rates"))
@@ -70,7 +70,7 @@ class HistoricalFxMigrationRegressionTest {
         val ids = FixtureIds()
         val before = prepareV29Fixtures(ids)
 
-        migrateToLatest()
+        migrateThroughV31()
 
         // This is deliberately a new JDBC connection after both migrations commit.
         newConnection().use { connection ->
@@ -174,7 +174,7 @@ class HistoricalFxMigrationRegressionTest {
         }
     }
 
-    private fun migrateToLatest() {
+    private fun migrateThroughV31() {
         flyway().migrate()
     }
 

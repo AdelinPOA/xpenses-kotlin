@@ -57,6 +57,7 @@ open class StorageService(
     private val objectMapper: ObjectMapper,
     @Qualifier("applicationTaskExecutor") private val executor: Executor,
     private val transactionTemplate: TransactionTemplate,
+    private val migrationStateStore: eu.nt.xpenses.services.storage.StorageMigrationStateStore = eu.nt.xpenses.services.storage.NoopStorageMigrationStateStore,
     @Value("\${storage.location:/app/data/receipts}") private val defaultReceiptsDir: String = "/app/data/receipts"
 ) {
     companion object {
@@ -66,7 +67,7 @@ open class StorageService(
     private val logger = LoggerFactory.getLogger(StorageService::class.java)
     private val cryptoInfo = "xpenses-storage-settings"
 
-    private val migrationEngine = StorageMigrationEngine(executor)
+    private val migrationEngine = StorageMigrationEngine(executor, migrationStateStore)
 
     @Volatile
     private var activeProvider: StorageProvider = LocalStorageProvider(defaultReceiptsDir)
@@ -386,13 +387,15 @@ open class StorageService(
     }
 
     fun startMigration(oldConfig: StorageConfigDto, newConfig: StorageConfigDto, receipts: List<eu.nt.xpenses.model.Receipt>) {
-        val filePaths = receipts.map { it.filePath }
+        val filePaths = receipts.map { it.filePath }.distinct()
+        val jobId = java.util.UUID.randomUUID().toString()
         val oldProvider = createProvider(oldConfig.providerType, oldConfig)
         val newProvider = createProvider(newConfig.providerType, newConfig)
 
         val statusSetting = AppSetting(
             key = "storage_migration_status",
             value = objectMapper.writeValueAsString(mapOf(
+                "job_id" to jobId,
                 "status" to "running",
                 "total_files" to filePaths.size,
                 "migrated_files" to 0,
@@ -403,7 +406,7 @@ open class StorageService(
         )
         appSettingRepository.save(statusSetting)
 
-        migrationEngine.executeMigrationAsync(oldProvider, newProvider, filePaths) { result, isComplete ->
+        migrationEngine.executeMigrationAsync(oldProvider, newProvider, filePaths, jobId = jobId) { result, isComplete ->
             transactionTemplate.execute {
                 val statusStr = if (isComplete) {
                     if (result.failedFiles == 0) "completed" else "failed"

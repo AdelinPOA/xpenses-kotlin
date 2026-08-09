@@ -33,6 +33,14 @@ async function expectNoSeriousAxeViolations(page: Page) {
 }
 
 test("login is accessible and does not overflow", async ({ page }) => {
+  // The public login accessibility check must not depend on a running backend.
+  await page.route("**/api/auth/me", (route) =>
+    route.fulfill({
+      status: 401,
+      contentType: "application/json",
+      body: JSON.stringify({ detail: "Not authenticated" }),
+    })
+  );
   await page.goto("/login");
   await expect(page.getByLabel("Username")).toBeVisible();
   await expect(page.getByLabel("Password")).toBeVisible();

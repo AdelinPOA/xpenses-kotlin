@@ -22,16 +22,15 @@ Xpenses is a full-stack expense-management application for submitting, reviewing
 
 This is a brownfield project. The current implementation consists of a Kotlin/Spring Boot backend, Next.js frontend, PostgreSQL database, Flyway migrations, container deployment, and Playwright browser tests.
 
-## Current Focus
+## Current State
 
-Establish a trustworthy planning baseline for the existing system, beginning with the locked FX conversion policy: BNR reference rates plus configurable source-currency margins, frozen at the expense date and applied consistently across financial workflows.
+**Shipped Version:** v1.0 (2026-08-14)
+- **Milestone v1.0 (Financial FX Reliability):** Validated and hardened the locked BNR-plus-margin FX policy across expenses, advances, mileage, admin settings, and historical migrations.
+- **Verification:** 100% verified across unit, integration (Testcontainers PostgreSQL), and Playwright E2E suites.
 
-## Goals
+## Next Milestone Goals
 
-- Preserve financial correctness and historical rate immutability.
-- Make FX policy behavior explicit, configurable, and testable.
-- Plan future improvements as verifiable vertical slices grounded in the existing architecture.
-- Keep backend, frontend, migrations, and integration tests aligned.
+- Promote items from backlog (`todo.md` and `.planning/codebase/CONCERNS.md`) into Milestone 2 (e.g. Async OCR Scaling & Queue Worker, Email Ingestion Hardening, or Export Enhancements).
 
 ## Non-Goals
 

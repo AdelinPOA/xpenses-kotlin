@@ -36,7 +36,8 @@
     "app_error_description": "A critical error occurred. Please try reloading the application.",
     "uncategorized": "Uncategorized",
     "no_date_range": "No date range set",
-    "currency_eur": "EUR"
+    "currency_eur": "EUR",
+    "new": "New"
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -177,7 +178,8 @@
     "in_review": "In Review",
     "ready_to_submit": "Ready to submit",
     "awaiting_payout": "Awaiting payout",
-    "all_settled": "All settled"
+    "all_settled": "All settled",
+    "expenses_count_label": "Expenses"
   },
   "expenses": {
     "title": "Expenses",

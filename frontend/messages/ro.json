@@ -35,8 +35,9 @@
     "app_error_heading": "Eroare de aplicație",
     "app_error_description": "A apărut o eroare critică. Vă rugăm să reîncărcați aplicația.",
     "uncategorized": "Necategorizat",
-    "no_date_range": "Niciun interval de date setat",
-    "currency_eur": "EUR"
+    "no_date_range": "Fără interval de date",
+    "currency_eur": "EUR",
+    "new": "Nou"
   },
   "nav": {
     "dashboard": "Panou",
@@ -177,7 +178,8 @@
     "in_review": "În Revizuire",
     "ready_to_submit": "Gata de trimis",
     "awaiting_payout": "În așteptarea plății",
-    "all_settled": "Totul decontat"
+    "all_settled": "Toate achitate",
+    "expenses_count_label": "Cheltuieli"
   },
   "expenses": {
     "title": "Cheltuieli",

@@ -59,7 +59,7 @@ export default function DashboardClient() {
   const [showAll, setShowAll] = useState(true);
 
   const canToggle = user?.role === "chef_finance" || user?.role === "mod";
-  const isManagerRole = user?.role === "manager" || user?.role === "chef_finance";
+  const isManagerRole = user?.role === "manager" || (user?.role === "chef_finance" && showAll);
   const canManageReviews = user?.role === "manager" || user?.role === "chef_finance";
   const [recentExpensesSearch, setRecentExpensesSearch] = useState("");
 
@@ -336,6 +336,7 @@ export default function DashboardClient() {
 
                 <Link
                   href="/expenses/new"
+                  aria-label="Create expense"
                   className="flex items-center gap-1.5 bg-primary hover:bg-primary-hover text-white px-4 py-2 rounded-xl text-sm font-bold transition-colors cursor-pointer shadow-xs"
                 >
                   <Plus className="w-4 h-4" />
@@ -511,11 +512,24 @@ export default function DashboardClient() {
 
               <Link
                 href="/expenses/new"
+                aria-label="New expense"
                 className="inline-flex items-center gap-1 bg-primary text-white text-xs font-bold px-3.5 py-2 rounded-full shadow-xs"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>{t("quick_add_expense")}</span>
+                <span>{tc("new")}</span>
               </Link>
+            </div>
+
+            {/* Mobile Total Spend Stat Card */}
+            <div className="bg-card border border-border rounded-xl p-3.5 shadow-2xs flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{t("total_spend")}</span>
+                <p className="text-lg font-black text-foreground">{formatEur(data?.total_last_report_eur ?? 0)}</p>
+              </div>
+              <div className="text-right">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{t("expenses_count_label", { fallback: "Expenses" })}</span>
+                <p className="text-lg font-black text-foreground tabular-nums">{data?.expense_count_month ?? 0}</p>
+              </div>
             </div>
 
             {/* Active Reimbursement Status Summary Cards (Draft / Submitted / Paid €) */}
@@ -624,7 +638,7 @@ export default function DashboardClient() {
             <div className="fixed bottom-20 right-4 z-40">
               <Link
                 href="/expenses/new"
-                aria-label={t("quick_add_expense")}
+                aria-label="Add expense"
                 className="flex items-center gap-2 bg-primary hover:bg-primary-hover text-white px-4 py-3 rounded-full shadow-lg font-bold text-xs uppercase tracking-wider transition-transform active:scale-95 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
               >
                 <Camera className="w-4 h-4" />

@@ -80,8 +80,8 @@ function ReportAccordionDetail({
           </span>
         </div>
         {report.description && (
-          <p className="text-foreground/90 italic pt-1 border-t border-border/50 text-xs sm:text-sm">
-            "{report.description}"
+          <p className="text-foreground/90 pt-1 border-t border-border/50 text-xs sm:text-sm">
+            {report.description}
           </p>
         )}
       </div>
@@ -310,7 +310,7 @@ export default function PendingReportsTable({
                   </div>
 
                   {report.description && (
-                    <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
+                    <p className="text-xs text-muted-foreground mt-0.5">
                       {report.description}
                     </p>
                   )}

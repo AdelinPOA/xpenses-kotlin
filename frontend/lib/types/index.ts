@@ -4,6 +4,5 @@ export * from "./report";
 export * from "./user";
 export * from "./dashboard";
 export * from "./admin";
-export * from "./inventory";
 export * from "./insurance";
 export * from "./search";

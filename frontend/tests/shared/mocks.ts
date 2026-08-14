@@ -248,17 +248,6 @@ export async function setupAuthMocks(page: Page, role: keyof typeof USERS = "mod
   await page.route("**/api/auth/refresh", (route) => route.fulfill({ json: { access_token: "new-mock-token" } }));
 }
 
-export async function setupInventoryMocks(page: Page) {
-  await page.route("**/api/inventory**", (route, req) => {
-    const url = new URL(req.url());
-    if (url.pathname.includes("/requests")) {
-      route.fulfill({ json: [] });
-    } else {
-      route.fulfill({ json: [{ id: 1, name: "Laptop Dell", serial_number: "SN-001", category: "Electronics", status: "active", assigned_to: "tech1" }] });
-    }
-  });
-}
-
 export async function setupInsuranceMocks(page: Page) {
   await page.route("**/api/insurance**", (route, req) => {
     if (req.method() === "GET") route.fulfill({ json: [{ id: 1, filename: "policy_2026.pdf", title: "Health Insurance 2026", uploaded_by: "mod1", uploaded_at: "2026-01-15T10:00:00Z" }] });

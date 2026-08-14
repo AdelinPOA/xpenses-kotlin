@@ -34,7 +34,7 @@ for (const pg of ADMIN_PAGES) {
   }
 }
 
-const OTHER_PAGES = ["/dashboard", "/expenses", "/reports", "/categories", "/inventory", "/insurance", "/profile"];
+const OTHER_PAGES = ["/dashboard", "/expenses", "/reports", "/categories", "/insurance", "/profile"];
 
 for (const pg of OTHER_PAGES) {
   for (const vp of VIEWPORTS) {
@@ -51,7 +51,6 @@ for (const pg of OTHER_PAGES) {
       await page.route("**/api/expenses**", (route) => route.fulfill({ json: [] }));
       await page.route("**/api/reports**", (route) => route.fulfill({ json: [] }));
       await page.route("**/api/categories**", (route) => route.fulfill({ json: [] }));
-      await page.route("**/api/inventory**", (route) => route.fulfill({ json: [] }));
       await page.route("**/api/insurance**", (route) => route.fulfill({ json: [] }));
       await page.goto(pg, { waitUntil: "load" });
       await page.waitForFunction(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth, { timeout: 15000 });

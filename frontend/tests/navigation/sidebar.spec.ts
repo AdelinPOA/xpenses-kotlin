@@ -23,7 +23,6 @@ test.describe("Sidebar navigation", () => {
     await expect(sidebar.getByText("xpenses", { exact: true })).toBeVisible({ timeout: 15000 });
     await expect(sidebar.getByText("Dashboard")).toBeVisible();
     await expect(sidebar.getByText("Expenses")).toBeVisible();
-    await expect(sidebar.getByText("Inventory")).toBeVisible();
     await expect(sidebar.getByText("Reports")).toBeVisible();
     await expect(sidebar.getByText("Admin", { exact: true })).toBeVisible();
     await expect(sidebar.getByText("Users")).toBeVisible();

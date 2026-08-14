@@ -86,7 +86,6 @@ export interface ApiValidationError {
   detail?: string;
   errors?: Record<string, string>;
 }
-export type { InventoryItem, InventoryItemCreate, InventoryItemUpdate, InventoryRequest, InventoryRequestCreate, InventoryRejectBody, InventoryApproveResponse } from "./types/inventory";
 export type { Category } from "./types/expense";
 export type { InsuranceFile } from "./types/insurance";
 export type { SearchResult } from "./types/search";

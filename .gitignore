@@ -46,17 +46,13 @@ logs/
 Thumbs.db
 .worktrees/
 
-# Skill-manager installs (personal tooling, not project source; some are symlinks)
-/agent/skills/cavecrew
-/agent/skills/caveman*
-/.agents/skills/cavecrew
-/.agents/skills/caveman*
-/.claude/skills/cavecrew
-/.claude/skills/caveman*
-/skills-lock.json
-
-# Graphify temporary caches
-/graphify-out/cache/
-/graphify-out/.graphify_*
+# Local Agent and Tooling directories
+/.agents/
+/.codex/
+/.opencode/
+/.pi/
+/graphify-out/
+/.planning/graphs/
 /.claude/
+*.png
 

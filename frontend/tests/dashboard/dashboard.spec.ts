@@ -103,13 +103,11 @@ test.describe("Dashboard", () => {
         reports: [{ ...REPORTS[0], title: "July Business Trip" }],
         expenses: [],
         users: [{ id: 4, display_name: "Technician One", email: "tech1@xpenses.local", role: "technician" }],
-        inventory: [{ id: 1, name: "Laptop Dell", serial_number: "SN-001", status: "active" }],
         insurance: [],
         advances: [],
         report_count: 1,
         expense_count: 0,
         user_count: 1,
-        inventory_count: 1,
         insurance_count: 0,
         advance_count: 0,
       }
@@ -120,6 +118,5 @@ test.describe("Dashboard", () => {
     await search.fill("ju");
     await expect(page.getByText("Reports (1)")).toBeVisible();
     await expect(page.getByText("Users (1)")).toBeVisible();
-    await expect(page.getByText("Inventory (1)")).toBeVisible();
   });
 });

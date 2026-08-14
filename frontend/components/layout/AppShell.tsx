@@ -72,7 +72,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
       <main
         id="main-content"
-        className="flex-1 lg:ml-[220px] pt-[calc(3.5rem+env(safe-area-inset-top,0px))] lg:pt-6 pb-[calc(4rem+env(safe-area-inset-bottom,0px)+1rem)] lg:pb-0 p-4 sm:p-6 lg:p-8"
+        className="flex-1 lg:ml-[220px] pt-[calc(3.5rem+env(safe-area-inset-top,0px)+1rem)] sm:pt-[calc(3.5rem+env(safe-area-inset-top,0px)+1.5rem)] lg:pt-6 pb-[calc(4rem+env(safe-area-inset-bottom,0px)+1rem)] lg:pb-0 p-4 sm:p-6 lg:p-8"
       >
         {children}
       </main>

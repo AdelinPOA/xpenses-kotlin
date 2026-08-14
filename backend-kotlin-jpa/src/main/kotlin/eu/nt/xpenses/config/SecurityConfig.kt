@@ -57,7 +57,6 @@ class SecurityConfig(
                     .requestMatchers(HttpMethod.POST, "/api/categories").hasRole("mod")
                     .requestMatchers(HttpMethod.PATCH, "/api/categories/**").hasRole("mod")
                     .requestMatchers(HttpMethod.DELETE, "/api/categories/**").hasRole("mod")
-                    .requestMatchers("/api/inventory/**").authenticated()
                     .requestMatchers("/api/insurance/**").authenticated()
                     .anyRequest().authenticated()
             }

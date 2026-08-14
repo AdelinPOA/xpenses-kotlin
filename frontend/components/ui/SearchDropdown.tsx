@@ -5,7 +5,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import api, { SearchResult } from "@/lib/api";
 import { searchKeys } from "@/lib/queryKeys";
-import { Search, FileText, Receipt, ChevronRight, Users, Package, Shield, Wallet } from "lucide-react";
+import { Search, FileText, Receipt, ChevronRight, Users, Shield, Wallet } from "lucide-react";
 import { formatEur } from "@/lib/format";
 import Badge from "@/components/ui/Badge";
 import clsx from "clsx";
@@ -64,7 +64,6 @@ export default function SearchDropdown({ className }: SearchDropdownProps) {
     ...data.reports.map(r => ({ type: "report" as const, id: r.id, title: r.title, subtitle: r.user_display_name || "", amount: r.expenses.reduce((s, e) => s + e.amount_eur, 0) || r.total_amount, status: r.status })),
     ...data.expenses.map(e => ({ type: "expense" as const, id: e.id, title: e.merchant || "—", subtitle: e.category_name || "", amount: e.amount_eur, status: e.status })),
     ...(data.users ?? []).map(u => ({ type: "user" as const, id: u.id, title: u.display_name || u.username || "User", subtitle: u.email || u.role || "", amount: null, status: u.role })),
-    ...(data.inventory ?? []).map(i => ({ type: "inventory" as const, id: i.id, title: i.name || "Inventory item", subtitle: i.serial_number || i.category || "", amount: null, status: i.status })),
     ...(data.insurance ?? []).map(i => ({ type: "insurance" as const, id: i.id, title: i.title || i.filename || "Insurance file", subtitle: i.uploaded_by || "", amount: null, status: null })),
     ...(data.advances ?? []).map(a => ({ type: "advance" as const, id: a.id, reportId: a.report_id, title: a.report_title || "Advance payment", subtitle: a.description || "", amount: a.amount_eur ?? null, status: a.status })),
   ] : [];
@@ -78,8 +77,6 @@ export default function SearchDropdown({ className }: SearchDropdownProps) {
       router.push(`/expenses/${result.id}`);
     } else if (result.type === "user") {
       router.push(`/profile/${result.id}`);
-    } else if (result.type === "inventory") {
-      router.push("/inventory");
     } else if (result.type === "insurance") {
       router.push("/insurance");
     } else {
@@ -101,6 +98,7 @@ export default function SearchDropdown({ className }: SearchDropdownProps) {
       setSelectedIndex(prev => Math.max(prev - 1, -1));
     } else if (e.key === "Enter") {
       e.preventDefault();
+      setSelectedIndex(prev => Math.max(0, prev));
       if (selectedIndex >= 0 && results[selectedIndex]) {
         handleSelect(results[selectedIndex]);
       } else if (debouncedTerm) {
@@ -117,7 +115,6 @@ export default function SearchDropdown({ className }: SearchDropdownProps) {
     { key: "report" as const, label: "Reports", count: data.report_count, icon: FileText, color: "text-primary", bg: "bg-primary/10", items: results.filter((r) => r.type === "report") },
     { key: "expense" as const, label: "Expenses", count: data.expense_count, icon: Receipt, color: "text-orange-500", bg: "bg-orange-500/10", items: results.filter((r) => r.type === "expense") },
     { key: "user" as const, label: "Users", count: data.user_count ?? data.users?.length ?? 0, icon: Users, color: "text-blue-500", bg: "bg-blue-500/10", items: results.filter((r) => r.type === "user") },
-    { key: "inventory" as const, label: "Inventory", count: data.inventory_count ?? data.inventory?.length ?? 0, icon: Package, color: "text-emerald-500", bg: "bg-emerald-500/10", items: results.filter((r) => r.type === "inventory") },
     { key: "insurance" as const, label: "Insurance", count: data.insurance_count ?? data.insurance?.length ?? 0, icon: Shield, color: "text-cyan-500", bg: "bg-cyan-500/10", items: results.filter((r) => r.type === "insurance") },
     { key: "advance" as const, label: "Advances", count: data.advance_count ?? data.advances?.length ?? 0, icon: Wallet, color: "text-violet-500", bg: "bg-violet-500/10", items: results.filter((r) => r.type === "advance") },
   ].filter((group) => group.items.length > 0) : [];

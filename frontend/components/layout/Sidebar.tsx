@@ -233,30 +233,35 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
             </>
           )}
         </nav>
-        <div className="px-4 py-4 border-t border-sidebar-border">
+        <div className="p-3 border-t border-sidebar-border space-y-2 bg-sidebar/80">
           {user && (
-            <div className="mb-3">
-              <p className="text-sm font-medium text-white truncate">{user.display_name}</p>
-              <p className="text-xs text-slate-400">{tNav(ROLE_LABELS[user.role] || user.role)}</p>
+            <div className="px-2 py-0.5">
+              <p className="text-xs font-bold text-white truncate">{user.display_name}</p>
+              <p className="text-[10px] text-slate-400 truncate">{tNav(ROLE_LABELS[user.role] || user.role)}</p>
             </div>
           )}
-          <div className="flex items-center justify-between">
-            <button
-              onClick={logout}
-              className="flex items-center gap-2 min-h-11 px-2 text-sm text-slate-400 hover:text-white transition-colors rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-            >
-              <LogOut className="w-4 h-4" aria-hidden="true" />
-              {tNav("sign_out")}
-            </button>
-            <button
-              onClick={cycleTheme}
-              aria-label={`Current theme: ${THEME_LABELS[theme]}. Click to cycle.`}
-              className="flex items-center gap-1 min-h-11 px-3 rounded-lg text-slate-400 hover:text-white hover:bg-sidebar-border transition-colors text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-            >
-              <ThemeIcon className="w-4 h-4" aria-hidden="true" />
-              <span>{THEME_LABELS[theme]}</span>
-            </button>
-          </div>
+
+          {/* Theme Switcher */}
+          <button
+            onClick={cycleTheme}
+            aria-label={`Current theme: ${THEME_LABELS[theme]}. Click to cycle.`}
+            className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs text-slate-300 hover:text-white bg-sidebar-border/40 hover:bg-sidebar-border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary cursor-pointer"
+          >
+            <span className="flex items-center gap-2 text-slate-400">
+              <ThemeIcon className="w-4 h-4 text-primary" aria-hidden="true" />
+              <span className="text-xs font-medium text-slate-300">Theme</span>
+            </span>
+            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">{THEME_LABELS[theme]}</span>
+          </button>
+
+          {/* Sign Out Button */}
+          <button
+            onClick={logout}
+            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary cursor-pointer"
+          >
+            <LogOut className="w-4 h-4 shrink-0" aria-hidden="true" />
+            <span>{tNav("sign_out")}</span>
+          </button>
         </div>
       </aside>
     </>

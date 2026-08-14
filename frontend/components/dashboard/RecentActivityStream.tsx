@@ -2,7 +2,7 @@
 
 import { ActivityFeedItem } from "@/lib/api";
 import { formatEur } from "@/lib/format";
-import { Activity, CheckCircle, Clock, XCircle, CreditCard } from "lucide-react";
+import { Activity, CheckCircle, Clock, XCircle, CreditCard, User } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 interface RecentActivityStreamProps {
@@ -33,43 +33,52 @@ export default function RecentActivityStream({ activities }: RecentActivityStrea
   }
 
   return (
-    <div className="border border-border bg-card p-5 shadow-sm">
-      <div className="flex items-center justify-between border-b border-border pb-3">
-        <div className="flex items-center gap-2">
-          <Activity className="w-5 h-5 text-primary" />
-          <h3 className="font-semibold text-foreground text-lg">{t("team_activity")}</h3>
+    <div className="rounded-2xl border border-border bg-card shadow-xs overflow-hidden">
+      <div className="flex items-center justify-between border-b border-border bg-muted/10 p-4 sm:p-5">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold">
+            <Activity className="w-4 h-4" />
+          </div>
+          <div>
+            <h3 className="font-bold text-foreground text-base sm:text-lg">{t("team_activity")}</h3>
+            <p className="text-xs text-muted-foreground">{t("recent_updates")}</p>
+          </div>
         </div>
-        <span className="text-xs text-muted-foreground">{t("recent_updates")}</span>
+        <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-bold text-muted-foreground">
+          {activities.length}
+        </span>
       </div>
 
-      <div className="space-y-1">
+      <div className="divide-y divide-border">
         {activities.map((item) => {
           const { Icon, colorClass, bgClass, labelKey } = getActivityMeta(item.type);
           return (
             <div
               key={item.id}
-              className="flex flex-col items-start gap-2 border-l border-border py-3 pl-4 text-sm transition-colors hover:border-primary hover:bg-muted/30 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+              className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 sm:px-5 gap-3 hover:bg-muted/20 transition-colors"
             >
-              <div className="flex min-w-0 items-center gap-3">
-                <div className={`rounded-full p-2 ${bgClass} ${colorClass}`}>
+              <div className="flex items-center gap-3.5 min-w-0">
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${bgClass} ${colorClass}`}>
                   <Icon className="w-4 h-4" />
                 </div>
                 <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 font-medium text-foreground">
-                    <span>{item.actor_name}</span>
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold capitalize ${colorClass}`}>
+                  <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-sm">
+                    <span className="font-bold text-foreground">{item.actor_name}</span>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold capitalize ${bgClass} ${colorClass}`}>
                       {tc(labelKey)}
                     </span>
-                    <span className="max-w-[9rem] truncate text-muted-foreground font-normal sm:max-w-xs">{item.target_title}</span>
+                    <span className="text-muted-foreground text-xs truncate max-w-xs sm:max-w-md font-medium">
+                      {item.target_title}
+                    </span>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
                     {item.timestamp ? new Date(item.timestamp).toLocaleString() : t("just_now")}
                   </p>
                 </div>
               </div>
 
-              <div className="self-end sm:self-auto">
-                <span className="font-semibold tabular-nums text-foreground">{formatEur(item.amount_eur)}</span>
+              <div className="self-end sm:self-auto shrink-0">
+                <span className="text-sm font-black tabular-nums text-foreground">{formatEur(item.amount_eur)}</span>
               </div>
             </div>
           );
@@ -78,3 +87,4 @@ export default function RecentActivityStream({ activities }: RecentActivityStrea
     </div>
   );
 }
+

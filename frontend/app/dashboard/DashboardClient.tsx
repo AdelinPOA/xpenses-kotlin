@@ -283,18 +283,19 @@ export default function DashboardClient() {
               />
             </div>
 
-            <div className="xl:col-span-1 space-y-6">
+            <div className="xl:col-span-1">
               <PendingAdvancesList
                 advances={managerStats?.pending_advances ?? []}
                 onPay={handlePayAdvance}
                 onReject={handleRejectAdvance}
               />
-
-              {managerStats && managerStats.recent_activity.length > 0 && (
-                <RecentActivityStream activities={managerStats.recent_activity} />
-              )}
             </div>
           </div>
+
+          {/* Full-width Team Activity Stream */}
+          {managerStats && managerStats.recent_activity.length > 0 && (
+            <RecentActivityStream activities={managerStats.recent_activity} />
+          )}
         </div>
       ) : (
         /* ── 3. TECHNICIAN WORKSPACE ────────────────────────────────────────────── */

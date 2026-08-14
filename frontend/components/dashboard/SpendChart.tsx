@@ -71,16 +71,16 @@ export default function SpendChart({ data }: SpendChartProps) {
         preserveAspectRatio="none"
       >
         <defs>
-          {/* Orange gradient for the filled area under the line */}
           <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#f97316" stopOpacity="0.4" />
-            <stop offset="100%" stopColor="#f97316" stopOpacity="0.0" />
+            <stop offset="0%" stopColor="var(--color-primary, #c2410c)" stopOpacity="0.25" />
+            <stop offset="100%" stopColor="var(--color-primary, #c2410c)" stopOpacity="0.0" />
           </linearGradient>
-          {/* Drop shadow filter for the glowing orange line */}
-          <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-            <feDropShadow dx="0" dy="2" stdDeviation="2" floodColor="#f97316" floodOpacity="0.5" />
-          </filter>
         </defs>
+
+        {/* Subtle Horizontal Reference Grid Lines */}
+        <line x1="0" y1="20" x2="100" y2="20" stroke="currentColor" strokeOpacity="0.08" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
+        <line x1="0" y1="50" x2="100" y2="50" stroke="currentColor" strokeOpacity="0.08" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
+        <line x1="0" y1="80" x2="100" y2="80" stroke="currentColor" strokeOpacity="0.08" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
 
         {/* Fill Area */}
         <path d={areaPath} fill="url(#chartGradient)" />
@@ -89,24 +89,22 @@ export default function SpendChart({ data }: SpendChartProps) {
         <path
           d={linePath}
           fill="none"
-          stroke="#f97316"
-          strokeWidth="2.5"
+          stroke="var(--color-primary, #c2410c)"
+          strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
           vectorEffect="non-scaling-stroke"
-          filter="url(#glow)"
         />
 
-        {/* Glowing Indicator Dot at the last point */}
+        {/* Clean Indicator Dot at the last point */}
         <circle
           cx={lastPoint.x}
           cy={lastPoint.y}
           r="2.5"
-          fill="#ffffff"
-          stroke="#f97316"
-          strokeWidth="1.5"
-          className="animate-pulse"
-          style={{ transformOrigin: `${lastPoint.x}px ${lastPoint.y}px` }}
+          fill="var(--color-card, #ffffff)"
+          stroke="var(--color-primary, #c2410c)"
+          strokeWidth="2"
+          vectorEffect="non-scaling-stroke"
         />
       </svg>
     </div>

@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: complete
-stopped_at: Phase 1 plan 06 complete
-last_updated: "2026-08-04T17:50:00.000Z"
+stopped_at: Phase 1 plan 11 complete
+last_updated: "2026-08-14T23:07:00.000Z"
 progress:
   total_phases: 1
   completed_phases: 1
-  total_plans: 6
-  completed_plans: 6
+  total_plans: 11
+  completed_plans: 11
 ---
 
 # Project State
@@ -23,26 +23,26 @@ progress:
 
 ## Baseline
 
-- Brownfield codebase map completed in `.planning/codebase/`.
-- ADR `docs/adr/0001-bnr-fx-rates-with-margin.md` ingested as a locked decision.
-- Initial requirements and roadmap created from the ADR and current codebase context.
+- Codebase map refreshed in `.planning/codebase/`.
+- ADR `docs/adr/0001-bnr-fx-rates-with-margin.md` validated and fully covered by tests.
+- All 11 plans (including gap closures 01-07 through 01-11) executed and verified.
 
 ## Key Decisions
 
 - Preserve the BNR-plus-margin policy and frozen historical rates.
 - Use the existing Kotlin/Spring Boot, Next.js, PostgreSQL, Flyway, and Playwright stack.
-- Treat `todo.md` as a reviewed backlog requiring validation before scheduling.
+- Complete null-safety and canonical settings mapping in frontend Admin Settings.
 
 ## Next Action
 
-Run the phase-level audit/review workflow, then decide whether to close milestone v1.0 or promote the next backlog slice.
+Run `/gsd-complete-milestone` to archive Milestone 1 or define Phase 2 / next milestone.
 
 ## Session Handoff
 
-Onboarding artifacts are staged under `.planning/intel/`; the conflict report has zero blockers and zero warnings. Plans `01-01` through `01-06` have been executed and summarized.
+Plans `01-01` through `01-11` have been executed, verified, and summarized. All unit, integration, migration, and E2E settings tests pass.
 
 ## Session
 
-**Last session:** 2026-08-04T17:50:00.000Z
-**Stopped at:** Phase 1 plan 06 complete
-**Resume file:** .planning/phases/01-fx-policy-validation-and-hardening/01-CONTEXT.md
+**Last session:** 2026-08-14T23:07:00.000Z
+**Stopped at:** Phase 1 plan 11 complete
+**Resume file:** .planning/phases/01-fx-policy-validation-and-hardening/01-11-SUMMARY.md

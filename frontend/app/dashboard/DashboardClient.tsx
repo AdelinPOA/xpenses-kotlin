@@ -26,6 +26,7 @@ import PendingReportsTable from "@/components/dashboard/PendingReportsTable";
 import PendingAdvancesList from "@/components/dashboard/PendingAdvancesList";
 import RecentActivityStream from "@/components/dashboard/RecentActivityStream";
 import SearchDropdown from "@/components/ui/SearchDropdown";
+import ReimbursementFlowLedger from "@/components/dashboard/ReimbursementFlowLedger";
 
 function getCategoryMeta(categoryName: string | null): { Icon: LucideIcon; colorClass: string; bgClass: string } {
   const name = (categoryName || "").toLowerCase();
@@ -55,10 +56,10 @@ export default function DashboardClient() {
   const toast = useToast();
 
   const isOrgWideRole = user?.role === "chef_finance" || user?.role === "mod";
-  const [showAll, setShowAll] = useState(false);
+  const [showAll, setShowAll] = useState(true);
 
   const canToggle = user?.role === "chef_finance" || user?.role === "mod";
-  const isManagerRole = user?.role === "manager" || user?.role === "chef_finance" || user?.role === "mod";
+  const isManagerRole = user?.role === "manager" || user?.role === "chef_finance";
   const canManageReviews = user?.role === "manager" || user?.role === "chef_finance";
   const [recentExpensesSearch, setRecentExpensesSearch] = useState("");
 
@@ -310,6 +311,21 @@ export default function DashboardClient() {
               </div>
 
               <div className="flex items-center gap-3">
+                {canToggle && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAll(!showAll)}
+                    className={clsx(
+                      "px-3.5 py-2 text-xs font-bold rounded-xl border shadow-xs cursor-pointer transition-colors",
+                      showAll
+                        ? "bg-primary/10 border-primary/30 text-primary"
+                        : "bg-background border-border text-muted hover:text-foreground"
+                    )}
+                  >
+                    {showAll ? t("toggle_my_view") : t("toggle_company_overview")}
+                  </button>
+                )}
+
                 <button
                   onClick={() => downloadBlob("/expenses/export-csv", {}, `expenses-${new Date().toISOString().slice(0, 10)}.csv`)}
                   className="flex items-center gap-2 bg-card border border-border text-foreground hover:bg-card-hover px-3.5 py-2 rounded-xl text-xs font-semibold transition-colors cursor-pointer shadow-xs"
@@ -353,7 +369,7 @@ export default function DashboardClient() {
                           type="text"
                           value={recentExpensesSearch}
                           onChange={(e) => setRecentExpensesSearch(e.target.value)}
-                          placeholder="Filtrează cheltuieli..."
+                          placeholder={t("filter_expenses")}
                           className="pl-8 pr-3 py-1.5 text-xs rounded-lg border border-border bg-background text-foreground focus:outline-hidden focus:ring-1 focus:ring-primary w-44"
                         />
                       </div>
@@ -365,7 +381,11 @@ export default function DashboardClient() {
 
                   {!filteredRecentExpenses.length ? (
                     <div className="p-8">
-                      <EmptyState message={t("no_expenses")} />
+                      <EmptyState
+                        message={t("no_expenses")}
+                        actionLabel={t("add_expense")}
+                        onAction={() => router.push("/expenses/new")}
+                      />
                     </div>
                   ) : (
                     <div className="overflow-x-auto">
@@ -404,7 +424,7 @@ export default function DashboardClient() {
                                 <td className="py-3 px-3 text-xs text-muted-foreground">
                                   {e.category_name || tc("uncategorized")}
                                 </td>
-                                <td className="py-3 px-3 text-right font-black text-foreground tabular-nums whitespace-nowrap">
+                                <td className="py-3 px-3 text-right font-semibold text-foreground tabular-nums tracking-tight whitespace-nowrap">
                                   {formatEur(e.amount_eur)}
                                 </td>
                                 <td className="py-3 px-4 text-right">
@@ -420,46 +440,10 @@ export default function DashboardClient() {
                 </div>
               </div>
 
-              {/* RIGHT COLUMN: Reimbursement status cards & Categories (5 / 12 width) */}
+              {/* RIGHT COLUMN: Reimbursement Status Flow & Categories (5 / 12 width) */}
               <div className="col-span-12 xl:col-span-5 space-y-6">
-                {/* 1. Report Summary Card with REAL EUR Values */}
-                <div className="bg-card rounded-2xl border border-border p-5 shadow-xs space-y-4">
-                  <div className="flex items-center justify-between border-b border-border pb-3">
-                    <h2 className="text-sm font-bold text-foreground uppercase tracking-wider">{t("report_summary")}</h2>
-                    <Link href="/reports" className="text-xs font-semibold text-primary hover:underline">
-                      {t("see_all")}
-                    </Link>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-3">
-                    <div 
-                      onClick={() => router.push("/reports?status=draft")}
-                      className="p-3 rounded-xl border border-border bg-muted/20 hover:bg-muted/40 transition-colors cursor-pointer text-center"
-                    >
-                      <span className="text-[10px] font-bold text-muted-foreground uppercase">{t("draft_reports")}</span>
-                      <p className="text-lg font-black text-foreground mt-1">{reportStatusTotals.draftCount}</p>
-                      <p className="text-xs font-bold text-muted-foreground mt-0.5">{formatEur(reportStatusTotals.draftEur)}</p>
-                    </div>
-
-                    <div 
-                      onClick={() => router.push("/reports?status=submitted")}
-                      className="p-3 rounded-xl border border-amber-500/20 bg-amber-500/5 hover:bg-amber-500/10 transition-colors cursor-pointer text-center"
-                    >
-                      <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400 uppercase">{t("submitted_reports")}</span>
-                      <p className="text-lg font-black text-amber-700 dark:text-amber-400 mt-1">{reportStatusTotals.submittedCount}</p>
-                      <p className="text-xs font-bold text-amber-700 dark:text-amber-400 mt-0.5">{formatEur(reportStatusTotals.submittedEur)}</p>
-                    </div>
-
-                    <div 
-                      onClick={() => router.push("/reports?status=paid")}
-                      className="p-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 hover:bg-emerald-500/10 transition-colors cursor-pointer text-center"
-                    >
-                      <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase">{t("paid_reports")}</span>
-                      <p className="text-lg font-black text-emerald-700 dark:text-emerald-400 mt-1">{reportStatusTotals.paidCount}</p>
-                      <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400 mt-0.5">{formatEur(reportStatusTotals.paidEur)}</p>
-                    </div>
-                  </div>
-                </div>
+                {/* Signature Element: Reimbursement Lifecycle Flow */}
+                <ReimbursementFlowLedger totals={reportStatusTotals} />
 
                 {/* 2. Spend by Category Card */}
                 <div className="bg-card rounded-2xl border border-border p-5 shadow-xs space-y-4">
@@ -545,8 +529,8 @@ export default function DashboardClient() {
                   <span className="truncate">{t("draft_reports")}</span>
                 </div>
                 <div className="mt-2">
-                  <p className="text-base font-black text-foreground leading-none">{reportStatusTotals.draftCount}</p>
-                  <p className="text-[10px] font-bold text-muted-foreground mt-1">{formatEur(reportStatusTotals.draftEur)}</p>
+                  <p className="text-base font-bold text-foreground leading-none tabular-nums">{reportStatusTotals.draftCount}</p>
+                  <p className="text-[10px] font-semibold text-muted-foreground mt-1 tabular-nums tracking-tight">{formatEur(reportStatusTotals.draftEur)}</p>
                 </div>
               </Link>
 
@@ -559,8 +543,8 @@ export default function DashboardClient() {
                   <span className="truncate">{t("submitted_reports")}</span>
                 </div>
                 <div className="mt-2">
-                  <p className="text-base font-black text-amber-700 dark:text-amber-400 leading-none">{reportStatusTotals.submittedCount}</p>
-                  <p className="text-[10px] font-bold text-amber-700 dark:text-amber-400 mt-1">{formatEur(reportStatusTotals.submittedEur)}</p>
+                  <p className="text-base font-bold text-amber-700 dark:text-amber-400 leading-none tabular-nums">{reportStatusTotals.submittedCount}</p>
+                  <p className="text-[10px] font-semibold text-amber-700 dark:text-amber-400 mt-1 tabular-nums tracking-tight">{formatEur(reportStatusTotals.submittedEur)}</p>
                 </div>
               </Link>
 
@@ -573,8 +557,8 @@ export default function DashboardClient() {
                   <span className="truncate">{t("paid_reports")}</span>
                 </div>
                 <div className="mt-2">
-                  <p className="text-base font-black text-emerald-700 dark:text-emerald-400 leading-none">{reportStatusTotals.paidCount}</p>
-                  <p className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 mt-1">{formatEur(reportStatusTotals.paidEur)}</p>
+                  <p className="text-base font-bold text-emerald-700 dark:text-emerald-400 leading-none tabular-nums">{reportStatusTotals.paidCount}</p>
+                  <p className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 mt-1 tabular-nums tracking-tight">{formatEur(reportStatusTotals.paidEur)}</p>
                 </div>
               </Link>
             </div>
@@ -589,7 +573,11 @@ export default function DashboardClient() {
               </div>
 
               {!data?.recent_expenses.length ? (
-                <EmptyState message={t("no_expenses")} />
+                <EmptyState
+                  message={t("no_expenses")}
+                  actionLabel={t("add_expense")}
+                  onAction={() => router.push("/expenses/new")}
+                />
               ) : (
                 <div className="divide-y divide-border">
                   {data.recent_expenses.slice(0, 6).map((e) => {
@@ -613,7 +601,7 @@ export default function DashboardClient() {
                         </div>
 
                         <div className="flex flex-col items-end shrink-0 pl-2">
-                          <p className="text-sm font-black text-foreground tabular-nums whitespace-nowrap">{formatEur(e.amount_eur)}</p>
+                          <p className="text-sm font-semibold text-foreground tabular-nums tracking-tight whitespace-nowrap">{formatEur(e.amount_eur)}</p>
                           <div className="mt-1">
                             <Badge status={e.status} />
                           </div>

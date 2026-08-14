@@ -228,10 +228,21 @@ export default function PendingReportsTable({
 }: PendingReportsTableProps) {
   const t = useTranslations("dashboard");
   const tc = useTranslations("common");
-  const [expandedId, setExpandedId] = useState<number | null>(reports.length > 0 ? reports[0].id : null);
+  const [userExpandedId, setUserExpandedId] = useState<number | null>(null);
+  const [userCollapsedFirst, setUserCollapsedFirst] = useState(false);
+  
+  const expandedId = userExpandedId !== null 
+    ? userExpandedId 
+    : (reports.length > 0 && !userCollapsedFirst ? reports[0].id : null);
 
   const toggleExpand = (id: number) => {
-    setExpandedId((prev) => (prev === id ? null : id));
+    if (expandedId === id) {
+      setUserExpandedId(null);
+      setUserCollapsedFirst(true);
+    } else {
+      setUserExpandedId(id);
+      setUserCollapsedFirst(false);
+    }
   };
 
   if (reports.length === 0) {
@@ -297,6 +308,12 @@ export default function PendingReportsTable({
                       {report.title}
                     </h4>
                   </div>
+
+                  {report.description && (
+                    <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
+                      {report.description}
+                    </p>
+                  )}
 
                   <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                     <span className="inline-flex items-center gap-1 font-semibold text-foreground">

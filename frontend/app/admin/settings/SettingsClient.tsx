@@ -52,13 +52,13 @@ export default function SettingsClient() {
 
   useEffect(() => {
     if (rates) {
-      setBt(rates.mileage_rate_before_tax.toString());
-      setFuelConsumption(rates.fuel_consumption_l_per_100km.toString());
-      setFuelPrice(rates.fuel_price_ron_per_liter.toString());
-      setPensionRate((rates.pension_rate * 100).toString());
-      setHealthRate((rates.health_rate * 100).toString());
-      setIncomeTaxRate((rates.income_tax_rate * 100).toString());
-      setTaxDeduction(rates.tax_deduction_eur.toString());
+      setBt(rates.mileage_rate_before_tax?.toString() ?? "");
+      setFuelConsumption(rates.fuel_consumption_l_per_100km?.toString() ?? "");
+      setFuelPrice(rates.fuel_price_ron_per_liter?.toString() ?? "");
+      setPensionRate(rates.pension_rate != null ? (rates.pension_rate * 100).toString() : "");
+      setHealthRate(rates.health_rate != null ? (rates.health_rate * 100).toString() : "");
+      setIncomeTaxRate(rates.income_tax_rate != null ? (rates.income_tax_rate * 100).toString() : "");
+      setTaxDeduction(rates.tax_deduction_eur?.toString() ?? "");
     }
   }, [rates]);
 

@@ -171,7 +171,13 @@
     "expenses_section": "Cheltuieli",
     "see_all_results": "Vezi toate rezultatele",
     "notifications": "Notificări",
-    "global_search": "Căutare globală"
+    "global_search": "Căutare globală",
+    "filter_expenses": "Filtrează cheltuieli...",
+    "reimbursement_pipeline": "Flux de Rambursare",
+    "in_review": "În Revizuire",
+    "ready_to_submit": "Gata de trimis",
+    "awaiting_payout": "În așteptarea plății",
+    "all_settled": "Totul decontat"
   },
   "expenses": {
     "title": "Cheltuieli",

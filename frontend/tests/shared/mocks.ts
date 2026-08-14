@@ -137,7 +137,16 @@ export const OCR_SETTINGS = { ocr_enabled: true, provider: "gemini-3.1-flash-lit
 
 export const STORAGE_SETTINGS = { provider_type: "local", local: { path: "/app/data/receipts" } };
 
-export const MILEAGE_RATES = { mileage_rate_before_tax: 0.42, mileage_rate_after_tax: 0.35 };
+export const MILEAGE_RATES = {
+  mileage_rate_before_tax: 0.42,
+  mileage_rate_after_tax: 0.35,
+  fuel_consumption_l_per_100km: 6.5,
+  fuel_price_ron_per_liter: 7.2,
+  pension_rate: 0.25,
+  health_rate: 0.1,
+  income_tax_rate: 0.1,
+  tax_deduction_eur: 50.0,
+};
 
 export const DAILY_ALLOWANCE_RATE = { daily_allowance_rate: 45.0 };
 

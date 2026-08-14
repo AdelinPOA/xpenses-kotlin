@@ -171,7 +171,13 @@
     "expenses_section": "Expenses",
     "see_all_results": "See all results",
     "notifications": "Notifications",
-    "global_search": "Global search"
+    "global_search": "Global search",
+    "filter_expenses": "Filter expenses...",
+    "reimbursement_pipeline": "Reimbursement Pipeline",
+    "in_review": "In Review",
+    "ready_to_submit": "Ready to submit",
+    "awaiting_payout": "Awaiting payout",
+    "all_settled": "All settled"
   },
   "expenses": {
     "title": "Expenses",

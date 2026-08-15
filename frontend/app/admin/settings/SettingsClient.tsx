@@ -2,11 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import api, { ApiValidationError, FxMargins, MileageRates } from "@/lib/api";
+import api, { ApiValidationError, FxMargins, MileageRates, FxProvidersConfig, FxTestResult, getFxProviders, updateFxProviders, testFxProvider } from "@/lib/api";
 import { settingsKeys } from "@/lib/queryKeys";
 import AppShell from "@/components/layout/AppShell";
 import { useAuth } from "@/components/AuthProvider";
-import { Settings, Save } from "lucide-react";
+import { Settings, Save, ArrowUp, ArrowDown, Globe, CheckCircle2, AlertCircle, Play } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { AxiosError } from "axios";
 
@@ -37,6 +37,13 @@ export default function SettingsClient() {
     gcTime: 600_000,
   });
 
+  const { data: fxProvidersData, isLoading: fxProvidersLoading } = useQuery<FxProvidersConfig>({
+    queryKey: settingsKeys.fxProviders(),
+    queryFn: () => getFxProviders(),
+    staleTime: 300_000,
+    gcTime: 600_000,
+  });
+
   const [bt, setBt] = useState("");
   const [fuelConsumption, setFuelConsumption] = useState("");
   const [fuelPrice, setFuelPrice] = useState("");
@@ -49,6 +56,14 @@ export default function SettingsClient() {
   const [fxDefaultMargin, setFxDefaultMargin] = useState("");
   const [fxErrors, setFxErrors] = useState<Record<string, string>>({});
   const [fxFormError, setFxFormError] = useState("");
+
+  const [providers, setProviders] = useState<string[]>(["BNR", "ECB_FRANKFURTER", "CURRENCY_API"]);
+  const [testCurrency, setTestCurrency] = useState("UAH");
+  const [testDate, setTestDate] = useState("");
+  const [testResult, setTestResult] = useState<FxTestResult | null>(null);
+  const [isTesting, setIsTesting] = useState(false);
+  const [providersSaveSuccess, setProvidersSaveSuccess] = useState(false);
+  const [providersSaveError, setProvidersSaveError] = useState("");
 
   useEffect(() => {
     if (rates) {
@@ -74,6 +89,12 @@ export default function SettingsClient() {
       setFxDefaultMargin(String(fxMarginsData.defaultMargin));
     }
   }, [fxMarginsData]);
+
+  useEffect(() => {
+    if (fxProvidersData?.providers) {
+      setProviders(fxProvidersData.providers);
+    }
+  }, [fxProvidersData]);
 
   const updateRates = useMutation({
     mutationFn: (data: Record<string, number>) =>
@@ -101,6 +122,87 @@ export default function SettingsClient() {
       setFxFormError(error.response?.data?.detail ?? t("fx_margins_save_failed"));
     },
   });
+
+  const updateFxProvidersMutation = useMutation({
+    mutationFn: (newProviders: string[]) => updateFxProviders(newProviders),
+    onSuccess: (data) => {
+      setProviders(data.providers);
+      setProvidersSaveSuccess(true);
+      setProvidersSaveError("");
+      setTimeout(() => setProvidersSaveSuccess(false), 4000);
+      qc.invalidateQueries({ queryKey: settingsKeys.fxProviders() });
+    },
+    onError: (error: any) => {
+      setProvidersSaveSuccess(false);
+      setProvidersSaveError(error.response?.data?.detail ?? t("fx_providers_save_failed"));
+    },
+  });
+
+  const moveProvider = (index: number, direction: "up" | "down") => {
+    const targetIndex = direction === "up" ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= providers.length) return;
+    const next = [...providers];
+    const temp = next[index];
+    next[index] = next[targetIndex];
+    next[targetIndex] = temp;
+    setProviders(next);
+  };
+
+  const handleSaveProviders = () => {
+    setProvidersSaveSuccess(false);
+    setProvidersSaveError("");
+    updateFxProvidersMutation.mutate(providers);
+  };
+
+  const handleTestResolution = async () => {
+    if (!testCurrency.trim()) return;
+    setIsTesting(true);
+    setTestResult(null);
+    try {
+      const res = await testFxProvider(testCurrency.trim(), testDate.trim() || undefined);
+      setTestResult(res);
+    } catch (e: any) {
+      setTestResult({
+        success: false,
+        message: e.response?.data?.detail ?? e.message ?? "Test failed",
+      });
+    } finally {
+      setIsTesting(false);
+    }
+  };
+
+  const getProviderInfo = (providerKey: string) => {
+    switch (providerKey) {
+      case "BNR":
+        return {
+          title: t("fx_provider_bnr"),
+          desc: t("fx_provider_bnr_desc"),
+          badge: "RO",
+          badgeColor: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
+        };
+      case "ECB_FRANKFURTER":
+        return {
+          title: t("fx_provider_ecb"),
+          desc: t("fx_provider_ecb_desc"),
+          badge: "EU",
+          badgeColor: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
+        };
+      case "CURRENCY_API":
+        return {
+          title: t("fx_provider_currency_api"),
+          desc: t("fx_provider_currency_api_desc"),
+          badge: "Global",
+          badgeColor: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
+        };
+      default:
+        return {
+          title: providerKey,
+          desc: "",
+          badge: "API",
+          badgeColor: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
+        };
+    }
+  };
 
   const handleSaveRates = () => {
     const btVal = parseFloat(bt);
@@ -315,6 +417,188 @@ export default function SettingsClient() {
               {updateFxMargins.isPending ? t("saving") : t("save")}
             </button>
             {updateFxMargins.isSuccess && <p role="status" className="text-sm text-emerald-600 dark:text-emerald-400">{t("fx_margins_saved")}</p>}
+          </div>
+        </div>
+
+        {/* FX Provider Priority Card */}
+        <div className="bg-card rounded-xl shadow-sm p-6">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+              <Globe className="w-5 h-5 text-indigo-500" />
+              {t("fx_providers")}
+            </h2>
+          </div>
+          <p className="text-sm text-muted mb-6">{t("fx_providers_description")}</p>
+
+          <div className="space-y-3 mb-6">
+            {providers.map((providerKey, index) => {
+              const info = getProviderInfo(providerKey);
+              const isFirst = index === 0;
+              const isLast = index === providers.length - 1;
+
+              return (
+                <div
+                  key={providerKey}
+                  className="flex items-center justify-between p-3.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl transition-all"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="flex items-center justify-center w-7 h-7 rounded-full bg-slate-200 dark:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 shrink-0">
+                      {index + 1}
+                    </span>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-sm text-foreground truncate">
+                          {info.title}
+                        </span>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${info.badgeColor}`}>
+                          {info.badge}
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted truncate mt-0.5">
+                        {info.desc}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1 shrink-0 ml-3">
+                    <button
+                      type="button"
+                      disabled={isFirst}
+                      onClick={() => moveProvider(index, "up")}
+                      aria-label={`${t("fx_priority_move_up")} ${info.title}`}
+                      className="p-1.5 rounded-lg border border-input-border text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <ArrowUp className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isLast}
+                      onClick={() => moveProvider(index, "down")}
+                      aria-label={`${t("fx_priority_move_down")} ${info.title}`}
+                      className="p-1.5 rounded-lg border border-input-border text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <ArrowDown className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleSaveProviders}
+              disabled={updateFxProvidersMutation.isPending}
+              className="flex items-center gap-2 px-4 py-2 bg-slate-800 dark:bg-slate-700 text-white text-sm font-medium rounded-lg hover:bg-slate-900 dark:hover:bg-slate-600 disabled:opacity-50 transition-colors"
+            >
+              <Save className="w-4 h-4" />
+              {updateFxProvidersMutation.isPending ? t("saving") : t("save")}
+            </button>
+            {providersSaveSuccess && (
+              <p role="status" className="text-sm text-emerald-600 dark:text-emerald-400">
+                {t("fx_providers_saved")}
+              </p>
+            )}
+            {providersSaveError && (
+              <p role="alert" className="text-sm text-red-600">
+                {providersSaveError}
+              </p>
+            )}
+          </div>
+
+          {/* FX Resolution Live Test Section */}
+          <div className="border-t border-slate-200 dark:border-slate-700 mt-6 pt-6">
+            <h3 className="text-sm font-semibold text-foreground mb-1">
+              {t("fx_test_resolution")}
+            </h3>
+            <p className="text-xs text-muted mb-4">
+              {t("fx_test_description")}
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+              <div>
+                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  {t("fx_test_currency")}
+                </label>
+                <input
+                  type="text"
+                  maxLength={5}
+                  value={testCurrency}
+                  onChange={(e) => setTestCurrency(e.target.value.toUpperCase())}
+                  placeholder="UAH"
+                  className="w-full px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground uppercase font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  {t("fx_test_date")}
+                </label>
+                <input
+                  type="date"
+                  value={testDate}
+                  onChange={(e) => setTestDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-input-border rounded-lg text-sm bg-input text-foreground"
+                />
+              </div>
+
+              <div className="flex items-end">
+                <button
+                  type="button"
+                  onClick={handleTestResolution}
+                  disabled={isTesting || !testCurrency.trim()}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg disabled:opacity-50 transition-colors"
+                >
+                  <Play className="w-3.5 h-3.5" />
+                  {isTesting ? t("fx_testing") : t("fx_test_button")}
+                </button>
+              </div>
+            </div>
+
+            {testResult && (
+              <div
+                className={`p-3.5 rounded-xl border text-sm mt-3 ${
+                  testResult.success
+                    ? "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200"
+                    : "bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800 text-red-900 dark:text-red-200"
+                }`}
+              >
+                <div className="flex items-start gap-2.5">
+                  {testResult.success ? (
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                  ) : (
+                    <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+                  )}
+                  <div className="flex-1 text-xs">
+                    <p className="font-semibold text-sm mb-1">{testResult.message}</p>
+                    {testResult.success && testResult.rate != null && (
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2 pt-2 border-t border-emerald-200/60 dark:border-emerald-800/60 font-mono">
+                        <div>
+                          <span className="text-[10px] uppercase text-emerald-700 dark:text-emerald-400 block font-sans">
+                            Rate
+                          </span>
+                          <span className="font-bold">1 {testCurrency} = {testResult.rate} EUR</span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] uppercase text-emerald-700 dark:text-emerald-400 block font-sans">
+                            Provider
+                          </span>
+                          <span className="font-bold">{testResult.source}</span>
+                        </div>
+                        {testResult.source_date && (
+                          <div>
+                            <span className="text-[10px] uppercase text-emerald-700 dark:text-emerald-400 block font-sans">
+                              Source Date
+                            </span>
+                            <span className="font-bold">{testResult.source_date}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

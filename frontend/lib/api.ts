@@ -80,7 +80,7 @@ export type { AdvancePayment, PendingAdvance, MileageRecord, MileageRates, Repor
 export type { ReviewQueueItem } from "./types/reviewQueue";
 export type { User } from "./types/user";
 export type { DashboardStats, ManagerKpis, PendingReportSummary, PendingAdvanceSummary, ActivityFeedItem, ManagerDashboardStats } from "./types/dashboard";
-export type { LdapConfig, LdapSyncResult, LdapTestResult, SmtpConfig, SmtpTestResult, ImapConfig, ImapTestResult, OcrConfig, StorageConfig, StorageMigrationStatus, OCRComparisonStats, OCRComparisonRow, OCRComparisonHistoryResponse, FxMargins } from "./types/admin";
+export type { LdapConfig, LdapSyncResult, LdapTestResult, SmtpConfig, SmtpTestResult, ImapConfig, ImapTestResult, OcrConfig, StorageConfig, StorageMigrationStatus, OCRComparisonStats, OCRComparisonRow, OCRComparisonHistoryResponse, FxMargins, FxProvidersConfig, FxTestResult } from "./types/admin";
 
 export interface ApiValidationError {
   detail?: string;
@@ -91,7 +91,7 @@ export type { InsuranceFile } from "./types/insurance";
 export type { SearchResult } from "./types/search";
 export { bulkUploadExpenses, duplicateExpense } from "./api/expenses";
 export { getReviewQueue } from "./api/reviewQueue";
-export { getOcrConfig, updateOcrConfig, testOcrConfig, getOcrComparisons, getStorageConfig, updateStorageConfig, testStorageConfig, getStorageMigrationStatus, simulateEmailIngestion } from "./api/admin";
+export { getOcrConfig, updateOcrConfig, testOcrConfig, getOcrComparisons, getStorageConfig, updateStorageConfig, testStorageConfig, getStorageMigrationStatus, simulateEmailIngestion, getFxProviders, updateFxProviders, testFxProvider } from "./api/admin";
 
 function isStandalonePwa(): boolean {
   if (typeof navigator === "undefined" || typeof window === "undefined") return false;

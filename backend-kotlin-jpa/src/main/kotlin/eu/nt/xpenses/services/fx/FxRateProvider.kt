@@ -1,6 +1,9 @@
 package eu.nt.xpenses.services.fx
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.module.kotlin.readValue
+import eu.nt.xpenses.model.AppSetting
+import eu.nt.xpenses.repositories.AppSettingRepository
 import org.slf4j.LoggerFactory
 import org.springframework.http.client.JdkClientHttpRequestFactory
 import org.springframework.stereotype.Component
@@ -9,6 +12,7 @@ import java.math.BigDecimal
 import java.math.RoundingMode
 import java.net.http.HttpClient
 import java.time.Duration
+import java.time.Instant
 import java.time.LocalDate
 import javax.xml.parsers.DocumentBuilderFactory
 
@@ -30,7 +34,8 @@ interface FxRateProvider {
 
 @Component
 class HttpFxRateProvider(
-    private val objectMapper: ObjectMapper
+    private val objectMapper: ObjectMapper,
+    private val appSettingRepository: AppSettingRepository
 ) : FxRateProvider {
     private val log = LoggerFactory.getLogger(javaClass)
     private val restClient = RestClient.builder()
@@ -40,16 +45,52 @@ class HttpFxRateProvider(
         ).also { it.setReadTimeout(Duration.ofSeconds(10)) })
         .build()
 
+    fun getProviderPriority(): List<FxRateSource> {
+        val stored = appSettingRepository.findById("fx_provider_priority").orElse(null)?.value
+        if (!stored.isNullOrBlank()) {
+            try {
+                val list: List<String> = objectMapper.readValue(stored)
+                val parsed = list.mapNotNull { name ->
+                    try { FxRateSource.valueOf(name.uppercase().trim()) } catch (_: Exception) { null }
+                }.distinct()
+                if (parsed.isNotEmpty()) {
+                    val missing = FxRateSource.entries.filter { it !in parsed }
+                    return parsed + missing
+                }
+            } catch (_: Exception) {}
+        }
+        return listOf(FxRateSource.BNR, FxRateSource.ECB_FRANKFURTER, FxRateSource.CURRENCY_API)
+    }
+
+    fun saveProviderPriority(priority: List<FxRateSource>) {
+        val valid = priority.distinct()
+        val allIncluded = valid + FxRateSource.entries.filter { it !in valid }
+        val names = allIncluded.map { it.name }
+        val setting = eu.nt.xpenses.model.AppSetting(
+            key = "fx_provider_priority",
+            value = objectMapper.writeValueAsString(names),
+            updatedAt = java.time.Instant.now()
+        )
+        appSettingRepository.save(setting)
+    }
+
     override fun resolve(currency: String, requestedDate: LocalDate): ProviderRate? {
         val normalized = currency.uppercase().trim()
-        return try {
-            BnrRateProvider.fetch(restClient, normalized, requestedDate)
-                ?: fetchFrankfurter(normalized, requestedDate)
-                ?: fetchCurrencyApi(normalized, requestedDate)
-        } catch (exception: Exception) {
-            log.warn("Unable to resolve dated FX rate for {} on {}: {}", normalized, requestedDate, exception.message)
-            null
+        val priority = getProviderPriority()
+        for (source in priority) {
+            try {
+                val rate = when (source) {
+                    FxRateSource.BNR -> BnrRateProvider.fetch(restClient, normalized, requestedDate)
+                    FxRateSource.ECB_FRANKFURTER -> fetchFrankfurter(normalized, requestedDate)
+                    FxRateSource.CURRENCY_API -> fetchCurrencyApi(normalized, requestedDate)
+                }
+                if (rate != null) return rate
+            } catch (e: Exception) {
+                log.debug("Provider {} failed for {} on {}: {}", source, normalized, requestedDate, e.message)
+            }
         }
+        log.warn("Unable to resolve dated FX rate for {} on {} across providers {}", normalized, requestedDate, priority)
+        return null
     }
 
     private fun fetchFrankfurter(currency: String, requestedDate: LocalDate): ProviderRate? {

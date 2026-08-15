@@ -7,9 +7,12 @@ import eu.nt.xpenses.models.StorageConfigDto
 import eu.nt.xpenses.repositories.AppSettingRepository
 import eu.nt.xpenses.repositories.ReceiptRepository
 import eu.nt.xpenses.services.*
+import eu.nt.xpenses.services.fx.HttpFxRateProvider
+import eu.nt.xpenses.services.fx.FxRateSource
 import jakarta.validation.Valid
 import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.NotBlank
+import jakarta.validation.constraints.NotEmpty
 import org.springframework.http.ResponseEntity
 import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.transaction.annotation.Transactional
@@ -18,6 +21,7 @@ import java.io.File
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.time.Instant
+import java.time.LocalDate
 
 @RestController
 @RequestMapping("/api/settings")
@@ -28,7 +32,8 @@ class AppSettingsController(
     private val storageService: StorageService,
     private val emailImportService: EmailImportService,
     private val receiptRepository: ReceiptRepository,
-    private val objectMapper: ObjectMapper
+    private val objectMapper: ObjectMapper,
+    private val httpFxRateProvider: HttpFxRateProvider
 ) {
 
     private fun listLocalFiles(baseDir: File, currentDir: File): List<String> {
@@ -190,6 +195,59 @@ class AppSettingsController(
             appSettingRepository.save(AppSetting("fx_margins", objectMapper.writeValueAsString(candidate), Instant.now()))
         }
         return ResponseEntity.ok(toFxMarginsOut(candidate))
+    }
+
+    // --- FX Provider Priority ---
+    @GetMapping("/fx-providers")
+    @PreAuthorize("hasAnyRole('mod', 'chef_finance')")
+    fun readFxProviders(): ResponseEntity<FxProvidersOut> {
+        val current = httpFxRateProvider.getProviderPriority().map { it.name }
+        val available = FxRateSource.entries.map { it.name }
+        return ResponseEntity.ok(FxProvidersOut(providers = current, availableProviders = available))
+    }
+
+    @PatchMapping("/fx-providers")
+    @PreAuthorize("hasAnyRole('mod', 'chef_finance')")
+    @Transactional
+    fun updateFxProviders(@Valid @RequestBody body: FxProvidersUpdate): ResponseEntity<FxProvidersOut> {
+        val parsed = body.providers.mapNotNull { name ->
+            try { FxRateSource.valueOf(name.uppercase().trim()) } catch (_: Exception) { null }
+        }
+        if (parsed.isEmpty()) {
+            return ResponseEntity.badRequest().build()
+        }
+        httpFxRateProvider.saveProviderPriority(parsed)
+        val updated = httpFxRateProvider.getProviderPriority().map { it.name }
+        val available = FxRateSource.entries.map { it.name }
+        return ResponseEntity.ok(FxProvidersOut(providers = updated, availableProviders = available))
+    }
+
+    @PostMapping("/fx-providers/test")
+    @PreAuthorize("hasAnyRole('mod', 'chef_finance')")
+    fun testFxProviders(@RequestBody body: FxTestRequest): ResponseEntity<FxTestResponse> {
+        val currency = body.currency.trim().uppercase()
+        if (currency.isBlank()) {
+            return ResponseEntity.ok(FxTestResponse(success = false, message = "Currency code is required"))
+        }
+        val date = body.date?.takeIf { it.isNotBlank() }?.let {
+            try { LocalDate.parse(it) } catch (_: Exception) { null }
+        } ?: LocalDate.now()
+
+        val providerRate = httpFxRateProvider.resolve(currency, date)
+        return if (providerRate != null) {
+            ResponseEntity.ok(FxTestResponse(
+                success = true,
+                message = "Successfully resolved $currency to EUR via ${providerRate.source.name}",
+                rate = providerRate.rateToEur,
+                source = providerRate.source.name,
+                sourceDate = providerRate.sourceDate.toString()
+            ))
+        } else {
+            ResponseEntity.ok(FxTestResponse(
+                success = false,
+                message = "Could not resolve rate for $currency on $date from any configured provider"
+            ))
+        }
     }
 
     // --- OCR Settings ---
@@ -638,3 +696,26 @@ data class EmailSimulationIn(
     @JsonProperty("body_text") @field:NotBlank val bodyText: String,
     @JsonProperty("parser") val parser: String? = null
 )
+
+data class FxProvidersOut(
+    val providers: List<String>,
+    @JsonProperty("available_providers") val availableProviders: List<String>
+)
+
+data class FxProvidersUpdate(
+    @field:NotEmpty val providers: List<String>
+)
+
+data class FxTestRequest(
+    val currency: String,
+    val date: String? = null
+)
+
+data class FxTestResponse(
+    val success: Boolean,
+    val message: String,
+    val rate: BigDecimal? = null,
+    val source: String? = null,
+    @JsonProperty("source_date") val sourceDate: String? = null
+)
+

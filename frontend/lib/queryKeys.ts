@@ -36,6 +36,7 @@ export const settingsKeys = {
   mileageRates: () => [...settingsKeys.all, "mileage-rates"] as const,
   dailyAllowanceRate: () => [...settingsKeys.all, "daily-allowance-rate"] as const,
   fxMargins: () => [...settingsKeys.all, "fx-margins"] as const,
+  fxProviders: () => [...settingsKeys.all, "fx-providers"] as const,
 };
 
 export const dashboardKeys = {

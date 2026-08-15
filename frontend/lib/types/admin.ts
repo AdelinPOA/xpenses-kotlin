@@ -118,3 +118,17 @@ export interface OCRComparisonHistoryResponse {
   stats: OCRComparisonStats;
   history: OCRComparisonRow[];
 }
+
+export interface FxProvidersConfig {
+  providers: string[];
+  available_providers: string[];
+}
+
+export interface FxTestResult {
+  success: boolean;
+  message: string;
+  rate?: number | null;
+  source?: string | null;
+  source_date?: string | null;
+}
+

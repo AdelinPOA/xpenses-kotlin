@@ -1,5 +1,20 @@
-import type { OcrConfig, OCRComparisonHistoryResponse, StorageConfig, StorageMigrationStatus } from "@/lib/types/admin";
+import type { OcrConfig, OCRComparisonHistoryResponse, StorageConfig, StorageMigrationStatus, FxProvidersConfig, FxTestResult } from "@/lib/types/admin";
 import api from "@/lib/api";
+
+export async function getFxProviders(): Promise<FxProvidersConfig> {
+  const { data } = await api.get("/settings/fx-providers");
+  return data;
+}
+
+export async function updateFxProviders(providers: string[]): Promise<FxProvidersConfig> {
+  const { data } = await api.patch("/settings/fx-providers", { providers });
+  return data;
+}
+
+export async function testFxProvider(currency: string, date?: string): Promise<FxTestResult> {
+  const { data } = await api.post("/settings/fx-providers/test", { currency, date });
+  return data;
+}
 
 export async function getOcrConfig(): Promise<OcrConfig> {
   const { data } = await api.get("/settings/ocr");

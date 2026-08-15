@@ -53,6 +53,7 @@ class SecurityConfig(
                     .requestMatchers("/api/settings/ocr/**").hasRole("mod")
                     .requestMatchers("/api/settings/ldap/**").hasRole("mod")
                     .requestMatchers("/api/settings/imap/**").hasRole("mod")
+                    .requestMatchers("/api/settings/fx-providers/**").hasAnyRole("mod", "chef_finance")
                     .requestMatchers(HttpMethod.POST, "/api/users").hasRole("mod")
                     .requestMatchers(HttpMethod.POST, "/api/categories").hasRole("mod")
                     .requestMatchers(HttpMethod.PATCH, "/api/categories/**").hasRole("mod")

@@ -59,4 +59,24 @@ class FxRateProviderTest {
         assertEquals(LocalDate.parse("2025-12-31"), result!!.sourceDate)
         assertEquals(BigDecimal("0.800000000000"), result.rateToEur)
     }
+
+    @Test
+    fun `CurrencyApi parser extracts rate and date for global currencies like UAH`() {
+        val json = """
+            {
+              "date": "2026-08-11",
+              "uah": {
+                "usd": 0.022370783,
+                "eur": 0.019334453
+              }
+            }
+        """.trimIndent()
+
+        val result = CurrencyApiRateProvider.parse(json, "UAH", LocalDate.parse("2026-08-11"))
+
+        assertNotNull(result)
+        assertEquals(LocalDate.parse("2026-08-11"), result!!.sourceDate)
+        assertEquals(FxRateSource.CURRENCY_API, result.source)
+        assertEquals(BigDecimal("0.019334453"), result.rateToEur)
+    }
 }

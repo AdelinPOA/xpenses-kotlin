@@ -14,7 +14,8 @@ import javax.xml.parsers.DocumentBuilderFactory
 
 enum class FxRateSource {
     BNR,
-    ECB_FRANKFURTER
+    ECB_FRANKFURTER,
+    CURRENCY_API
 }
 
 data class ProviderRate(
@@ -34,9 +35,9 @@ class HttpFxRateProvider(
     private val log = LoggerFactory.getLogger(javaClass)
     private val restClient = RestClient.builder()
         .requestFactory(JdkClientHttpRequestFactory(HttpClient.newBuilder()
-            .connectTimeout(Duration.ofSeconds(10))
+            .connectTimeout(Duration.ofSeconds(5))
             .build()
-        ).also { it.setReadTimeout(Duration.ofSeconds(30)) })
+        ).also { it.setReadTimeout(Duration.ofSeconds(10)) })
         .build()
 
     override fun resolve(currency: String, requestedDate: LocalDate): ProviderRate? {
@@ -44,6 +45,7 @@ class HttpFxRateProvider(
         return try {
             BnrRateProvider.fetch(restClient, normalized, requestedDate)
                 ?: fetchFrankfurter(normalized, requestedDate)
+                ?: fetchCurrencyApi(normalized, requestedDate)
         } catch (exception: Exception) {
             log.warn("Unable to resolve dated FX rate for {} on {}: {}", normalized, requestedDate, exception.message)
             null
@@ -51,20 +53,53 @@ class HttpFxRateProvider(
     }
 
     private fun fetchFrankfurter(currency: String, requestedDate: LocalDate): ProviderRate? {
-        val response = restClient.get()
-            .uri("https://api.frankfurter.dev/v2/rate/$currency/EUR?date=$requestedDate&providers=ECB")
-            .retrieve()
-            .body(String::class.java)
-            ?: return null
+        return try {
+            val response = restClient.get()
+                .uri("https://api.frankfurter.dev/v2/rate/$currency/EUR?date=$requestedDate&providers=ECB")
+                .retrieve()
+                .body(String::class.java)
+                ?: return null
 
-        val payload = objectMapper.readTree(response)
-        val sourceDate = payload["date"]?.asText()?.let(LocalDate::parse) ?: return null
-        val rate = payload["rate"]?.decimalValue()
-            ?: payload["rates"]?.get("EUR")?.decimalValue()
-            ?: return null
-        require(sourceDate <= requestedDate) { "Provider returned a future FX source date" }
-        require(rate.signum() > 0) { "Provider returned a non-positive FX rate" }
-        return ProviderRate(rate, sourceDate, FxRateSource.ECB_FRANKFURTER)
+            val payload = objectMapper.readTree(response)
+            val sourceDate = payload["date"]?.asText()?.let(LocalDate::parse) ?: return null
+            val rate = payload["rate"]?.asText()?.let { BigDecimal(it) }
+                ?: payload["rates"]?.get("EUR")?.asText()?.let { BigDecimal(it) }
+                ?: return null
+            require(sourceDate <= requestedDate) { "Provider returned a future FX source date" }
+            require(rate.signum() > 0) { "Provider returned a non-positive FX rate" }
+            ProviderRate(rate, sourceDate, FxRateSource.ECB_FRANKFURTER)
+        } catch (e: Exception) {
+            log.debug("Frankfurter FX lookup failed for {} on {}: {}", currency, requestedDate, e.message)
+            null
+        }
+    }
+
+    private fun fetchCurrencyApi(currency: String, requestedDate: LocalDate): ProviderRate? {
+        val curLower = currency.lowercase().trim()
+        val encodedCurLower = java.net.URLEncoder.encode(curLower, "UTF-8")
+
+        val urls = listOf(
+            "https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@$requestedDate/v1/currencies/$encodedCurLower.min.json",
+            "https://latest.currency-api.pages.dev/v1/currencies/$encodedCurLower.min.json"
+        )
+
+        for (url in urls) {
+            try {
+                val response = restClient.get()
+                    .uri(url)
+                    .retrieve()
+                    .body(String::class.java)
+                    ?: continue
+
+                val result = CurrencyApiRateProvider.parse(response, curLower, requestedDate)
+                if (result != null) {
+                    return result
+                }
+            } catch (e: Exception) {
+                log.debug("Currency API attempt failed at {}: {}", url, e.message)
+            }
+        }
+        return null
     }
 }
 
@@ -131,3 +166,37 @@ internal object BnrRateProvider {
         return null
     }
 }
+
+internal object CurrencyApiRateProvider {
+    private val mapper = ObjectMapper()
+
+    fun parse(json: String, currency: String, requestedDate: LocalDate): ProviderRate? {
+        val curLower = currency.lowercase().trim()
+        val payload = try {
+            mapper.readTree(json)
+        } catch (_: Exception) {
+            return null
+        } ?: return null
+
+        val dateText = payload["date"]?.asText()
+        val sourceDate = dateText?.takeIf { it.isNotBlank() }?.let {
+            try {
+                LocalDate.parse(it)
+            } catch (_: Exception) {
+                null
+            }
+        } ?: requestedDate
+
+        val rates = payload[curLower] ?: return null
+        val eurRateText = rates.get("eur")?.asText() ?: return null
+        val rate = try {
+            BigDecimal(eurRateText)
+        } catch (_: Exception) {
+            null
+        } ?: return null
+
+        if (rate.signum() <= 0) return null
+        return ProviderRate(rate, sourceDate, FxRateSource.CURRENCY_API)
+    }
+}
+

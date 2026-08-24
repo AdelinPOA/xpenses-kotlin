@@ -182,7 +182,18 @@
     "ready_to_submit": "Gata de trimis",
     "awaiting_payout": "În așteptarea plății",
     "all_settled": "Toate achitate",
-    "expenses_count_label": "Cheltuieli"
+    "expenses_count_label": "Cheltuieli",
+    "select_reports": "Selectează",
+    "n_selected": "{count} selectate",
+    "bulk_approve": "Aprobă ({count})",
+    "bulk_reject": "Respinge ({count})",
+    "bulk_approve_success": "Rapoarte aprobate: {count}",
+    "bulk_reject_success": "Rapoarte respinse: {count}",
+    "bulk_partial_failure": "{ok} reușite, {failed} eșuate — reîncearcă rândurile rămase",
+    "bulk_reject_reason": "Motivul respingerii acestor rapoarte",
+    "receipts_count": "Chitanțe: {count}",
+    "no_receipts_in_report": "Acest raport nu are chitanțe atașate",
+    "notifications_count": "Notificări ({count})"
   },
   "offline": {
     "banner_offline": "Offline — modificările se sincronizează automat",
@@ -759,7 +770,8 @@
     "approve_success": "Raport aprobat cu succes",
     "approve_failed": "Eșec la aprobarea raportului",
     "reject_success": "Raport respins",
-    "reject_failed": "Eșec la respingerea raportului"
+    "reject_failed": "Eșec la respingerea raportului",
+    "view_receipts": "Vezi Chitanțe"
   },
   "advances": {
     "heading": "Cereri Avans",

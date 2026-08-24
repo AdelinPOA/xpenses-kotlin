@@ -182,7 +182,18 @@
     "ready_to_submit": "Ready to submit",
     "awaiting_payout": "Awaiting payout",
     "all_settled": "All settled",
-    "expenses_count_label": "Expenses"
+    "expenses_count_label": "Expenses",
+    "select_reports": "Select",
+    "n_selected": "{count} selected",
+    "bulk_approve": "Approve ({count})",
+    "bulk_reject": "Reject ({count})",
+    "bulk_approve_success": "{count} report(s) approved",
+    "bulk_reject_success": "{count} report(s) rejected",
+    "bulk_partial_failure": "{ok} succeeded, {failed} failed — retry the remaining rows",
+    "bulk_reject_reason": "Reason for rejecting these reports",
+    "receipts_count": "{count} receipt(s)",
+    "no_receipts_in_report": "This report has no attached receipts",
+    "notifications_count": "Notifications ({count})"
   },
   "offline": {
     "banner_offline": "Offline — changes will sync automatically",
@@ -759,7 +770,8 @@
     "approve_success": "Report approved successfully",
     "approve_failed": "Failed to approve report",
     "reject_success": "Report rejected",
-    "reject_failed": "Failed to reject report"
+    "reject_failed": "Failed to reject report",
+    "view_receipts": "View Receipts"
   },
   "advances": {
     "heading": "Advance Requests",

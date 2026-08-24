@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import api, { PendingReportSummary, Report } from "@/lib/api";
 import { reportKeys } from "@/lib/queryKeys";
@@ -11,6 +11,7 @@ import {
   Paperclip, Tag, Calendar, AlertCircle, Loader2 
 } from "lucide-react";
 import Badge from "@/components/ui/Badge";
+import ReportReceiptsDrawer from "@/components/reports/ReportReceiptsDrawer";
 import { useTranslations } from "next-intl";
 
 interface PendingReportsTableProps {
@@ -18,6 +19,10 @@ interface PendingReportsTableProps {
   onApprove: (reportId: number) => void;
   onReject: (reportId: number, reason: string) => void;
   actionPending?: boolean;
+  /** Bulk actions (Phase 3.2). When provided, multi-select is enabled. */
+  onBulkApprove?: (ids: number[]) => void;
+  onBulkReject?: (ids: number[], reason: string) => void;
+  bulkPending?: boolean;
 }
 
 function ReportAccordionDetail({
@@ -25,11 +30,13 @@ function ReportAccordionDetail({
   onApprove,
   onReject,
   actionPending,
+  onViewReceipts,
 }: {
   reportId: number;
   onApprove: (reportId: number) => void;
   onReject: (reportId: number, reason: string) => void;
   actionPending?: boolean;
+  onViewReceipts: () => void;
 }) {
   const t = useTranslations("dashboard");
   const tc = useTranslations("common");
@@ -105,9 +112,17 @@ function ReportAccordionDetail({
                     {exp.merchant || exp.description || tc("expense")}
                   </p>
                   {exp.receipts && exp.receipts.length > 0 && (
-                    <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">
-                      <Paperclip className="w-2.5 h-2.5" /> {t("receipt_attached")}
-                    </span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onViewReceipts();
+                      }}
+                      className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/25 px-1.5 py-1 rounded cursor-pointer transition-colors min-h-6"
+                    >
+                      <Paperclip className="w-2.5 h-2.5" />
+                      {t("receipt_attached")} ({exp.receipts.length})
+                    </button>
                   )}
                 </div>
                 <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-0.5">
@@ -225,11 +240,81 @@ export default function PendingReportsTable({
   onApprove,
   onReject,
   actionPending,
+  onBulkApprove,
+  onBulkReject,
+  bulkPending,
 }: PendingReportsTableProps) {
   const t = useTranslations("dashboard");
   const tc = useTranslations("common");
   const [userExpandedId, setUserExpandedId] = useState<number | null>(null);
   const [userCollapsedFirst, setUserCollapsedFirst] = useState(false);
+  const [receiptsReportId, setReceiptsReportId] = useState<number | null>(null);
+
+  // ── Batch selection state (Phase 3.2) ────────────────────────────────────
+  const canBulk = !!(onBulkApprove && onBulkReject);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkRejectOpen, setBulkRejectOpen] = useState(false);
+  const [bulkRejectReason, setBulkRejectReason] = useState("");
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const suppressNextClick = useRef(false);
+
+  const canSelectMultiple = canBulk && reports.length > 1;
+
+  const clearLongPress = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  };
+
+  // Long-press (~500ms) enters selection mode and picks the pressed row.
+  const startLongPress = (id: number) => {
+    if (!canSelectMultiple) return;
+    clearLongPress();
+    longPressTimer.current = setTimeout(() => {
+      suppressNextClick.current = true;
+      setSelectionMode(true);
+      setSelectedIds((prev) => new Set(prev).add(id));
+    }, 500);
+  };
+
+  const toggleSelected = (id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const exitSelectionMode = () => {
+    setSelectionMode(false);
+    setSelectedIds(new Set());
+    setBulkRejectOpen(false);
+    setBulkRejectReason("");
+  };
+
+  const handleRowClick = (id: number, toggleExpand: () => void) => {
+    if (suppressNextClick.current) {
+      suppressNextClick.current = false;
+      return;
+    }
+    if (selectionMode) toggleSelected(id);
+    else toggleExpand();
+  };
+
+  const submitBulkApprove = () => {
+    if (!selectedIds.size || bulkPending) return;
+    onBulkApprove?.(Array.from(selectedIds));
+    exitSelectionMode();
+  };
+
+  const submitBulkReject = () => {
+    if (!selectedIds.size || !bulkRejectReason.trim() || bulkPending) return;
+    onBulkReject?.(Array.from(selectedIds), bulkRejectReason.trim());
+    exitSelectionMode();
+  }; 
   
   const expandedId = userExpandedId !== null 
     ? userExpandedId 
@@ -257,6 +342,11 @@ export default function PendingReportsTable({
     );
   }
 
+  const toggleExpandFor = (id: number) => () => toggleExpand(id);
+
+  return (
+    <>
+
   return (
     <div className="flex flex-col rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
       {/* Header */}
@@ -278,6 +368,25 @@ export default function PendingReportsTable({
         <Link href="/approvals" className="text-xs font-semibold text-primary hover:underline">
           {t("open_review_queue")}
         </Link>
+        {canSelectMultiple && !selectionMode && (
+          <button
+            type="button"
+            onClick={() => setSelectionMode(true)}
+            className="text-xs font-semibold text-muted hover:text-primary transition-colors cursor-pointer"
+          >
+            {t("select_reports")}
+          </button>
+        )}
+        {selectionMode && (
+          <button
+            type="button"
+            onClick={exitSelectionMode}
+            disabled={bulkPending}
+            className="text-xs font-semibold text-muted hover:text-foreground transition-colors cursor-pointer disabled:opacity-50"
+          >
+            {tc("cancel")}
+          </button>
+        )}
       </div>
 
       {/* List items with accordion */}
@@ -294,11 +403,29 @@ export default function PendingReportsTable({
             >
               {/* Accordion Summary Row */}
               <div
-                onClick={() => toggleExpand(report.id)}
-                className="p-4 sm:p-5 cursor-pointer hover:bg-muted/30 transition-colors flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
+                onClick={() => handleRowClick(report.id, toggleExpandFor(report.id))}
+                onPointerDown={() => startLongPress(report.id)}
+                onPointerUp={clearLongPress}
+                onPointerLeave={clearLongPress}
+                onPointerCancel={clearLongPress}
+                className={`p-4 sm:p-5 cursor-pointer transition-colors flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 ${
+                  selectionMode && selectedIds.has(report.id) ? "bg-primary/[0.06]" : "hover:bg-muted/30"
+                }`}
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
+                    {selectionMode && (
+                      <span
+                        aria-hidden="true"
+                        className={`w-5 h-5 rounded border flex items-center justify-center shrink-0 transition-colors ${
+                          selectedIds.has(report.id)
+                            ? "bg-primary border-primary text-white"
+                            : "border-border bg-background"
+                        }`}
+                      >
+                        {selectedIds.has(report.id) && <Check className="w-3.5 h-3.5" />}
+                      </span>
+                    )}
                     {index === 0 && (
                       <span className="px-2 py-0.5 rounded text-[9px] font-extrabold uppercase tracking-wider bg-primary/10 text-primary">
                         {t("next_to_review")}
@@ -358,6 +485,7 @@ export default function PendingReportsTable({
                   onApprove={onApprove}
                   onReject={onReject}
                   actionPending={actionPending}
+                  onViewReceipts={() => setReceiptsReportId(report.id)}
                 />
               )}
             </article>
@@ -365,6 +493,80 @@ export default function PendingReportsTable({
         })}
       </div>
     </div>
+
+      {/* ── Sticky batch action bar (Phase 3.2) ─────────────────────── */}
+      {selectionMode && selectedIds.size > 0 && (
+        <div className="fixed bottom-[calc(4rem+env(safe-area-inset-bottom,0px)+1rem)] left-1/2 -translate-x-1/2 lg:bottom-6 z-30 flex items-center gap-1.5 sm:gap-2 bg-card border border-border shadow-lg rounded-full px-3 py-2 max-w-[calc(100vw-2rem)]">
+          <span className="text-xs font-bold text-foreground whitespace-nowrap tabular-nums">
+            {t("n_selected", { count: selectedIds.size })}
+          </span>
+          <button
+            type="button"
+            onClick={submitBulkApprove}
+            disabled={bulkPending}
+            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 disabled:opacity-50 cursor-pointer whitespace-nowrap"
+          >
+            <Check className="w-3.5 h-3.5" />
+            {t("bulk_approve", { count: selectedIds.size })}
+          </button>
+          <button
+            type="button"
+            onClick={() => setBulkRejectOpen(true)}
+            disabled={bulkPending}
+            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full border border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-300 text-xs font-bold hover:bg-rose-100 dark:hover:bg-rose-900/50 disabled:opacity-50 cursor-pointer whitespace-nowrap"
+          >
+            <X className="w-3.5 h-3.5" />
+            {t("bulk_reject", { count: selectedIds.size })}
+          </button>
+        </div>
+      )}
+
+      {/* ── Shared rejection reason dialog for bulk reject ─────────── */}
+      {bulkRejectOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label={t("bulk_reject_reason")}
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !bulkPending) setBulkRejectOpen(false);
+          }}
+        >
+          <div className="bg-card rounded-xl border border-border shadow-xl w-full max-w-md p-5 space-y-3">
+            <h4 className="text-sm font-bold text-foreground">{t("bulk_reject_reason")}</h4>
+            <textarea
+              value={bulkRejectReason}
+              onChange={(e) => setBulkRejectReason(e.target.value)}
+              rows={3}
+              autoFocus
+              className="w-full rounded-lg border border-border bg-background p-2.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-rose-500 resize-none"
+              placeholder={t("add_notes")}
+            />
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setBulkRejectOpen(false)}
+                disabled={bulkPending}
+                className="px-3 py-1.5 text-xs font-medium text-muted hover:text-foreground cursor-pointer"
+              >
+                {tc("cancel")}
+              </button>
+              <button
+                type="button"
+                onClick={submitBulkReject}
+                disabled={bulkPending || !bulkRejectReason.trim()}
+                className="px-4 py-1.5 rounded-lg bg-rose-600 text-white text-xs font-bold hover:bg-rose-700 disabled:opacity-50 cursor-pointer"
+              >
+                {t("bulk_reject", { count: selectedIds.size })}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Inline receipt viewer (Phase 3.1) */}
+      <ReportReceiptsDrawer reportId={receiptsReportId} onClose={() => setReceiptsReportId(null)} />
+    </>
   );
 }
 

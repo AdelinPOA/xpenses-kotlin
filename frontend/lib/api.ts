@@ -78,6 +78,7 @@ export { CURRENCIES, isPagedResponse } from "./types/common";
 export type { Receipt, Expense, BulkUploadError, BulkUploadResult, OCRScanResult } from "./types/expense";
 export type { AdvancePayment, PendingAdvance, MileageRecord, MileageRates, Report, EmailSimulationIn, EmailSimulationOut, EmailSimulationParsed } from "./types/report";
 export type { ReviewQueueItem } from "./types/reviewQueue";
+export type { BulkStatusResult } from "./api/reviewQueue";
 export type { User } from "./types/user";
 export type { DashboardStats, ManagerKpis, PendingReportSummary, PendingAdvanceSummary, ActivityFeedItem, ManagerDashboardStats } from "./types/dashboard";
 export type { LdapConfig, LdapSyncResult, LdapTestResult, SmtpConfig, SmtpTestResult, ImapConfig, ImapTestResult, OcrConfig, StorageConfig, StorageMigrationStatus, OCRComparisonStats, OCRComparisonRow, OCRComparisonHistoryResponse, FxMargins, FxProvidersConfig, FxTestResult } from "./types/admin";
@@ -90,7 +91,7 @@ export type { Category } from "./types/expense";
 export type { InsuranceFile } from "./types/insurance";
 export type { SearchResult } from "./types/search";
 export { bulkUploadExpenses, duplicateExpense } from "./api/expenses";
-export { getReviewQueue } from "./api/reviewQueue";
+export { getReviewQueue, bulkReportStatus } from "./api/reviewQueue";
 export { getOcrConfig, updateOcrConfig, testOcrConfig, getOcrComparisons, getStorageConfig, updateStorageConfig, testStorageConfig, getStorageMigrationStatus, simulateEmailIngestion, getFxProviders, updateFxProviders, testFxProvider } from "./api/admin";
 
 function isStandalonePwa(): boolean {

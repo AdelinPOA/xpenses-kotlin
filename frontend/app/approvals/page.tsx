@@ -8,9 +8,10 @@ import { reviewQueueKeys } from "@/lib/queryKeys";
 import { useReviewQueueActions } from "@/lib/reviewQueueActions";
 import AppShell from "@/components/layout/AppShell";
 import EmptyState from "@/components/ui/EmptyState";
+import ReportReceiptsDrawer from "@/components/reports/ReportReceiptsDrawer";
 import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/ToastProvider";
-import { CheckCircle, Eye, XCircle } from "lucide-react";
+import { CheckCircle, Eye, Paperclip, XCircle } from "lucide-react";
 import { formatEur } from "@/lib/format";
 import { useTranslations } from "next-intl";
 
@@ -24,6 +25,7 @@ export default function ApprovalsPage() {
   const [rejectingId, setRejectingId] = useState<number | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [mutationError, setMutationError] = useState<string | null>(null);
+  const [receiptsReportId, setReceiptsReportId] = useState<number | null>(null);
   const canManage = user?.role === "manager" || user?.role === "chef_finance";
 
   const { data: reports, isLoading, error: fetchError } = useQuery<ReviewQueueItem[]>({
@@ -177,6 +179,13 @@ export default function ApprovalsPage() {
                     <XCircle className="w-4 h-4" />
                     {tc("reject")}
                   </button>
+                  <button
+                    onClick={() => setReceiptsReportId(report.id)}
+                    className="flex items-center gap-1.5 px-4 py-2 border border-border bg-card text-foreground text-sm font-medium rounded-lg hover:bg-card-hover"
+                  >
+                    <Paperclip className="w-4 h-4" />
+                    {t("view_receipts")}
+                  </button>
                   <Link
                     href={`/reports/${report.id}`}
                     className="flex items-center gap-1.5 px-4 py-2 border border-border bg-card text-foreground text-sm font-medium rounded-lg hover:bg-card-hover"
@@ -190,6 +199,8 @@ export default function ApprovalsPage() {
           ))}
         </div>
       )}
+
+      <ReportReceiptsDrawer reportId={receiptsReportId} onClose={() => setReceiptsReportId(null)} />
     </AppShell>
   );
 }

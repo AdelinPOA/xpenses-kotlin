@@ -3,6 +3,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 import api from "@/lib/api";
+import { bulkReportStatus, type BulkStatusResult } from "@/lib/api/reviewQueue";
 import { dashboardKeys, reportKeys, reviewQueueKeys } from "@/lib/queryKeys";
 
 interface ReviewQueueActionOptions {
@@ -10,6 +11,8 @@ interface ReviewQueueActionOptions {
   rejectErrorMessage: string;
   onSuccess?: (action: "approve" | "reject") => void;
   onError?: (message: string, action: "approve" | "reject") => void;
+  /** Called after a bulk approve/reject completes (with partial-failure detail). */
+  onBulkSuccess?: (result: BulkStatusResult, action: "approve" | "reject") => void;
 }
 
 interface RejectVariables {
@@ -66,5 +69,27 @@ export function useReviewQueueActions(options: ReviewQueueActionOptions) {
     onError: (error) => handleError(error, "reject"),
   });
 
-  return { approve, reject };
+  const handleBulkSuccess = async (result: BulkStatusResult, action: "approve" | "reject") => {
+    await refreshReviewSurfaces();
+    options.onBulkSuccess?.(result, action);
+  };
+
+  const bulkApprove = useMutation({
+    mutationFn: (ids: number[]) => bulkReportStatus(ids, "approve"),
+    onSuccess: (result) => handleBulkSuccess(result, "approve"),
+    onError: (error) => handleError(error, "approve"),
+  });
+
+  const bulkReject = useMutation({
+    mutationFn: ({ ids, reason }: { ids: number[]; reason: string }) => {
+      if (!reason.trim()) {
+        throw new Error(options.rejectErrorMessage);
+      }
+      return bulkReportStatus(ids, "reject", reason.trim());
+    },
+    onSuccess: (result) => handleBulkSuccess(result, "reject"),
+    onError: (error) => handleError(error, "reject"),
+  });
+
+  return { approve, reject, bulkApprove, bulkReject };
 }

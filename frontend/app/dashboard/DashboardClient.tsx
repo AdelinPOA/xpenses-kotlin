@@ -110,6 +110,19 @@ export default function DashboardClient() {
     onError: (message) => {
       toast.error(message);
     },
+    onBulkSuccess: (result, action) => {
+      refetchManagerStats();
+      const okCount = result.succeeded.length;
+      if (result.failed.length === 0) {
+        toast.success(
+          action === "approve"
+            ? t("bulk_approve_success", { count: okCount })
+            : t("bulk_reject_success", { count: okCount })
+        );
+      } else {
+        toast.error(t("bulk_partial_failure", { ok: okCount, failed: result.failed.length }));
+      }
+    },
   });
 
   const handleApproveReport = (reportId: number) => {
@@ -120,6 +133,16 @@ export default function DashboardClient() {
   const handleRejectReport = (reportId: number, reason: string) => {
     triggerHaptic(15);
     reviewActions.reject.mutate({ id: reportId, reason });
+  };
+
+  const handleBulkApproveReports = (ids: number[]) => {
+    triggerHaptic(15);
+    reviewActions.bulkApprove.mutate(ids);
+  };
+
+  const handleBulkRejectReports = (ids: number[], reason: string) => {
+    triggerHaptic(15);
+    reviewActions.bulkReject.mutate({ ids, reason });
   };
 
   const handlePayAdvance = async (reportId: number, advanceId: number, e: React.MouseEvent) => {
@@ -210,6 +233,12 @@ export default function DashboardClient() {
   const currentMonthYear = useMemo(() => {
     return new Date().toLocaleString("en-US", { month: "long", year: "numeric" });
   }, []);
+
+  // Real pending-work count for the manager notification bell.
+  const pendingNotificationCount = useMemo(
+    () => (managerStats?.pending_reports?.length ?? 0) + (managerStats?.pending_advances?.length ?? 0),
+    [managerStats]
+  );
 
   if (authLoading || (!user && !isLoading)) {
     return (
@@ -304,10 +333,22 @@ export default function DashboardClient() {
         <SearchDropdown className="w-80" />
 
         <div className="flex items-center gap-6">
-          <button className="relative p-1 text-muted hover:text-foreground transition-colors cursor-pointer" aria-label={t("notifications")}>
-            <Bell className="w-5 h-5" />
-            <span className="absolute top-0 right-0 w-2 h-2 bg-primary rounded-full" />
-          </button>
+          {/* Real notification indicator (Phase 3.3): managers see pending work;
+              technicians have no notification source yet, so no fake dot. */}
+          {isManagerRole && (
+            <button
+              onClick={() => router.push("/approvals")}
+              className="relative p-1 text-muted hover:text-foreground transition-colors cursor-pointer"
+              aria-label={t("notifications_count", { count: pendingNotificationCount })}
+            >
+              <Bell className="w-5 h-5" />
+              {pendingNotificationCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center tabular-nums">
+                  {pendingNotificationCount > 99 ? "99+" : pendingNotificationCount}
+                </span>
+              )}
+            </button>
+          )}
 
           <div className="flex items-center gap-3">
             <div className="text-right">
@@ -370,6 +411,9 @@ export default function DashboardClient() {
                 onApprove={handleApproveReport}
                 onReject={handleRejectReport}
                 actionPending={reviewActions.approve.isPending || reviewActions.reject.isPending}
+                onBulkApprove={handleBulkApproveReports}
+                onBulkReject={handleBulkRejectReports}
+                bulkPending={reviewActions.bulkApprove.isPending || reviewActions.bulkReject.isPending}
               />
             </div>
 

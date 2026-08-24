@@ -703,7 +703,9 @@
     "signature_saved": "Semnătură salvată!",
     "signature_save_failed": "Eșec la salvarea semnăturii.",
     "signature_deleted": "Semnătură ștearsă.",
-    "signature_delete_failed": "Eșec la ștergerea semnăturii."
+    "signature_delete_failed": "Eșec la ștergerea semnăturii.",
+    "signature_pad_clear": "Șterge",
+    "signature_pad_save": "Salvează"
   },
   "approvals": {
     "heading": "Aprobări",

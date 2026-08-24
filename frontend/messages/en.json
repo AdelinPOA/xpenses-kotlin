@@ -703,7 +703,9 @@
     "signature_saved": "Signature saved!",
     "signature_save_failed": "Failed to save signature.",
     "signature_deleted": "Signature deleted.",
-    "signature_delete_failed": "Failed to delete signature."
+    "signature_delete_failed": "Failed to delete signature.",
+    "signature_pad_clear": "Clear",
+    "signature_pad_save": "Save"
   },
   "approvals": {
     "heading": "Approvals",

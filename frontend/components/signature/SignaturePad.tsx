@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useEffect } from "react";
+import { useTranslations } from "next-intl";
 
 interface SignaturePadProps {
   onSave: (dataUrl: string) => void;
@@ -13,9 +14,12 @@ export default function SignaturePad({
   width = 400,
   height = 200,
 }: SignaturePadProps) {
+  const t = useTranslations("profile");
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isDrawingRef = useRef(false);
   const [isEmpty, setIsEmpty] = useState(true);
+  // Mirror of isEmpty so the resize effect can check it without re-running.
+  const isEmptyRef = useRef(true);
 
   // Size the canvas backing store to its rendered CSS width so it fits
   // narrow screens (e.g. iPhone 375px) and stays crisp on retina displays.
@@ -28,6 +32,16 @@ export default function SignaturePad({
       const dpr = window.devicePixelRatio || 1;
       const cssWidth = Math.max(1, Math.floor(rect.width));
       const cssHeight = height;
+
+      // Snapshot existing strokes so a resize/rotation doesn't wipe them.
+      let snapshot: HTMLCanvasElement | null = null;
+      if (canvas.width > 0 && canvas.height > 0 && !isEmptyRef.current) {
+        snapshot = document.createElement("canvas");
+        snapshot.width = canvas.width;
+        snapshot.height = canvas.height;
+        snapshot.getContext("2d")?.drawImage(canvas, 0, 0);
+      }
+
       canvas.width = Math.floor(cssWidth * dpr);
       canvas.height = Math.floor(cssHeight * dpr);
       const ctx = canvas.getContext("2d");
@@ -38,6 +52,12 @@ export default function SignaturePad({
       ctx.lineWidth = 2;
       const isDark = document.documentElement.classList.contains("dark");
       ctx.strokeStyle = isDark ? "#ffffff" : "#1e293b";
+
+      if (snapshot) {
+        // drawImage honours the context transform (CSS-pixel space);
+        // putImageData would bypass it and distort the restored strokes.
+        ctx.drawImage(snapshot, 0, 0, cssWidth, cssHeight);
+      }
     };
 
     resize();
@@ -74,6 +94,7 @@ export default function SignaturePad({
     if (!ctx) return;
     ctx.lineTo(x, y);
     ctx.stroke();
+    isEmptyRef.current = false;
     setIsEmpty(false);
   }
 
@@ -98,11 +119,9 @@ export default function SignaturePad({
       clientY = e.clientY;
     }
 
-    // Scale coordinates to match internal canvas resolution
-    return {
-      x: (clientX - rect.left) * (canvas.width / rect.width),
-      y: (clientY - rect.top) * (canvas.height / rect.height),
-    };
+    // The context transform maps CSS pixels to backing-store pixels, so
+    // drawing coordinates must be raw CSS pixels relative to the canvas.
+    return { x: clientX - rect.left, y: clientY - rect.top };
   }
 
   function handleMouseDown(e: React.MouseEvent<HTMLCanvasElement>) {
@@ -146,6 +165,7 @@ export default function SignaturePad({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    isEmptyRef.current = true;
     setIsEmpty(true);
   }
 
@@ -176,7 +196,7 @@ export default function SignaturePad({
           onClick={handleClear}
           className="px-4 py-2 rounded-lg border border-input-border text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-sm font-medium"
         >
-          Clear
+          {t("signature_pad_clear")}
         </button>
         <button
           type="button"
@@ -184,7 +204,7 @@ export default function SignaturePad({
           disabled={isEmpty}
           className="px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          Save
+          {t("signature_pad_save")}
         </button>
       </div>
     </div>

@@ -316,9 +316,9 @@ class ExpenseServiceTest {
     @Test
     fun `listExpenses with filters and authorization`() {
         val exp = Expense(id = 1, user = techUser, status = "draft", amountOriginal = BigDecimal("10.00"), amountEur = BigDecimal("10.00"), currencyOriginal = "EUR", date = "2024-01-01")
-        doReturn(listOf(exp)).`when`(expenseRepository).findAllWithFilters(any(), any(), any(), any(), any(), any())
+        doReturn(listOf(exp)).`when`(expenseRepository).findAllWithFilters(any(), any(), any(), any(), any(), any(), any())
 
-        val list = expenseService.listExpenses(techUser, null, null, null, null, null, false, null, 20) as List<*>
+        val list = expenseService.listExpenses(techUser, null, null, null, null, null, false, null, 20, null) as List<*>
         assertEquals(1, list.size)
     }
 
@@ -344,10 +344,10 @@ class ExpenseServiceTest {
     @Test
     fun `exportExpenses builds csv and xlsx`() {
         val exp = Expense(id = 1, user = techUser, status = "draft", amountOriginal = BigDecimal("10.00"), amountEur = BigDecimal("10.00"), currencyOriginal = "EUR", date = "2024-01-01")
-        doReturn(listOf(exp)).`when`(expenseRepository).findAllWithFilters(any(), any(), any(), any(), any(), any())
+        doReturn(listOf(exp)).`when`(expenseRepository).findAllWithFilters(any(), any(), any(), any(), any(), any(), any())
         doReturn("csv,content".toByteArray()).`when`(exportService).buildCsv(anyList(), anyList())
 
-        val (bytes, contentType, filename) = expenseService.exportExpenses(techUser, "csv", null, null, null, null, null, false)
+        val (bytes, contentType, filename) = expenseService.exportExpenses(techUser, "csv", null, null, null, null, null, false, null)
         assertEquals("text/csv", contentType)
         assertTrue(filename.endsWith(".csv"))
         assertArrayEquals("csv,content".toByteArray(), bytes)

@@ -48,13 +48,15 @@ class ExpenseService(
         toDate: String?,
         all: Boolean,
         page: Int?,
-        size: Int
+        size: Int,
+        q: String?
     ): Any {
         val uid = authorization.effectiveUserId(currentUser, all)
+        val normalizedQuery = q?.trim()?.takeIf { it.isNotEmpty() }
 
         return if (page != null) {
             val pageable = org.springframework.data.domain.PageRequest.of(page, size)
-            val result = expenseRepository.findAllWithFiltersPaged(uid, status, reportId, categoryId, fromDate, toDate, pageable)
+            val result = expenseRepository.findAllWithFiltersPaged(uid, status, reportId, categoryId, fromDate, toDate, normalizedQuery, pageable)
             PagedResponse(
                 data = result.content.map { expenseMapper.toExpenseOut(it) },
                 page = result.number,
@@ -63,7 +65,7 @@ class ExpenseService(
                 totalPages = result.totalPages
             )
         } else {
-            expenseRepository.findAllWithFilters(uid, status, reportId, categoryId, fromDate, toDate)
+            expenseRepository.findAllWithFilters(uid, status, reportId, categoryId, fromDate, toDate, normalizedQuery)
                 .map { expenseMapper.toExpenseOut(it) }
         }
     }
@@ -439,14 +441,15 @@ class ExpenseService(
         status: String?,
         fromDate: String?,
         toDate: String?,
-        all: Boolean
+        all: Boolean,
+        q: String?
     ): Triple<ByteArray, String, String> {
         if (format !in listOf("csv", "xlsx")) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported format '$format'. Use 'csv' or 'xlsx'.")
         }
 
         val uid = authorization.effectiveUserId(currentUser, all)
-        val expenses = expenseRepository.findAllWithFilters(uid, status, reportId, categoryId, fromDate, toDate)
+        val expenses = expenseRepository.findAllWithFilters(uid, status, reportId, categoryId, fromDate, toDate, q)
 
         val includeUser = authorization.canViewAll(currentUser) && all
         val columns = listOfNotNull(

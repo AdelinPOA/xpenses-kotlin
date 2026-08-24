@@ -32,11 +32,12 @@ class ExpenseController(
         @RequestParam(value = "all", required = false, defaultValue = "false") all: Boolean,
         @RequestParam(value = "page", required = false) page: Int?,
         @RequestParam(value = "size", required = false, defaultValue = "20") size: Int,
+        @RequestParam(value = "q", required = false) q: String?,
         request: HttpServletRequest
     ): Any {
         val currentUser = request.getAttribute("currentUser") as? User
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
-        return expenseService.listExpenses(currentUser, reportId, categoryId, status, fromDate, toDate, all, page, size)
+        return expenseService.listExpenses(currentUser, reportId, categoryId, status, fromDate, toDate, all, page, size, q)
     }
 
     @PostMapping
@@ -169,7 +170,7 @@ class ExpenseController(
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
 
         val (bytes, contentType, filename) = expenseService.exportExpenses(
-            currentUser, format, reportId, categoryId, status, fromDate, toDate, all
+            currentUser, format, reportId, categoryId, status, fromDate, toDate, all, null
         )
 
         val headers = HttpHeaders().apply {

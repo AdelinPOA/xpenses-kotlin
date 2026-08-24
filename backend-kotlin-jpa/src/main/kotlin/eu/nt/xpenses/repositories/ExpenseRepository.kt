@@ -28,6 +28,8 @@ interface ExpenseRepository : JpaRepository<Expense, Int> {
           AND (:categoryId IS NULL OR e.category.id = :categoryId)
           AND (:fromDate IS NULL OR e.date >= :fromDate)
           AND (:toDate IS NULL OR e.date <= :toDate)
+          AND (:q IS NULL OR LOWER(e.merchant) LIKE LOWER(CONCAT('%', :q, '%'))
+               OR LOWER(e.description) LIKE LOWER(CONCAT('%', :q, '%')))
         ORDER BY e.date DESC, e.id DESC
     """)
     @EntityGraph(attributePaths = ["user", "category"])
@@ -37,7 +39,8 @@ interface ExpenseRepository : JpaRepository<Expense, Int> {
         @Param("reportId") reportId: Int?,
         @Param("categoryId") categoryId: Int?,
         @Param("fromDate") fromDate: String?,
-        @Param("toDate") toDate: String?
+        @Param("toDate") toDate: String?,
+        @Param("q") q: String?
     ): List<Expense>
 
     @Query("""
@@ -48,6 +51,8 @@ interface ExpenseRepository : JpaRepository<Expense, Int> {
           AND (:categoryId IS NULL OR e.category.id = :categoryId)
           AND (:fromDate IS NULL OR e.date >= :fromDate)
           AND (:toDate IS NULL OR e.date <= :toDate)
+          AND (:q IS NULL OR LOWER(e.merchant) LIKE LOWER(CONCAT('%', :q, '%'))
+               OR LOWER(e.description) LIKE LOWER(CONCAT('%', :q, '%')))
         ORDER BY e.date DESC, e.id DESC
     """)
     @EntityGraph(attributePaths = ["user", "category"])
@@ -58,6 +63,7 @@ interface ExpenseRepository : JpaRepository<Expense, Int> {
         @Param("categoryId") categoryId: Int?,
         @Param("fromDate") fromDate: String?,
         @Param("toDate") toDate: String?,
+        @Param("q") q: String?,
         pageable: Pageable
     ): Page<Expense>
 

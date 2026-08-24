@@ -1,14 +1,15 @@
 "use client";
 
 import { use, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import api, { Report, Expense, API_BASE_URL, downloadBlob } from "@/lib/api";
+import api, { Report, Expense, API_BASE_URL, downloadBlob, duplicateExpense } from "@/lib/api";
 import { reportKeys, expenseKeys, dashboardKeys } from "@/lib/queryKeys";
 import AppShell from "@/components/layout/AppShell";
 import Badge from "@/components/ui/Badge";
 import EmptyState from "@/components/ui/EmptyState";
 import { useToast } from "@/components/ToastProvider";
-import { AlertTriangle, ArrowLeft, Check, DollarSign, FileDown, FolderDown, PenLine, Pencil, Plus, Send, Undo2, X } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Check, Copy, DollarSign, FileDown, FolderDown, PenLine, Pencil, Plus, Send, Trash2, Undo2, X } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/components/AuthProvider";
 import { formatAmount } from "@/lib/format";
@@ -17,6 +18,7 @@ import { useTranslations } from "next-intl";
 export default function ReportDetailClient({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const qc = useQueryClient();
+  const router = useRouter();
   const { user } = useAuth();
   const toast = useToast();
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -26,6 +28,7 @@ export default function ReportDetailClient({ params }: { params: Promise<{ id: s
   const [exporting, setExporting] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const t = useTranslations("reports");
+  const te = useTranslations("expenses");
 
   async function handleExportExpenses(format: "csv" | "xlsx") {
     setExporting(true);
@@ -130,6 +133,32 @@ export default function ReportDetailClient({ params }: { params: Promise<{ id: s
     },
     onError: onError(t("detail_error_reject")),
   });
+
+  const delExpense = useMutation({
+    mutationFn: (expenseId: number) => api.delete(`/expenses/${expenseId}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: reportKeys.all });
+      qc.invalidateQueries({ queryKey: expenseKeys.all });
+      qc.invalidateQueries({ queryKey: dashboardKeys.all });
+      clearError();
+    },
+    onError: onError(t("detail_error_delete")),
+  });
+
+  const duplicate = useMutation({
+    mutationFn: duplicateExpense,
+    onSuccess: (newExpense) => {
+      qc.invalidateQueries({ queryKey: expenseKeys.all });
+      router.push(`/expenses/${newExpense.id}/edit`);
+    },
+    onError: onError(t("detail_error_duplicate")),
+  });
+
+  const confirmDeleteExpense = (eid: number) => {
+    if (window.confirm(te("delete_confirm"))) {
+      delExpense.mutate(eid);
+    }
+  };
 
   const toggleExpense = (eid: number) => {
     setSelectedIds((prev) => {
@@ -553,6 +582,35 @@ export default function ReportDetailClient({ params }: { params: Promise<{ id: s
                       ))}
                     </div>
                   )}
+                  {report.status === "draft" && (
+                    <div className="flex items-center justify-end gap-1 mt-3">
+                      <button
+                        onClick={() => duplicate.mutate(e.id)}
+                        disabled={duplicate.isPending}
+                        title={te("duplicate_tooltip")}
+                        aria-label={`${te("duplicate_tooltip")} ${e.merchant || e.id}`}
+                        className="min-w-11 min-h-11 inline-flex items-center justify-center rounded-lg text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                      >
+                        <Copy className="w-4 h-4" aria-hidden="true" />
+                      </button>
+                      <Link
+                        href={`/expenses/${e.id}/edit`}
+                        aria-label={`${t("detail_expense_edit")} ${e.merchant || e.id}`}
+                        className="min-w-11 min-h-11 inline-flex items-center justify-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                      >
+                        <Pencil className="w-4 h-4 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400" aria-hidden="true" />
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => confirmDeleteExpense(e.id)}
+                        disabled={delExpense.isPending}
+                        aria-label={`${t("detail_expense_delete")} ${e.merchant || e.id}`}
+                        className="min-w-11 min-h-11 inline-flex items-center justify-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                      >
+                        <Trash2 className="w-4 h-4 text-slate-400 hover:text-red-500" aria-hidden="true" />
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -569,6 +627,7 @@ export default function ReportDetailClient({ params }: { params: Promise<{ id: s
                     <th className="text-right px-4 py-3 hidden sm:table-cell">{t("detail_table_original")}</th>
                     <th className="text-right px-4 py-3">{t("detail_table_eur")}</th>
                     <th className="text-right px-4 py-3">{t("detail_table_receipt")}</th>
+                    <th className="px-4 py-3"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -601,6 +660,37 @@ export default function ReportDetailClient({ params }: { params: Promise<{ id: s
                           </div>
                         ) : (
                           <span className="text-slate-300 dark:text-slate-600 text-xs">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        {report.status === "draft" && (
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => duplicate.mutate(e.id)}
+                              disabled={duplicate.isPending}
+                              title={te("duplicate_tooltip")}
+                              aria-label={`${te("duplicate_tooltip")} ${e.merchant || e.id}`}
+                              className="min-w-11 min-h-11 inline-flex items-center justify-center rounded-lg text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                            >
+                              <Copy className="w-4 h-4" aria-hidden="true" />
+                            </button>
+                            <Link
+                              href={`/expenses/${e.id}/edit`}
+                              aria-label={`${t("detail_expense_edit")} ${e.merchant || e.id}`}
+                              className="min-w-11 min-h-11 inline-flex items-center justify-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                            >
+                              <Pencil className="w-4 h-4 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400" aria-hidden="true" />
+                            </Link>
+                            <button
+                              type="button"
+                              onClick={() => confirmDeleteExpense(e.id)}
+                              disabled={delExpense.isPending}
+                              aria-label={`${t("detail_expense_delete")} ${e.merchant || e.id}`}
+                              className="min-w-11 min-h-11 inline-flex items-center justify-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                            >
+                              <Trash2 className="w-4 h-4 text-slate-400 hover:text-red-500" aria-hidden="true" />
+                            </button>
+                          </div>
                         )}
                       </td>
                     </tr>

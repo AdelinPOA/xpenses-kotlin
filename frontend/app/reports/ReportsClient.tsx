@@ -430,7 +430,11 @@ function ReportsPageContent() {
               </thead>
               <tbody>
                 {sorted.map((r) => (
-                  <tr key={r.id} className="border-t border-slate-100 dark:border-slate-700 hover:bg-card-hover/50">
+                  <tr
+                    key={r.id}
+                    className="border-t border-slate-100 dark:border-slate-700 hover:bg-card-hover/50 cursor-pointer"
+                    onClick={() => router.push(`/reports/${r.id}`)}
+                  >
                     <td className="px-4 py-3 font-medium text-foreground">{r.title}</td>
                     {showAll && (
                       <td className="px-4 py-3 text-slate-600 dark:text-slate-400 font-medium">
@@ -452,20 +456,20 @@ function ReportsPageContent() {
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <Link href={`/reports/${r.id}`}>
+                        <Link href={`/reports/${r.id}`} onClick={(e) => e.stopPropagation()}>
                           <Eye className="w-4 h-4 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400" />
                         </Link>
                         {r.status === "draft" && r.user_id === user?.id && (
                           <>
                             <button
                               title={t("submit_tooltip")}
-                              onClick={() => quickSubmit.mutate(r.id)}
+                              onClick={(e) => { e.stopPropagation(); quickSubmit.mutate(r.id); }}
                               disabled={quickSubmit.isPending}
                             >
                               <Send aria-hidden="true" className="w-4 h-4 text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400" />
                             </button>
                             <button
-                              onClick={() => setConfirmDeleteId(r.id)}
+                              onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(r.id); }}
                               disabled={del.isPending}
                             >
                               <Trash2 aria-hidden="true" className="w-4 h-4 text-slate-400 hover:text-red-500" />

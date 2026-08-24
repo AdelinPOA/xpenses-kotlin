@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { setupAuthMocks, setupCommonMocks, REPORTS } from "../shared/mocks";
+import { setupAuthMocks, setupCommonMocks, REPORTS, REPORT_DETAIL } from "../shared/mocks";
 
 test.describe("Reports list page", () => {
   test.beforeEach(async ({ page }) => {
@@ -59,6 +59,21 @@ test.describe("Reports list page", () => {
     await page.goto("/reports", { waitUntil: "load" });
     await page.waitForTimeout(2000);
     await expect(page.getByRole("link", { name: "New report" })).toBeVisible({ timeout: 15000 });
+  });
+
+  test("desktop row click opens report", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await setupAuthMocks(page, "user");
+    await setupCommonMocks(page);
+    await page.route("**/api/reports**", (route) => {
+      if (route.request().url().includes("/api/reports/")) {
+        return route.fulfill({ json: REPORT_DETAIL });
+      }
+      return route.fulfill({ json: REPORTS });
+    });
+    await page.goto("/reports", { waitUntil: "load" });
+    await page.getByRole("cell", { name: "July Business Trip" }).click({ timeout: 15000 });
+    await expect(page.getByRole("heading", { name: "July Business Trip" })).toBeVisible({ timeout: 15000 });
   });
 
   test("mobile viewport has no overflow", async ({ page }) => {

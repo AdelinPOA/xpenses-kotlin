@@ -500,7 +500,11 @@
     "advances_confirm_payment": "Confirm payment",
     "advances_cancel": "Cancel",
     "advances_loading": "Loading...",
-    "advances_not_found": "Report not found"
+    "advances_not_found": "Report not found",
+    "detail_error_delete": "Failed to delete expense. Please try again.",
+    "detail_error_duplicate": "Failed to duplicate expense. Please try again.",
+    "detail_expense_edit": "Edit expense",
+    "detail_expense_delete": "Delete expense"
   },
   "admin": {
     "access_denied": "Access Denied",

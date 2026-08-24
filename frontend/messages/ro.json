@@ -500,7 +500,11 @@
     "advances_confirm_payment": "Confirmă plata",
     "advances_cancel": "Anulează",
     "advances_loading": "Se încarcă...",
-    "advances_not_found": "Raport negăsit"
+    "advances_not_found": "Raport negăsit",
+    "detail_error_delete": "Eșec la ștergerea cheltuielii. Încercați din nou.",
+    "detail_error_duplicate": "Eșec la duplicarea cheltuielii. Încercați din nou.",
+    "detail_expense_edit": "Editează cheltuiala",
+    "detail_expense_delete": "Șterge cheltuiala"
   },
   "admin": {
     "access_denied": "Acces Interzis",

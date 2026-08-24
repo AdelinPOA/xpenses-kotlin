@@ -489,7 +489,7 @@ function ExpensesPageContent() {
                       </button>
                       {e.status === "draft" && (
                         <>
-                          <Link href={`/expenses/${e.id}/edit`} aria-label={`Edit expense ${e.merchant || e.id}`} className="min-w-11 min-h-11 inline-flex items-center justify-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                          <Link href={`/expenses/${e.id}/edit`} aria-label={`${t("edit_expense")} ${e.merchant || e.id}`} className="min-w-11 min-h-11 inline-flex items-center justify-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
                             <Pencil className="w-4 h-4 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400" aria-hidden="true" />
                           </Link>
                           {deleteButton(e)}
@@ -569,7 +569,7 @@ function ExpensesPageContent() {
                           </button>
                           {e.status === "draft" && (
                             <>
-                              <Link href={`/expenses/${e.id}/edit`} aria-label={`Edit expense ${e.merchant || e.id}`} className="min-w-11 min-h-11 inline-flex items-center justify-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                              <Link href={`/expenses/${e.id}/edit`} aria-label={`${t("edit_expense")} ${e.merchant || e.id}`} className="min-w-11 min-h-11 inline-flex items-center justify-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
                                 <Pencil className="w-4 h-4 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400" aria-hidden="true" />
                               </Link>
                               {deleteButton(e)}

@@ -7,7 +7,8 @@ import api, { SearchResult } from "@/lib/api";
 import { searchKeys } from "@/lib/queryKeys";
 import { Search, FileText, Receipt, ChevronRight, Users, Shield, Wallet } from "lucide-react";
 import { formatEur } from "@/lib/format";
-import Badge from "@/components/ui/Badge";
+import { useTranslations } from "next-intl";
+ import Badge from "@/components/ui/Badge";
 import clsx from "clsx";
 
 interface SearchDropdownProps {
@@ -15,6 +16,7 @@ interface SearchDropdownProps {
 }
 
 export default function SearchDropdown({ className }: SearchDropdownProps) {
+  const t = useTranslations("search");
   const router = useRouter();
   const [term, setTerm] = useState("");
   const [debouncedTerm, setDebouncedTerm] = useState("");
@@ -63,9 +65,9 @@ export default function SearchDropdown({ className }: SearchDropdownProps) {
   const results = data ? [
     ...data.reports.map(r => ({ type: "report" as const, id: r.id, title: r.title, subtitle: r.user_display_name || "", amount: r.expenses.reduce((s, e) => s + e.amount_eur, 0) || r.total_amount, status: r.status })),
     ...data.expenses.map(e => ({ type: "expense" as const, id: e.id, title: e.merchant || "—", subtitle: e.category_name || "", amount: e.amount_eur, status: e.status })),
-    ...(data.users ?? []).map(u => ({ type: "user" as const, id: u.id, title: u.display_name || u.username || "User", subtitle: u.email || u.role || "", amount: null, status: u.role })),
-    ...(data.insurance ?? []).map(i => ({ type: "insurance" as const, id: i.id, title: i.title || i.filename || "Insurance file", subtitle: i.uploaded_by || "", amount: null, status: null })),
-    ...(data.advances ?? []).map(a => ({ type: "advance" as const, id: a.id, reportId: a.report_id, title: a.report_title || "Advance payment", subtitle: a.description || "", amount: a.amount_eur ?? null, status: a.status })),
+    ...(data.users ?? []).map(u => ({ type: "user" as const, id: u.id, title: u.display_name || u.username || t("default_user"), subtitle: u.email || u.role || "", amount: null, status: u.role })),
+    ...(data.insurance ?? []).map(i => ({ type: "insurance" as const, id: i.id, title: i.title || i.filename || t("default_insurance"), subtitle: i.uploaded_by || "", amount: null, status: null })),
+    ...(data.advances ?? []).map(a => ({ type: "advance" as const, id: a.id, reportId: a.report_id, title: a.report_title || t("default_advance"), subtitle: a.description || "", amount: a.amount_eur ?? null, status: a.status })),
   ] : [];
 
   const handleSelect = useCallback((result: typeof results[0]) => {
@@ -112,11 +114,11 @@ export default function SearchDropdown({ className }: SearchDropdownProps) {
 
   const showDropdown = isOpen && debouncedTerm.length >= 2;
   const groups = data ? [
-    { key: "report" as const, label: "Reports", count: data.report_count, icon: FileText, color: "text-primary", bg: "bg-primary/10", items: results.filter((r) => r.type === "report") },
-    { key: "expense" as const, label: "Expenses", count: data.expense_count, icon: Receipt, color: "text-orange-500", bg: "bg-orange-500/10", items: results.filter((r) => r.type === "expense") },
-    { key: "user" as const, label: "Users", count: data.user_count ?? data.users?.length ?? 0, icon: Users, color: "text-blue-500", bg: "bg-blue-500/10", items: results.filter((r) => r.type === "user") },
-    { key: "insurance" as const, label: "Insurance", count: data.insurance_count ?? data.insurance?.length ?? 0, icon: Shield, color: "text-cyan-500", bg: "bg-cyan-500/10", items: results.filter((r) => r.type === "insurance") },
-    { key: "advance" as const, label: "Advances", count: data.advance_count ?? data.advances?.length ?? 0, icon: Wallet, color: "text-violet-500", bg: "bg-violet-500/10", items: results.filter((r) => r.type === "advance") },
+    { key: "report" as const, label: t("reports_section"), count: data.report_count, icon: FileText, color: "text-primary", bg: "bg-primary/10", items: results.filter((r) => r.type === "report") },
+    { key: "expense" as const, label: t("expenses_section"), count: data.expense_count, icon: Receipt, color: "text-orange-500", bg: "bg-orange-500/10", items: results.filter((r) => r.type === "expense") },
+    { key: "user" as const, label: t("users_section"), count: data.user_count ?? data.users?.length ?? 0, icon: Users, color: "text-blue-500", bg: "bg-blue-500/10", items: results.filter((r) => r.type === "user") },
+    { key: "insurance" as const, label: t("insurance_section"), count: data.insurance_count ?? data.insurance?.length ?? 0, icon: Shield, color: "text-cyan-500", bg: "bg-cyan-500/10", items: results.filter((r) => r.type === "insurance") },
+    { key: "advance" as const, label: t("advances_section"), count: data.advance_count ?? data.advances?.length ?? 0, icon: Wallet, color: "text-violet-500", bg: "bg-violet-500/10", items: results.filter((r) => r.type === "advance") },
   ].filter((group) => group.items.length > 0) : [];
 
   return (
@@ -126,7 +128,7 @@ export default function SearchDropdown({ className }: SearchDropdownProps) {
         <input
           ref={inputRef}
           type="text"
-          placeholder="Search..."
+          placeholder={t("placeholder")}
           value={term}
           onChange={(e) => {
             setTerm(e.target.value);
@@ -135,7 +137,7 @@ export default function SearchDropdown({ className }: SearchDropdownProps) {
           onFocus={() => setIsOpen(true)}
           onKeyDown={handleKeyDown}
           className="w-full pl-9 pr-4 py-2 bg-input border border-input-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-base sm:text-sm"
-          aria-label="Global search"
+          aria-label={t("global_search")}
           aria-expanded={showDropdown}
           aria-haspopup="listbox"
           aria-controls="search-listbox"
@@ -152,11 +154,11 @@ export default function SearchDropdown({ className }: SearchDropdownProps) {
         >
           {isLoading ? (
             <div className="p-4 text-center text-sm text-muted-foreground">
-              Searching...
+              {t("searching")}
             </div>
           ) : results.length === 0 ? (
             <div className="p-4 text-center text-sm text-muted-foreground">
-              No results found for &ldquo;{debouncedTerm}&rdquo;
+              {t("no_results_for", { term: debouncedTerm })}
             </div>
           ) : (
             <>
@@ -207,7 +209,7 @@ export default function SearchDropdown({ className }: SearchDropdownProps) {
                   onClick={handleSeeAll}
                   className="w-full px-4 py-3 text-sm font-medium text-primary hover:bg-card-hover border-t border-border transition-colors flex items-center justify-center gap-2"
                 >
-                  See all results
+                  {t("see_all_results")}
                   <ChevronRight className="w-4 h-4" />
                 </button>
               )}

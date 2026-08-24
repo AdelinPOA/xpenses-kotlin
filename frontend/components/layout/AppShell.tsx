@@ -45,7 +45,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             type="button"
             onClick={() => setSidebarOpen(true)}
             className="min-w-11 min-h-11 -ml-2 text-muted hover:bg-card-hover rounded-lg flex items-center justify-center shrink-0 z-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-            aria-label="Open sidebar"
+            aria-label={tNav("open_sidebar")}
             aria-expanded={sidebarOpen}
             aria-controls="app-sidebar"
           >
@@ -69,7 +69,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               if (!allowNavigation()) e.preventDefault();
             }}
             className="w-11 h-11 rounded-full bg-primary/20 border border-primary flex items-center justify-center text-primary font-bold text-sm shrink-0 z-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-            aria-label="Profile"
+            aria-label={tNav("profile")}
           >
             {user?.display_name?.charAt(0) || "U"}
           </Link>
@@ -86,7 +86,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       </main>
 
       <nav
-        aria-label="Primary mobile navigation"
+        aria-label={tNav("mobile_navigation")}
         className="lg:hidden fixed bottom-0 left-0 right-0 h-[calc(4rem+env(safe-area-inset-bottom,0px))] pb-safe box-border bg-card border-t border-border flex items-end justify-around z-30 shadow-lg"
       >
         {navItems.map(({ href, labelKey, icon: Icon }) => {

@@ -3,9 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { X, Trash2, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
-import api, { bulkUploadExpenses, BulkUploadResult, BulkUploadError, Expense, Category } from "@/lib/api";
-import { expenseKeys, categoryKeys } from "@/lib/queryKeys";
-import { useBodyScrollLock } from "@/lib/useBodyScrollLock";
+import { useTranslations } from "next-intl";
+ import api, { bulkUploadExpenses, BulkUploadResult, BulkUploadError, Expense, Category } from "@/lib/api";
+ import { expenseKeys, categoryKeys } from "@/lib/queryKeys";
+ import { useBodyScrollLock } from "@/lib/useBodyScrollLock";
 
 interface BulkReviewDrawerProps {
   files: File[];
@@ -20,6 +21,7 @@ interface RowState {
 }
 
 export default function BulkReviewDrawer({ files, isOpen, onClose }: BulkReviewDrawerProps) {
+  const t = useTranslations("expenses");
   const queryClient = useQueryClient();
   const [rows, setRows] = useState<RowState[]>([]);
   const [uploadErrors, setUploadErrors] = useState<BulkUploadError[]>([]);
@@ -109,11 +111,11 @@ export default function BulkReviewDrawer({ files, isOpen, onClose }: BulkReviewD
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 pt-[calc(1rem+env(safe-area-inset-top,0px))] border-b border-border">
           <div>
-            <h2 className="text-lg font-bold text-slate-900 dark:text-white">Review bulk upload</h2>
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white">{t("bulk_heading")}</h2>
             <p className="text-sm text-muted">
               {uploading
-                ? `Processing ${files.length} receipt${files.length !== 1 ? "s" : ""}…`
-                : `${visibleRows.length} draft expense${visibleRows.length !== 1 ? "s" : ""} created — edit before saving`}
+                ? t("processing_receipts", { count: files.length })
+                : t("drafts_created", { count: visibleRows.length })}
             </p>
           </div>
           <button
@@ -131,9 +133,9 @@ export default function BulkReviewDrawer({ files, isOpen, onClose }: BulkReviewD
             <div className="flex flex-col items-center justify-center py-16 gap-4">
               <Loader2 className="w-10 h-10 text-blue-500 animate-spin" />
               <p className="text-slate-600 dark:text-slate-400 font-medium">
-                Running OCR on {files.length} file{files.length !== 1 ? "s" : ""}…
+                {t("running_ocr", { count: files.length })}
               </p>
-              <p className="text-xs text-slate-400">This may take a moment</p>
+              <p className="text-xs text-slate-400">{t("may_take_moment")}</p>
             </div>
           )}
 
@@ -143,7 +145,7 @@ export default function BulkReviewDrawer({ files, isOpen, onClose }: BulkReviewD
               <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
               <div className="flex-1">
                 <p className="font-semibold text-amber-800 dark:text-amber-300 mb-1">
-                  {uploadErrors.length} file{uploadErrors.length !== 1 ? "s" : ""} could not be processed
+                  {t("files_not_processed", { count: uploadErrors.length })}
                 </p>
                 <ul className="space-y-0.5 text-amber-700 dark:text-amber-400">
                   {uploadErrors.map((e, i) => (
@@ -176,7 +178,7 @@ export default function BulkReviewDrawer({ files, isOpen, onClose }: BulkReviewD
           {!uploading && visibleRows.length === 0 && uploadErrors.length === 0 && (
             <div className="flex flex-col items-center justify-center py-16 gap-3 text-slate-400">
               <CheckCircle className="w-10 h-10" />
-              <p>No expenses created</p>
+              <p>{t("bulk_no_expenses")}</p>
             </div>
           )}
         </div>
@@ -185,13 +187,13 @@ export default function BulkReviewDrawer({ files, isOpen, onClose }: BulkReviewD
         {!uploading && (
           <div className="px-6 py-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] border-t border-border flex items-center justify-between gap-4">
             <p className="text-xs text-muted">
-              All expenses are saved as <span className="font-semibold">draft</span>. Assign to a report when ready.
+              {t.rich("bulk_footer_note", { b: (chunks) => <span className="font-semibold">{chunks}</span> })}
             </p>
             <button
               onClick={handleClose}
               className="px-5 py-2 bg-primary hover:bg-primary-hover text-white text-sm font-semibold rounded-lg transition-colors shadow-sm"
             >
-              Done reviewing
+              {t("done_reviewing")}
             </button>
           </div>
         )}
@@ -211,10 +213,10 @@ interface BulkExpenseRowProps {
 }
 
 function BulkExpenseRow({ expense, categories, saving, onPatch, onDelete }: BulkExpenseRowProps) {
+  const t = useTranslations("expenses");
   const receiptUrl = expense.receipts[0]
     ? `/api/expenses/${expense.id}/receipts/${expense.receipts[0].id}`
     : null;
-
   return (
     <div className="relative rounded-xl border border-border bg-slate-50 dark:bg-slate-800/50 p-4 space-y-3">
       {saving && (
@@ -228,32 +230,32 @@ function BulkExpenseRow({ expense, categories, saving, onPatch, onDelete }: Bulk
         {receiptUrl ? (
           <img
             src={receiptUrl}
-            alt="Receipt"
+            alt={t("table_receipt")}
             className="w-14 h-14 object-cover rounded-lg border border-border shrink-0 bg-white"
             onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
           />
         ) : (
           <div className="w-14 h-14 rounded-lg border border-dashed border-input-border shrink-0 bg-input flex items-center justify-center text-slate-300 text-xs">
-            No img
+            {t("bulk_no_img")}
           </div>
         )}
 
         <div className="flex-1 grid grid-cols-2 gap-2 min-w-0">
           {/* Merchant */}
           <div className="col-span-2">
-            <label className="text-xs text-muted font-medium">Merchant</label>
+            <label className="text-xs text-muted font-medium">{t("bulk_merchant")}</label>
             <input
               type="text"
               defaultValue={expense.merchant ?? ""}
               onBlur={(e) => onPatch("merchant", e.target.value || null)}
-              placeholder="Merchant name"
+              placeholder={t("bulk_merchant_placeholder")}
               className="w-full mt-0.5 px-2 py-1.5 text-base sm:text-sm rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
 
           {/* Amount */}
           <div>
-            <label className="text-xs text-muted font-medium">Amount</label>
+            <label className="text-xs text-muted font-medium">{t("bulk_amount")}</label>
             <div className="flex gap-1 mt-0.5">
               <input
                 type="number"
@@ -276,7 +278,7 @@ function BulkExpenseRow({ expense, categories, saving, onPatch, onDelete }: Bulk
 
           {/* Date */}
           <div>
-            <label className="text-xs text-muted font-medium">Date</label>
+            <label className="text-xs text-muted font-medium">{t("bulk_date")}</label>
             <input
               type="date"
               defaultValue={expense.date}
@@ -287,13 +289,13 @@ function BulkExpenseRow({ expense, categories, saving, onPatch, onDelete }: Bulk
 
           {/* Category */}
           <div className="col-span-2">
-            <label className="text-xs text-muted font-medium">Category</label>
+            <label className="text-xs text-muted font-medium">{t("bulk_category")}</label>
             <select
               defaultValue={expense.category_id ?? ""}
               onChange={(e) => onPatch("category_id", e.target.value ? parseInt(e.target.value) : null)}
               className="w-full mt-0.5 px-2 py-1.5 text-base sm:text-sm rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             >
-              <option value="">— No category —</option>
+              <option value="">{t("bulk_no_category")}</option>
               {categories.map((c) => (
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
@@ -302,12 +304,12 @@ function BulkExpenseRow({ expense, categories, saving, onPatch, onDelete }: Bulk
 
           {/* Description */}
           <div className="col-span-2">
-            <label className="text-xs text-muted font-medium">Description</label>
+            <label className="text-xs text-muted font-medium">{t("bulk_description")}</label>
             <input
               type="text"
               defaultValue={expense.description ?? ""}
               onBlur={(e) => onPatch("description", e.target.value || null)}
-              placeholder="Optional description"
+              placeholder={t("bulk_description_placeholder")}
               className="w-full mt-0.5 px-2 py-1.5 text-base sm:text-sm rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
@@ -317,7 +319,7 @@ function BulkExpenseRow({ expense, categories, saving, onPatch, onDelete }: Bulk
         <button
           onClick={onDelete}
           className="shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-          title="Delete this expense"
+          title={t("bulk_delete")}
         >
           <Trash2 className="w-4 h-4" />
         </button>

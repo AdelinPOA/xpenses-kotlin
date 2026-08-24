@@ -53,6 +53,7 @@ function getCategoryMeta(categoryName: string | null): { Icon: LucideIcon; color
 export default function DashboardClient() {
   const t = useTranslations("dashboard");
   const tc = useTranslations("common");
+  const tcap = useTranslations("capture");
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const toast = useToast();
@@ -469,7 +470,7 @@ export default function DashboardClient() {
 
                 <Link
                   href="/expenses/new"
-                  aria-label="Create expense"
+                  aria-label={t("add_expense")}
                   className="flex items-center gap-1.5 bg-primary hover:bg-primary-hover text-white px-4 py-2 rounded-xl text-sm font-bold transition-colors cursor-pointer shadow-xs"
                 >
                   <Plus className="w-4 h-4" />
@@ -645,7 +646,7 @@ export default function DashboardClient() {
 
               <Link
                 href="/expenses/capture"
-                aria-label="New expense"
+                aria-label={tcap("title")}
                 onClick={(e) => {
                   triggerHaptic(10);
                   if (!allowNavigation()) e.preventDefault();
@@ -779,7 +780,7 @@ export default function DashboardClient() {
             <div className="fixed bottom-[calc(4rem+env(safe-area-inset-bottom,0px)+1rem)] right-4 z-20">
               <Link
                 href="/expenses/new"
-                aria-label="Add expense"
+                aria-label={t("add_expense")}
                 onClick={() => triggerHaptic(15)}
                 className={clsx(
                   "flex items-center justify-center bg-primary hover:bg-primary-hover text-white shadow-lg font-bold text-xs uppercase tracking-wider transition-all duration-300 active:scale-95 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",

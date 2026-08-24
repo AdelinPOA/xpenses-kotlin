@@ -482,7 +482,7 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency, highli
                 {t("warning_expense_saved_receipt_failed")}
               </p>
             )}
-            <p id="expense-receipts-help" className="text-xs text-muted mb-2">JPG, PNG, PDF or WEBP, up to 10 MB.</p>
+            <p id="expense-receipts-help" className="text-xs text-muted mb-2">{t("receipt_formats")}</p>
             <input id="expense-receipts" name="receipts" aria-describedby="expense-receipts-help" type="file" accept=".jpg,.jpeg,.png,.pdf,.webp" multiple onChange={addFiles}
               className="w-full min-h-11 text-base sm:text-sm text-slate-600 dark:text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:border file:border-slate-300 dark:file:border-slate-600 file:rounded-lg file:text-xs file:bg-slate-50 dark:file:bg-slate-800 hover:file:bg-slate-100 dark:hover:file:bg-slate-700" />
 

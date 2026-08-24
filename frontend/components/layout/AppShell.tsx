@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import Sidebar from "./Sidebar";
-import { Menu, LayoutDashboard, ReceiptText, FileText, User, CheckSquare } from "lucide-react";
+import { Menu, LayoutDashboard, ReceiptText, FolderKanban, User, CheckSquare } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
@@ -25,12 +25,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const navItems = user?.role === "manager" ? [
     { href: "/dashboard", labelKey: "dashboard", icon: LayoutDashboard },
     { href: "/approvals", labelKey: "review_reports", icon: CheckSquare },
-    { href: "/reports", labelKey: "reports", icon: FileText },
+    { href: "/reports", labelKey: "reports", icon: FolderKanban },
     { href: "/profile", labelKey: "profile", icon: User },
   ] : [
     { href: "/dashboard", labelKey: "dashboard", icon: LayoutDashboard },
     { href: "/expenses", labelKey: "expenses", icon: ReceiptText },
-    { href: "/reports", labelKey: "reports", icon: FileText },
+    { href: "/reports", labelKey: "reports", icon: FolderKanban },
     { href: "/profile", labelKey: "profile", icon: User },
   ];
 

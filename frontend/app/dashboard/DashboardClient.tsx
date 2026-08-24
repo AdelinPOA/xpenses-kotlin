@@ -1,9 +1,10 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import api, { DashboardStats, Report, downloadBlob, ManagerDashboardStats } from "@/lib/api";
 import { dashboardKeys, reportKeys } from "@/lib/queryKeys";
+import { triggerHaptic } from "@/lib/haptics";
 import AppShell from "@/components/layout/AppShell";
 import SpendChart from "@/components/dashboard/SpendChart";
 import ExpenseStatusOverview from "@/components/dashboard/ExpenseStatusOverview";
@@ -62,6 +63,15 @@ export default function DashboardClient() {
   const isManagerRole = user?.role === "manager" || (user?.role === "chef_finance" && showAll);
   const canManageReviews = user?.role === "manager" || user?.role === "chef_finance";
   const [recentExpensesSearch, setRecentExpensesSearch] = useState("");
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 50);
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   // Fetch standard dashboard stats
   const { data, isLoading } = useQuery<DashboardStats>({
@@ -101,15 +111,18 @@ export default function DashboardClient() {
   });
 
   const handleApproveReport = (reportId: number) => {
+    triggerHaptic(15);
     reviewActions.approve.mutate(reportId);
   };
 
   const handleRejectReport = (reportId: number, reason: string) => {
+    triggerHaptic(15);
     reviewActions.reject.mutate({ id: reportId, reason });
   };
 
   const handlePayAdvance = async (reportId: number, advanceId: number, e: React.MouseEvent) => {
     e.stopPropagation();
+    triggerHaptic(15);
     try {
       await api.post(`/reports/${reportId}/advances/${advanceId}/pay`);
       refetchManagerStats();
@@ -122,6 +135,7 @@ export default function DashboardClient() {
 
   const handleRejectAdvance = async (reportId: number, advanceId: number, e: React.MouseEvent) => {
     e.stopPropagation();
+    triggerHaptic(15);
     try {
       await api.post(`/reports/${reportId}/advances/${advanceId}/reject`);
       refetchManagerStats();
@@ -198,10 +212,83 @@ export default function DashboardClient() {
   if (authLoading || (!user && !isLoading)) {
     return (
       <AppShell>
-        <div role="status" aria-live="polite" className="animate-pulse space-y-6 mt-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-card rounded-2xl border border-border p-6 h-64" />
-            <div className="bg-card rounded-2xl border border-border p-6 h-64" />
+        {/* Mobile High-Fidelity Skeleton */}
+        <div role="status" aria-live="polite" className="lg:hidden flex flex-col gap-5 pt-1 animate-pulse">
+          {/* Top Greeting Skeleton */}
+          <div className="flex items-center justify-between">
+            <div className="space-y-1.5">
+              <div className="h-6 w-36 bg-muted/20 rounded-lg" />
+              <div className="h-3.5 w-24 bg-muted/15 rounded-md" />
+            </div>
+            <div className="h-8 w-16 bg-muted/20 rounded-full" />
+          </div>
+
+          {/* Spend KPI Card Skeleton */}
+          <div className="bg-card border border-border rounded-xl p-3.5 shadow-2xs flex items-center justify-between">
+            <div className="space-y-1">
+              <div className="h-2.5 w-20 bg-muted/20 rounded" />
+              <div className="h-6 w-24 bg-muted/25 rounded-md" />
+            </div>
+            <div className="space-y-1 flex flex-col items-end">
+              <div className="h-2.5 w-16 bg-muted/20 rounded" />
+              <div className="h-6 w-10 bg-muted/25 rounded-md" />
+            </div>
+          </div>
+
+          {/* 3 Status Cards Carousel Skeleton */}
+          <div className="flex sm:grid sm:grid-cols-3 gap-2.5 overflow-x-auto no-scrollbar">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="min-w-[115px] flex-1 bg-card border border-border rounded-xl p-3 shadow-2xs space-y-3">
+                <div className="h-3.5 w-16 bg-muted/20 rounded" />
+                <div className="space-y-1">
+                  <div className="h-5 w-8 bg-muted/25 rounded" />
+                  <div className="h-3 w-14 bg-muted/15 rounded" />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Recent Expenses Feed Skeleton */}
+          <div className="bg-card border border-border rounded-2xl p-4 shadow-xs space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="h-3.5 w-28 bg-muted/20 rounded" />
+              <div className="h-3.5 w-12 bg-muted/20 rounded" />
+            </div>
+            <div className="divide-y divide-border">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="flex items-center justify-between py-3 gap-3">
+                  <div className="flex items-center gap-3 flex-1">
+                    <div className="w-9 h-9 rounded-xl bg-muted/20 shrink-0" />
+                    <div className="space-y-1.5 flex-1">
+                      <div className="h-4 w-28 bg-muted/25 rounded" />
+                      <div className="h-3 w-20 bg-muted/15 rounded" />
+                    </div>
+                  </div>
+                  <div className="h-4 w-14 bg-muted/20 rounded" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Desktop Master-Detail Skeleton */}
+        <div role="status" aria-live="polite" className="hidden lg:block animate-pulse space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="space-y-2">
+              <div className="h-8 w-48 bg-muted/20 rounded-xl" />
+              <div className="h-4 w-28 bg-muted/15 rounded-md" />
+            </div>
+            <div className="flex gap-3">
+              <div className="h-9 w-32 bg-muted/20 rounded-xl" />
+              <div className="h-9 w-32 bg-muted/20 rounded-xl" />
+            </div>
+          </div>
+          <div className="grid grid-cols-12 gap-6">
+            <div className="col-span-7 bg-card rounded-2xl border border-border p-6 h-96" />
+            <div className="col-span-5 space-y-6">
+              <div className="bg-card rounded-2xl border border-border p-6 h-36" />
+              <div className="bg-card rounded-2xl border border-border p-6 h-56" />
+            </div>
           </div>
         </div>
       </AppShell>
@@ -513,7 +600,8 @@ export default function DashboardClient() {
               <Link
                 href="/expenses/new"
                 aria-label="New expense"
-                className="inline-flex items-center gap-1 bg-primary text-white text-xs font-bold px-3.5 py-2 rounded-full shadow-xs"
+                onClick={() => triggerHaptic(10)}
+                className="inline-flex items-center gap-1 bg-primary text-white text-xs font-bold px-3.5 py-2 rounded-full shadow-xs active:scale-95 transition-transform"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>{tc("new")}</span>
@@ -532,47 +620,50 @@ export default function DashboardClient() {
               </div>
             </div>
 
-            {/* Active Reimbursement Status Summary Cards (Draft / Submitted / Paid €) */}
-            <div className="grid grid-cols-3 gap-2.5">
+            {/* Active Reimbursement Status Summary Cards (Draft / Submitted / Paid €) - Mobile Snap Carousel */}
+            <div className="flex sm:grid sm:grid-cols-3 gap-2.5 overflow-x-auto no-scrollbar snap-x snap-mandatory pb-1 -mx-1 px-1">
               <Link
                 href="/reports?status=draft"
-                className="bg-card border border-border rounded-xl p-3 shadow-2xs flex flex-col justify-between"
+                onClick={() => triggerHaptic(10)}
+                className="min-w-[115px] flex-1 snap-start bg-card border border-border rounded-xl p-3 shadow-2xs flex flex-col justify-between active:scale-[0.98] transition-transform"
               >
-                <div className="flex items-center gap-1 text-[10px] font-bold text-muted-foreground uppercase truncate">
-                  <FileEdit className="w-3 h-3 shrink-0" />
-                  <span className="truncate">{t("draft_reports")}</span>
+                <div className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground">
+                  <FileEdit className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
+                  <span className="truncate">{t("draft_summary_title")}</span>
                 </div>
                 <div className="mt-2">
                   <p className="text-base font-bold text-foreground leading-none tabular-nums">{reportStatusTotals.draftCount}</p>
-                  <p className="text-[10px] font-semibold text-muted-foreground mt-1 tabular-nums tracking-tight">{formatEur(reportStatusTotals.draftEur)}</p>
+                  <p className="text-[11px] font-semibold text-muted-foreground mt-1 tabular-nums tracking-tight">{formatEur(reportStatusTotals.draftEur)}</p>
                 </div>
               </Link>
 
               <Link
                 href="/reports?status=submitted"
-                className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-3 shadow-2xs flex flex-col justify-between"
+                onClick={() => triggerHaptic(10)}
+                className="min-w-[115px] flex-1 snap-start bg-amber-500/5 border border-amber-500/20 rounded-xl p-3 shadow-2xs flex flex-col justify-between active:scale-[0.98] transition-transform"
               >
-                <div className="flex items-center gap-1 text-[10px] font-bold text-amber-700 dark:text-amber-400 uppercase truncate">
-                  <Clock className="w-3 h-3 shrink-0" />
-                  <span className="truncate">{t("submitted_reports")}</span>
+                <div className="flex items-center gap-1.5 text-xs font-bold text-amber-700 dark:text-amber-400">
+                  <Clock className="w-3.5 h-3.5 shrink-0" />
+                  <span className="truncate">{t("pending_summary_title")}</span>
                 </div>
                 <div className="mt-2">
                   <p className="text-base font-bold text-amber-700 dark:text-amber-400 leading-none tabular-nums">{reportStatusTotals.submittedCount}</p>
-                  <p className="text-[10px] font-semibold text-amber-700 dark:text-amber-400 mt-1 tabular-nums tracking-tight">{formatEur(reportStatusTotals.submittedEur)}</p>
+                  <p className="text-[11px] font-semibold text-amber-700 dark:text-amber-400 mt-1 tabular-nums tracking-tight">{formatEur(reportStatusTotals.submittedEur)}</p>
                 </div>
               </Link>
 
               <Link
                 href="/reports?status=paid"
-                className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-3 shadow-2xs flex flex-col justify-between"
+                onClick={() => triggerHaptic(10)}
+                className="min-w-[115px] flex-1 snap-start bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-3 shadow-2xs flex flex-col justify-between active:scale-[0.98] transition-transform"
               >
-                <div className="flex items-center gap-1 text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase truncate">
-                  <CheckCircle2 className="w-3 h-3 shrink-0" />
-                  <span className="truncate">{t("paid_reports")}</span>
+                <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-400">
+                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                  <span className="truncate">{t("approved_summary_title")}</span>
                 </div>
                 <div className="mt-2">
                   <p className="text-base font-bold text-emerald-700 dark:text-emerald-400 leading-none tabular-nums">{reportStatusTotals.paidCount}</p>
-                  <p className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 mt-1 tabular-nums tracking-tight">{formatEur(reportStatusTotals.paidEur)}</p>
+                  <p className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 mt-1 tabular-nums tracking-tight">{formatEur(reportStatusTotals.paidEur)}</p>
                 </div>
               </Link>
             </div>
@@ -600,7 +691,8 @@ export default function DashboardClient() {
                       <Link 
                         key={e.id} 
                         href={`/expenses/${e.id}`}
-                        className="flex items-center justify-between py-3 gap-3 first:pt-1 last:pb-1"
+                        onClick={() => triggerHaptic(10)}
+                        className="flex items-center justify-between py-3 gap-3 first:pt-1 last:pb-1 active:bg-muted/30 rounded-lg px-1 -mx-1 transition-colors"
                       >
                         <div className="flex items-center gap-3 min-w-0 flex-1">
                           <div className={clsx("w-9 h-9 rounded-xl flex items-center justify-center shrink-0", bgClass, colorClass)}>
@@ -634,15 +726,21 @@ export default function DashboardClient() {
               total={data?.expense_count_month ?? 0}
             />
 
-            {/* Prominent Floating Quick Action Button (FAB) on Mobile */}
-            <div className="fixed bottom-20 right-4 z-40">
+            {/* Collapsible Floating Action Button (FAB) on Mobile */}
+            <div className="fixed bottom-[calc(4rem+env(safe-area-inset-bottom,0px)+1rem)] right-4 z-20">
               <Link
                 href="/expenses/new"
                 aria-label="Add expense"
-                className="flex items-center gap-2 bg-primary hover:bg-primary-hover text-white px-4 py-3 rounded-full shadow-lg font-bold text-xs uppercase tracking-wider transition-transform active:scale-95 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                onClick={() => triggerHaptic(15)}
+                className={clsx(
+                  "flex items-center justify-center bg-primary hover:bg-primary-hover text-white shadow-lg font-bold text-xs uppercase tracking-wider transition-all duration-300 active:scale-95 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+                  isScrolled
+                    ? "w-12 h-12 rounded-full p-0"
+                    : "h-12 px-4 py-3 rounded-full gap-2"
+                )}
               >
-                <Camera className="w-4 h-4" />
-                <span>{t("quick_add_expense")}</span>
+                <Camera className="w-5 h-5 shrink-0" />
+                {!isScrolled && <span className="whitespace-nowrap transition-opacity duration-200">{t("quick_add_expense")}</span>}
               </Link>
             </div>
           </div>

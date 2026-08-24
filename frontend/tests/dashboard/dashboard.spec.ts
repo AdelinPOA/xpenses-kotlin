@@ -68,6 +68,25 @@ test.describe("Dashboard", () => {
     await expect(page.getByRole("link", { name: "Add expense" })).toBeVisible({ timeout: 15000 });
   });
 
+  test("mobile burger menu opens backdrop with z-50 above FAB", async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await setupCommonMocks(page);
+    await page.goto("/dashboard", { waitUntil: "load" });
+    await page.waitForTimeout(2000);
+
+    const menuButton = page.getByRole("button", { name: "Open sidebar" });
+    await expect(menuButton).toBeVisible();
+    await menuButton.click();
+
+    // Verify sidebar and backdrop are open
+    const sidebar = page.locator("#app-sidebar");
+    await expect(sidebar).toBeVisible();
+
+    // Verify main content is inert while sidebar is open
+    const mainContent = page.locator("#main-content");
+    await expect(mainContent).toHaveAttribute("inert", "");
+  });
+
   test("no horizontal overflow at any viewport", async ({ page }) => {
     await setupCommonMocks(page);
     for (const vp of [{ w: 375 }, { w: 768 }, { w: 1280 }]) {

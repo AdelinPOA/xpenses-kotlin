@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Receipt, FileText, Tag, Users, CheckSquare, Banknote, Wallet, Settings, PenLine, LogOut, Sun, Moon, Monitor, X, Server, Mail, Inbox, Trash2, Sparkles, Database, Shield } from "lucide-react";
+import { LayoutDashboard, Receipt, FolderKanban, Tag, Users, CheckSquare, Banknote, Wallet, Settings, PenLine, LogOut, Sun, Moon, Monitor, X, Server, Mail, Inbox, Trash2, Sparkles, Database, Shield } from "lucide-react";
 import clsx from "clsx";
 import { useAuth } from "@/components/AuthProvider";
 import { useTheme } from "@/components/ThemeProvider";
@@ -22,7 +22,7 @@ const NAV: NavItem[] = [
   { href: "/dashboard", labelKey: "dashboard", icon: LayoutDashboard, roles: ["technician", "manager", "chef_finance", "mod"] },
   { href: "/expenses", labelKey: "expenses", icon: Receipt, roles: ["technician", "manager", "chef_finance", "mod"] },
   { href: "/insurance", labelKey: "insurance", icon: Shield, roles: ["technician", "manager", "chef_finance", "mod"] },
-  { href: "/reports", labelKey: "reports", icon: FileText, roles: ["technician", "manager", "chef_finance", "mod"] },
+  { href: "/reports", labelKey: "reports", icon: FolderKanban, roles: ["technician", "manager", "chef_finance", "mod"] },
   { href: "/approvals", labelKey: "review_reports", icon: CheckSquare, roles: ["manager", "chef_finance"] },
   { href: "/advances", labelKey: "advances", icon: Wallet, roles: ["manager", "chef_finance", "mod"] },
   { href: "/payments", labelKey: "process_payments", icon: Banknote, roles: ["chef_finance"] },
@@ -112,7 +112,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
       {/* Mobile backdrop */}
       {open && (
         <div
-          className="fixed inset-0 bg-black/50 z-30 lg:hidden"
+          className="fixed inset-0 bg-black/50 z-50 lg:hidden"
           onClick={onClose}
           aria-hidden="true"
         />
@@ -124,7 +124,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
         tabIndex={-1}
         aria-label="Application navigation"
         className={clsx(
-          "fixed top-0 left-0 h-full w-[220px] bg-sidebar text-slate-200 flex flex-col z-40 border-r border-sidebar-border",
+          "fixed top-0 left-0 h-full w-[220px] bg-sidebar text-slate-200 flex flex-col z-50 border-r border-sidebar-border",
           "transition-transform duration-200 ease-in-out",
           "lg:translate-x-0",
           open ? "translate-x-0" : "-translate-x-full"

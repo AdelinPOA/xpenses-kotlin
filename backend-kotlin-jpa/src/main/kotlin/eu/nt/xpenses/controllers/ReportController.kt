@@ -1,5 +1,8 @@
 package eu.nt.xpenses.controllers
 
+import eu.nt.xpenses.dto.report.BulkStatusBody
+import eu.nt.xpenses.dto.report.BulkStatusFailure
+import eu.nt.xpenses.dto.report.BulkStatusResult
 import eu.nt.xpenses.dto.report.RejectBody
 import eu.nt.xpenses.dto.report.ReportCreate
 import eu.nt.xpenses.dto.report.ReportOut
@@ -10,6 +13,7 @@ import eu.nt.xpenses.models.PagedResponse
 import eu.nt.xpenses.report.lifecycle.AttachExpensesCommand
 import eu.nt.xpenses.report.lifecycle.DeleteDraftReportCommand
 import eu.nt.xpenses.report.lifecycle.ExpenseReportLifecycle
+import eu.nt.xpenses.report.lifecycle.ExpenseReportLifecycleEvent
 import eu.nt.xpenses.report.lifecycle.ReportLifecycleNotificationAdapter
 import eu.nt.xpenses.report.lifecycle.RejectReportCommand
 import eu.nt.xpenses.report.lifecycle.SubmitReportCommand
@@ -268,6 +272,54 @@ class ReportController(
         val outcome = lifecycle.reject(reportId, RejectReportCommand(reason), currentUser)
         notificationAdapter.dispatch(outcome.events)
         return reportMapper.mapReportToOut(outcome.report)
+    }
+
+    /**
+     * Bulk approve/reject. Each report is transitioned independently (its own
+     * transaction) so partial failures don't roll back the whole batch; the
+     * caller receives per-row results and can retry only the failed ids.
+     */
+    @PostMapping("/bulk-status")
+    fun bulkStatus(
+        @Valid @RequestBody body: BulkStatusBody,
+        request: HttpServletRequest
+    ): BulkStatusResult {
+        val currentUser = request.getAttribute("currentUser") as? User
+            ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
+
+        if (!authorization.canManage(currentUser)) {
+            throw ResponseStatusException(HttpStatus.FORBIDDEN, "Not authorized")
+        }
+
+        val action = body.action?.lowercase()
+        if (action !in listOf("approve", "reject")) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "action must be 'approve' or 'reject'")
+        }
+        val sharedReason = body.reason?.trim().orEmpty()
+        if (action == "reject" && sharedReason.isEmpty()) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "A rejection reason is required")
+        }
+
+        val succeeded = mutableListOf<Int>()
+        val failed = mutableListOf<BulkStatusFailure>()
+        val events = mutableListOf<ExpenseReportLifecycleEvent>()
+
+        for (id in body.ids.distinct()) {
+            try {
+                val outcome = if (action == "approve") {
+                    lifecycle.approve(id, currentUser)
+                } else {
+                    lifecycle.reject(id, RejectReportCommand(sharedReason), currentUser)
+                }
+                succeeded.add(id)
+                events.addAll(outcome.events)
+            } catch (e: Exception) {
+                failed.add(BulkStatusFailure(id, e.message))
+            }
+        }
+
+        if (events.isNotEmpty()) notificationAdapter.dispatch(events)
+        return BulkStatusResult(succeeded = succeeded, failed = failed)
     }
 
     @PostMapping("/{reportId}/sign")

@@ -11,6 +11,7 @@ import { formatEur } from "@/lib/format";
 import ReceiptScanner from "./ReceiptScanner";
 import FxRateInput from "./FxRateInput";
 import ReceiptPreview from "./ReceiptPreview";
+import { useToast } from "@/components/ToastProvider";
 import { useTranslations } from "next-intl";
 
 function sanitizeUrl(url: string): string {
@@ -39,14 +40,17 @@ interface Props {
   expense?: Expense;
   reportId?: number;
   defaultCurrency?: string;
+  /** Highlights the receipt section (set when arriving with ?upload_failed=1). */
+  highlightReceipts?: boolean;
 }
 
-export default function ExpenseForm({ expense, reportId, defaultCurrency }: Props) {
+export default function ExpenseForm({ expense, reportId, defaultCurrency, highlightReceipts }: Props) {
   const router = useRouter();
   const qc = useQueryClient();
   const isEdit = !!expense;
   const t = useTranslations("expenses");
   const tc = useTranslations("common");
+  const toast = useToast();
 
   const [form, setForm] = useState<FormFields>({
     amount: expense?.amount_original?.toString() ?? "",
@@ -68,6 +72,12 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
   const [savedExpense, setSavedExpense] = useState<Expense | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [scanResult, setScanResult] = useState<OCRScanResult | null>(null);
+  // Distinguishes the receipt-upload sub-phase of saving so slow uploads
+  // don't look frozen on the submit button.
+  const [isUploadingReceipts, setIsUploadingReceipts] = useState(false);
+  // Set when a save succeeded but receipt upload failed while editing:
+  // stays on the page and highlights the receipt section.
+  const [receiptUploadFailedLocal, setReceiptUploadFailedLocal] = useState(false);
   const scanInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
@@ -173,20 +183,37 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
       try {
         for (const rid of deletedReceiptIds) await api.delete(`/expenses/${result.id}/receipts/${rid}`);
         if (receiptFiles.length > 0) {
+          setIsUploadingReceipts(true);
           const fd = new FormData();
           receiptFiles.forEach(({ file }) => fd.append("files", file));
           await api.post(`/expenses/${result.id}/receipts`, fd);
         }
-      } catch (e: any) {
+      } catch {
+        // Resolve — do NOT throw. Throwing would skip onSuccess, lose the
+        // created expense id and invite the user to re-save → duplicate.
         qc.invalidateQueries({ queryKey: expenseKeys.all });
         qc.invalidateQueries({ queryKey: dashboardKeys.all });
-        throw new Error(t("error_receipt_upload"));
+        return { expense: result, receiptUploadFailed: true as const };
+      } finally {
+        setIsUploadingReceipts(false);
       }
-      return result;
+      return { expense: result, receiptUploadFailed: false as const };
     },
-    onSuccess: (result) => {
+    onSuccess: ({ expense: result, receiptUploadFailed }) => {
       qc.invalidateQueries({ queryKey: expenseKeys.all });
       qc.invalidateQueries({ queryKey: dashboardKeys.all });
+      if (receiptUploadFailed) {
+        toast.warning(t("warning_expense_saved_receipt_failed"));
+        if (isEdit) {
+          // Editing an existing expense: stay put and point at the receipts.
+          setReceiptUploadFailedLocal(true);
+        } else {
+          // Newly created expense: land on its edit page so a re-save can't
+          // create a second one; edit page highlights the receipt dropzone.
+          router.push(`/expenses/${result.id}/edit?upload_failed=1`);
+        }
+        return;
+      }
       const destination = reportId ? `/reports/${reportId}` : "/expenses";
       if (result.currency_original !== "EUR") {
         setSavedExpense(result);
@@ -406,6 +433,11 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
 
           <div>
             <label htmlFor="expense-receipts" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("label_receipts")}</label>
+            {(highlightReceipts || receiptUploadFailedLocal) && (
+              <p role="alert" className="mb-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
+                {t("warning_expense_saved_receipt_failed")}
+              </p>
+            )}
             <p id="expense-receipts-help" className="text-xs text-muted mb-2">JPG, PNG, PDF or WEBP, up to 10 MB.</p>
             <input id="expense-receipts" name="receipts" aria-describedby="expense-receipts-help" type="file" accept=".jpg,.jpeg,.png,.pdf,.webp" multiple onChange={addFiles}
               className="w-full min-h-11 text-base sm:text-sm text-slate-600 dark:text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:border file:border-slate-300 dark:file:border-slate-600 file:rounded-lg file:text-xs file:bg-slate-50 dark:file:bg-slate-800 hover:file:bg-slate-100 dark:hover:file:bg-slate-700" />
@@ -440,7 +472,9 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
           <div className="sticky bottom-[calc(4rem+env(safe-area-inset-bottom,0px))] lg:static z-20 flex gap-3 pt-3 pb-3 bg-card border-t border-border lg:border-0">
             <button type="submit" disabled={save.isPending}
               className="min-h-11 px-5 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-hover disabled:opacity-50">
-              {save.isPending ? tc("saving") : isEdit ? t("save_changes") : t("create_expense")}
+              {save.isPending
+                ? isUploadingReceipts ? t("uploading_receipts") : tc("saving")
+                : isEdit ? t("save_changes") : t("create_expense")}
             </button>
             <button type="button" onClick={() => router.back()}
               className="min-h-11 px-5 py-2 border border-input-border text-slate-600 dark:text-slate-400 text-sm font-medium rounded-lg hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700">

@@ -227,6 +227,8 @@
     "create_expense": "Create expense",
     "error_save": "Failed to save expense details",
     "error_receipt_upload": "Expense saved, but failed to upload or delete some receipts.",
+    "warning_expense_saved_receipt_failed": "Expense saved, but some receipts could not be uploaded. Retry below — do not create the expense again.",
+    "uploading_receipts": "Uploading receipts…",
     "error_save_generic": "Failed to save",
     "error_ocr_scan": "OCR scan failed",
     "error_ocr_job": "OCR job failed",

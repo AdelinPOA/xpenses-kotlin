@@ -1,9 +1,9 @@
 "use client";
 
 import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from "react";
-import { X, CheckCircle, AlertCircle, Info } from "lucide-react";
+import { X, CheckCircle, AlertCircle, Info, AlertTriangle } from "lucide-react";
 
-export type ToastType = "success" | "error" | "info";
+export type ToastType = "success" | "error" | "info" | "warning";
 
 export interface Toast {
   id: string;
@@ -15,6 +15,7 @@ interface ToastContextProps {
   success: (message: string) => void;
   error: (message: string) => void;
   info: (message: string) => void;
+  warning: (message: string) => void;
 }
 
 const ToastContext = createContext<ToastContextProps | undefined>(undefined);
@@ -63,9 +64,10 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const success = useCallback((msg: string) => addToast(msg, "success"), [addToast]);
   const error = useCallback((msg: string) => addToast(msg, "error"), [addToast]);
   const info = useCallback((msg: string) => addToast(msg, "info"), [addToast]);
+  const warning = useCallback((msg: string) => addToast(msg, "warning"), [addToast]);
 
   return (
-    <ToastContext.Provider value={{ success, error, info }}>
+    <ToastContext.Provider value={{ success, error, info, warning }}>
       {children}
       {/* Toast container overlay */}
       <div className="fixed top-[calc(1rem+env(safe-area-inset-top,0px))] left-4 right-4 sm:left-auto sm:right-4 z-[9999] flex flex-col gap-3 sm:w-full sm:max-w-sm pointer-events-none">
@@ -75,12 +77,15 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             className={`pointer-events-auto flex items-start gap-3 p-4 rounded-xl border shadow-lg transition-all duration-300 animate-slide-in ${
               t.type === "success"
                 ? "bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-950/90 dark:border-emerald-800 dark:text-emerald-200"
+                : t.type === "warning"
+                ? "bg-amber-50 border-amber-200 text-amber-800 dark:bg-amber-950/90 dark:border-amber-800 dark:text-amber-200"
                 : t.type === "error"
                 ? "bg-rose-50 border-rose-200 text-rose-800 dark:bg-rose-950/90 dark:border-rose-800 dark:text-rose-200"
                 : "bg-slate-50 border-slate-200 text-slate-800 dark:bg-slate-900/90 dark:border-slate-800 dark:text-slate-200"
             }`}
           >
             {t.type === "success" && <CheckCircle className="w-5 h-5 shrink-0 text-emerald-500" />}
+            {t.type === "warning" && <AlertTriangle className="w-5 h-5 shrink-0 text-amber-500" />}
             {t.type === "error" && <AlertCircle className="w-5 h-5 shrink-0 text-rose-500" />}
             {t.type === "info" && <Info className="w-5 h-5 shrink-0 text-blue-500" />}
 

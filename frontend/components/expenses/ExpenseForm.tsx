@@ -93,10 +93,14 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency, highli
   // Unsaved-changes guard: any field drift from initial values, or receipt
   // additions/deletions, marks the form dirty.
   const initialFieldsRef = useRef<FormFields>({ ...form });
+  // Manual FX-rate state lives outside `form` but is equally loss-worthy.
+  const initialFxRef = useRef({ fxRateEditMode, manualFxRate });
   const isDirty = () =>
     Object.keys(initialFieldsRef.current).some(
       (k) => form[k as keyof FormFields] !== initialFieldsRef.current[k as keyof FormFields]
     ) ||
+    fxRateEditMode !== initialFxRef.current.fxRateEditMode ||
+    manualFxRate !== initialFxRef.current.manualFxRate ||
     receiptFiles.length > 0 ||
     deletedReceiptIds.size > 0;
   const { clearDirty } = useFormGuard(isDirty, t("guard_unsaved_changes"));
@@ -193,7 +197,20 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency, highli
         throw new Error(e.response?.data?.detail ?? t("error_save"));
       }
       try {
-        for (const rid of deletedReceiptIds) await api.delete(`/expenses/${result.id}/receipts/${rid}`);
+        for (const rid of deletedReceiptIds) {
+          try {
+            await api.delete(`/expenses/${result.id}/receipts/${rid}`);
+          } catch (e: any) {
+            // 404 = already deleted in a previous attempt; safe to ignore.
+            if (e?.response?.status !== 404) throw e;
+          }
+          // Prune so a retry doesn't re-delete and 404-loop.
+          setDeletedReceiptIds((prev) => {
+            const next = new Set(prev);
+            next.delete(rid);
+            return next;
+          });
+        }
         if (receiptFiles.length > 0) {
           setIsUploadingReceipts(true);
           const fd = new FormData();

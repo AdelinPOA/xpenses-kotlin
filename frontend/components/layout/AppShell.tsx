@@ -54,6 +54,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
           <Link
             href="/dashboard"
+            onClick={(e) => {
+              if (!allowNavigation()) e.preventDefault();
+            }}
             className="absolute left-1/2 -translate-x-1/2 min-h-11 px-3 flex items-center justify-center gap-2 hover:opacity-90 transition-opacity z-10 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             <Image src="/logo.png" alt="" width={26} height={26} className="rounded-full" />
@@ -62,6 +65,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
           <Link
             href="/profile"
+            onClick={(e) => {
+              if (!allowNavigation()) e.preventDefault();
+            }}
             className="w-11 h-11 rounded-full bg-primary/20 border border-primary flex items-center justify-center text-primary font-bold text-sm shrink-0 z-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             aria-label="Profile"
           >

@@ -17,7 +17,10 @@ import { useRegisterNavigationGuard } from "./navigationGuard";
 export function useFormGuard(isDirty: () => boolean, message: string) {
   // Ref keeps the latest dirty flag without re-registering the interceptor.
   const dirtyRef = useRef(false);
-  dirtyRef.current = isDirty();
+  // Once the form is saved, isDirty() must stop re-arming the guard on
+  // subsequent renders (e.g. during a delayed post-save redirect).
+  const clearedRef = useRef(false);
+  dirtyRef.current = clearedRef.current ? false : isDirty();
 
   // Reload / close tab / iOS browser (not reliable in standalone PWA — the
   // NavigationGuard interception below is the primary protection there).
@@ -39,6 +42,7 @@ export function useFormGuard(isDirty: () => boolean, message: string) {
   useRegisterNavigationGuard(check);
 
   const clearDirty = useCallback(() => {
+    clearedRef.current = true;
     dirtyRef.current = false;
   }, []);
 

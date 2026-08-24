@@ -164,7 +164,12 @@ export default function SignaturePad({
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
+    // clearRect operates in user space; bypass the dpr transform so the
+    // full backing store is wiped even when dpr < 1 (zoomed-out browsers).
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.restore();
     isEmptyRef.current = true;
     setIsEmpty(true);
   }

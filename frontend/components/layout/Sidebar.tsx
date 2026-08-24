@@ -9,6 +9,7 @@ import clsx from "clsx";
 import { useAuth } from "@/components/AuthProvider";
 import { useTheme } from "@/components/ThemeProvider";
 import { useBodyScrollLock } from "@/lib/useBodyScrollLock";
+import { useAllowNavigation } from "@/lib/navigationGuard";
 import { useTranslations } from "next-intl";
 
 interface NavItem {
@@ -52,6 +53,11 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
   const { user, logout } = useAuth();
   const { theme, setTheme } = useTheme();
   const tNav = useTranslations("nav");
+  const allowNavigation = useAllowNavigation();
+
+  const guardedNavigate = (e: { preventDefault: () => void }) => {
+    if (!allowNavigation()) e.preventDefault();
+  };
   const tCommon = useTranslations("common");
 
   const visibleNav = NAV.filter((item) => user && item.roles.includes(user.role));
@@ -133,7 +139,10 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
         <div className="px-6 pb-4 border-b border-sidebar-border flex items-center justify-between" style={{ paddingTop: "calc(1.5rem + env(safe-area-inset-top, 0px))" }}>
           <Link
             href="/dashboard"
-            onClick={onClose}
+            onClick={(e) => {
+              guardedNavigate(e);
+              onClose();
+            }}
             className="flex items-center gap-2 hover:opacity-90 transition-opacity cursor-pointer"
           >
             <Image
@@ -159,7 +168,10 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
               <Link
                 key={href}
                 href={href}
-                onClick={onClose}
+                onClick={(e) => {
+                  guardedNavigate(e);
+                  onClose();
+                }}
                 className={clsx(
                   "flex items-center gap-3 px-3 min-h-11 rounded-lg mb-1 text-sm font-semibold transition-all duration-200 border-l-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
                   active
@@ -192,7 +204,10 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                   <Link
                     key={href}
                     href={href}
-                    onClick={onClose}
+                    onClick={(e) => {
+                      guardedNavigate(e);
+                      onClose();
+                    }}
                     className={clsx(
                       "flex items-center gap-3 px-3 min-h-11 rounded-lg mb-1 text-sm font-semibold transition-all duration-200 border-l-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
                       active
@@ -216,7 +231,10 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                   <Link
                     key={href}
                     href={href}
-                    onClick={onClose}
+                    onClick={(e) => {
+                      guardedNavigate(e);
+                      onClose();
+                    }}
                     className={clsx(
                       "flex items-center gap-3 px-3 min-h-11 rounded-lg mb-1 text-sm font-semibold transition-all duration-200 border-l-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
                       active

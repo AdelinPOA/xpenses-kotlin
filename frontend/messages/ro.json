@@ -2,6 +2,7 @@
   "common": {
     "save": "Salvare",
     "cancel": "Anulare",
+    "undo": "Anulează acțiunea",
     "confirm": "Confirmare",
     "close": "Închidere",
     "back": "Înapoi",
@@ -183,6 +184,16 @@
     "all_settled": "Toate achitate",
     "expenses_count_label": "Cheltuieli"
   },
+  "offline": {
+    "banner_offline": "Offline — modificările se sincronizează automat",
+    "banner_offline_with_queue": "Offline — {count} schiță(e) se vor trimite automat",
+    "banner_sync_pending": "{count} schiță(e) offline așteaptă sincronizarea",
+    "banner_needs_attention": "{count} schiță(e) offline necesită atenție",
+    "synced_toast": "{count} cheltuială(e) offline sincronizate",
+    "still_offline": "Încă offline — schițele se sincronizează la revenirea conexiunii",
+    "drafts_badge": "{count} schiță(e) offline",
+    "needs_attention": "necesită atenție"
+  },
   "expenses": {
     "title": "Cheltuieli",
     "new_expense": "Cheltuială Nouă",
@@ -295,7 +306,28 @@
     "scan_uploading": "Se încarcă…",
     "scan_reading": "Se citește chitanța… ({seconds}s)",
     "scan_cancel": "Anulează",
-    "unknown_merchant_fallback": "Schiță chitanță"
+    "unknown_merchant_fallback": "Schiță chitanță",
+    "search_placeholder_expenses": "Caută comerciant sau descriere…",
+    "no_results_filtered": "Niciun rezultat pentru filtrele selectate.",
+    "clear_filters": "Șterge filtrele",
+    "deleted_toast": "Cheltuială ștearsă",
+    "delete_failed": "Eșec la ștergerea cheltuielii",
+    "restored_toast": "Cheltuială restaurată",
+    "restore_failed": "Nu s-a putut restaura cheltuiala",
+    "duplicated_toast": "Cheltuială duplicată",
+    "confirm_delete": "Confirmi ștergerea?",
+    "delete_tooltip": "Șterge",
+    "prev_page": "Pagina anterioară",
+    "next_page": "Pagina următoare",
+    "pager_page": "Pagina {page} din {totalPages}",
+    "export_range_label": "Interval de date",
+    "export_this_month": "Luna aceasta",
+    "export_last_month": "Luna trecută",
+    "export_this_year": "Anul acesta",
+    "export_all_time": "Totdeauna",
+    "saved_offline_toast": "Salvat offline — se va trimite automat",
+    "queue_full_warning": "Coada offline este aproape plină — sincronizați curând pentru a nu pierde schițele",
+    "edit_offline_unsupported": "Editarea nu este disponibilă offline. Schițele pot fi totuși create."
   },
   "reports": {
     "company_reports": "Raporturi Companie",

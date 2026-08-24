@@ -5,6 +5,7 @@ import { useState } from "react";
 import AuthProvider from "./AuthProvider";
 import ThemeProvider from "./ThemeProvider";
 import { ToastProvider } from "./ToastProvider";
+import OfflineSyncProvider from "./OfflineSyncProvider";
 import { NavigationGuardProvider } from "@/lib/navigationGuard";
 import LocaleProvider from "@/i18n/LocaleProvider";
 
@@ -24,7 +25,9 @@ export default function Providers({ children }: { children: React.ReactNode }) {
         <AuthProvider>
           <LocaleProvider>
             <ToastProvider>
-              <NavigationGuardProvider>{children}</NavigationGuardProvider>
+              <OfflineSyncProvider>
+                <NavigationGuardProvider>{children}</NavigationGuardProvider>
+              </OfflineSyncProvider>
             </ToastProvider>
           </LocaleProvider>
         </AuthProvider>

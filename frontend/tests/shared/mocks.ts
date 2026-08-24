@@ -1,5 +1,8 @@
 import type { Page } from "@playwright/test";
 
+/** App origin under test — override when running against a non-default port. */
+export const APP_ORIGIN = process.env.PLAYWRIGHT_ORIGIN ?? "http://localhost:3001";
+
 export const USERS = {
   mod: { id: 1, username: "mod1", display_name: "Moderator One", role: "mod", email: "mod1@xpenses.local", active: true, auth_source: "local", created_at: "2025-01-01T00:00:00Z", email_notifications: false },
   manager: { id: 2, username: "manager1", display_name: "Manager One", role: "manager", email: "manager1@xpenses.local", active: true, auth_source: "local", created_at: "2025-01-01T00:00:00Z", email_notifications: true },
@@ -162,8 +165,8 @@ export async function setupCommonMocks(page: Page, opts?: { role?: keyof typeof 
   const role = opts?.role ?? "mod";
   const user = USERS[role];
   await page.context().addCookies([
-    { name: "access_token", value: "mock-jwt-token", url: "http://localhost:3001" },
-    { name: "refresh_token", value: "mock-refresh-token", url: "http://localhost:3001" },
+    { name: "access_token", value: "mock-jwt-token", url: APP_ORIGIN },
+    { name: "refresh_token", value: "mock-refresh-token", url: APP_ORIGIN },
   ]);
   await page.route("**/api/auth/me", (route) => route.fulfill({ json: user }));
   await page.route("**/api/auth/refresh", (route) => route.fulfill({ json: { access_token: "new-mock-token" } }));
@@ -241,8 +244,8 @@ export async function setupAdminMocks(page: Page, options?: { fxMarginsPatchResp
 export async function setupAuthMocks(page: Page, role: keyof typeof USERS = "mod") {
   const user = USERS[role];
   await page.context().addCookies([
-    { name: "access_token", value: "mock-jwt-token", url: "http://localhost:3001" },
-    { name: "refresh_token", value: "mock-refresh-token", url: "http://localhost:3001" },
+    { name: "access_token", value: "mock-jwt-token", url: APP_ORIGIN },
+    { name: "refresh_token", value: "mock-refresh-token", url: APP_ORIGIN },
   ]);
   await page.route("**/api/auth/me", (route) => route.fulfill({ json: user }));
   await page.route("**/api/auth/refresh", (route) => route.fulfill({ json: { access_token: "new-mock-token" } }));

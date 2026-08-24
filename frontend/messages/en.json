@@ -2,6 +2,7 @@
   "common": {
     "save": "Save",
     "cancel": "Cancel",
+    "undo": "Undo",
     "confirm": "Confirm",
     "close": "Close",
     "back": "Back",
@@ -183,6 +184,16 @@
     "all_settled": "All settled",
     "expenses_count_label": "Expenses"
   },
+  "offline": {
+    "banner_offline": "Offline — changes will sync automatically",
+    "banner_offline_with_queue": "Offline — {count} draft(s) will submit automatically",
+    "banner_sync_pending": "{count} offline draft(s) waiting to sync",
+    "banner_needs_attention": "{count} offline draft(s) need attention",
+    "synced_toast": "Synced {count} offline expense(s)",
+    "still_offline": "Still offline — drafts will sync when connection returns",
+    "drafts_badge": "{count} offline draft(s)",
+    "needs_attention": "needs attention"
+  },
   "expenses": {
     "title": "Expenses",
     "new_expense": "New Expense",
@@ -295,7 +306,28 @@
     "scan_uploading": "Uploading…",
     "scan_reading": "Reading receipt… ({seconds}s)",
     "scan_cancel": "Cancel",
-    "unknown_merchant_fallback": "Receipt draft"
+    "unknown_merchant_fallback": "Receipt draft",
+    "search_placeholder_expenses": "Search merchant or description…",
+    "no_results_filtered": "No results match your filters.",
+    "clear_filters": "Clear filters",
+    "deleted_toast": "Expense deleted",
+    "delete_failed": "Failed to delete expense",
+    "restored_toast": "Expense restored",
+    "restore_failed": "Could not restore expense",
+    "duplicated_toast": "Expense duplicated",
+    "confirm_delete": "Confirm delete?",
+    "delete_tooltip": "Delete",
+    "prev_page": "Previous page",
+    "next_page": "Next page",
+    "pager_page": "Page {page} of {totalPages}",
+    "export_range_label": "Date range",
+    "export_this_month": "This month",
+    "export_last_month": "Last month",
+    "export_this_year": "This year",
+    "export_all_time": "All time",
+    "saved_offline_toast": "Saved offline — will submit automatically",
+    "queue_full_warning": "Offline queue is nearly full — sync soon to avoid losing drafts",
+    "edit_offline_unsupported": "Editing is not available offline. Drafts can still be created."
   },
   "reports": {
     "company_reports": "Company Reports",

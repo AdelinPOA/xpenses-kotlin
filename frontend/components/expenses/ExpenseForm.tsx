@@ -7,6 +7,8 @@ import api, { Category, Expense, CURRENCIES, API_BASE_URL, downloadBlob, OCRScan
 import { categoryKeys, expenseKeys, dashboardKeys } from "@/lib/queryKeys";
 import { useFormGuard } from "@/lib/useFormGuard";
 import { scanReceipt, compressImage, ScanProgress, ScanCancelledError, ScanTimeoutError, ScanJobError } from "@/lib/ocrScan";
+import { enqueueExpense, countPendingExpenses, MAX_QUEUE_SIZE } from "@/lib/offlineQueue";
+import { useOfflineSync } from "@/components/OfflineSyncProvider";
 import { Camera } from "lucide-react";
 import clsx from "clsx";
 import { formatEur } from "@/lib/format";
@@ -53,6 +55,7 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency, highli
   const t = useTranslations("expenses");
   const tc = useTranslations("common");
   const toast = useToast();
+  const { refreshCount: refreshOffline } = useOfflineSync();
 
   const [form, setForm] = useState<FormFields>({
     amount: expense?.amount_original?.toString() ?? "",
@@ -176,6 +179,10 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency, highli
   const activeItem = items.find((it) => it.key === activeReceiptKey) || items[0] || null;
 
   const save = useMutation({
+    // "always": TanStack otherwise PAUSES mutations while navigator.onLine
+    // is false — our own offline handling (IndexedDB queue) lives in
+    // mutationFn and must run even when offline.
+    networkMode: "always",
     mutationFn: async () => {
       const manualRate = fxRateEditMode ? manualFxRate : null;
       const payload = {
@@ -192,12 +199,35 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency, highli
         ...(manualRate !== null ? { fx_rate: manualRate, fx_rate_manual: true } : {}),
         ...(reportId && !isEdit ? { report_id: reportId } : {}),
       };
+
+      // Offline: queue the draft locally instead of failing.
+      if (!navigator.onLine) {
+        if (isEdit) throw new Error(t("edit_offline_unsupported"));
+        const receipts: { name: string; type: string; blob: Blob }[] = [];
+        for (const { file } of receiptFiles) {
+          const blob = await compressImage(file);
+          receipts.push({ name: file.name, type: blob.type || file.type, blob });
+        }
+        const queued = await enqueueExpense(payload, receipts);
+        return { expense: null, receiptUploadFailed: false, queued };
+      }
       let result: Expense;
       try {
         result = isEdit
           ? await api.patch(`/expenses/${expense.id}`, payload).then((r) => r.data)
           : await api.post("/expenses", payload).then((r) => r.data);
       } catch (e: any) {
+        if (!isEdit && !e.response) {
+          // Network-level failure mid-save: queue the draft instead of
+          // erroring — a re-tap of Save must not create a duplicate.
+          const receipts: { name: string; type: string; blob: Blob }[] = [];
+          for (const { file } of receiptFiles) {
+            const blob = await compressImage(file);
+            receipts.push({ name: file.name, type: blob.type || file.type, blob });
+          }
+          const queued = await enqueueExpense(payload, receipts);
+          return { expense: null, receiptUploadFailed: false, queued };
+        }
         throw new Error(e.response?.data?.detail ?? t("error_save"));
       }
       try {
@@ -230,9 +260,19 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency, highli
       } finally {
         setIsUploadingReceipts(false);
       }
-      return { expense: result, receiptUploadFailed: false as const };
+      return { expense: result, receiptUploadFailed: false, queued: null };
     },
-    onSuccess: ({ expense: result, receiptUploadFailed }) => {
+    onSuccess: async ({ expense: result, receiptUploadFailed, queued }) => {
+      if (queued) {
+        toast.success(t("saved_offline_toast"));
+        if ((await countPendingExpenses()) >= MAX_QUEUE_SIZE) {
+          toast.warning(t("queue_full_warning"));
+        }
+        await refreshOffline();
+        clearDirty();
+        router.push(reportId ? `/reports/${reportId}` : "/expenses");
+        return;
+      }
       qc.invalidateQueries({ queryKey: expenseKeys.all });
       qc.invalidateQueries({ queryKey: dashboardKeys.all });
       if (receiptUploadFailed) {

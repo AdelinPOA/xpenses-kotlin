@@ -5,7 +5,8 @@ test.describe("Auth guard", () => {
   test("redirects to login when unauthenticated", async ({ page }) => {
     await page.goto("/dashboard", { waitUntil: "load" });
     await page.waitForTimeout(2000);
-    await page.waitForURL("**/login", { timeout: 10000 });
+    // Middleware forwards the attempted path as ?next= for post-login restore.
+    await page.waitForURL(/\/login\?next=%2Fdashboard$/, { timeout: 10000 });
   });
 
   test("allows access when authenticated", async ({ page }) => {

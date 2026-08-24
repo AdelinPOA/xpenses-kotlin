@@ -65,7 +65,7 @@ test.describe("Dashboard", () => {
     await setupCommonMocks(page);
     await page.goto("/dashboard", { waitUntil: "load" });
     await page.waitForTimeout(2000);
-    await expect(page.getByRole("link", { name: "Add expense" })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole("link", { name: "Add New Expense" })).toBeVisible({ timeout: 15000 });
   });
 
   test("mobile burger menu opens backdrop with z-50 above FAB", async ({ page }) => {

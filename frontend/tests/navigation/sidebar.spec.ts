@@ -68,7 +68,7 @@ test.describe("Sidebar navigation", () => {
     await page.setViewportSize({ width: 375, height: 812 });
     await setupCommonMocks(page, { role: "manager" });
     await page.goto("/dashboard", { waitUntil: "load" });
-    const bottomNav = page.locator("div.fixed.bottom-0");
+    const bottomNav = page.locator("nav.fixed.bottom-0");
     await expect(bottomNav.getByRole("link", { name: "Review Reports" })).toBeVisible({ timeout: 15000 });
     await expect(bottomNav.getByRole("link", { name: "Expenses" })).not.toBeVisible();
 

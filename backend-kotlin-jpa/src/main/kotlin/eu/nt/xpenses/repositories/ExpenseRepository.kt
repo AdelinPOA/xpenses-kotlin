@@ -9,6 +9,8 @@ import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 import org.springframework.stereotype.Repository
 
+import java.math.BigDecimal
+
 @Repository
 interface ExpenseRepository : JpaRepository<Expense, Int> {
     fun findAllByUserId(userId: Int): List<Expense>
@@ -75,13 +77,17 @@ interface ExpenseRepository : JpaRepository<Expense, Int> {
     @Query("SELECT e FROM Expense e WHERE e.user.id = :userId AND e.date >= :fromDate AND e.date <= :toDate")
     fun findAllByUserIdAndDateBetween(@Param("userId") userId: Int, @Param("fromDate") fromDate: String, @Param("toDate") toDate: String): List<Expense>
 
-    @EntityGraph(attributePaths = ["user", "category"])
-    @Query("SELECT e FROM Expense e WHERE e.date >= :fromDate")
-    fun findAllByDateFrom(@Param("fromDate") fromDate: String): List<Expense>
+    @Query("SELECT COALESCE(SUM(e.amountEur), 0) FROM Expense e WHERE e.date >= :fromDate")
+    fun sumAmountEurByDateFrom(@Param("fromDate") fromDate: String): BigDecimal
 
-    @EntityGraph(attributePaths = ["user", "category"])
-    @Query("SELECT e FROM Expense e WHERE e.user.id = :userId AND e.date >= :fromDate")
-    fun findAllByUserIdAndDateFrom(@Param("userId") userId: Int, @Param("fromDate") fromDate: String): List<Expense>
+    @Query("""
+        SELECT c.id, c.name, SUM(e.amountEur), COUNT(e)
+        FROM Expense e LEFT JOIN e.category c
+        WHERE e.date >= :fromDate AND (:userId IS NULL OR e.user.id = :userId)
+        GROUP BY c.id, c.name
+        ORDER BY SUM(e.amountEur) DESC
+    """)
+    fun spendByCategorySince(@Param("fromDate") fromDate: String, @Param("userId") userId: Int?): List<Array<Any>>
 
     @EntityGraph(attributePaths = ["user", "category"])
     @Query("SELECT e FROM Expense e WHERE e.user.id = :userId AND e.date <= :toDate")

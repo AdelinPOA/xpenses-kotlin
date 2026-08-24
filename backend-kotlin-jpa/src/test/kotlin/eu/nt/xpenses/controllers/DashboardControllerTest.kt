@@ -56,6 +56,30 @@ class DashboardControllerTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `dashboard aggregates month counts and spend per category without loading entities`() {
+        val tech = userRepository.findByUsername("tech1")!!
+        val cat = categoryRepository.findAll().firstOrNull() ?: error("No seeded category")
+        val currentMonth = java.time.LocalDate.now(java.time.ZoneOffset.UTC)
+        val monthStr = String.format("%d-%02d-%02d", currentMonth.year, currentMonth.monthValue, 1)
+        expenseRepository.save(Expense(user = tech, category = cat, amountOriginal = BigDecimal("10.00"), amountEur = BigDecimal("10.00"), date = monthStr))
+        expenseRepository.save(Expense(user = tech, category = cat, amountOriginal = BigDecimal("15.00"), amountEur = BigDecimal("15.00"), date = monthStr))
+        expenseRepository.save(Expense(user = tech, category = null, amountOriginal = BigDecimal("7.50"), amountEur = BigDecimal("7.50"), date = monthStr))
+        entityManager.flush()
+        entityManager.clear()
+
+        val cookie = authHelper.loginAs("tech1", "tech1")
+        mockMvc.perform(get("/api/dashboard").cookie(cookie))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.expense_count_month").value(3))
+            .andExpect(jsonPath("$.spend_by_category[0].category_name").value(cat.name))
+            .andExpect(jsonPath("$.spend_by_category[0].total").value(25.00))
+            .andExpect(jsonPath("$.spend_by_category[0].count").value(2))
+            .andExpect(jsonPath("$.spend_by_category[1].category_name").value("Uncategorized"))
+            .andExpect(jsonPath("$.spend_by_category[1].total").value(7.50))
+            .andExpect(jsonPath("$.spend_by_category[1].count").value(1))
+    }
+
+    @Test
     fun `technician gets 403 forbidden for manager dashboard`() {
         val cookie = authHelper.loginAs("tech1", "tech1")
         mockMvc.perform(get("/api/dashboard/manager").cookie(cookie))

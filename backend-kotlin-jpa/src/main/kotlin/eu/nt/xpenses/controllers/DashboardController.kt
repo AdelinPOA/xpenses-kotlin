@@ -51,16 +51,12 @@ class DashboardController(
 
         val uid = currentUser.id!!
         val expenseCountTotal = if (isOrgWide) expenseRepository.count() else expenseRepository.countByUserId(uid)
-        val monthExpenses = if (isOrgWide) {
-            expenseRepository.findAllByDateFrom(monthStart)
-        } else {
-            expenseRepository.findAllByUserIdAndDateFrom(uid, monthStart)
-        }
-
-        val expenseCountMonth = monthExpenses.size
 
         val canApprove = authorization.canManage(currentUser)
         val canPay = authorization.canPay(currentUser)
+
+        val spendByCategoryRows = expenseRepository.spendByCategorySince(monthStart, if (isOrgWide) null else uid)
+        val expenseCountMonth = spendByCategoryRows.sumOf { (it[3] as Number).toInt() }
 
         val latestReports = if (isOrgWide) {
             expenseReportRepository.findLatestWithExpenses(Pageable.ofSize(1))
@@ -91,17 +87,15 @@ class DashboardController(
             counts["approved"] ?: 0
         } else 0
 
-        val spendByCategory = monthExpenses
-            .groupBy { it.category }
-            .map { (cat, catExpenses) ->
+        val spendByCategory = spendByCategoryRows
+            .map { row ->
                 CategorySpend(
-                    categoryId = cat?.id,
-                    categoryName = cat?.name ?: "Uncategorized",
-                    total = catExpenses.map { it.amountEur }.fold(BigDecimal.ZERO) { acc, v -> acc.add(v) },
-                    count = catExpenses.size
+                    categoryId = row[0] as? Int,
+                    categoryName = row[1] as? String ?: "Uncategorized",
+                    total = row[2] as? BigDecimal ?: BigDecimal.ZERO,
+                    count = (row[3] as Number).toInt()
                 )
             }
-            .sortedByDescending { it.total }
             .take(10)
 
         val recentExpenses = if (isOrgWide) {
@@ -164,8 +158,7 @@ class DashboardController(
 
         val now = LocalDate.now(ZoneOffset.UTC)
         val monthStart = String.format("%d-%02d-01", now.year, now.monthValue)
-        val monthExpenses = expenseRepository.findAllByDateFrom(monthStart)
-        val monthlyTeamSpendEur = monthExpenses.map { it.amountEur }.fold(BigDecimal.ZERO) { acc, v -> acc.add(v) }
+        val monthlyTeamSpendEur = expenseRepository.sumAmountEurByDateFrom(monthStart)
 
         val kpis = ManagerKpis(
             pendingReportsCount = pendingReportSummaries.size,

@@ -12,39 +12,39 @@
     "test:e2e:mobile": "playwright test tests/mobile-ui.spec.ts --project=mobile-chromium --project=mobile-webkit"
   },
   "dependencies": {
-    "@hookform/resolvers": "^5.4.0",
-    "@tanstack/react-query": "^5.62.0",
-    "axios": "^1.7.9",
+    "@hookform/resolvers": "^5.9.1",
+    "@tanstack/react-query": "^5.66.0",
+    "axios": "^1.19.0",
     "clsx": "^2.1.1",
     "form-data": "^4.0.6",
     "js-yaml": "^4.2.0",
     "lucide-react": "^0.469.0",
-    "next": "^16.2.12",
-    "next-intl": "^4.13.4",
+    "next": "^16.3.1",
+    "next-intl": "^4.13.7",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "react-hook-form": "^7.78.0",
+    "react-hook-form": "^7.85.0",
     "sharp": "^0.35.3",
     "zod": "^4.4.3"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@next/eslint-plugin-next": "^16.2.12",
-    "@playwright/test": "^1.61.1",
+    "@next/eslint-plugin-next": "^16.3.1",
+    "@playwright/test": "^1.62.1",
     "@tailwindcss/postcss": "^4.0.0",
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^10.8.0",
     "eslint-config-next": "^0.2.4",
-    "globals": "^17.8.0",
-    "postcss": "^8.5.10",
+    "globals": "^17.11.0",
+    "postcss": "^8.5.26",
     "tailwindcss": "^4.0.0",
     "typescript": "^5",
     "@axe-core/playwright": "^4.10.2"
   },
   "overrides": {
-    "postcss": "^8.5.10",
+    "postcss": "^8.5.26",
     "sharp": "^0.35.3"
   }
 }

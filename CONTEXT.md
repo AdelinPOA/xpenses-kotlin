@@ -30,6 +30,14 @@ _Avoid_: spread, commission
 **Manual rate**:
 An FX rate entered by a technician instead of the automatic one. Marked `fx_rate_manual` and shown in reports; used when the automatic rate visibly differs from the bank statement debit.
 
+**Debited amount**:
+The amount actually charged by the bank for an expense, in the card's billing currency. When known, it is ground truth over any reference rate: the expense's FX rate is derived so the recorded EUR amount matches it.
+_Avoid_: final amount, charged amount
+
+**Debit currency**:
+The currency in which the bank charged an expense, shown on the bank statement. May differ from both the original currency and EUR.
+_Avoid_: billing currency, settlement currency
+
 **Advance**:
 A payment given to a technician in advance of expected expenses, later settled against a report.
 _Avoid_: pre-payment, avans

@@ -33,8 +33,6 @@ interface FormFields {
   tax_amount: string;
   tax_rate: string;
   raw_ocr_text: string;
-  fx_rate: string;
-  fx_rate_manual: boolean;
 }
 
 interface Props {
@@ -60,10 +58,10 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
     tax_amount: expense?.tax_amount?.toString() ?? "0",
     tax_rate: expense?.tax_rate?.toString() ?? "",
     raw_ocr_text: expense?.raw_ocr_text ?? "",
-    fx_rate: expense?.fx_rate?.toString() ?? "",
-    fx_rate_manual: expense?.fx_rate_manual ?? false,
   });
   const [fxRateEditMode, setFxRateEditMode] = useState(false);
+  // Effective manual FX rate (raw or derived from the debited amount), reported by FxRateInput.
+  const [manualFxRate, setManualFxRate] = useState<number | null>(null);
   const [receiptFiles, setReceiptFiles] = useState<{ id: string; file: File }[]>([]);
   const [deletedReceiptIds, setDeletedReceiptIds] = useState<Set<number>>(new Set());
   const [error, setError] = useState("");
@@ -149,7 +147,7 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
 
   const save = useMutation({
     mutationFn: async () => {
-      const manualRate = fxRateEditMode && form.fx_rate ? parseFloat(form.fx_rate) : null;
+      const manualRate = fxRateEditMode ? manualFxRate : null;
       const payload = {
         amount: parseFloat(form.amount),
         currency: form.currency,
@@ -361,22 +359,21 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency }: Prop
 
           {form.currency !== "EUR" && (
             <FxRateInput
-              fxRateEditMode={fxRateEditMode}
-              fxRate={form.fx_rate}
+              active={fxRateEditMode}
               currency={form.currency}
-              isEdit={isEdit}
-              expenseFxRate={expense?.fx_rate}
-              expenseFxRateManual={expense?.fx_rate_manual}
-              onToggleMode={() => {
+              amount={form.amount}
+              date={form.date}
+              initialRate={expense?.fx_rate ?? null}
+              initialManualRate={expense?.fx_rate_manual ? expense.fx_rate ?? null : null}
+              onToggle={() => {
                 if (fxRateEditMode) {
                   setFxRateEditMode(false);
-                  setForm((f) => ({ ...f, fx_rate: expense?.fx_rate?.toString() ?? "", fx_rate_manual: expense?.fx_rate_manual ?? false }));
+                  setManualFxRate(null);
                 } else {
                   setFxRateEditMode(true);
-                  if (!form.fx_rate && isEdit && expense?.fx_rate) setForm((f) => ({ ...f, fx_rate: expense.fx_rate.toString() }));
                 }
               }}
-              onChange={setField("fx_rate")}
+              onManualRateChange={setManualFxRate}
             />
           )}
 

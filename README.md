@@ -286,6 +286,21 @@ npm run dev
 
 The frontend normally runs on `http://localhost:3000` when started directly. Keep the API URL consistent with the backend port used by your local setup.
 
+### Makefile shortcuts
+
+A `Makefile` wraps the most common operations:
+
+| Command | Purpose |
+|---|---|
+| `make up` | Build and start the full Docker Compose stack |
+| `make down` | Stop the stack |
+| `make rebuild` | Rebuild and restart only the backend service |
+| `make logs` | Follow backend logs |
+| `make build` | Build the backend bootJar (checks JDK 21 first) |
+| `make test` | Run the backend test suite |
+| `make test-health` | Smoke-test the running backend health endpoint |
+| `make test-login` / `make test-expenses` | Curl-based login and authenticated API checks against a locally running stack |
+
 ### Useful backend commands
 
 ```bash
@@ -354,6 +369,7 @@ Never document real secret values. Use placeholders such as `<set-in-secret-mana
 - Add indexes for new high-volume lookup paths when justified by query behavior.
 - Update affected entities, DTOs, services, controllers, exports, and tests in the same change.
 - Never edit an already-applied migration to repair production history. Add a new migration.
+- For operational backups, `scripts/backup-db.sh` runs `pg_dump` against the running Compose database container and prunes dumps past a retention window. It is configurable via environment variables (`BACKUP_DIR`, `DB_CONTAINER`, `DB_USER`, `DB_NAME`, `RETENTION_DAYS`); schedule or wrap it per your deployment requirements.
 
 Before merging a migration change, verify:
 
@@ -575,13 +591,17 @@ For UI work, run the relevant Playwright projects. For Docker or configuration w
 
 ## Current architecture priorities
 
-The latest hardening work established stronger foundations around mobile accessibility, authentication, storage safety, OCR transaction boundaries, Redis-backed rate limiting, IMAP idempotency, and resumable storage migrations.
+Recent hardening work completed:
+
+- Dashboard endpoints use SQL aggregates (`SUM`, grouped category spend) instead of hydrating month-wide expense entities.
+- Application settings (daily allowance, mileage rates, FX margins, storage migration status, receipt orphan handling) are owned by `AppSettingsService`; controllers no longer access repositories directly.
+- Settings transport DTOs live in `dto/settings`, shared correctly between controller and service.
 
 The next architectural/product priorities are:
 
 1. Deepen the Expense lifecycle into a single authoritative `ExpenseService` so receipt handling, authorization, listing, export, and download rules do not drift across controllers.
 2. Polish the manager review workflow so the dashboard acts as a work hub, `/approvals` is the focused review queue, and `/reports` remains the report browser/archive.
-3. Add focused deployed-environment verification for Redis failover behavior, background-job retries, migration recovery, and production configuration.
+3. Add focused deployed-environment verification for Redis failover behavior, background-job retries, migration recovery, and production configuration. A Compose smoke job in CI (build the stack, wait for health, exercise login + an authenticated read) is the foundation for this.
 
 Update this section when priorities change. Link the relevant issue, ADR, or pull request instead of allowing this list to become an untracked roadmap.
 

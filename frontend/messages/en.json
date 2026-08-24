@@ -291,7 +291,11 @@
     "tap_photograph": "Tap to photograph or choose a receipt",
     "supports_formats": "Supports JPG, PNG, PDF, WEBP up to 10MB",
     "take_photo": "Take photo",
-    "expense_not_found": "Expense not found"
+    "expense_not_found": "Expense not found",
+    "scan_uploading": "Uploading…",
+    "scan_reading": "Reading receipt… ({seconds}s)",
+    "scan_cancel": "Cancel",
+    "unknown_merchant_fallback": "Receipt draft"
   },
   "reports": {
     "company_reports": "Company Reports",
@@ -801,5 +805,16 @@
     "upload_failed": "Upload failed",
     "file_deleted": "File deleted",
     "delete_failed": "Delete failed"
+  },
+  "capture": {
+    "title": "Snap a receipt",
+    "subtitle": "Photograph a receipt — a draft expense is created automatically.",
+    "tap_to_capture": "Tap to capture a receipt",
+    "take_photo": "Take photo",
+    "choose_file": "Choose file",
+    "draft_saved_toast": "Draft saved — tap to add details",
+    "draft_needs_details_toast": "Draft saved with photo only — add the details",
+    "session_drafts": "{count} draft(s) this session",
+    "view_all": "View all expenses"
   }
 }

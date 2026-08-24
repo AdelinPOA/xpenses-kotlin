@@ -600,7 +600,7 @@ export default function DashboardClient() {
               </div>
 
               <Link
-                href="/expenses/new"
+                href="/expenses/capture"
                 aria-label="New expense"
                 onClick={(e) => {
                   triggerHaptic(10);

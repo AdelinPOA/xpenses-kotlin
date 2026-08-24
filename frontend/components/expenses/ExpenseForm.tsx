@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import api, { Category, Expense, CURRENCIES, API_BASE_URL, downloadBlob, OCRScanResult } from "@/lib/api";
 import { categoryKeys, expenseKeys, dashboardKeys } from "@/lib/queryKeys";
 import { useFormGuard } from "@/lib/useFormGuard";
+import { scanReceipt, compressImage, ScanProgress, ScanCancelledError, ScanTimeoutError, ScanJobError } from "@/lib/ocrScan";
 import { Camera } from "lucide-react";
 import clsx from "clsx";
 import { formatEur } from "@/lib/format";
@@ -73,6 +74,9 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency, highli
   const [savedExpense, setSavedExpense] = useState<Expense | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [scanResult, setScanResult] = useState<OCRScanResult | null>(null);
+  // Staged OCR progress ("Uploading… / Reading receipt… (n)s") + cancel.
+  const [scanProgress, setScanProgress] = useState<ScanProgress | null>(null);
+  const scanAbortRef = useRef<AbortController | null>(null);
   // Distinguishes the receipt-upload sub-phase of saving so slow uploads
   // don't look frozen on the submit button.
   const [isUploadingReceipts, setIsUploadingReceipts] = useState(false);
@@ -268,62 +272,18 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency, highli
   const removeNewFile = (index: number) => setReceiptFiles((prev) => prev.filter((_, i) => i !== index));
   const markDeleteReceipt = (receiptId: number) => setDeletedReceiptIds((prev) => new Set(prev).add(receiptId));
 
-  const compressImage = useCallback((file: File): Promise<Blob | File> => {
-    const isImage = file.type.startsWith("image/") || /\.(jpg|jpeg|png|webp)$/i.test(file.name);
-    if (!isImage) return Promise.resolve(file);
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = (event) => {
-        const img = new Image();
-        img.src = event.target?.result as string;
-        img.onload = () => {
-          const canvas = document.createElement("canvas");
-          const maxDim = 1600;
-          let width = img.width;
-          let height = img.height;
-          if (width > maxDim || height > maxDim) {
-            if (width > height) { height = Math.round((height * maxDim) / width); width = maxDim; }
-            else { width = Math.round((width * maxDim) / height); height = maxDim; }
-          }
-          canvas.width = width;
-          canvas.height = height;
-          canvas.getContext("2d")?.drawImage(img, 0, 0, width, height);
-          canvas.toBlob((blob) => resolve(blob || file), "image/jpeg", 0.8);
-        };
-        img.onerror = () => resolve(file);
-      };
-      reader.onerror = () => resolve(file);
-    });
-  }, []);
+  const cancelScan = () => scanAbortRef.current?.abort();
 
   const processFileScan = async (file: File) => {
     setIsScanning(true);
     setScanResult(null);
+    setScanProgress({ phase: "uploading", elapsedSeconds: 0 });
     setError("");
+    const ac = new AbortController();
+    scanAbortRef.current = ac;
     try {
-      const compressedBlob = await compressImage(file);
-      const fd = new FormData();
-      fd.append("file", compressedBlob, file.name);
-      const res = await api.post("/ocr/scan", fd);
-      let result: OCRScanResult;
-      if (res.status === 202 && res.data.status_url) {
-        let isCompleted = false;
-        let attempts = 0;
-        const maxAttempts = 60;
-        const abortController = new AbortController();
-        try {
-          while (!isCompleted && attempts < maxAttempts) {
-            attempts++;
-            await new Promise(resolve => setTimeout(resolve, 1500));
-            const statusRes = await api.get(res.data.status_url, { signal: abortController.signal });
-            if (statusRes.data.status === "completed") { result = statusRes.data.result; isCompleted = true; }
-            else if (statusRes.data.status === "failed") throw new Error(statusRes.data.error || t("error_ocr_job"));
-          }
-          if (!isCompleted) throw new Error(t("error_ocr_timeout"));
-        } finally { abortController.abort(); }
-      } else { result = res.data; }
-      setScanResult(result!);
+      const result = await scanReceipt(file, { signal: ac.signal, onProgress: setScanProgress });
+      setScanResult(result);
       setForm((f) => ({
         ...f,
         amount: f.amount || (result.amount?.toString() ?? ""),
@@ -338,8 +298,18 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency, highli
       }));
       setReceiptFiles((prev) => [...prev, { id: crypto.randomUUID(), file }]);
     } catch (e: any) {
-      setError(e.response?.data?.detail ?? e.message ?? t("error_ocr_scan"));
-    } finally { setIsScanning(false); }
+      if (e instanceof ScanCancelledError || e?.name === "AbortError") {
+        // Cancelled — pre-scan state is already intact (nothing was applied).
+        return;
+      }
+      if (e instanceof ScanTimeoutError) setError(t("error_ocr_timeout"));
+      else if (e instanceof ScanJobError) setError(e.detail ?? t("error_ocr_job"));
+      else setError(e.response?.data?.detail ?? e.message ?? t("error_ocr_scan"));
+    } finally {
+      scanAbortRef.current = null;
+      setScanProgress(null);
+      setIsScanning(false);
+    }
   };
 
   const handleScan = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -389,6 +359,8 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency, highli
           {!isEdit && (
             <ReceiptScanner
               isScanning={isScanning}
+              scanProgress={scanProgress}
+              onCancelScan={cancelScan}
               isDragging={isDragging}
               onScan={handleScan}
               onCameraCapture={handleScan}

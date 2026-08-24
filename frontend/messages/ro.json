@@ -291,7 +291,11 @@
     "tap_photograph": "Atingeți pentru a fotografia sau alege o chitanță",
     "supports_formats": "Suportă JPG, PNG, PDF, WEBP maximum 10MB",
     "take_photo": "Fă o poză",
-    "expense_not_found": "Cheltuială negăsită"
+    "expense_not_found": "Cheltuială negăsită",
+    "scan_uploading": "Se încarcă…",
+    "scan_reading": "Se citește chitanța… ({seconds}s)",
+    "scan_cancel": "Anulează",
+    "unknown_merchant_fallback": "Schiță chitanță"
   },
   "reports": {
     "company_reports": "Raporturi Companie",
@@ -801,5 +805,16 @@
     "upload_failed": "Încărcare eșuată",
     "file_deleted": "Fișier șters",
     "delete_failed": "Ștergere eșuată"
+  },
+  "capture": {
+    "title": "Fotografiază o chitanță",
+    "subtitle": "Fotografiază chitanța — se creează automat o schiță de cheltuială.",
+    "tap_to_capture": "Atinge pentru a fotografia chitanța",
+    "take_photo": "Fotografiază",
+    "choose_file": "Alege fișier",
+    "draft_saved_toast": "Schiță salvată — atinge pentru detalii",
+    "draft_needs_details_toast": "Schiță salvată doar cu poza — completează detaliile",
+    "session_drafts": "{count} schiță(e) în această sesiune",
+    "view_all": "Vezi toate cheltuielile"
   }
 }

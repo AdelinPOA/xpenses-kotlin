@@ -1,10 +1,16 @@
 "use client";
 
-import { Camera } from "lucide-react";
+import { Camera, X } from "lucide-react";
 import clsx from "clsx";
+import { useTranslations } from "next-intl";
+import type { ScanProgress } from "@/lib/ocrScan";
 
 interface Props {
   isScanning: boolean;
+  /** Staged OCR progress; null when idle. */
+  scanProgress?: ScanProgress | null;
+  /** Aborts the in-flight scan (button hidden when absent). */
+  onCancelScan?: () => void;
   isDragging: boolean;
   onScan: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onCameraCapture: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -17,10 +23,11 @@ interface Props {
 }
 
 export default function ReceiptScanner({
-  isScanning, isDragging, onScan, onCameraCapture,
+  isScanning, scanProgress, onCancelScan, isDragging, onScan, onCameraCapture,
   onDragOver, onDragLeave, onDrop, onClick,
   scanInputRef, cameraInputRef,
 }: Props) {
+  const t = useTranslations("expenses");
   return (
     <div>
       <div
@@ -61,7 +68,24 @@ export default function ReceiptScanner({
         {isScanning ? (
           <div role="status" aria-live="polite" className="flex flex-col items-center gap-2">
             <div aria-hidden="true" className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-            <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Analyzing receipt...</p>
+            <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
+              {scanProgress?.phase === "uploading"
+                ? t("scan_uploading")
+                : t("scan_reading", { seconds: scanProgress?.elapsedSeconds ?? 0 })}
+            </p>
+            {onCancelScan && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onCancelScan();
+                }}
+                className="min-h-11 min-w-11 inline-flex items-center gap-1 text-xs font-medium text-muted hover:text-red-500 transition-colors"
+              >
+                <X className="w-3.5 h-3.5" aria-hidden="true" />
+                {t("scan_cancel")}
+              </button>
+            )}
           </div>
         ) : (
           <div className="flex flex-col items-center gap-2">

@@ -65,7 +65,9 @@
     "role_technician": "Tehnician",
     "role_manager": "Manager",
     "role_finance_lead": "Șef Finanțe",
-    "role_administrator": "Administrator"
+    "role_administrator": "Administrator",
+    "open_sidebar": "Deschide bara laterală",
+    "mobile_navigation": "Navigare mobilă principală"
   },
   "auth": {
     "login": {
@@ -75,7 +77,9 @@
       "label_username": "Nume de utilizator",
       "label_password": "Parolă",
       "button_sign_in": "Conectare",
-      "button_sign_in_loading": "Se conectează..."
+      "button_sign_in_loading": "Se conectează...",
+      "show_password": "Afișează parola",
+      "hide_password": "Ascunde parola"
     }
   },
   "dashboard": {
@@ -338,7 +342,15 @@
     "export_all_time": "Totdeauna",
     "saved_offline_toast": "Salvat offline — se va trimite automat",
     "queue_full_warning": "Coada offline este aproape plină — sincronizați curând pentru a nu pierde schițele",
-    "edit_offline_unsupported": "Editarea nu este disponibilă offline. Schițele pot fi totuși create."
+    "edit_offline_unsupported": "Editarea nu este disponibilă offline. Schițele pot fi totuși create.",
+    "bulk_no_img": "Fără img",
+    "status_approved": "Aprobat",
+    "status_rejected": "Respins",
+    "no_preview_available": "Nu există previzualizare pentru acest tip de fișier.",
+    "reset": "Resetează",
+    "bulk_no_expenses": "Nu au fost create cheltuieli",
+    "bulk_footer_note": "Toate cheltuielile sunt salvate ca <b>ciornă</b>. Atribuiți-le unui raport când sunteți gata.",
+    "receipt_formats": "JPG, PNG, PDF sau WEBP, până la 10 MB."
   },
   "reports": {
     "company_reports": "Raporturi Companie",
@@ -755,7 +767,8 @@
     "signature_deleted": "Semnătură ștearsă.",
     "signature_delete_failed": "Eșec la ștergerea semnăturii.",
     "signature_pad_clear": "Șterge",
-    "signature_pad_save": "Salvează"
+    "signature_pad_save": "Salvează",
+    "saving": "Se salvează..."
   },
   "approvals": {
     "heading": "Aprobări",
@@ -807,7 +820,17 @@
     "reports_section": "Raporturi",
     "expenses_section": "Cheltuieli",
     "no_results": "Niciun rezultat pentru",
-    "clear_search": "Șterge căutarea"
+    "clear_search": "Șterge căutarea",
+    "placeholder": "Caută...",
+    "global_search": "Căutare globală",
+    "no_results_for": "Niciun rezultat pentru \"{term}\"",
+    "users_section": "Utilizatori",
+    "insurance_section": "Asigurări",
+    "advances_section": "Avansuri",
+    "see_all_results": "Vezi toate rezultatele",
+    "default_user": "Utilizator",
+    "default_insurance": "Fișier asigurare",
+    "default_advance": "Plată avans"
   },
   "categories": {
     "heading": "Categorii",

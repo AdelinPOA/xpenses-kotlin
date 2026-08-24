@@ -56,7 +56,10 @@ api.interceptors.response.use(
       } catch (refreshError) {
         processQueue(refreshError, null);
         if (typeof window !== "undefined") {
-          window.location.assign("/login");
+          const { pathname, search } = window.location;
+          if (pathname !== "/login") {
+            window.location.assign(`/login?next=${encodeURIComponent(pathname + search)}`);
+          }
         }
         return Promise.reject(refreshError);
       } finally {

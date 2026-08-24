@@ -11,6 +11,10 @@ export function middleware(request: NextRequest) {
   const refreshToken = request.cookies.get("refresh_token");
   if (!accessToken && !refreshToken) {
     const loginUrl = new URL("/login", request.url);
+    const next = request.nextUrl.pathname + request.nextUrl.search;
+    if (next && next !== "/") {
+      loginUrl.searchParams.set("next", next);
+    }
     return NextResponse.redirect(loginUrl);
   }
 

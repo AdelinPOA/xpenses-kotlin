@@ -65,7 +65,9 @@
     "role_technician": "Technician",
     "role_manager": "Manager",
     "role_finance_lead": "Finance Lead",
-    "role_administrator": "Administrator"
+    "role_administrator": "Administrator",
+    "open_sidebar": "Open sidebar",
+    "mobile_navigation": "Primary mobile navigation"
   },
   "auth": {
     "login": {
@@ -75,7 +77,9 @@
       "label_username": "Username",
       "label_password": "Password",
       "button_sign_in": "Sign in",
-      "button_sign_in_loading": "Signing in..."
+      "button_sign_in_loading": "Signing in...",
+      "show_password": "Show password",
+      "hide_password": "Hide password"
     }
   },
   "dashboard": {
@@ -338,7 +342,15 @@
     "export_all_time": "All time",
     "saved_offline_toast": "Saved offline — will submit automatically",
     "queue_full_warning": "Offline queue is nearly full — sync soon to avoid losing drafts",
-    "edit_offline_unsupported": "Editing is not available offline. Drafts can still be created."
+    "edit_offline_unsupported": "Editing is not available offline. Drafts can still be created.",
+    "bulk_no_img": "No img",
+    "status_approved": "Approved",
+    "status_rejected": "Rejected",
+    "no_preview_available": "No preview available for this file type.",
+    "reset": "Reset",
+    "bulk_no_expenses": "No expenses created",
+    "bulk_footer_note": "All expenses are saved as <b>draft</b>. Assign to a report when ready.",
+    "receipt_formats": "JPG, PNG, PDF or WEBP, up to 10 MB."
   },
   "reports": {
     "company_reports": "Company Reports",
@@ -755,7 +767,8 @@
     "signature_deleted": "Signature deleted.",
     "signature_delete_failed": "Failed to delete signature.",
     "signature_pad_clear": "Clear",
-    "signature_pad_save": "Save"
+    "signature_pad_save": "Save",
+    "saving": "Saving..."
   },
   "approvals": {
     "heading": "Approvals",
@@ -807,7 +820,17 @@
     "reports_section": "Reports",
     "expenses_section": "Expenses",
     "no_results": "No results found for",
-    "clear_search": "Clear search"
+    "clear_search": "Clear search",
+    "placeholder": "Search...",
+    "global_search": "Global search",
+    "no_results_for": "No results found for \"{term}\"",
+    "users_section": "Users",
+    "insurance_section": "Insurance",
+    "advances_section": "Advances",
+    "see_all_results": "See all results",
+    "default_user": "User",
+    "default_insurance": "Insurance file",
+    "default_advance": "Advance payment"
   },
   "categories": {
     "heading": "Categories",

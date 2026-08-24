@@ -29,7 +29,7 @@ test.describe("Auth guard", () => {
     await page.goto("/dashboard", { waitUntil: "load" });
     await page.waitForTimeout(2000);
     // Assert an element present in both desktop and mobile dashboard views
-    await expect(page.getByText("Total spent this month").filter({ visible: true }).first()).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText("Total Spend (Last Order / Report)").filter({ visible: true }).first()).toBeVisible({ timeout: 15000 });
   });
 
   test("non-mod role cannot access admin", async ({ page }) => {

@@ -14,6 +14,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/ToastProvider";
+import { useAllowNavigation } from "@/lib/navigationGuard";
 import { useReviewQueueActions } from "@/lib/reviewQueueActions";
 import clsx from "clsx";
 import { 
@@ -55,6 +56,7 @@ export default function DashboardClient() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const toast = useToast();
+  const allowNavigation = useAllowNavigation();
 
   const isOrgWideRole = user?.role === "chef_finance" || user?.role === "mod";
   const [showAll, setShowAll] = useState(true);
@@ -600,7 +602,10 @@ export default function DashboardClient() {
               <Link
                 href="/expenses/new"
                 aria-label="New expense"
-                onClick={() => triggerHaptic(10)}
+                onClick={(e) => {
+                  triggerHaptic(10);
+                  if (!allowNavigation()) e.preventDefault();
+                }}
                 className="inline-flex items-center gap-1 bg-primary text-white text-xs font-bold px-3.5 py-2 rounded-full shadow-xs active:scale-95 transition-transform"
               >
                 <Plus className="w-3.5 h-3.5" />

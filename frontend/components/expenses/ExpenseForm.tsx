@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import api, { Category, Expense, CURRENCIES, API_BASE_URL, downloadBlob, OCRScanResult } from "@/lib/api";
 import { categoryKeys, expenseKeys, dashboardKeys } from "@/lib/queryKeys";
+import { useFormGuard } from "@/lib/useFormGuard";
 import { Camera } from "lucide-react";
 import clsx from "clsx";
 import { formatEur } from "@/lib/format";
@@ -88,6 +89,17 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency, highli
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [activeMobileTab, setActiveMobileTab] = useState<'details' | 'receipt'>('details');
   const [isDragging, setIsDragging] = useState(false);
+
+  // Unsaved-changes guard: any field drift from initial values, or receipt
+  // additions/deletions, marks the form dirty.
+  const initialFieldsRef = useRef<FormFields>({ ...form });
+  const isDirty = () =>
+    Object.keys(initialFieldsRef.current).some(
+      (k) => form[k as keyof FormFields] !== initialFieldsRef.current[k as keyof FormFields]
+    ) ||
+    receiptFiles.length > 0 ||
+    deletedReceiptIds.size > 0;
+  const { clearDirty } = useFormGuard(isDirty, t("guard_unsaved_changes"));
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (zoom <= 1) return;
@@ -210,6 +222,7 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency, highli
         } else {
           // Newly created expense: land on its edit page so a re-save can't
           // create a second one; edit page highlights the receipt dropzone.
+          clearDirty();
           router.push(`/expenses/${result.id}/edit?upload_failed=1`);
         }
         return;
@@ -217,8 +230,10 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency, highli
       const destination = reportId ? `/reports/${reportId}` : "/expenses";
       if (result.currency_original !== "EUR") {
         setSavedExpense(result);
+        clearDirty();
         redirectTimeoutRef.current = setTimeout(() => router.push(destination), 2000);
       } else {
+        clearDirty();
         router.push(destination);
       }
     },
@@ -476,7 +491,9 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency, highli
                 ? isUploadingReceipts ? t("uploading_receipts") : tc("saving")
                 : isEdit ? t("save_changes") : t("create_expense")}
             </button>
-            <button type="button" onClick={() => router.back()}
+            <button type="button" onClick={() => {
+                if (!isDirty() || window.confirm(t("guard_unsaved_changes"))) router.back();
+              }}
               className="min-h-11 px-5 py-2 border border-input-border text-slate-600 dark:text-slate-400 text-sm font-medium rounded-lg hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700">
               {tc("cancel")}
             </button>

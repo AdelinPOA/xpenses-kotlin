@@ -230,6 +230,7 @@
     "warning_expense_saved_receipt_failed": "Cheltuiala a fost salvată, dar unele chitanțe nu au putut fi încărcate. Reîncercați mai jos — nu creați cheltuiala din nou.",
     "uploading_receipts": "Se încarcă chitanțele…",
     "error_save_generic": "Eșec la salvare",
+    "guard_unsaved_changes": "Renunțați la modificările nesalvate?",
     "error_ocr_scan": "Scanare OCR eșuată",
     "error_ocr_job": "Job OCR eșuat",
     "error_ocr_timeout": "Job OCR a expirat după 90 de secunde",

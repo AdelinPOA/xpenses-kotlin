@@ -5,6 +5,7 @@ import { useState } from "react";
 import AuthProvider from "./AuthProvider";
 import ThemeProvider from "./ThemeProvider";
 import { ToastProvider } from "./ToastProvider";
+import { NavigationGuardProvider } from "@/lib/navigationGuard";
 import LocaleProvider from "@/i18n/LocaleProvider";
 
 export default function Providers({ children }: { children: React.ReactNode }) {
@@ -22,7 +23,9 @@ export default function Providers({ children }: { children: React.ReactNode }) {
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <LocaleProvider>
-            <ToastProvider>{children}</ToastProvider>
+            <ToastProvider>
+              <NavigationGuardProvider>{children}</NavigationGuardProvider>
+            </ToastProvider>
           </LocaleProvider>
         </AuthProvider>
       </QueryClientProvider>

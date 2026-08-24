@@ -230,6 +230,7 @@
     "warning_expense_saved_receipt_failed": "Expense saved, but some receipts could not be uploaded. Retry below — do not create the expense again.",
     "uploading_receipts": "Uploading receipts…",
     "error_save_generic": "Failed to save",
+    "guard_unsaved_changes": "Discard unsaved changes?",
     "error_ocr_scan": "OCR scan failed",
     "error_ocr_job": "OCR job failed",
     "error_ocr_timeout": "OCR job timed out after 90 seconds",

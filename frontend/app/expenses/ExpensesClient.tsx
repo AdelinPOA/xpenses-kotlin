@@ -10,6 +10,7 @@ import AppShell from "@/components/layout/AppShell";
 import Badge from "@/components/ui/Badge";
 import EmptyState from "@/components/ui/EmptyState";
 import { useToast } from "@/components/ToastProvider";
+import { useAllowNavigation } from "@/lib/navigationGuard";
 import dynamic from "next/dynamic";
 import BulkUploadZone from "@/components/expenses/BulkUploadZone";
 import { Plus, Trash2, Pencil, Copy, Download } from "lucide-react";
@@ -24,6 +25,7 @@ function ExpensesPageContent() {
   const qc = useQueryClient();
   const router = useRouter();
   const toast = useToast();
+  const allowNavigation = useAllowNavigation();
   const searchParams = useSearchParams();
   const t = useTranslations("expenses");
   const tc = useTranslations("common");
@@ -178,6 +180,9 @@ function ExpensesPageContent() {
           </div>
           <Link
             href="/expenses/new"
+            onClick={(e) => {
+              if (!allowNavigation()) e.preventDefault();
+            }}
             className="flex min-h-11 items-center gap-2 px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-hover w-fit"
           >
             <Plus className="w-4 h-4" />

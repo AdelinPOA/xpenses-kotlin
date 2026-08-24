@@ -7,6 +7,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
+import { useAllowNavigation } from "@/lib/navigationGuard";
 import clsx from "clsx";
 import { useTranslations } from "next-intl";
 
@@ -16,6 +17,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user } = useAuth();
   const tNav = useTranslations("nav");
+  const allowNavigation = useAllowNavigation();
 
   const closeSidebar = () => {
     setSidebarOpen(false);
@@ -88,6 +90,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               key={href}
               href={href}
               aria-current={active ? "page" : undefined}
+              onClick={(e) => {
+                if (!allowNavigation()) e.preventDefault();
+              }}
               className={clsx(
                 "flex flex-col items-center justify-center gap-1 min-w-16 min-h-16 text-[10px] font-bold uppercase tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary",
                 active ? "text-primary" : "text-muted hover:text-foreground"

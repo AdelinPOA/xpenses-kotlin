@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.*
 import org.springframework.web.multipart.MultipartFile
 import org.springframework.web.server.ResponseStatusException
 import java.math.BigDecimal
+import eu.nt.xpenses.security.RateLimitStore
 import java.time.Instant
 
 @RestController
@@ -26,7 +27,8 @@ class OcrController(
     private val asyncOcrService: AsyncOcrService,
     private val ocrComparisonRepository: OcrComparisonRepository,
     private val ocrJobRepository: OcrJobRepository,
-    private val objectMapper: ObjectMapper
+    private val objectMapper: ObjectMapper,
+    private val rateLimitStore: RateLimitStore
 ) {
 
     @PostMapping("/scan")
@@ -37,6 +39,14 @@ class OcrController(
     ): ResponseEntity<*> {
         val currentUser = request.getAttribute("currentUser") as? User
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
+
+        val userQuotaCount = rateLimitStore.record(
+            "rl:ocr_quota:user:${currentUser.id}", 30, 60_000L, System.currentTimeMillis()
+        )
+        if (userQuotaCount > 30) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .body(mapOf("detail" to "OCR rate limit exceeded. Please try again later."))
+        }
 
         val config = ocrService.getOcrConfig()
         if (!config.ocrEnabled) {
@@ -54,8 +64,13 @@ class OcrController(
             return ResponseEntity.status(400).body(mapOf("detail" to "File exceeds 10MB limit"))
         }
 
+        val fileBytes = file.bytes
+        if (!OcrService.isValidOcrContent(fileBytes)) {
+            return ResponseEntity.status(400).body(mapOf("detail" to "Unsupported or invalid file format detected via magic bytes"))
+        }
+
         if (sync) {
-            val result = ocrService.scanReceipt(file.bytes, filename)
+            val result = ocrService.scanReceipt(fileBytes, filename)
             return ResponseEntity.ok(result)
         }
 

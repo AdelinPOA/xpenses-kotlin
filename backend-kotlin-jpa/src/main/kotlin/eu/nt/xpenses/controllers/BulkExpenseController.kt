@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.multipart.MultipartFile
 import org.springframework.web.server.ResponseStatusException
+import eu.nt.xpenses.security.RateLimitStore
 import java.math.BigDecimal
 import java.time.LocalDate
 
@@ -24,10 +25,12 @@ import java.time.LocalDate
 @RequestMapping("/api/expenses")
 class BulkExpenseController(
     private val expenseService: ExpenseService,
-    private val ocrService: OcrService
+    private val ocrService: OcrService,
+    private val rateLimitStore: RateLimitStore
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     private val currencyRegex = Regex("^[A-Z]{3}$")
+    private val allowedExtensions = setOf("jpg", "jpeg", "png", "pdf", "webp")
 
     @PostMapping("/bulk-upload")
     fun bulkUploadExpenses(
@@ -41,15 +44,36 @@ class BulkExpenseController(
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Maximum 20 files per bulk upload")
         }
 
+        val userQuotaCount = rateLimitStore.record(
+            "rl:ocr_quota:user:${currentUser.id}", 30, 60_000L, System.currentTimeMillis()
+        )
+        if (userQuotaCount > 30) {
+            throw ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "OCR rate limit exceeded. Please try again later.")
+        }
+
         val created = mutableListOf<ExpenseOut>()
         val errors = mutableListOf<BulkUploadError>()
         val today = LocalDate.now().toString()
 
         for (file in files) {
             val filename = file.originalFilename ?: "receipt"
+            val ext = filename.substringAfterLast('.', "").lowercase()
+            if (ext !in allowedExtensions) {
+                errors.add(BulkUploadError(filename, "File type not supported for OCR"))
+                continue
+            }
+            if (file.size > 10 * 1024 * 1024) {
+                errors.add(BulkUploadError(filename, "File exceeds 10MB limit"))
+                continue
+            }
+            val fileBytes = file.bytes
+            if (!OcrService.isValidOcrContent(fileBytes)) {
+                errors.add(BulkUploadError(filename, "Unsupported or invalid file format detected via magic bytes"))
+                continue
+            }
 
             val ocrResult: Map<String, Any?> = try {
-                ocrService.scanReceipt(file.bytes, filename)
+                ocrService.scanReceipt(fileBytes, filename)
             } catch (e: Exception) {
                 log.warn("OCR failed for $filename: ${e.message}")
                 emptyMap()

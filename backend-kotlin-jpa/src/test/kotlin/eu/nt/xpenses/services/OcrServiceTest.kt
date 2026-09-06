@@ -45,7 +45,7 @@ class OcrServiceTest {
         transactionTemplate
     )
 
-    private val fakeBytes = "receipt image content".toByteArray()
+    private val fakeBytes = byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte(), 0xE0.toByte()) + "receipt image content".toByteArray()
     private val filename = "receipt.jpg"
     private lateinit var sha256: String
 
@@ -142,5 +142,15 @@ class OcrServiceTest {
         assertNotNull(result["provider_error"])
         verify(ocrResultCacheRepository, never()).save(any(OcrResultCache::class.java))
         verify(ocrComparisonRepository).updateGeminiResult(eq(10), isNull(), isNull(), isNull(), isNull(), any())
+    }
+
+    @Test
+    fun `scanReceipt rejects files with invalid magic bytes without calling provider`() {
+        val badBytes = "plain text without magic bytes".toByteArray()
+        val result = ocrService.scanReceipt(badBytes, "bad.jpg")
+
+        assertNull(result["amount"])
+        assertEquals("Unsupported or invalid file format detected via magic bytes", result["provider_error"])
+        verify(ocrResultCacheRepository, never()).acquireScanLock(anyString())
     }
 }

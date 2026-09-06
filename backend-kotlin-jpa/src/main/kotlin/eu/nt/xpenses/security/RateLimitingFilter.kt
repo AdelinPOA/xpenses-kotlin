@@ -38,7 +38,8 @@ class RateLimitingFilter(
         "/api/auth/login" to 5,
         "/api/auth/refresh" to 20,
         "/api/ocr/scan" to 10,
-        "/api/expenses/scan" to 10
+        "/api/expenses/scan" to 10,
+        "/api/expenses/bulk-upload" to 5
     )
 
     override fun doFilterInternal(

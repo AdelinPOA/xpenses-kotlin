@@ -57,6 +57,16 @@ class OcrService(
             "gemini-3-flash",
             "gemini-2.5-flash"
         )
+
+        fun isValidOcrContent(bytes: ByteArray): Boolean {
+            if (bytes.size < 4) return false
+            val headerHex = bytes.take(8).joinToString("") { "%02X".format(it) }
+            val isJpeg = headerHex.startsWith("FFD8FF")
+            val isPng = headerHex.startsWith("89504E47")
+            val isPdf = headerHex.startsWith("25504446")
+            val isWebp = headerHex.startsWith("52494646") && bytes.size >= 12 && String(bytes.sliceArray(8..11)) == "WEBP"
+            return isJpeg || isPng || isPdf || isWebp
+        }
     }
     // Force HTTP/1.1: the JDK HttpClient defaults to an HTTP/1.1->HTTP/2 (h2c) upgrade on plain
     // HTTP, which some receiving servers reject. Pin to HTTP/1.1 for compatibility.
@@ -137,6 +147,11 @@ class OcrService(
         }
         if (config.geminiApiKey.isEmpty()) {
             return errorResult("Gemini API key not configured")
+        }
+
+        if (!isValidOcrContent(fileBytes)) {
+            log.warn("Rejected OCR scan for {}: unsupported or invalid magic bytes", filename)
+            return errorResult("Unsupported or invalid file format detected via magic bytes")
         }
 
         val categories = categoryRepository.findAllByIsActiveTrue()

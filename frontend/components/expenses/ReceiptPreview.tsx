@@ -105,6 +105,8 @@ export default function ReceiptPreview({
 
               <a
                 href={sanitizeUrl(activeItem.url)}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="absolute bottom-3 right-3 min-h-11 inline-flex items-center bg-black/60 hover:bg-black/80 text-white text-xs px-2.5 py-1.5 rounded-md backdrop-blur-sm transition-colors duration-150"
               >
                 {t("view_fullscreen")}
@@ -114,14 +116,28 @@ export default function ReceiptPreview({
             <div className="flex-1 flex flex-col min-h-[350px] gap-3">
               <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/50 rounded-lg p-3 text-center">
                 <p className="text-xs text-blue-800 dark:text-blue-200 mb-2">{t("pdf_not_loading")}</p>
-                <a href={sanitizeUrl(activeItem.url)} className="inline-flex min-h-11 items-center gap-1.5 px-3 py-1.5 bg-primary hover:bg-primary-hover text-white text-xs font-semibold rounded-md transition-colors cursor-pointer">{t("open_pdf")}</a>
+                <a
+                  href={sanitizeUrl(activeItem.url)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex min-h-11 items-center gap-1.5 px-3 py-1.5 bg-primary hover:bg-primary-hover text-white text-xs font-semibold rounded-md transition-colors cursor-pointer"
+                >
+                  {t("open_pdf")}
+                </a>
               </div>
               <iframe src={sanitizeUrl(activeItem.url)} className="hidden lg:block w-full flex-1 rounded-lg border border-border min-h-[350px]" title={t("pdf_iframe")} />
             </div>
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center p-6 border border-dashed border-slate-300 dark:border-slate-700 rounded-lg text-slate-400">
               <p className="text-sm">{t("no_preview_available")}</p>
-              <a href={sanitizeUrl(activeItem.url)} className="mt-2 min-h-11 inline-flex items-center px-3 text-xs text-blue-600 dark:text-blue-400 hover:underline">{t("download_file")}</a>
+              <a
+                href={sanitizeUrl(activeItem.url)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-2 min-h-11 inline-flex items-center px-3 text-xs text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                {t("download_file")}
+              </a>
             </div>
           )}
         </div>

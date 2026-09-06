@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useState, useEffect } from "react";
+import { use, useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import api, { Report } from "@/lib/api";
@@ -8,6 +8,7 @@ import { reportKeys } from "@/lib/queryKeys";
 import AppShell from "@/components/layout/AppShell";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import { useFormGuard } from "@/lib/useFormGuard";
 import { useTranslations } from "next-intl";
 
 const inputCls =
@@ -51,8 +52,11 @@ export default function EditReportPage({ params }: { params: Promise<{ id: strin
     queryFn: () => api.get(`/reports/${id}`).then((r) => r.data),
   });
 
+  const initializedRef = useRef(false);
+
   useEffect(() => {
-    if (report) {
+    if (report && !initializedRef.current) {
+      initializedRef.current = true;
       setTitle(report.title);
       setDescription(report.description ?? "");
       setDateFrom(report.date_from ?? "");
@@ -69,6 +73,28 @@ export default function EditReportPage({ params }: { params: Promise<{ id: strin
       setTechniker(report.techniker ?? "");
     }
   }, [report]);
+
+  const isDirty = () => {
+    if (!report) return false;
+    return (
+      title !== report.title ||
+      description !== (report.description ?? "") ||
+      dateFrom !== (report.date_from ?? "") ||
+      dateTo !== (report.date_to ?? "") ||
+      kundenauftrag !== (report.kundenauftrag ?? "") ||
+      auftragsart !== (report.auftragsart ?? "") ||
+      positionstyp !== (report.positionstyp ?? "") ||
+      technplatzRaw !== (report.technplatz_raw ?? "") ||
+      kundeCode !== (report.kunde_code ?? "") ||
+      kundeName !== (report.kunde_name ?? "") ||
+      adresse !== (report.adresse ?? "") ||
+      vorgang !== (report.vorgang ?? "") ||
+      arbeitsplatz !== (report.arbeitsplatz ?? "") ||
+      techniker !== (report.techniker ?? "")
+    );
+  };
+
+  const { clearDirty } = useFormGuard(isDirty, t("guard_unsaved_changes") || "You have unsaved changes. Are you sure you want to leave?");
 
   const hasDelegation = !!(
     report?.kundenauftrag || report?.auftragsart || report?.positionstyp ||
@@ -97,6 +123,7 @@ export default function EditReportPage({ params }: { params: Promise<{ id: strin
         }),
       }),
     onSuccess: () => {
+      clearDirty();
       qc.invalidateQueries({ queryKey: reportKeys.all });
       router.push(`/reports/${id}`);
     },
@@ -231,7 +258,12 @@ export default function EditReportPage({ params }: { params: Promise<{ id: strin
           </button>
           <button
             type="button"
-            onClick={() => router.push(`/reports/${id}`)}
+            onClick={() => {
+              if (!isDirty() || window.confirm(t("guard_unsaved_changes") || "You have unsaved changes. Are you sure you want to leave?")) {
+                clearDirty();
+                router.push(`/reports/${id}`);
+              }
+            }}
             className="min-h-11 px-5 py-2 border border-input-border text-slate-600 dark:text-slate-400 text-sm font-medium rounded-lg hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700 cursor-pointer"
           >
             {t("edit_cancel")}

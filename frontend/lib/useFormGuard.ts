@@ -20,10 +20,37 @@ export function useFormGuard(isDirty: () => boolean, message: string) {
   // Once the form is saved, isDirty() must stop re-arming the guard on
   // subsequent renders (e.g. during a delayed post-save redirect).
   const clearedRef = useRef(false);
+  const hasPushedStateRef = useRef(false);
   dirtyRef.current = clearedRef.current ? false : isDirty();
 
-  // Reload / close tab / iOS browser (not reliable in standalone PWA — the
-  // NavigationGuard interception below is the primary protection there).
+  // Push a history state entry when the form becomes dirty so mobile back gestures fire popstate
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (dirtyRef.current && !hasPushedStateRef.current) {
+      window.history.pushState({ formGuard: true }, "", window.location.href);
+      hasPushedStateRef.current = true;
+    }
+  });
+
+  // Intercept browser back / swipe-back navigation
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handlePopState = () => {
+      if (dirtyRef.current) {
+        const stay = !window.confirm(message);
+        if (stay) {
+          window.history.pushState({ formGuard: true }, "", window.location.href);
+          return;
+        }
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [message]);
+
+  // Reload / close tab / iOS browser
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
       if (!dirtyRef.current) return;

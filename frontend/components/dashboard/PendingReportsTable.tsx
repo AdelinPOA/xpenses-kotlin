@@ -470,7 +470,7 @@ export default function PendingReportsTable({
                     <button
                       type="button"
                       aria-label="Toggle details"
-                      className="w-8 h-8 rounded-lg bg-muted/40 hover:bg-muted text-muted-foreground flex items-center justify-center transition-colors"
+                      className="min-w-11 min-h-11 rounded-lg bg-muted/40 hover:bg-muted text-muted-foreground flex items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                     >
                       {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                     </button>

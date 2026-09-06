@@ -9,7 +9,7 @@ import { useFormGuard } from "@/lib/useFormGuard";
 import { scanReceipt, compressImage, ScanProgress, ScanCancelledError, ScanTimeoutError, ScanJobError } from "@/lib/ocrScan";
 import { enqueueExpense, countPendingExpenses, MAX_QUEUE_SIZE } from "@/lib/offlineQueue";
 import { useOfflineSync } from "@/components/OfflineSyncProvider";
-import { Camera } from "lucide-react";
+import { Camera, Trash2 } from "lucide-react";
 import clsx from "clsx";
 import { formatEur } from "@/lib/format";
 import ReceiptScanner from "./ReceiptScanner";
@@ -496,7 +496,14 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency, highli
                       className="text-blue-600 dark:text-blue-400 hover:underline truncate max-w-[200px] cursor-pointer">
                       {r.original_name || r.file_path.split("/").pop()}
                     </button>
-                    <button type="button" onClick={() => markDeleteReceipt(r.id)} className="min-w-11 min-h-11 inline-flex items-center justify-center text-muted-foreground hover:text-red-500"><Camera className="w-3.5 h-3.5" aria-hidden="true" /></button>
+                    <button
+                      type="button"
+                      onClick={() => markDeleteReceipt(r.id)}
+                      aria-label={t("remove_receipt") || "Remove receipt"}
+                      className="min-w-11 min-h-11 inline-flex items-center justify-center text-muted-foreground hover:text-red-500 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+                    </button>
                   </div>
                 ))}
               </div>
@@ -508,7 +515,14 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency, highli
                   <div key={entry.id} className="flex items-center gap-2 text-xs text-muted">
                     <span className="truncate max-w-[200px]">{entry.file.name}</span>
                     <span className="text-slate-300 dark:text-slate-600">({(entry.file.size / 1024).toFixed(0)} KB)</span>
-                    <button type="button" onClick={() => removeNewFile(i)} className="min-w-11 min-h-11 inline-flex items-center justify-center text-muted-foreground hover:text-red-500"><Camera className="w-3.5 h-3.5" aria-hidden="true" /></button>
+                    <button
+                      type="button"
+                      onClick={() => removeNewFile(i)}
+                      aria-label={t("remove_receipt") || "Remove receipt"}
+                      className="min-w-11 min-h-11 inline-flex items-center justify-center text-muted-foreground hover:text-red-500 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+                    </button>
                   </div>
                 ))}
               </div>

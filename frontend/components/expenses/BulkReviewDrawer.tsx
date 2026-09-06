@@ -22,6 +22,7 @@ interface RowState {
 
 export default function BulkReviewDrawer({ files, isOpen, onClose }: BulkReviewDrawerProps) {
   const t = useTranslations("expenses");
+  const tc = useTranslations("common");
   const queryClient = useQueryClient();
   const [rows, setRows] = useState<RowState[]>([]);
   const [uploadErrors, setUploadErrors] = useState<BulkUploadError[]>([]);
@@ -96,6 +97,17 @@ export default function BulkReviewDrawer({ files, isOpen, onClose }: BulkReviewD
     onClose();
   }
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        handleClose();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen]);
+
   const visibleRows = rows.filter((r) => !r.deleted);
   const activeCategories = categories.filter((c) => c.is_active);
 
@@ -104,14 +116,19 @@ export default function BulkReviewDrawer({ files, isOpen, onClose }: BulkReviewD
   return (
     <>
       {/* Backdrop */}
-      <div className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm" onClick={handleClose} />
+      <div className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm" onClick={handleClose} aria-hidden="true" />
 
       {/* Drawer */}
-      <div className="fixed right-0 top-0 bottom-0 z-50 w-full max-w-2xl bg-card shadow-2xl flex flex-col">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="bulk-review-title"
+        className="fixed right-0 top-0 bottom-0 z-50 w-full max-w-2xl bg-card shadow-2xl flex flex-col"
+      >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 pt-[calc(1rem+env(safe-area-inset-top,0px))] border-b border-border">
           <div>
-            <h2 className="text-lg font-bold text-slate-900 dark:text-white">{t("bulk_heading")}</h2>
+            <h2 id="bulk-review-title" className="text-lg font-bold text-slate-900 dark:text-white">{t("bulk_heading")}</h2>
             <p className="text-sm text-muted">
               {uploading
                 ? t("processing_receipts", { count: files.length })
@@ -120,9 +137,10 @@ export default function BulkReviewDrawer({ files, isOpen, onClose }: BulkReviewD
           </div>
           <button
             onClick={handleClose}
-            className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            aria-label={tc("close") || "Close review"}
+            className="min-w-11 min-h-11 rounded-lg flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
-            <X className="w-5 h-5 text-slate-500" />
+            <X className="w-5 h-5 text-slate-500" aria-hidden="true" />
           </button>
         </div>
 
@@ -318,10 +336,11 @@ function BulkExpenseRow({ expense, categories, saving, onPatch, onDelete }: Bulk
         {/* Delete */}
         <button
           onClick={onDelete}
-          className="shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+          aria-label={t("bulk_delete") || "Delete draft"}
           title={t("bulk_delete")}
+          className="shrink-0 min-w-11 min-h-11 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
         >
-          <Trash2 className="w-4 h-4" />
+          <Trash2 className="w-4 h-4" aria-hidden="true" />
         </button>
       </div>
     </div>

@@ -17,6 +17,8 @@ import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.client.RestClient
 import org.springframework.web.client.body
 import org.springframework.http.client.JdkClientHttpRequestFactory
+import eu.nt.xpenses.ingestion.ImapIngestionLedger
+import eu.nt.xpenses.ingestion.ImapMessageKey
 import java.net.http.HttpClient
 import java.time.Duration
 import java.time.Instant
@@ -30,7 +32,8 @@ class EmailImportService(
     private val expenseReportRepository: ExpenseReportRepository,
     private val ocrService: OcrService,
     private val objectMapper: ObjectMapper,
-    private val emailSettingsService: EmailSettingsService
+    private val emailSettingsService: EmailSettingsService,
+    private val imapIngestionLedger: ImapIngestionLedger
 ) {
     private val log = LoggerFactory.getLogger(EmailImportService::class.java)
     private val restClient = RestClient.builder()
@@ -578,21 +581,51 @@ class EmailImportService(
             log.info("Found {} unseen emails to process", messages.size)
 
             for (message in messages) {
+                val messageKey = try {
+                    ImapMessageKey.from(message)
+                } catch (e: Exception) {
+                    log.warn("Failed to generate IMAP message key: {}", e.message)
+                    continue
+                }
+
+                if (!imapIngestionLedger.claim(messageKey)) {
+                    log.info("Message {} is already claimed or processed, skipping", messageKey)
+                    continue
+                }
+
                 try {
                     val fromAddresses = message.from
-                    val fromAddress = fromAddresses?.firstOrNull()?.toString() ?: continue
-                    val bodyText = getTextFromMessage(message)
+                    val fromAddress = fromAddresses?.firstOrNull()?.toString()
+                    if (fromAddress == null) {
+                        imapIngestionLedger.markFailed(messageKey, IllegalArgumentException("Missing From header"))
+                        continue
+                    }
 
+                    // Authenticate sender provenance: reject if SPF or DKIM failed at mailbox gateway
+                    val authResults = message.getHeader("Authentication-Results")?.joinToString(" ")
+                    val spfResult = message.getHeader("Received-SPF")?.joinToString(" ")
+                    if ((authResults != null && (authResults.contains("spf=fail") || authResults.contains("dkim=fail"))) ||
+                        (spfResult != null && spfResult.startsWith("fail", ignoreCase = true))
+                    ) {
+                        log.warn("Rejecting email from {} due to failed authentication: authResults={}, spf={}", fromAddress, authResults, spfResult)
+                        imapIngestionLedger.markFailed(messageKey, SecurityException("SPF/DKIM verification failed"))
+                        continue
+                    }
+
+                    val bodyText = getTextFromMessage(message)
                     log.info("Processing email from: {}", fromAddress)
                     val processed = processIncomingEmail(fromAddress, bodyText)
                     if (processed) {
                         log.info("Successfully processed email from {}", fromAddress)
+                        imapIngestionLedger.markProcessed(messageKey)
                         message.setFlag(Flags.Flag.SEEN, true)
                     } else {
                         log.info("Email from {} was not processed (e.g. user not found or no delegation patterns)", fromAddress)
+                        imapIngestionLedger.markFailed(messageKey, IllegalStateException("No user found or pattern mismatch"))
                     }
                 } catch (e: Exception) {
                     log.error("Failed to process message: {}", e.message, e)
+                    imapIngestionLedger.markFailed(messageKey, e)
                 }
             }
         } catch (e: Exception) {

@@ -20,7 +20,8 @@ class ImapIngestionLedger(
                         attempts = imap_ingestion_messages.attempts + 1,
                         claimed_at = NOW(),
                         last_error = NULL
-                    WHERE imap_ingestion_messages.status = 'FAILED'
+                    WHERE (imap_ingestion_messages.status = 'FAILED'
+                           OR (imap_ingestion_messages.status = 'CLAIMED' AND imap_ingestion_messages.claimed_at < NOW() - INTERVAL '15 minutes'))
                       AND imap_ingestion_messages.attempts < ?
                 RETURNING message_key
                 """.trimIndent(),

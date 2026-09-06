@@ -57,6 +57,6 @@ class FxControllerTest : IntegrationTestBase() {
     @Test
     fun `quote without authentication is rejected`() {
         mockMvc.perform(get("/api/fx/quote?from=USD&date=2026-06-01"))
-            .andExpect(status().isForbidden)
+            .andExpect(status().isUnauthorized)
     }
 }

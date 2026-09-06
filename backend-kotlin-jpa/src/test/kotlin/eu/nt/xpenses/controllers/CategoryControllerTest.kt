@@ -95,8 +95,8 @@ class CategoryControllerTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `GET categories without cookie returns 403`() {
+    fun `GET categories without cookie returns 401 Unauthorized`() {
         mockMvc.perform(get("/api/categories"))
-            .andExpect(status().isForbidden)
+            .andExpect(status().isUnauthorized)
     }
 }

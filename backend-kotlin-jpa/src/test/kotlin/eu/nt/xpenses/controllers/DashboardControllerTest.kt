@@ -17,9 +17,9 @@ class DashboardControllerTest : IntegrationTestBase() {
     private lateinit var entityManager: EntityManager
 
     @Test
-    fun `GET dashboard without cookie returns 403 (Spring Security default for unauthenticated)`() {
+    fun `GET dashboard without cookie returns 401 Unauthorized`() {
         mockMvc.perform(get("/api/dashboard"))
-            .andExpect(status().isForbidden)
+            .andExpect(status().isUnauthorized)
     }
 
     @Test

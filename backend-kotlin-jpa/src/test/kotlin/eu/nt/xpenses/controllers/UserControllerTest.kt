@@ -28,11 +28,9 @@ class UserControllerTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `GET users without cookie returns 403 (Spring Security default for unauthenticated)`() {
-        // Spring Security's hasRole("mod") guard fires before the controller; no custom
-        // AuthenticationEntryPoint configured, so unauthenticated → 403 not 401.
+    fun `GET users without cookie returns 401 Unauthorized`() {
         mockMvc.perform(get("/api/users"))
-            .andExpect(status().isForbidden)
+            .andExpect(status().isUnauthorized)
     }
 
     @Test

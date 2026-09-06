@@ -138,8 +138,8 @@ class InsuranceControllerTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `GET files without cookie returns 403`() {
+    fun `GET files without cookie returns 401 Unauthorized`() {
         mockMvc.perform(get("/api/insurance"))
-            .andExpect(status().isForbidden)
+            .andExpect(status().isUnauthorized)
     }
 }

@@ -37,8 +37,9 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
   const proactiveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const scheduleProactiveRefresh = useCallback(() => {
-    if (proactiveTimer.current) clearTimeout(proactiveTimer.current);
+    if (proactiveTimer.current) return;
     proactiveTimer.current = setTimeout(async () => {
+      proactiveTimer.current = null;
       try {
         await refreshTokens();
         scheduleProactiveRefresh();

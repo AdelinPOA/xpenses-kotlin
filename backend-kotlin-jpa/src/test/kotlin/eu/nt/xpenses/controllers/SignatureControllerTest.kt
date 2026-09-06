@@ -94,9 +94,9 @@ class SignatureControllerTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `GET signature without cookie returns 403`() {
+    fun `GET signature without cookie returns 401 Unauthorized`() {
         mockMvc.perform(get("/api/users/me/signature"))
-            .andExpect(status().isForbidden)
+            .andExpect(status().isUnauthorized)
     }
 
     @Test

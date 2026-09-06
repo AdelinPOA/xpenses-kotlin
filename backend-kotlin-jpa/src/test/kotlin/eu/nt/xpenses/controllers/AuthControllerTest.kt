@@ -63,11 +63,10 @@ class AuthControllerTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `GET me without cookie returns 403 (Spring Security default for unauthenticated)`() {
-        // Spring Security intercepts before the controller (no custom AuthenticationEntryPoint),
-        // so stateless unauthenticated requests hit the AccessDeniedHandler and return 403.
+    fun `GET me without cookie returns 401 Unauthorized`() {
         mockMvc.perform(get("/api/auth/me"))
-            .andExpect(status().isForbidden)
+            .andExpect(status().isUnauthorized)
+            .andExpect(jsonPath("$.detail").value("Unauthorized"))
     }
 
     @Test

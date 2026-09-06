@@ -136,9 +136,9 @@ class ExpenseControllerTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `GET expenses without cookie returns 403 (Spring Security default for unauthenticated)`() {
+    fun `GET expenses without cookie returns 401 Unauthorized`() {
         mockMvc.perform(get("/api/expenses"))
-            .andExpect(status().isForbidden)
+            .andExpect(status().isUnauthorized)
     }
 
     @Test

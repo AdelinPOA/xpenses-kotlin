@@ -254,12 +254,12 @@ class MileageControllerTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `GET mileage without cookie returns 403`() {
+    fun `GET mileage without cookie returns 401 Unauthorized`() {
         val report = makeTechReport()
         entityManager.flush()
         entityManager.clear()
 
         mockMvc.perform(get("/api/reports/${report.id}/mileage"))
-            .andExpect(status().isForbidden)
+            .andExpect(status().isUnauthorized)
     }
 }

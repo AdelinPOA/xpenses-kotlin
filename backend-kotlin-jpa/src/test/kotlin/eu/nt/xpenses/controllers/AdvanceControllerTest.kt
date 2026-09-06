@@ -77,13 +77,13 @@ class AdvanceControllerTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `GET advances without cookie returns 403 (Spring Security default for unauthenticated)`() {
+    fun `GET advances without cookie returns 401 Unauthorized`() {
         val report = makeTechReport()
         entityManager.flush()
         entityManager.clear()
 
         mockMvc.perform(get("/api/reports/${report.id}/advances"))
-            .andExpect(status().isForbidden)
+            .andExpect(status().isUnauthorized)
     }
 
     @Test

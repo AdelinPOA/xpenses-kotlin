@@ -42,6 +42,13 @@ class SecurityConfig(
             .cors { it.configurationSource(corsConfigurationSource()) }
             .csrf { it.disable() }
             .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
+            .exceptionHandling { exceptions ->
+                exceptions.authenticationEntryPoint { _, response, _ ->
+                    response.status = HttpServletResponse.SC_UNAUTHORIZED
+                    response.contentType = "application/json;charset=UTF-8"
+                    response.writer.write("""{"detail":"Unauthorized"}""")
+                }
+            }
             .authorizeHttpRequests { authorize ->
                 authorize
                     .requestMatchers("/api/auth/login", "/api/auth/logout", "/api/auth/refresh").permitAll()

@@ -64,6 +64,24 @@ export default function NewReportPage() {
     });
   };
 
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    if (!title.trim()) {
+      setError(t("new_error_title_required"));
+      return;
+    }
+    if (!dateFrom || !dateTo) {
+      setError(t("new_error_date_required") || "Both start date and end date are required");
+      return;
+    }
+    if (dateTo < dateFrom) {
+      setError(t("new_error_date_order") || "End date cannot be earlier than start date");
+      return;
+    }
+    create.mutate();
+  };
+
   return (
     <AppShell>
       <div className="mb-6">
@@ -73,51 +91,59 @@ export default function NewReportPage() {
         </p>
       </div>
 
-      <div className="max-w-2xl space-y-6">
+      <form onSubmit={handleSubmit} className="max-w-2xl space-y-6">
         <div className="bg-card rounded-xl shadow-sm p-6 space-y-4">
           <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">{t("new_section_details")}</h2>
-          {error && <p className="text-red-600 text-sm">{error}</p>}
+          {error && (
+            <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-400">
+              {error}
+            </p>
+          )}
 
           <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("new_label_title")}</label>
+            <label htmlFor="report-new-title" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("new_label_title")}</label>
             <input
+              id="report-new-title"
               required
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder={t("new_placeholder_title")}
-              className="w-full border border-input-border rounded-lg px-3 py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100"
+              className="w-full min-h-11 border border-input-border rounded-lg px-3 py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100"
             />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("new_label_date_from")}</label>
+              <label htmlFor="report-new-date-from" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("new_label_date_from")}</label>
               <input
+                id="report-new-date-from"
                 type="date"
                 required
                 value={dateFrom}
                 onChange={(e) => setDateFrom(e.target.value)}
-                className="w-full border border-input-border rounded-lg px-3 py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100"
+                className="w-full min-h-11 border border-input-border rounded-lg px-3 py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("new_label_date_to")}</label>
+              <label htmlFor="report-new-date-to" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("new_label_date_to")}</label>
               <input
+                id="report-new-date-to"
                 type="date"
                 required
                 value={dateTo}
                 onChange={(e) => setDateTo(e.target.value)}
-                className="w-full border border-input-border rounded-lg px-3 py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100"
+                className="w-full min-h-11 border border-input-border rounded-lg px-3 py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("new_label_currency")}</label>
+            <label htmlFor="report-new-currency" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("new_label_currency")}</label>
             <select
+              id="report-new-currency"
               value={currency}
               onChange={(e) => setCurrency(e.target.value)}
-              className="w-full border border-input-border rounded-lg px-3 py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100"
+              className="w-full min-h-11 border border-input-border rounded-lg px-3 py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100"
             >
               {CURRENCIES.map((c) => (
                 <option key={c} value={c}>
@@ -128,8 +154,9 @@ export default function NewReportPage() {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("new_label_description")}</label>
+            <label htmlFor="report-new-description" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("new_label_description")}</label>
             <textarea
+              id="report-new-description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={2}
@@ -175,20 +202,21 @@ export default function NewReportPage() {
 
         <div className="flex gap-3">
           <button
-            onClick={() => { if (title) create.mutate(); else setError(t("new_error_title_required")); }}
+            type="submit"
             disabled={create.isPending}
-            className="px-5 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-hover disabled:opacity-50"
+            className="min-h-11 px-5 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-hover disabled:opacity-50 cursor-pointer"
           >
             {create.isPending ? t("new_creating") : selectedIds.size > 0 ? t("new_create_attach") : t("new_create")}
           </button>
           <button
+            type="button"
             onClick={() => router.back()}
-            className="px-5 py-2 border border-input-border text-slate-600 dark:text-slate-400 text-sm font-medium rounded-lg hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700"
+            className="min-h-11 px-5 py-2 border border-input-border text-slate-600 dark:text-slate-400 text-sm font-medium rounded-lg hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700 cursor-pointer"
           >
             {t("new_cancel")}
           </button>
         </div>
-      </div>
+      </form>
     </AppShell>
   );
 }

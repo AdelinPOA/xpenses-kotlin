@@ -11,13 +11,13 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 
 const inputCls =
-  "w-full border border-input-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100";
+  "w-full border border-input-border rounded-lg px-3 py-2 text-base sm:text-sm min-h-[44px] focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100";
 
-function Field({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+function Field({ id, label, value, onChange }: { id: string; label: string; value: string; onChange: (v: string) => void }) {
   return (
     <div>
-      <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{label}</label>
-      <input type="text" value={value} onChange={(e) => onChange(e.target.value)} className={inputCls} />
+      <label htmlFor={id} className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{label}</label>
+      <input id={id} type="text" value={value} onChange={(e) => onChange(e.target.value)} className={inputCls} />
     </div>
   );
 }
@@ -103,6 +103,20 @@ export default function EditReportPage({ params }: { params: Promise<{ id: strin
     onError: (e: any) => setError(e.response?.data?.detail ?? t("edit_error_save")),
   });
 
+  const handleSave = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    if (!title.trim()) {
+      setError(t("edit_error_title_required") || "Title is required");
+      return;
+    }
+    if (dateFrom && dateTo && dateTo < dateFrom) {
+      setError(t("edit_error_date_order") || "End date cannot be earlier than start date");
+      return;
+    }
+    save.mutate();
+  };
+
   if (isLoading) return <AppShell><p className="text-muted-foreground text-base sm:text-sm mt-8">{t("edit_loading")}</p></AppShell>;
   if (!report) return <AppShell><p className="text-red-500 text-sm">{t("edit_not_found")}</p></AppShell>;
   if (report.status !== "draft") {
@@ -126,14 +140,19 @@ export default function EditReportPage({ params }: { params: Promise<{ id: strin
       </div>
 
       <form
-        onSubmit={(e) => { e.preventDefault(); save.mutate(); }}
+        onSubmit={handleSave}
         className="bg-card rounded-xl shadow-sm p-6 max-w-lg space-y-5"
       >
-        {error && <p className="text-red-600 text-sm">{error}</p>}
+        {error && (
+          <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-400">
+            {error}
+          </p>
+        )}
 
         <div>
-          <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("edit_label_title")}</label>
+          <label htmlFor="edit-report-title" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("edit_label_title")}</label>
           <input
+            id="edit-report-title"
             type="text"
             required
             value={title}
@@ -144,8 +163,9 @@ export default function EditReportPage({ params }: { params: Promise<{ id: strin
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("edit_label_date_from")}</label>
+            <label htmlFor="edit-report-date-from" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("edit_label_date_from")}</label>
             <input
+              id="edit-report-date-from"
               type="date"
               required
               value={dateFrom}
@@ -154,8 +174,9 @@ export default function EditReportPage({ params }: { params: Promise<{ id: strin
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("edit_label_date_to")}</label>
+            <label htmlFor="edit-report-date-to" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("edit_label_date_to")}</label>
             <input
+              id="edit-report-date-to"
               type="date"
               required
               value={dateTo}
@@ -166,8 +187,9 @@ export default function EditReportPage({ params }: { params: Promise<{ id: strin
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("edit_label_description")}</label>
+          <label htmlFor="edit-report-description" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("edit_label_description")}</label>
           <textarea
+            id="edit-report-description"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={2}
@@ -181,21 +203,21 @@ export default function EditReportPage({ params }: { params: Promise<{ id: strin
               {t("edit_section_delegation")}
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Field label="Kundenauftrag" value={kundenauftrag} onChange={setKundenauftrag} />
-              <Field label="Auftragsart" value={auftragsart} onChange={setAuftragsart} />
+              <Field id="field-kundenauftrag" label="Kundenauftrag" value={kundenauftrag} onChange={setKundenauftrag} />
+              <Field id="field-auftragsart" label="Auftragsart" value={auftragsart} onChange={setAuftragsart} />
             </div>
-            <Field label="Positionstyp" value={positionstyp} onChange={setPositionstyp} />
-            <Field label="Techn. Platz" value={technplatzRaw} onChange={setTechnplatzRaw} />
+            <Field id="field-positionstyp" label="Positionstyp" value={positionstyp} onChange={setPositionstyp} />
+            <Field id="field-technplatz" label="Techn. Platz" value={technplatzRaw} onChange={setTechnplatzRaw} />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Field label="Kunden-Nr." value={kundeCode} onChange={setKundeCode} />
-              <Field label="Kundenname" value={kundeName} onChange={setKundeName} />
+              <Field id="field-kunde-code" label="Kunden-Nr." value={kundeCode} onChange={setKundeCode} />
+              <Field id="field-kunde-name" label="Kundenname" value={kundeName} onChange={setKundeName} />
             </div>
-            <Field label="Adresse" value={adresse} onChange={setAdresse} />
+            <Field id="field-adresse" label="Adresse" value={adresse} onChange={setAdresse} />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Field label="Vorgang" value={vorgang} onChange={setVorgang} />
-              <Field label="Techniker" value={techniker} onChange={setTechniker} />
+              <Field id="field-vorgang" label="Vorgang" value={vorgang} onChange={setVorgang} />
+              <Field id="field-techniker" label="Techniker" value={techniker} onChange={setTechniker} />
             </div>
-            <Field label="Arbeitsplatz" value={arbeitsplatz} onChange={setArbeitsplatz} />
+            <Field id="field-arbeitsplatz" label="Arbeitsplatz" value={arbeitsplatz} onChange={setArbeitsplatz} />
           </div>
         )}
 
@@ -203,14 +225,14 @@ export default function EditReportPage({ params }: { params: Promise<{ id: strin
           <button
             type="submit"
             disabled={save.isPending}
-            className="px-5 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-hover disabled:opacity-50"
+            className="min-h-11 px-5 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-hover disabled:opacity-50 cursor-pointer"
           >
             {save.isPending ? t("edit_saving") : t("edit_save")}
           </button>
           <button
             type="button"
             onClick={() => router.push(`/reports/${id}`)}
-            className="px-5 py-2 border border-input-border text-slate-600 dark:text-slate-400 text-sm font-medium rounded-lg hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700"
+            className="min-h-11 px-5 py-2 border border-input-border text-slate-600 dark:text-slate-400 text-sm font-medium rounded-lg hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700 cursor-pointer"
           >
             {t("edit_cancel")}
           </button>

@@ -36,6 +36,7 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [description, setDescription] = useState("");
+  const [formError, setFormError] = useState<string | null>(null);
   const t = useTranslations("reports");
 
   const { data: report, isLoading } = useQuery<Report>({
@@ -54,12 +55,16 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
     onSuccess: () => {
       invalidate();
       setShowForm(false);
+      setFormError(null);
       setOrigin("");
       setDestination("");
       setDistanceKm("");
       setStartTime("");
       setEndTime("");
       setDescription("");
+    },
+    onError: (e: any) => {
+      setFormError(e.response?.data?.detail ?? t("mileage_error_save") ?? "Failed to save trip");
     },
   });
 
@@ -69,16 +74,31 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
   });
 
   const handleAdd = () => {
+    setFormError(null);
     const km = parseFloat(distanceKm);
-    if (isNaN(km) || km <= 0 || !origin || !destination || !startTime || !endTime) return;
-    if (new Date(endTime) <= new Date(startTime)) return;
+    if (!origin.trim() || !destination.trim()) {
+      setFormError(t("mileage_error_origin_dest") || "Both origin and destination are required.");
+      return;
+    }
+    if (!startTime || !endTime) {
+      setFormError(t("mileage_error_times_required") || "Start time and end time are required.");
+      return;
+    }
+    if (new Date(endTime) <= new Date(startTime)) {
+      setFormError(t("mileage_error_time_order") || "End time must be after start time.");
+      return;
+    }
+    if (isNaN(km) || km <= 0) {
+      setFormError(t("mileage_error_distance") || "Distance must be greater than 0 km.");
+      return;
+    }
     addMileage.mutate({
-      origin,
-      destination,
+      origin: origin.trim(),
+      destination: destination.trim(),
       distance_km: km,
       start_time: new Date(startTime).toISOString(),
       end_time: new Date(endTime).toISOString(),
-      ...(description ? { description } : {}),
+      ...(description.trim() ? { description: description.trim() } : {}),
     });
   };
 
@@ -142,71 +162,138 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
 
       {/* Add form */}
       {showForm && (
-        <div className="bg-teal-50 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-800/50 rounded-xl p-4 mb-6">
-          <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">{t("mileage_record_trip")}</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-            <input
-              type="text"
-              placeholder={t("mileage_origin")}
-              value={origin}
-              onChange={(e) => setOrigin(e.target.value)}
-              className="px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground"
-            />
-            <input
-              type="text"
-              placeholder={t("mileage_destination")}
-              value={destination}
-              onChange={(e) => setDestination(e.target.value)}
-              className="px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground"
-            />
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleAdd();
+          }}
+          className="bg-teal-50 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-800/50 rounded-xl p-4 mb-6 space-y-3"
+        >
+          <p className="text-sm font-medium text-slate-700 dark:text-slate-300">{t("mileage_record_trip")}</p>
+
+          {formError && (
+            <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-400">
+              {formError}
+            </p>
+          )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs text-muted mb-1">{t("mileage_start_time")}</label>
+              <label htmlFor="mileage-origin" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
+                {t("mileage_origin")}
+              </label>
               <input
+                id="mileage-origin"
+                type="text"
+                required
+                placeholder={t("mileage_origin")}
+                value={origin}
+                onChange={(e) => {
+                  setOrigin(e.target.value);
+                  if (formError) setFormError(null);
+                }}
+                className="w-full min-h-11 px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground focus:outline-none focus:ring-2 focus:ring-teal-500"
+              />
+            </div>
+            <div>
+              <label htmlFor="mileage-destination" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
+                {t("mileage_destination")}
+              </label>
+              <input
+                id="mileage-destination"
+                type="text"
+                required
+                placeholder={t("mileage_destination")}
+                value={destination}
+                onChange={(e) => {
+                  setDestination(e.target.value);
+                  if (formError) setFormError(null);
+                }}
+                className="w-full min-h-11 px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground focus:outline-none focus:ring-2 focus:ring-teal-500"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="mileage-start-time" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
+                {t("mileage_start_time")}
+              </label>
+              <input
+                id="mileage-start-time"
                 type="datetime-local"
+                required
                 value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-                className="w-full px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground"
+                onChange={(e) => {
+                  setStartTime(e.target.value);
+                  if (formError) setFormError(null);
+                }}
+                className="w-full min-h-11 px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground focus:outline-none focus:ring-2 focus:ring-teal-500"
               />
             </div>
             <div>
-              <label className="block text-xs text-muted mb-1">{t("mileage_end_time")}</label>
+              <label htmlFor="mileage-end-time" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
+                {t("mileage_end_time")}
+              </label>
               <input
+                id="mileage-end-time"
                 type="datetime-local"
+                required
                 value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
-                className="w-full px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground"
+                onChange={(e) => {
+                  setEndTime(e.target.value);
+                  if (formError) setFormError(null);
+                }}
+                className="w-full min-h-11 px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground focus:outline-none focus:ring-2 focus:ring-teal-500"
               />
             </div>
           </div>
-          <div className="flex flex-col sm:flex-row gap-3">
-            <input
-              type="number"
-              step="0.1"
-              min="0"
-              placeholder={t("mileage_distance")}
-              value={distanceKm}
-              onChange={(e) => setDistanceKm(e.target.value)}
-              className="px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground w-36"
-            />
-            <input
-              type="text"
-              placeholder={t("mileage_desc_optional")}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground flex-1"
-            />
-            <button
-              onClick={handleAdd}
-              disabled={addMileage.isPending || !origin || !destination || !distanceKm || !startTime || !endTime}
-              className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 disabled:opacity-50 whitespace-nowrap"
-            >
-              <Plus className="w-4 h-4" />
-              {addMileage.isPending ? t("mileage_adding") : t("mileage_add_trip")}
-            </button>
+
+          <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+            <div className="sm:col-span-3">
+              <label htmlFor="mileage-distance" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
+                {t("mileage_distance")} (km)
+              </label>
+              <input
+                id="mileage-distance"
+                type="number"
+                step="0.1"
+                min="0.1"
+                required
+                placeholder={t("mileage_distance")}
+                value={distanceKm}
+                onChange={(e) => {
+                  setDistanceKm(e.target.value);
+                  if (formError) setFormError(null);
+                }}
+                className="w-full min-h-11 px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground focus:outline-none focus:ring-2 focus:ring-teal-500"
+              />
+            </div>
+            <div className="sm:col-span-6">
+              <label htmlFor="mileage-description" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
+                {t("mileage_desc_optional")}
+              </label>
+              <input
+                id="mileage-description"
+                type="text"
+                placeholder={t("mileage_desc_optional")}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="w-full min-h-11 px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground focus:outline-none focus:ring-2 focus:ring-teal-500"
+              />
+            </div>
+            <div className="sm:col-span-3">
+              <button
+                type="submit"
+                disabled={addMileage.isPending}
+                className="w-full min-h-11 flex items-center justify-center gap-2 px-4 py-2 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 disabled:opacity-50 whitespace-nowrap cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
+              >
+                <Plus className="w-4 h-4" />
+                {addMileage.isPending ? t("mileage_adding") : t("mileage_add_trip")}
+              </button>
+            </div>
           </div>
-        </div>
+        </form>
       )}
 
       {/* Mileage table */}

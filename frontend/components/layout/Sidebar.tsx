@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -64,13 +64,33 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
   const sidebarRef = useRef<HTMLElement>(null);
   useBodyScrollLock(open);
 
+  const [isDesktop, setIsDesktop] = useState(() => {
+    if (typeof window !== "undefined") {
+      return window.innerWidth >= 1024;
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    const mql = window.matchMedia("(min-width: 1024px)");
+    setIsDesktop(mql.matches);
+    const handler = (e: MediaQueryListEvent) => {
+      setIsDesktop(e.matches);
+      if (e.matches && open) {
+        onClose();
+      }
+    };
+    mql.addEventListener("change", handler);
+    return () => mql.removeEventListener("change", handler);
+  }, [open, onClose]);
+
   useEffect(() => {
     if (!open) return;
     const sidebar = sidebarRef.current;
     const background = [
-      document.querySelector("main"),
-      document.querySelector('header'),
-      document.querySelector('nav[aria-label="Primary mobile navigation"]'),
+      document.getElementById("main-content"),
+      document.getElementById("app-header"),
+      document.getElementById("mobile-bottom-nav"),
     ].filter(Boolean) as HTMLElement[];
 
     background.forEach((element) => element.setAttribute("inert", ""));
@@ -90,12 +110,16 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
       if (!focusable.length) return;
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
+      if (event.shiftKey) {
+        if (document.activeElement === first || document.activeElement === sidebar) {
+          event.preventDefault();
+          last.focus();
+        }
+      } else {
+        if (document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
       }
     };
 
@@ -112,6 +136,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
   };
 
   const ThemeIcon = THEME_ICONS[theme];
+  const isMobileClosed = !isDesktop && !open;
 
   return (
     <>
@@ -129,6 +154,8 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
         ref={sidebarRef}
         tabIndex={-1}
         aria-label="Application navigation"
+        aria-hidden={isMobileClosed ? "true" : undefined}
+        inert={isMobileClosed ? true : undefined}
         className={clsx(
           "fixed top-0 left-0 h-full w-[220px] bg-sidebar text-slate-200 flex flex-col z-50 border-r border-sidebar-border",
           "transition-transform duration-200 ease-in-out",
@@ -262,7 +289,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
           <button
             onClick={cycleTheme}
             aria-label={`Current theme: ${THEME_LABELS[theme]}. Click to cycle.`}
-            className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs text-slate-300 hover:text-white bg-sidebar-border/40 hover:bg-sidebar-border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary cursor-pointer"
+            className="w-full min-h-[44px] flex items-center justify-between px-3 py-2 rounded-lg text-xs text-slate-300 hover:text-white bg-sidebar-border/40 hover:bg-sidebar-border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary cursor-pointer"
           >
             <span className="flex items-center gap-2 text-slate-400">
               <ThemeIcon className="w-4 h-4 text-primary" aria-hidden="true" />
@@ -273,8 +300,12 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
 
           {/* Sign Out Button */}
           <button
-            onClick={logout}
-            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary cursor-pointer"
+            onClick={() => {
+              if (allowNavigation()) {
+                logout();
+              }
+            }}
+            className="w-full min-h-[44px] flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary cursor-pointer"
           >
             <LogOut className="w-4 h-4 shrink-0" aria-hidden="true" />
             <span>{tNav("sign_out")}</span>

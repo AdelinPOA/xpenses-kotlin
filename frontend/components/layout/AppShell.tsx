@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import Sidebar from "./Sidebar";
 import { Menu, LayoutDashboard, ReceiptText, FolderKanban, User, CheckSquare } from "lucide-react";
 import Link from "next/link";
@@ -19,10 +19,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const tNav = useTranslations("nav");
   const allowNavigation = useAllowNavigation();
 
-  const closeSidebar = () => {
+  const closeSidebar = useCallback(() => {
     setSidebarOpen(false);
     requestAnimationFrame(() => menuButtonRef.current?.focus());
-  };
+  }, []);
 
   const navItems = user?.role === "manager" ? [
     { href: "/dashboard", labelKey: "dashboard", icon: LayoutDashboard },
@@ -38,7 +38,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen min-h-dvh bg-background text-foreground flex flex-col">
-      <header className="lg:hidden fixed top-0 left-0 right-0 z-30 bg-card border-b border-border shadow-sm pt-safe">
+      <header id="app-header" className="lg:hidden fixed top-0 left-0 right-0 z-30 bg-card border-b border-border shadow-sm pt-safe">
         <div className="h-14 px-4 flex items-center justify-between relative">
           <button
             ref={menuButtonRef}
@@ -86,6 +86,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       </main>
 
       <nav
+        id="mobile-bottom-nav"
         aria-label={tNav("mobile_navigation")}
         className="lg:hidden fixed bottom-0 left-0 right-0 h-[calc(4rem+env(safe-area-inset-bottom,0px))] pb-safe box-border bg-card border-t border-border flex items-end justify-around z-30 shadow-lg"
       >

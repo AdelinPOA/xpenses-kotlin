@@ -13,6 +13,7 @@ import { useTranslations } from "next-intl";
 import api from "@/lib/api";
 import { expenseKeys, dashboardKeys, reportKeys } from "@/lib/queryKeys";
 import { useToast } from "@/components/ToastProvider";
+import { useAuth } from "@/components/AuthProvider";
 import {
   listPendingExpenses,
   removePendingExpense,
@@ -48,26 +49,27 @@ export default function OfflineSyncProvider({ children }: { children: React.Reac
   const t = useTranslations("offline");
   const qc = useQueryClient();
   const toast = useToast();
+  const { user } = useAuth();
   const [pendingCount, setPendingCount] = useState(0);
   const [failedCount, setFailedCount] = useState(0);
   const syncingRef = useRef(false);
 
   const refreshCount = useCallback(async () => {
     try {
-      const items = await listPendingExpenses();
+      const items = await listPendingExpenses(user?.id);
       setPendingCount(items.length);
       setFailedCount(items.filter((i) => i.error).length);
     } catch {
       // IDB unavailable (private mode) — queue features degrade silently.
     }
-  }, []);
+  }, [user?.id]);
 
   const syncOnce = useCallback(async () => {
-    if (syncingRef.current || !navigator.onLine) return;
+    if (syncingRef.current || !navigator.onLine || !user?.id) return;
     syncingRef.current = true;
     let synced = 0;
     try {
-      const items = await listPendingExpenses();
+      const items = await listPendingExpenses(user.id);
       const retryable = items.filter((i) => !i.error);
       let stoppedForNetwork = false;
 
@@ -129,8 +131,7 @@ export default function OfflineSyncProvider({ children }: { children: React.Reac
       window.removeEventListener("online", onOnline);
       document.removeEventListener("visibilitychange", onVisible);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [refreshCount, syncOnce]);
 
   return (
     <OfflineSyncContext.Provider value={{ pendingCount, failedCount, refreshCount }}>

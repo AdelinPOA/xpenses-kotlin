@@ -7,6 +7,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
 import AppShell from "@/components/layout/AppShell";
 import { useToast } from "@/components/ToastProvider";
+import { useAuth } from "@/components/AuthProvider";
 import { useOfflineSync } from "@/components/OfflineSyncProvider";
 import { expenseKeys, dashboardKeys } from "@/lib/queryKeys";
 import api, { OCRScanResult } from "@/lib/api";
@@ -29,6 +30,7 @@ export default function CapturePage() {
   const router = useRouter();
   const qc = useQueryClient();
   const toast = useToast();
+  const { user } = useAuth();
   const { refreshCount: refreshOffline } = useOfflineSync();
   const t = useTranslations("expenses");
   const tc = useTranslations("capture");
@@ -108,7 +110,7 @@ export default function CapturePage() {
     try {
       if (!navigator.onLine) {
         const blob = await compressImage(file);
-        await enqueueExpense(payload, [{ name: file.name, type: blob.type || file.type, blob }]);
+        await enqueueExpense(payload, [{ name: file.name, type: blob.type || file.type, blob }], user?.id);
         await refreshOffline();
         toast.success(t("saved_offline_toast"));
         resetForNext();
@@ -131,7 +133,7 @@ export default function CapturePage() {
       if (!err?.response && !navigator.onLine) {
         // Network dropped mid-capture — queue it like an offline save.
         const blob = await compressImage(file);
-        await enqueueExpense(payload, [{ name: file.name, type: blob.type || file.type, blob }]);
+        await enqueueExpense(payload, [{ name: file.name, type: blob.type || file.type, blob }], user?.id);
         await refreshOffline();
         toast.success(t("saved_offline_toast"));
         resetForNext();

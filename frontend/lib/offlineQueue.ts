@@ -20,6 +20,7 @@ export interface PendingReceipt {
 
 export interface PendingExpense {
   id: string;
+  userId?: number;
   /** POST /expenses body. */
   payload: Record<string, unknown>;
   receipts: PendingReceipt[];
@@ -67,10 +68,12 @@ async function withStore<T>(
 
 export async function enqueueExpense(
   payload: Record<string, unknown>,
-  receipts: PendingReceipt[]
+  receipts: PendingReceipt[],
+  userId?: number
 ): Promise<PendingExpense> {
   const item: PendingExpense = {
     id: crypto.randomUUID(),
+    userId,
     payload,
     receipts,
     createdAt: Date.now(),
@@ -87,12 +90,18 @@ export async function removePendingExpense(id: string): Promise<void> {
   await withStore("readwrite", (store) => store.delete(id) as unknown as IDBRequest<undefined>);
 }
 
-export async function listPendingExpenses(): Promise<PendingExpense[]> {
+export async function listPendingExpenses(userId?: number): Promise<PendingExpense[]> {
   const items = await withStore<PendingExpense[]>("readonly", (store) => store.getAll());
+  // If userId is specified, only return items belonging to that user.
+  // Unowned legacy items (without userId) are quarantined and not auto-synced by other users.
+  const filtered = userId !== undefined
+    ? items.filter((i) => i.userId === userId)
+    : items;
   // Oldest first — deterministic sync order.
-  return items.sort((a, b) => a.createdAt - b.createdAt);
+  return filtered.sort((a, b) => a.createdAt - b.createdAt);
 }
 
-export async function countPendingExpenses(): Promise<number> {
-  return withStore<number>("readonly", (store) => store.count());
+export async function countPendingExpenses(userId?: number): Promise<number> {
+  const items = await listPendingExpenses(userId);
+  return items.length;
 }

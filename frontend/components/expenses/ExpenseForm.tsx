@@ -16,6 +16,7 @@ import ReceiptScanner from "./ReceiptScanner";
 import FxRateInput from "./FxRateInput";
 import ReceiptPreview from "./ReceiptPreview";
 import { useToast } from "@/components/ToastProvider";
+import { useAuth } from "@/components/AuthProvider";
 import { useTranslations } from "next-intl";
 
 function sanitizeUrl(url: string): string {
@@ -55,6 +56,7 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency, highli
   const t = useTranslations("expenses");
   const tc = useTranslations("common");
   const toast = useToast();
+  const { user } = useAuth();
   const { refreshCount: refreshOffline } = useOfflineSync();
 
   const [form, setForm] = useState<FormFields>({
@@ -208,7 +210,7 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency, highli
           const blob = await compressImage(file);
           receipts.push({ name: file.name, type: blob.type || file.type, blob });
         }
-        const queued = await enqueueExpense(payload, receipts);
+        const queued = await enqueueExpense(payload, receipts, user?.id);
         return { expense: null, receiptUploadFailed: false, queued };
       }
       let result: Expense;
@@ -225,7 +227,7 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency, highli
             const blob = await compressImage(file);
             receipts.push({ name: file.name, type: blob.type || file.type, blob });
           }
-          const queued = await enqueueExpense(payload, receipts);
+          const queued = await enqueueExpense(payload, receipts, user?.id);
           return { expense: null, receiptUploadFailed: false, queued };
         }
         throw new Error(e.response?.data?.detail ?? t("error_save"));

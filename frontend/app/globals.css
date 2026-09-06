@@ -12,8 +12,8 @@
   --border-subtle: #f1f5f9;
   --input: #ffffff;
   --input-border: #cbd5e1;
-  --muted: #64748b;
-  --muted-foreground: #94a3b8;
+  --muted: #475569;
+  --muted-foreground: #64748b;
   --primary: #c2410c;
   --primary-hover: #9a3412;
   --sidebar: #0f172a;
@@ -29,8 +29,8 @@
   --border-subtle: #162032;
   --input: #0f172a;
   --input-border: #334155;
-  --muted: #94a3b8;
-  --muted-foreground: #64748b;
+  --muted: #cbd5e1;
+  --muted-foreground: #94a3b8;
   --primary: #c2410c;
   --primary-hover: #9a3412;
   --sidebar: #0a0e1a;
@@ -54,6 +54,12 @@
   --color-sidebar-border: var(--sidebar-border);
 
   --animate-slide-in: slide-in 0.3s ease-out;
+  --animate-fade-in: fade-in 0.2s ease-out;
+
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
 
   @keyframes slide-in {
     from {
@@ -64,6 +70,17 @@
       transform: translateY(0);
       opacity: 1;
     }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
 

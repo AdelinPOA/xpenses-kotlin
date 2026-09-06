@@ -14,6 +14,7 @@ import { useToast } from "@/components/ToastProvider";
 import clsx from "clsx";
 import { useRouter, useSearchParams } from "next/navigation";
 import { formatEur } from "@/lib/format";
+import { useBodyScrollLock } from "@/lib/useBodyScrollLock";
 import { useTranslations } from "next-intl";
 
 type SortKey = "title" | "total" | "submitted_at";
@@ -46,6 +47,17 @@ function ReportsPageContent() {
     const status = searchParams.get("status");
     if (status) setStatusFilter(status);
   }, [searchParams]);
+
+  useBodyScrollLock(confirmDeleteId !== null);
+
+  useEffect(() => {
+    if (confirmDeleteId === null) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setConfirmDeleteId(null);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [confirmDeleteId]);
 
   useEffect(() => {
     if (isPrivileged && user?.role === "manager") setShowAll(true);
@@ -471,8 +483,10 @@ function ReportsPageContent() {
                             <button
                               onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(r.id); }}
                               disabled={del.isPending}
+                              aria-label={t("delete_report") || "Delete report"}
+                              className="min-w-11 min-h-11 inline-flex items-center justify-center rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
                             >
-                              <Trash2 aria-hidden="true" className="w-4 h-4 text-slate-400 hover:text-red-500" />
+                              <Trash2 aria-hidden="true" className="w-4 h-4" />
                             </button>
                           </>
                         )}
@@ -488,7 +502,15 @@ function ReportsPageContent() {
       </div>
 
       {confirmDeleteId !== null && (
-        <div role="dialog" aria-modal="true" aria-labelledby="delete-report-title" className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-report-title"
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setConfirmDeleteId(null);
+          }}
+        >
           <div className="bg-card rounded-xl border border-border shadow-xl max-w-md w-full p-6 space-y-4">
             <h3 id="delete-report-title" className="text-lg font-bold text-foreground">{t("delete_title")}</h3>
             <p className="text-sm text-muted">

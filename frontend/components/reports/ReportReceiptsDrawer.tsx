@@ -10,6 +10,7 @@ import { formatEur } from "@/lib/format";
 import { X, FileText, User, Tag, Paperclip, Loader2 } from "lucide-react";
 import Badge from "@/components/ui/Badge";
 import ReceiptPreview from "@/components/expenses/ReceiptPreview";
+import { useBodyScrollLock } from "@/lib/useBodyScrollLock";
 import { useTranslations } from "next-intl";
 
 function sanitizeUrl(url: string): string {
@@ -114,6 +115,8 @@ export default function ReportReceiptsDrawer({ reportId, onClose }: Props) {
   };
   const handlePointerUp = () => setIsDraggingImage(false);
 
+  useBodyScrollLock(!!reportId);
+
   useEffect(() => {
     if (!reportId) return;
     const onKey = (e: KeyboardEvent) => {
@@ -128,16 +131,24 @@ export default function ReportReceiptsDrawer({ reportId, onClose }: Props) {
   const totalReceiptCount = Array.from(receiptsByExpense.values()).reduce((n, list) => n + list.length, 0);
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden bg-black/40 backdrop-blur-xs flex justify-end transition-opacity">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="report-receipts-title"
+      className="fixed inset-0 z-50 overflow-hidden bg-black/40 backdrop-blur-xs flex justify-end transition-opacity"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <div className="w-full max-w-4xl bg-card border-l border-border h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-200">
         {/* Header */}
-        <div className="p-5 border-b border-border flex items-center justify-between shrink-0">
+        <div className="p-5 pt-[calc(1.25rem+env(safe-area-inset-top,0px))] border-b border-border flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3 min-w-0">
             <div className="p-2.5 rounded-xl bg-primary/10 text-primary shrink-0">
               <Paperclip className="w-6 h-6" />
             </div>
             <div className="min-w-0">
-              <h2 className="text-lg font-bold text-foreground truncate">
+              <h2 id="report-receipts-title" className="text-lg font-bold text-foreground truncate">
                 {isLoading ? t("loading_report") : report?.title || `${t("report_number")}${reportId}`}
               </h2>
               <p className="text-xs text-muted-foreground flex items-center gap-2 mt-0.5">
@@ -161,9 +172,9 @@ export default function ReportReceiptsDrawer({ reportId, onClose }: Props) {
           <button
             onClick={onClose}
             aria-label={tc("close")}
-            className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors shrink-0"
+            className="min-w-11 min-h-11 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary cursor-pointer"
           >
-            <X className="w-5 h-5" />
+            <X className="w-5 h-5" aria-hidden="true" />
           </button>
         </div>
 
@@ -248,7 +259,7 @@ export default function ReportReceiptsDrawer({ reportId, onClose }: Props) {
         )}
 
         {/* Footer context line */}
-        <div className="p-3 border-t border-border bg-muted/20 flex items-center gap-2 text-xs text-muted-foreground shrink-0">
+        <div className="p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] border-t border-border bg-muted/20 flex items-center gap-2 text-xs text-muted-foreground shrink-0">
           <FileText className="w-3.5 h-3.5" />
           <span>
             {t("itemized_expenses")} ({expensesWithReceipts.length}) ·{" "}

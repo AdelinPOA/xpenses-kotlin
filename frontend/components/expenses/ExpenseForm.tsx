@@ -372,24 +372,41 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency, highli
 
   return (
     <div className="flex flex-col gap-6 max-w-6xl w-full items-start">
-      <div className="flex lg:hidden w-full border-b border-border-subtle/80 mb-1 bg-card rounded-lg p-1">
-        <button type="button" onClick={() => setActiveMobileTab('details')}
-          aria-pressed={activeMobileTab === 'details'}
+      <div className="flex lg:hidden w-full border-b border-border-subtle/80 mb-1 bg-card rounded-lg p-1" role="tablist" aria-label="Expense views">
+        <button
+          type="button"
+          role="tab"
+          id="tab-details"
+          aria-controls="panel-details"
+          aria-selected={activeMobileTab === 'details'}
+          onClick={() => setActiveMobileTab('details')}
           className={clsx("flex-1 min-h-11 py-2 text-center text-xs font-semibold rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-            activeMobileTab === 'details' ? "bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400" : "text-muted hover:bg-card-hover")}>
+            activeMobileTab === 'details' ? "bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400" : "text-muted hover:bg-card-hover")}
+        >
           {t("mobile_details")}
         </button>
-        <button type="button" onClick={() => setActiveMobileTab('receipt')}
-          aria-pressed={activeMobileTab === 'receipt'}
+        <button
+          type="button"
+          role="tab"
+          id="tab-receipt"
+          aria-controls="panel-receipt"
+          aria-selected={activeMobileTab === 'receipt'}
+          onClick={() => setActiveMobileTab('receipt')}
           className={clsx("flex-1 min-h-11 py-2 text-center text-xs font-semibold rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-            activeMobileTab === 'receipt' ? "bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400" : "text-muted hover:bg-card-hover")}>
+            activeMobileTab === 'receipt' ? "bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400" : "text-muted hover:bg-card-hover")}
+        >
           {t("mobile_receipt")} ({items.length})
         </button>
       </div>
 
       <div className="flex flex-col lg:flex-row gap-6 w-full items-start">
-        <form onSubmit={(e) => { e.preventDefault(); save.mutate(); }}
-          className={clsx("bg-card rounded-xl shadow-sm p-6 flex-1 w-full max-w-lg space-y-5", activeMobileTab !== 'details' && "hidden lg:block")}>
+        <form
+          id="panel-details"
+          role="tabpanel"
+          aria-labelledby="tab-details"
+          onSubmit={(e) => { e.preventDefault(); save.mutate(); }}
+          className={clsx("bg-card rounded-xl shadow-sm p-6 flex-1 w-full max-w-lg space-y-5", activeMobileTab !== 'details' && "hidden lg:block")}
+        >
           {error && <p id="expense-form-error" role="alert" className="text-red-600 text-sm">{error}</p>}
 
           {savedExpense && savedExpense.currency_original !== "EUR" && (
@@ -545,22 +562,29 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency, highli
           </div>
         </form>
 
-        <ReceiptPreview
-          items={items}
-          activeItem={activeItem}
-          zoom={zoom}
-          position={position}
-          isDraggingImage={isDraggingImage}
-          activeReceiptKey={activeReceiptKey}
-          onSelectItem={setActiveReceiptKey}
-          onZoomIn={() => setZoom((z) => Math.min(3, z + 0.25))}
-          onZoomOut={() => setZoom((z) => Math.max(0.5, z - 0.25))}
-          onReset={() => { setZoom(1); setPosition({ x: 0, y: 0 }); }}
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          sanitizeUrl={sanitizeUrl}
-        />
+        <div
+          id="panel-receipt"
+          role="tabpanel"
+          aria-labelledby="tab-receipt"
+          className={clsx("w-full lg:flex-1", activeMobileTab !== 'receipt' && "hidden lg:block")}
+        >
+          <ReceiptPreview
+            items={items}
+            activeItem={activeItem}
+            zoom={zoom}
+            position={position}
+            isDraggingImage={isDraggingImage}
+            activeReceiptKey={activeReceiptKey}
+            onSelectItem={setActiveReceiptKey}
+            onZoomIn={() => setZoom((z) => Math.min(3, z + 0.25))}
+            onZoomOut={() => setZoom((z) => Math.max(0.5, z - 0.25))}
+            onReset={() => { setZoom(1); setPosition({ x: 0, y: 0 }); }}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            sanitizeUrl={sanitizeUrl}
+          />
+        </div>
       </div>
     </div>
   );

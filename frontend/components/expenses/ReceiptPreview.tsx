@@ -82,7 +82,10 @@ export default function ReceiptPreview({
               </div>
 
               <div
-                className={clsx("flex-1 w-full flex items-center justify-center p-4 overflow-hidden min-h-[350px] touch-none", zoom > 1 ? "cursor-grab" : "")}
+                className={clsx(
+                  "flex-1 w-full flex items-center justify-center p-4 overflow-hidden min-h-[350px]",
+                  zoom > 1 ? "touch-none cursor-grab" : "touch-pan-y"
+                )}
                 onPointerDown={onPointerDown}
                 onPointerMove={onPointerMove}
                 onPointerUp={onPointerUp}

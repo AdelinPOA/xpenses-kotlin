@@ -83,6 +83,34 @@ class InsuranceControllerTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `GET download file returns attachment disposition and safe mime type`() {
+        val tech = userRepository.findByUsername("tech1")!!
+        val managerCookie = authHelper.loginAs("manager1", "manager1")
+        val file = MockMultipartFile("file", "policy.pdf", "text/html", byteArrayOf(0x25, 0x50, 0x44, 0x46))
+
+        val result = mockMvc.perform(
+            multipart("/api/insurance")
+                .file(file)
+                .param("title", "Policy Document")
+                .param("user_id", tech.id.toString())
+                .cookie(managerCookie)
+        )
+            .andExpect(status().isCreated)
+            .andReturn()
+
+        val json = org.json.JSONObject(result.response.contentAsString)
+        val fileId = json.getInt("id")
+
+        val techCookie = authHelper.loginAs("tech1", "tech1")
+        mockMvc.perform(get("/api/insurance/$fileId/download").cookie(techCookie))
+            .andExpect(status().isOk)
+            .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.containsString("attachment")))
+            .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.containsString("policy.pdf")))
+            .andExpect(header().string("X-Content-Type-Options", "nosniff"))
+            .andExpect(header().string("Content-Type", org.hamcrest.Matchers.containsString("application/pdf")))
+    }
+
+    @Test
     fun `DELETE file as manager returns 204`() {
         val f = saveInsuranceFile()
         entityManager.flush()

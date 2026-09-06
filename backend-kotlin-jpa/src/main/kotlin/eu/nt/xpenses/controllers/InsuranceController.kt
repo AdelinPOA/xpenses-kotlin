@@ -9,6 +9,8 @@ import eu.nt.xpenses.services.Authorization
 import eu.nt.xpenses.services.StorageService
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
+import org.springframework.http.ContentDisposition
+import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
@@ -19,6 +21,7 @@ import org.springframework.web.multipart.MultipartFile
 import org.springframework.web.server.ResponseStatusException
 import org.slf4j.LoggerFactory
 import java.io.File
+import java.nio.charset.StandardCharsets
 import java.time.Instant
 
 @RestController
@@ -123,7 +126,7 @@ class InsuranceController(
                 filePath = relativePath,
                 fileName = originalName,
                 fileSize = upload.size,
-                fileType = upload.contentType,
+                fileType = resolveSafeMimeType(originalName),
                 uploadedBy = txCurrentUser,
                 createdAt = now,
                 updatedAt = now
@@ -157,10 +160,16 @@ class InsuranceController(
             throw ResponseStatusException(HttpStatus.NOT_FOUND, "File not found on storage")
         }
 
-        val contentType = file.fileType ?: "application/octet-stream"
+        val effectiveFileName = file.fileName?.ifBlank { null } ?: "document"
+        val safeMimeType = resolveSafeMimeType(effectiveFileName)
+        val contentDisposition = ContentDisposition.attachment()
+            .filename(effectiveFileName, StandardCharsets.UTF_8)
+            .build()
 
         return ResponseEntity.ok()
-            .contentType(MediaType.parseMediaType(contentType))
+            .header(HttpHeaders.CONTENT_DISPOSITION, contentDisposition.toString())
+            .header("X-Content-Type-Options", "nosniff")
+            .contentType(MediaType.parseMediaType(safeMimeType))
             .body(bytes)
     }
 
@@ -208,6 +217,26 @@ class InsuranceController(
         createdAt = f.createdAt,
         updatedAt = f.updatedAt
     )
+
+    companion object {
+        private val EXTENSION_MIME_MAP = mapOf(
+            "pdf" to "application/pdf",
+            "jpg" to "image/jpeg",
+            "jpeg" to "image/jpeg",
+            "png" to "image/png",
+            "doc" to "application/msword",
+            "docx" to "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "xls" to "application/vnd.ms-excel",
+            "xlsx" to "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "txt" to "text/plain",
+            "csv" to "text/csv",
+        )
+
+        fun resolveSafeMimeType(fileName: String): String {
+            val ext = fileName.substringAfterLast('.', "").lowercase()
+            return EXTENSION_MIME_MAP[ext] ?: "application/octet-stream"
+        }
+    }
 }
 
 data class InsuranceFileOut(

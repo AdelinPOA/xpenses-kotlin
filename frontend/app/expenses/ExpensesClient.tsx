@@ -202,38 +202,11 @@ function ExpensesPageContent() {
       await api.delete(`/expenses/${expense.id}`);
       return expense;
     },
-    onSuccess: (exp) => {
-      invalidateLists();
-      // Undo re-POSTs a copy captured pre-delete; offered for drafts only.
-      const undoable = exp.status === "draft"
-        ? {
-            label: tc("undo"),
-            onClick: () => restoreDeleted.mutate(exp),
-          }
-        : undefined;
-      toast.success(t("deleted_toast"), undoable);
-    },
-    onError: () => toast.error(t("delete_failed")),
-  });
-
-  const restoreDeleted = useMutation({
-    mutationFn: async (exp: Expense) => {
-      await api.post("/expenses", {
-        amount: exp.amount_original,
-        currency: exp.currency_original,
-        date: exp.date,
-        merchant: exp.merchant ?? null,
-        description: exp.description ?? null,
-        category_id: exp.category_id ?? null,
-        tax_amount: exp.tax_amount ?? 0,
-        tax_rate: exp.tax_rate ?? null,
-      });
-    },
     onSuccess: () => {
       invalidateLists();
-      toast.success(t("restored_toast"));
+      toast.success(t("deleted_toast"));
     },
-    onError: () => toast.error(t("restore_failed")),
+    onError: () => toast.error(t("delete_failed")),
   });
 
   const tapDelete = (expense: Expense) => {

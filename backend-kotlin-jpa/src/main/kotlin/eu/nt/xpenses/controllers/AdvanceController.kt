@@ -65,6 +65,10 @@ class AdvanceController(
 
         val now = Instant.now()
 
+        if (report.status in listOf("paid", "rejected")) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot add advances to a ${report.status} report")
+        }
+
         if (body.type !in listOf("request", "paid")) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid advance type. Must be \"request\" or \"paid\"")
         }
@@ -208,6 +212,10 @@ class AdvanceController(
             throw ResponseStatusException(HttpStatus.NOT_FOUND, "Advance payment not in this report")
         }
 
+        if (report.status in listOf("paid", "rejected")) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot delete advances on a ${report.status} report")
+        }
+
         val isOwner = report.user?.id == currentUser.id
         val isPrivileged = authorization.canViewAll(currentUser)
 
@@ -246,7 +254,10 @@ class AdvanceController(
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Not authorized")
         }
 
-        reportOwnership.verifyOwnership(reportId, currentUser)
+        val report = reportOwnership.verifyOwnership(reportId, currentUser)
+        if (report.status in listOf("paid", "rejected")) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot pay an advance on a ${report.status} report")
+        }
 
         val adv = advancePaymentRepository.findById(advanceId).orElseThrow {
             ResponseStatusException(HttpStatus.NOT_FOUND, "Advance payment not found")

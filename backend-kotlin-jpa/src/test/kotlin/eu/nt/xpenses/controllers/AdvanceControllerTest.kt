@@ -190,4 +190,54 @@ class AdvanceControllerTest : IntegrationTestBase() {
 
         verify(fxService).getRate("CHF", "2024-04-05")
     }
+
+    @Test
+    fun `POST advance on paid report returns 400 Bad Request`() {
+        val tech = userRepository.findByUsername("tech1")!!
+        val report = expenseReportRepository.save(ExpenseReport(user = tech, title = "Paid Report", status = "paid"))
+        entityManager.flush()
+        entityManager.clear()
+        val cookie = authHelper.loginAs("tech1", "tech1")
+
+        mockMvc.perform(
+            post("/api/reports/${report.id}/advances")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"type":"request","amount":100.0,"currency":"EUR"}""")
+                .cookie(cookie)
+        )
+            .andExpect(status().isBadRequest)
+    }
+
+    @Test
+    fun `paying advance on paid report returns 400 Bad Request`() {
+        val tech = userRepository.findByUsername("tech1")!!
+        val report = expenseReportRepository.save(ExpenseReport(user = tech, title = "Draft Report", status = "draft"))
+        val advance = advancePaymentRepository.save(
+            eu.nt.xpenses.model.AdvancePayment(
+                report = report,
+                user = tech,
+                amountOriginal = java.math.BigDecimal.ZERO,
+                currencyOriginal = "EUR",
+                amountEur = java.math.BigDecimal.ZERO,
+                fxRate = java.math.BigDecimal.ZERO,
+                date = "",
+                status = "requested",
+                requestedAmount = java.math.BigDecimal("100.00"),
+                requestedCurrency = "EUR"
+            )
+        )
+        report.status = "paid"
+        expenseReportRepository.save(report)
+        entityManager.flush()
+        entityManager.clear()
+
+        val managerCookie = authHelper.loginAs("manager1", "manager1")
+        mockMvc.perform(
+            post("/api/reports/${report.id}/advances/${advance.id}/pay")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"amount":100.00,"currency":"EUR","date":"2024-03-04"}""")
+                .cookie(managerCookie)
+        )
+            .andExpect(status().isBadRequest)
+    }
 }

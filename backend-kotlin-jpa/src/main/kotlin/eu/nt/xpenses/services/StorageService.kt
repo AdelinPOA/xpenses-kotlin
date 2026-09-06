@@ -310,7 +310,11 @@ open class StorageService(
             try {
                 remote.upload(relativePath, content)
             } catch (e: Exception) {
-                logger.error("Failed to sync $relativePath to remote storage: ${e.message}")
+                logger.error("Failed to upload $relativePath to remote storage: ${e.message}", e)
+                try {
+                    localProvider.delete(relativePath)
+                } catch (_: Exception) {}
+                throw ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Remote storage upload failed: ${e.message}", e)
             }
         }
     }

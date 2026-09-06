@@ -15,6 +15,8 @@ import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionSynchronization
+import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.web.multipart.MultipartFile
 import org.springframework.web.server.ResponseStatusException
 import java.math.BigDecimal
@@ -304,11 +306,25 @@ class ExpenseService(
         val paths = receiptsList.map { it.filePath }
         expenseRepository.delete(expense)
 
-        for (path in paths) {
-            try {
-                storageService.deleteFile(path)
-            } catch (e: Exception) {
-                log.warn("Failed to delete receipt file '{}': {}", path, e.message)
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionSynchronizationManager.registerSynchronization(object : TransactionSynchronization {
+                override fun afterCommit() {
+                    for (path in paths) {
+                        try {
+                            storageService.deleteFile(path)
+                        } catch (e: Exception) {
+                            log.warn("Failed to delete receipt file '{}': {}", path, e.message)
+                        }
+                    }
+                }
+            })
+        } else {
+            for (path in paths) {
+                try {
+                    storageService.deleteFile(path)
+                } catch (e: Exception) {
+                    log.warn("Failed to delete receipt file '{}': {}", path, e.message)
+                }
             }
         }
     }
@@ -328,6 +344,24 @@ class ExpenseService(
 
         val now = Instant.now()
         val savedReceiptsList = mutableListOf<Map<String, Any>>()
+        val stagedPaths = mutableListOf<String>()
+
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionSynchronizationManager.registerSynchronization(object : TransactionSynchronization {
+                override fun afterCompletion(status: Int) {
+                    if (status != TransactionSynchronization.STATUS_COMMITTED) {
+                        for (path in stagedPaths) {
+                            try {
+                                storageService.deleteFile(path)
+                            } catch (e: Exception) {
+                                log.warn("Failed to clean up uncommitted receipt file '{}': {}", path, e.message)
+                            }
+                        }
+                    }
+                }
+            })
+        }
+
         for (file in files) {
             val originalName = file.originalFilename ?: "receipt"
             val rawUpload = eu.nt.xpenses.models.RawUpload(
@@ -340,6 +374,8 @@ class ExpenseService(
             } catch (e: IllegalArgumentException) {
                 throw ResponseStatusException(HttpStatus.BAD_REQUEST, e.message)
             }
+            stagedPaths.add(relativePath)
+
             val receipt = Receipt(
                 expense = expense,
                 filePath = relativePath,
@@ -382,10 +418,22 @@ class ExpenseService(
         expense.updatedAt = Instant.now()
         expenseRepository.save(expense)
 
-        try {
-            storageService.deleteFile(filePath)
-        } catch (e: Exception) {
-            log.warn("Failed to delete receipt file '{}': {}", filePath, e.message)
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionSynchronizationManager.registerSynchronization(object : TransactionSynchronization {
+                override fun afterCommit() {
+                    try {
+                        storageService.deleteFile(filePath)
+                    } catch (e: Exception) {
+                        log.warn("Failed to delete receipt file '{}': {}", filePath, e.message)
+                    }
+                }
+            })
+        } else {
+            try {
+                storageService.deleteFile(filePath)
+            } catch (e: Exception) {
+                log.warn("Failed to delete receipt file '{}': {}", filePath, e.message)
+            }
         }
     }
 

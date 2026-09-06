@@ -44,7 +44,7 @@ services:
       dockerfile: Dockerfile
     container_name: xpenses-backend
     ports:
-      - "8001:8080"
+      - "${BACKEND_BIND_IP:-127.0.0.1}:8001:8080"
     env_file: .env
     dns:
       - 8.8.8.8
@@ -53,7 +53,7 @@ services:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/${DB_NAME:-xpenses}
       - SPRING_DATASOURCE_USERNAME=${DB_USER:-xpenses}
       - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD:-xpenses}
-      - SEED_DEMO_USERS=${SEED_DEMO_USERS:-true}
+      - SEED_DEMO_USERS=${SEED_DEMO_USERS:-false}
       - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-prod}
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}
     depends_on:
@@ -85,7 +85,7 @@ services:
       dockerfile: Dockerfile
     container_name: xpenses-frontend
     ports:
-      - "3001:3000"
+      - "${FRONTEND_BIND_IP:-127.0.0.1}:3001:3000"
     environment:
       - NODE_ENV=production
       - NEXT_PUBLIC_API_URL=https://xpenses.nt-automation.cc/api

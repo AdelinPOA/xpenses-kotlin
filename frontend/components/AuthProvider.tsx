@@ -5,6 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { User } from "@/lib/api";
 import { getMe, logout as apiLogout, refreshTokens } from "@/lib/auth";
 import { writeLangCookie } from "@/i18n/LocaleProvider";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface AuthContextType {
   user: User | null;
@@ -34,6 +35,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
+  const queryClient = useQueryClient();
   const proactiveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const scheduleProactiveRefresh = useCallback(() => {
@@ -102,10 +104,28 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
 
   const logout = useCallback(async () => {
     clearProactiveRefresh();
-    await apiLogout();
+    try {
+      await apiLogout();
+    } catch {
+      // Continue client cleanup even if network logout request fails
+    }
+    queryClient.clear();
+    if (typeof window !== "undefined") {
+      if ("caches" in window) {
+        try {
+          const keys = await caches.keys();
+          await Promise.all(keys.map((k) => caches.delete(k)));
+        } catch {
+          // Ignore cache deletion errors
+        }
+      }
+      if (navigator.serviceWorker?.controller) {
+        navigator.serviceWorker.controller.postMessage({ type: "CLEAR_CACHE" });
+      }
+    }
     setUser(null);
     router.push("/login");
-  }, [router, clearProactiveRefresh]);
+  }, [router, clearProactiveRefresh, queryClient]);
 
   // Neutral loading state while the initial session check runs — prevents
   // rendering the shell with user=null (logged-out flash) on PWA cold start.

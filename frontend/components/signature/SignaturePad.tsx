@@ -177,8 +177,36 @@ export default function SignaturePad({
   function handleSave() {
     const canvas = canvasRef.current;
     if (!canvas || isEmpty) return;
-    const dataUrl = canvas.toDataURL("image/png");
-    onSave(dataUrl);
+
+    // Normalise ink color on export so signatures drawn in dark mode (white strokes)
+    // export as dark slate ink (#0f172a) for high contrast on white PDF documents and printouts.
+    const offscreen = document.createElement("canvas");
+    offscreen.width = canvas.width;
+    offscreen.height = canvas.height;
+    const offCtx = offscreen.getContext("2d");
+
+    if (!offCtx) {
+      onSave(canvas.toDataURL("image/png"));
+      return;
+    }
+
+    offCtx.drawImage(canvas, 0, 0);
+    try {
+      const imgData = offCtx.getImageData(0, 0, offscreen.width, offscreen.height);
+      const data = imgData.data;
+      // Normalise all visible stroke pixels to #0f172a (R:15, G:23, B:42), preserving stroke anti-aliasing
+      for (let i = 0; i < data.length; i += 4) {
+        if (data[i + 3] > 0) {
+          data[i] = 15;
+          data[i + 1] = 23;
+          data[i + 2] = 42;
+        }
+      }
+      offCtx.putImageData(imgData, 0, 0);
+      onSave(offscreen.toDataURL("image/png"));
+    } catch {
+      onSave(canvas.toDataURL("image/png"));
+    }
   }
 
   return (
@@ -199,7 +227,7 @@ export default function SignaturePad({
         <button
           type="button"
           onClick={handleClear}
-          className="px-4 py-2 rounded-lg border border-input-border text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-sm font-medium"
+          className="px-4 py-2 min-h-[44px] rounded-lg border border-input-border text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-sm font-medium"
         >
           {t("signature_pad_clear")}
         </button>
@@ -207,7 +235,7 @@ export default function SignaturePad({
           type="button"
           onClick={handleSave}
           disabled={isEmpty}
-          className="px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="px-4 py-2 min-h-[44px] rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {t("signature_pad_save")}
         </button>

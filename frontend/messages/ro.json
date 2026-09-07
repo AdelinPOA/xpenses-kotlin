@@ -207,7 +207,18 @@
     "synced_toast": "{count} cheltuială(e) offline sincronizate",
     "still_offline": "Încă offline — schițele se sincronizează la revenirea conexiunii",
     "drafts_badge": "{count} schiță(e) offline",
-    "needs_attention": "necesită atenție"
+    "needs_attention": "necesită atenție",
+    "queue_title": "Recuperare cheltuieli offline",
+    "queue_subtitle": "Cheltuielile salvate rămân în siguranță cât timp chitanțele se sincronizează.",
+    "close_queue": "Închide",
+    "queue_empty": "Nu există cheltuieli în așteptare.",
+    "expense_number": "Cheltuiala nr. {id}",
+    "new_expense_pending": "Cheltuială nouă în așteptare",
+    "expense_pending": "Se așteaptă crearea cheltuielii",
+    "receipts_pending": "Cheltuială salvată; chitanțele sunt în așteptare",
+    "open_expense": "Deschide cheltuiala",
+    "retry": "Reîncearcă",
+    "discard": "Renunță"
   },
   "expenses": {
     "title": "Cheltuieli",
@@ -350,7 +361,8 @@
     "reset": "Resetează",
     "bulk_no_expenses": "Nu au fost create cheltuieli",
     "bulk_footer_note": "Toate cheltuielile sunt salvate ca <b>ciornă</b>. Atribuiți-le unui raport când sunteți gata.",
-    "receipt_formats": "JPG, PNG, PDF sau WEBP, până la 10 MB."
+    "receipt_formats": "JPG, PNG, PDF sau WEBP, până la 10 MB.",
+    "remove_receipt": "Elimină chitanța"
   },
   "reports": {
     "company_reports": "Raporturi Companie",

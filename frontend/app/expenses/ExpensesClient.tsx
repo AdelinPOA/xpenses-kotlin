@@ -11,6 +11,7 @@ import Badge from "@/components/ui/Badge";
 import EmptyState from "@/components/ui/EmptyState";
 import { useToast } from "@/components/ToastProvider";
 import { useOfflineSync } from "@/components/OfflineSyncProvider";
+import OfflineQueuePanel from "@/components/expenses/OfflineQueuePanel";
 import { useAllowNavigation } from "@/lib/navigationGuard";
 import dynamic from "next/dynamic";
 import BulkUploadZone from "@/components/expenses/BulkUploadZone";
@@ -71,6 +72,7 @@ function ExpensesPageContent() {
   const [isDragging, setIsDragging] = useState(false);
   const [bulkFiles, setBulkFiles] = useState<File[]>([]);
   const [showBulkDrawer, setShowBulkDrawer] = useState(false);
+  const [showOfflineQueue, setShowOfflineQueue] = useState(false);
   const dragCounterRef = useRef(0); // track nested drag-enter/leave pairs
   // Two-step inline delete ("Confirm delete?" for 3s) instead of window.confirm.
   const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
@@ -279,10 +281,15 @@ function ExpensesPageContent() {
           <p className="text-muted text-sm mt-1">
             {totalElements} {t("total")}
             {offline.pendingCount > 0 && (
-              <> · <span className={clsx("font-semibold", offline.failedCount > 0 ? "text-amber-600 dark:text-amber-400" : "text-blue-600 dark:text-blue-400")}>
+              <> · <button
+                type="button"
+                onClick={() => setShowOfflineQueue((value) => !value)}
+                className={clsx("font-semibold hover:underline", offline.failedCount > 0 ? "text-amber-600 dark:text-amber-400" : "text-blue-600 dark:text-blue-400")}
+                aria-expanded={showOfflineQueue}
+              >
                 {toffline("drafts_badge", { count: offline.pendingCount })}
                 {offline.failedCount > 0 ? ` · ${toffline("needs_attention")}` : ""}
-              </span></>
+              </button></>
             )}
           </p>
         </div>
@@ -352,6 +359,8 @@ function ExpensesPageContent() {
           </Link>
         </div>
       </div>
+
+      {showOfflineQueue && <OfflineQueuePanel onClose={() => setShowOfflineQueue(false)} />}
 
       <div className="bg-card rounded-xl shadow-sm">
         <div className="p-4 border-b border-slate-100 dark:border-slate-700 flex flex-wrap gap-2 items-center">

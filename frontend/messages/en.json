@@ -207,7 +207,18 @@
     "synced_toast": "Synced {count} offline expense(s)",
     "still_offline": "Still offline — drafts will sync when connection returns",
     "drafts_badge": "{count} offline draft(s)",
-    "needs_attention": "needs attention"
+    "needs_attention": "needs attention",
+    "queue_title": "Offline Expense recovery",
+    "queue_subtitle": "Saved Expenses stay safe while Receipts finish syncing.",
+    "close_queue": "Close",
+    "queue_empty": "No queued Expenses.",
+    "expense_number": "Expense #{id}",
+    "new_expense_pending": "New Expense pending",
+    "expense_pending": "Waiting to create the Expense",
+    "receipts_pending": "Expense saved; Receipts are pending",
+    "open_expense": "Open Expense",
+    "retry": "Retry",
+    "discard": "Discard"
   },
   "expenses": {
     "title": "Expenses",
@@ -350,7 +361,8 @@
     "reset": "Reset",
     "bulk_no_expenses": "No expenses created",
     "bulk_footer_note": "All expenses are saved as <b>draft</b>. Assign to a report when ready.",
-    "receipt_formats": "JPG, PNG, PDF or WEBP, up to 10 MB."
+    "receipt_formats": "JPG, PNG, PDF or WEBP, up to 10 MB.",
+    "remove_receipt": "Remove receipt"
   },
   "reports": {
     "company_reports": "Company Reports",

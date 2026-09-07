@@ -10,9 +10,9 @@ import { useToast } from "@/components/ToastProvider";
 import { useAuth } from "@/components/AuthProvider";
 import { useOfflineSync } from "@/components/OfflineSyncProvider";
 import { expenseKeys, dashboardKeys } from "@/lib/queryKeys";
-import api, { OCRScanResult } from "@/lib/api";
-import { scanReceipt, compressImage, ScanProgress, ScanCancelledError, ScanTimeoutError, ScanJobError } from "@/lib/ocrScan";
-import { enqueueExpense } from "@/lib/offlineQueue";
+import { OCRScanResult } from "@/lib/api";
+import { scanReceipt, ScanProgress, ScanCancelledError, ScanTimeoutError, ScanJobError } from "@/lib/ocrScan";
+import { saveNewExpense } from "@/lib/expenseSaving";
 import { Camera, FileText, RotateCcw } from "lucide-react";
 import clsx from "clsx";
 import { useTranslations } from "next-intl";
@@ -48,19 +48,6 @@ export default function CapturePage() {
       if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
     };
   }, []);
-
-  async function createDraft(payload: Record<string, unknown>, file: File | null): Promise<number | null> {
-    const { data: created } = await api.post("/expenses", payload);
-    if (file) {
-      const fd = new FormData();
-      const blob = await compressImage(file);
-      fd.append("files", blob, file.name);
-      await api.post(`/expenses/${created.id}/receipts`, fd);
-    }
-    qc.invalidateQueries({ queryKey: expenseKeys.all });
-    qc.invalidateQueries({ queryKey: dashboardKeys.all });
-    return created.id;
-  }
 
   function showThumbnail(file: File) {
     if (!file.type.startsWith("image/")) return;
@@ -108,20 +95,34 @@ export default function CapturePage() {
     };
 
     try {
-      if (!navigator.onLine) {
-        const blob = await compressImage(file);
-        await enqueueExpense(payload, [{ name: file.name, type: blob.type || file.type, blob }], user?.id);
+      if (!user?.id) throw new Error(t("error_save"));
+      const outcome = await saveNewExpense(payload, [file], user.id);
+      qc.invalidateQueries({ queryKey: expenseKeys.all });
+      qc.invalidateQueries({ queryKey: dashboardKeys.all });
+
+      if (outcome.status === "failed") {
+        await refreshOffline();
+        toast.error(outcome.message);
+        return;
+      }
+      if (outcome.status === "queued") {
         await refreshOffline();
         toast.success(t("saved_offline_toast"));
         resetForNext();
         return;
       }
 
-      const id = await createDraft(payload, file);
-      qc.invalidateQueries({ queryKey: expenseKeys.all });
-      qc.invalidateQueries({ queryKey: dashboardKeys.all });
-      setSessionDrafts((prev) => [...prev, { id: id!, merchant: (payload.merchant as string | null) ?? null }]);
-      if (scanned) {
+      const id = outcome.expense.id;
+      setSessionDrafts((prev) => [...prev, { id, merchant: (payload.merchant as string | null) ?? null }]);
+      if (outcome.status === "partial") {
+        await refreshOffline();
+        toast.warning(t("warning_expense_saved_receipt_failed"));
+        if (scanned) {
+          resetForNext();
+        } else {
+          router.push(`/expenses/${id}/edit?upload_failed=1`);
+        }
+      } else if (scanned) {
         toast.success(tc("draft_saved_toast"));
         resetForNext();
       } else {
@@ -130,15 +131,6 @@ export default function CapturePage() {
         router.push(`/expenses/${id}/edit`);
       }
     } catch (err: any) {
-      if (!err?.response && !navigator.onLine) {
-        // Network dropped mid-capture — queue it like an offline save.
-        const blob = await compressImage(file);
-        await enqueueExpense(payload, [{ name: file.name, type: blob.type || file.type, blob }], user?.id);
-        await refreshOffline();
-        toast.success(t("saved_offline_toast"));
-        resetForNext();
-        return;
-      }
       toast.error(err?.response?.data?.detail ?? err?.message ?? t("error_save"));
     } finally {
       setBusy(false);

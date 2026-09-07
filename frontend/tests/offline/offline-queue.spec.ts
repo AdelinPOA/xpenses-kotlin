@@ -2,33 +2,32 @@ import { test, expect, type Page } from "@playwright/test";
 import { setupAuthMocks, setupCommonMocks } from "../shared/mocks";
 
 /**
- * Offline draft queue (Phase 1.1):
- * save while offline → draft lands in IndexedDB → going back online
- * auto-syncs it as a NEW expense.
+ * Offline staged recovery:
+ * save while offline → staged work lands in IndexedDB → going back online
+ * creates the Expense once and then completes its Receipt batch.
  */
 
-async function idbQueueCount(page: Page): Promise<number> {
-  try {
-    return await page.evaluate(async () => {
+async function idbQueueItems(page: Page): Promise<Array<Record<string, unknown>>> {
+  return page.evaluate(async () => {
     const db = await new Promise<IDBDatabase>((resolve, reject) => {
-      const req = indexedDB.open("xpenses-offline", 1);
+      // Omit the version so this helper follows schema migrations.
+      const req = indexedDB.open("xpenses-offline");
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);
     });
-    const count = await new Promise<number>((resolve, reject) => {
+    const items = await new Promise<Array<Record<string, unknown>>>((resolve, reject) => {
       const tx = db.transaction("pending_expenses", "readonly");
-      const r = tx.objectStore("pending_expenses").count();
-      r.onsuccess = () => resolve(r.result);
-      r.onerror = () => reject(r.error);
+      const request = tx.objectStore("pending_expenses").getAll();
+      request.onsuccess = () => resolve(request.result as Array<Record<string, unknown>>);
+      request.onerror = () => reject(request.error);
     });
     db.close();
-    return count;
+    return items;
   });
-  } catch {
-      // The post-save redirect can hard-navigate while offline, destroying
-      // the execution context; treat as "not synced yet".
-      return 0;
-    }
+}
+
+async function idbQueueCount(page: Page): Promise<number> {
+  return (await idbQueueItems(page)).length;
 }
 
 test.describe("Offline draft queue", () => {
@@ -101,6 +100,78 @@ test.describe("Offline draft queue", () => {
     // expire during the reload+sync window above.)
 
     await expect.poll(() => idbQueueCount(page), { timeout: 10000 }).toBe(0);
+  });
+
+  test("reuses an acknowledged Expense when Receipt upload fails", async ({ page }) => {
+    let createCount = 0;
+    let receiptCount = 0;
+    let allowReceiptRetry = false;
+
+    await page.route("**/api/expenses", async (route, req) => {
+      if (req.method() !== "POST") {
+        await route.fallback();
+        return;
+      }
+      createCount += 1;
+      await route.fulfill({
+        status: 201,
+        json: {
+          id: 999,
+          amount_original: 42.5,
+          currency_original: "EUR",
+          amount_eur: 42.5,
+          fx_rate: 1,
+          fx_rate_manual: false,
+          tax_amount: 0,
+          tax_rate: null,
+          tax_amount_eur: 0,
+          status: "draft",
+          date: "2026-08-24",
+          merchant: "Receipt Shop",
+          description: null,
+          category_id: null,
+          receipts: [],
+          report_id: null,
+          created_at: "2026-08-24T00:00:00Z",
+          updated_at: "2026-08-24T00:00:00Z",
+        },
+      });
+    });
+
+    await page.route("**/api/expenses/999/receipts", async (route) => {
+      receiptCount += 1;
+      if (!allowReceiptRetry) {
+        await route.abort("failed");
+        return;
+      }
+      await route.fulfill({ status: 200, json: [{ id: 1, file_path: "receipt.jpg", original_name: "receipt.jpg" }] });
+    });
+
+    await page.goto("/expenses/new", { waitUntil: "load" });
+    await expect(page.getByLabel("Amount")).toBeVisible();
+    await page.getByLabel("Amount").fill("42.5");
+    await page.getByLabel("Merchant", { exact: true }).fill("Receipt Shop");
+    await page.locator('input[name="receipts"]').setInputFiles({
+      name: "receipt.jpg",
+      mimeType: "image/jpeg",
+      buffer: Buffer.from("not-a-real-image"),
+    });
+    await page.getByRole("button", { name: /Create expense/i }).click();
+
+    await expect(page).toHaveURL(/\/expenses\/999\/edit\?upload_failed=1/);
+    await expect.poll(async () => {
+      const [item] = await idbQueueItems(page);
+      return item?.expenseId;
+    }).toBe(999);
+    expect(createCount).toBe(1);
+    expect(receiptCount).toBeGreaterThanOrEqual(1);
+
+    // Allow the provider's backoff timer to resume the Receipt stage without
+    // issuing a second Expense creation.
+    allowReceiptRetry = true;
+    await expect.poll(() => receiptCount, { timeout: 15000 }).toBeGreaterThan(1);
+    await expect.poll(() => idbQueueCount(page), { timeout: 10000 }).toBe(0);
+    expect(createCount).toBe(1);
   });
 
   test("connection banner appears when offline with a queue and clears on reconnect", async ({ page }) => {

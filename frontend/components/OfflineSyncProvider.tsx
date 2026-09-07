@@ -10,29 +10,38 @@ import {
 } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
-import api from "@/lib/api";
 import { expenseKeys, dashboardKeys, reportKeys } from "@/lib/queryKeys";
 import { useToast } from "@/components/ToastProvider";
 import { useAuth } from "@/components/AuthProvider";
 import {
-  listPendingExpenses,
-  removePendingExpense,
-  updateExpense,
-} from "@/lib/offlineQueue";
+  discardQueuedExpense,
+  retryQueuedExpense,
+  syncPendingExpenses,
+} from "@/lib/expenseSaving";
+import { listPendingExpenses, type PendingExpense } from "@/lib/offlineQueue";
 
 interface OfflineSyncContextValue {
-  /** Items waiting in the IndexedDB queue (incl. ones needing attention). */
+  /** Items waiting in the IndexedDB queue (including permanent failures). */
   pendingCount: number;
-  /** Items the server rejected — shown as "needs attention". */
+  /** Items requiring explicit attention. */
   failedCount: number;
+  /** Owner-scoped queue records for the recovery surface. */
+  items: PendingExpense[];
   /** Re-read the queue from IndexedDB. */
   refreshCount: () => Promise<void>;
+  /** Clear a terminal error and immediately attempt the item. */
+  retryItem: (id: string) => Promise<void>;
+  /** Explicitly discard one owner-scoped queue record. */
+  discardItem: (id: string) => Promise<void>;
 }
 
 const OfflineSyncContext = createContext<OfflineSyncContextValue>({
   pendingCount: 0,
   failedCount: 0,
+  items: [],
   refreshCount: async () => {},
+  retryItem: async () => {},
+  discardItem: async () => {},
 });
 
 export function useOfflineSync() {
@@ -40,79 +49,71 @@ export function useOfflineSync() {
 }
 
 /**
- * App-level offline sync loop (Background Sync is unsupported on iOS).
- * Runs on `online`, tab focus and mount; each queued item is created as a
- * NEW expense, then its receipts are uploaded. Failed network attempts stay
- * queued; server-rejected payloads are marked for "needs attention".
+ * App-level staged recovery loop. Background Sync is unsupported on iOS, so
+ * synchronization runs on online, tab focus, and mount. The saving module
+ * owns the state machine; this module owns app invalidation and feedback.
  */
 export default function OfflineSyncProvider({ children }: { children: React.ReactNode }) {
   const t = useTranslations("offline");
   const qc = useQueryClient();
   const toast = useToast();
   const { user } = useAuth();
-  const [pendingCount, setPendingCount] = useState(0);
-  const [failedCount, setFailedCount] = useState(0);
+  const [items, setItems] = useState<PendingExpense[]>([]);
   const syncingRef = useRef(false);
+  const syncAbortRef = useRef<AbortController | null>(null);
+  const currentUserIdRef = useRef<number | null>(user?.id ?? null);
+  currentUserIdRef.current = user?.id ?? null;
 
   const refreshCount = useCallback(async () => {
+    if (!user?.id) {
+      setItems([]);
+      return;
+    }
     try {
-      const items = await listPendingExpenses(user?.id);
-      setPendingCount(items.length);
-      setFailedCount(items.filter((i) => i.error).length);
+      setItems(await listPendingExpenses(user.id));
     } catch {
       // IDB unavailable (private mode) — queue features degrade silently.
+      setItems([]);
     }
   }, [user?.id]);
 
   const syncOnce = useCallback(async () => {
-    if (syncingRef.current || !navigator.onLine || !user?.id) return;
+    if (syncingRef.current || !user?.id) return;
     syncingRef.current = true;
-    let synced = 0;
+    const syncUserId = user.id;
+    const controller = new AbortController();
+    syncAbortRef.current = controller;
     try {
-      const items = await listPendingExpenses(user.id);
-      const retryable = items.filter((i) => !i.error);
-      let stoppedForNetwork = false;
-
-      for (const item of retryable) {
-        try {
-          const { data: created } = await api.post("/expenses", item.payload);
-          if (item.receipts.length > 0) {
-            const fd = new FormData();
-            for (const r of item.receipts) fd.append("files", r.blob, r.name);
-            await api.post(`/expenses/${created.id}/receipts`, fd);
-          }
-          await removePendingExpense(item.id);
-          synced++;
-        } catch (e: any) {
-          if (!e?.response) {
-            // Network dropped mid-sync — leave everything queued for later.
-            stoppedForNetwork = true;
-            break;
-          }
-          // Server rejected the payload (e.g. delisted currency):
-          // mark it so it stops blocking the queue and needs attention.
-          const detail =
-            e.response?.data?.detail ?? e.response?.data?.message ?? "Unknown error";
-          await updateExpense({ ...item, error: String(detail) });
-        }
+      const result = await syncPendingExpenses(syncUserId, { signal: controller.signal });
+      if (result.stoppedForNetwork && !navigator.onLine) {
+        toast.info(t("still_offline"));
       }
-
-      if (stoppedForNetwork) {
-        // 401 during sync redirects to /login via the api interceptor; the
-        // queue survives in IDB and re-syncs after re-login.
-        if (!navigator.onLine) toast.info(t("still_offline"));
-      }
-    } finally {
-      syncingRef.current = false;
-      if (synced > 0) {
+      if (result.synced > 0) {
         qc.invalidateQueries({ queryKey: expenseKeys.all });
         qc.invalidateQueries({ queryKey: dashboardKeys.all });
         qc.invalidateQueries({ queryKey: reportKeys.all });
-        toast.success(t("synced_toast", { count: synced }));
+        toast.success(t("synced_toast", { count: result.synced }));
       }
-      await refreshCount();
+    } finally {
+      syncingRef.current = false;
+      if (syncAbortRef.current === controller) syncAbortRef.current = null;
+      if (currentUserIdRef.current === syncUserId && !controller.signal.aborted) {
+        await refreshCount();
+      }
     }
-  }, [qc, toast, t, refreshCount]);
+  }, [qc, refreshCount, t, toast, user?.id]);
+
+  const retryItem = useCallback(async (id: string) => {
+    if (!user?.id) return;
+    await retryQueuedExpense(id, user.id);
+    await syncOnce();
+  }, [syncOnce, user?.id]);
+
+  const discardItem = useCallback(async (id: string) => {
+    if (!user?.id) return;
+    await discardQueuedExpense(id, user.id);
+    await refreshCount();
+  }, [refreshCount, user?.id]);
 
   useEffect(() => {
     void refreshCount();
@@ -124,17 +125,32 @@ export default function OfflineSyncProvider({ children }: { children: React.Reac
 
     window.addEventListener("online", onOnline);
     document.addEventListener("visibilitychange", onVisible);
-    // Initial attempt in case we came online while the tab was hidden.
     void syncOnce();
 
     return () => {
       window.removeEventListener("online", onOnline);
       document.removeEventListener("visibilitychange", onVisible);
+      syncingRef.current = false;
+      syncAbortRef.current?.abort();
     };
   }, [refreshCount, syncOnce]);
 
+  useEffect(() => {
+    if (!user?.id) return;
+    const next = items
+      .filter((item) => !item.error && item.nextAttemptAt > Date.now())
+      .sort((a, b) => a.nextAttemptAt - b.nextAttemptAt)[0];
+    if (!next) return;
+    const delay = Math.max(100, next.nextAttemptAt - Date.now());
+    const timer = setTimeout(() => void syncOnce(), delay);
+    return () => clearTimeout(timer);
+  }, [items, syncOnce, user?.id]);
+
+  const failedCount = items.filter((item) => Boolean(item.error)).length;
+  const pendingCount = items.length;
+
   return (
-    <OfflineSyncContext.Provider value={{ pendingCount, failedCount, refreshCount }}>
+    <OfflineSyncContext.Provider value={{ pendingCount, failedCount, items, refreshCount, retryItem, discardItem }}>
       {children}
       <ConnectionBanner />
     </OfflineSyncContext.Provider>

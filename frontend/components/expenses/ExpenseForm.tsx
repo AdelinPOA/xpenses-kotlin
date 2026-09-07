@@ -6,8 +6,8 @@ import { useRouter } from "next/navigation";
 import api, { Category, Expense, CURRENCIES, API_BASE_URL, downloadBlob, OCRScanResult } from "@/lib/api";
 import { categoryKeys, expenseKeys, dashboardKeys } from "@/lib/queryKeys";
 import { useFormGuard } from "@/lib/useFormGuard";
-import { scanReceipt, compressImage, ScanProgress, ScanCancelledError, ScanTimeoutError, ScanJobError } from "@/lib/ocrScan";
-import { enqueueExpense, countPendingExpenses, MAX_QUEUE_SIZE } from "@/lib/offlineQueue";
+import { scanReceipt, ScanProgress, ScanCancelledError, ScanTimeoutError, ScanJobError } from "@/lib/ocrScan";
+import { saveNewExpense } from "@/lib/expenseSaving";
 import { useOfflineSync } from "@/components/OfflineSyncProvider";
 import { Camera, Trash2 } from "lucide-react";
 import clsx from "clsx";
@@ -202,82 +202,85 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency, highli
         ...(reportId && !isEdit ? { report_id: reportId } : {}),
       };
 
-      // Offline: queue the draft locally instead of failing.
-      if (!navigator.onLine) {
-        if (isEdit) throw new Error(t("edit_offline_unsupported"));
-        const receipts: { name: string; type: string; blob: Blob }[] = [];
-        for (const { file } of receiptFiles) {
-          const blob = await compressImage(file);
-          receipts.push({ name: file.name, type: blob.type || file.type, blob });
+      if (isEdit) {
+        if (!navigator.onLine) throw new Error(t("edit_offline_unsupported"));
+        let result: Expense;
+        try {
+          result = await api.patch(`/expenses/${expense.id}`, payload).then((r) => r.data);
+        } catch (e: any) {
+          throw new Error(e.response?.data?.detail ?? t("error_save"));
         }
-        const queued = await enqueueExpense(payload, receipts, user?.id);
-        return { expense: null, receiptUploadFailed: false, queued };
-      }
-      let result: Expense;
-      try {
-        result = isEdit
-          ? await api.patch(`/expenses/${expense.id}`, payload).then((r) => r.data)
-          : await api.post("/expenses", payload).then((r) => r.data);
-      } catch (e: any) {
-        if (!isEdit && !e.response) {
-          // Network-level failure mid-save: queue the draft instead of
-          // erroring — a re-tap of Save must not create a duplicate.
-          const receipts: { name: string; type: string; blob: Blob }[] = [];
-          for (const { file } of receiptFiles) {
-            const blob = await compressImage(file);
-            receipts.push({ name: file.name, type: blob.type || file.type, blob });
+        try {
+          for (const rid of deletedReceiptIds) {
+            try {
+              await api.delete(`/expenses/${result.id}/receipts/${rid}`);
+            } catch (e: any) {
+              // 404 = already deleted in a previous attempt; safe to ignore.
+              if (e?.response?.status !== 404) throw e;
+            }
+            setDeletedReceiptIds((prev) => {
+              const next = new Set(prev);
+              next.delete(rid);
+              return next;
+            });
           }
-          const queued = await enqueueExpense(payload, receipts, user?.id);
-          return { expense: null, receiptUploadFailed: false, queued };
-        }
-        throw new Error(e.response?.data?.detail ?? t("error_save"));
-      }
-      try {
-        for (const rid of deletedReceiptIds) {
-          try {
-            await api.delete(`/expenses/${result.id}/receipts/${rid}`);
-          } catch (e: any) {
-            // 404 = already deleted in a previous attempt; safe to ignore.
-            if (e?.response?.status !== 404) throw e;
+          if (receiptFiles.length > 0) {
+            setIsUploadingReceipts(true);
+            const fd = new FormData();
+            receiptFiles.forEach(({ file }) => fd.append("files", file));
+            await api.post(`/expenses/${result.id}/receipts`, fd);
           }
-          // Prune so a retry doesn't re-delete and 404-loop.
-          setDeletedReceiptIds((prev) => {
-            const next = new Set(prev);
-            next.delete(rid);
-            return next;
-          });
+        } catch {
+          // Editing an existing Expense never creates a replacement Expense.
+          qc.invalidateQueries({ queryKey: expenseKeys.all });
+          qc.invalidateQueries({ queryKey: dashboardKeys.all });
+          return { expense: result, receiptUploadFailed: true as const, queued: null, failed: null };
+        } finally {
+          setIsUploadingReceipts(false);
         }
-        if (receiptFiles.length > 0) {
-          setIsUploadingReceipts(true);
-          const fd = new FormData();
-          receiptFiles.forEach(({ file }) => fd.append("files", file));
-          await api.post(`/expenses/${result.id}/receipts`, fd);
+        return { expense: result, receiptUploadFailed: false, queued: null, failed: null };
+      }
+
+      try {
+        if (!user?.id) throw new Error(t("error_save"));
+        if (receiptFiles.length > 0 && navigator.onLine) setIsUploadingReceipts(true);
+        const outcome = await saveNewExpense(
+          payload,
+          receiptFiles.map(({ file }) => file),
+          user.id,
+        );
+        if (outcome.status === "failed") {
+          return { expense: null, receiptUploadFailed: false, queued: null, failed: outcome.message };
         }
-      } catch {
-        // Resolve — do NOT throw. Throwing would skip onSuccess, lose the
-        // created expense id and invite the user to re-save → duplicate.
-        qc.invalidateQueries({ queryKey: expenseKeys.all });
-        qc.invalidateQueries({ queryKey: dashboardKeys.all });
-        return { expense: result, receiptUploadFailed: true as const };
+        if (outcome.status === "queued") {
+          return { expense: null, receiptUploadFailed: false, queued: outcome.item, failed: null };
+        }
+        if (outcome.status === "partial") {
+          return { expense: outcome.expense, receiptUploadFailed: true as const, queued: outcome.item, failed: null };
+        }
+        return { expense: outcome.expense, receiptUploadFailed: false, queued: null, failed: null };
       } finally {
         setIsUploadingReceipts(false);
       }
-      return { expense: result, receiptUploadFailed: false, queued: null };
     },
-    onSuccess: async ({ expense: result, receiptUploadFailed, queued }) => {
-      if (queued) {
+    onSuccess: async ({ expense: result, receiptUploadFailed, queued, failed }) => {
+      if (failed) {
+        setError(failed);
+        await refreshOffline();
+        return;
+      }
+      if (queued && !result) {
         toast.success(t("saved_offline_toast"));
-        if ((await countPendingExpenses()) >= MAX_QUEUE_SIZE) {
-          toast.warning(t("queue_full_warning"));
-        }
         await refreshOffline();
         clearDirty();
         router.push(reportId ? `/reports/${reportId}` : "/expenses");
         return;
       }
+      if (!result) return;
       qc.invalidateQueries({ queryKey: expenseKeys.all });
       qc.invalidateQueries({ queryKey: dashboardKeys.all });
       if (receiptUploadFailed) {
+        await refreshOffline();
         toast.warning(t("warning_expense_saved_receipt_failed"));
         if (isEdit) {
           // Editing an existing expense: stay put and point at the receipts.

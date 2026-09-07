@@ -11,6 +11,8 @@ import api, {
   ImapConfig,
   ImapTestResult,
   simulateEmailIngestion,
+  getImapIngestionRecovery,
+  retryImapIngestion,
   EmailSimulationOut,
   EmailSimulationParsed,
   User,
@@ -115,6 +117,26 @@ export default function ImapAdminPage() {
   const [customSenderEmail, setCustomSenderEmail] = useState<string>("");
   const [simulationBody, setSimulationBody] = useState<string>(MOCK_DELEGATION_EMAIL);
   const [selectedParser, setSelectedParser] = useState<"local" | "gemini">("local");
+
+  const { data: ingestionRecovery = [], isLoading: recoveryLoading } = useQuery({
+    queryKey: ["imap-ingestion-recovery"],
+    queryFn: getImapIngestionRecovery,
+    enabled: user?.role === "mod",
+    staleTime: 15_000,
+  });
+
+  const actionableRecovery = ingestionRecovery.filter(
+    (item) => item.status !== "PROCESSED" || item.acknowledgement_status === "PENDING"
+  );
+
+  const retryIngestionMutation = useMutation({
+    mutationFn: retryImapIngestion,
+    onSuccess: () => {
+      toast.success("Ingestion retry requested");
+      void qc.invalidateQueries({ queryKey: ["imap-ingestion-recovery"] });
+    },
+    onError: () => toast.error("Could not retry ingestion message"),
+  });
 
   // Fetch users for dropdown list
   const { data: usersData } = useQuery<User[]>({
@@ -424,6 +446,58 @@ export default function ImapAdminPage() {
             </section>
           )}
         </form>
+
+        <section className="bg-card border border-border rounded-xl p-6 shadow-sm space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 tracking-tight">Ingestion recovery</h2>
+              <p className="text-xs text-muted mt-1">Review failed or rejected mailbox messages and retry them explicitly.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => void qc.invalidateQueries({ queryKey: ["imap-ingestion-recovery"] })}
+              className="px-3 py-2 border border-border rounded-lg text-xs font-semibold hover:bg-muted/10 transition-colors"
+            >
+              Refresh
+            </button>
+          </div>
+
+          {recoveryLoading ? (
+            <p className="text-sm text-muted">Loading recovery records…</p>
+          ) : actionableRecovery.length === 0 ? (
+            <p className="text-sm text-muted">No recoverable ingestion records.</p>
+          ) : (
+            <div className="space-y-2">
+              {actionableRecovery.map((item) => {
+                const retryable = item.status === "FAILED" || item.status === "REJECTED" || item.acknowledgement_status === "PENDING";
+                return (
+                  <div key={item.message_key} className="border border-border rounded-lg p-3 flex flex-col md:flex-row md:items-center gap-3 justify-between">
+                    <div className="min-w-0 text-xs space-y-1">
+                      <p className="font-mono truncate" title={item.message_key}>{item.message_key}</p>
+                      <p className="text-muted">
+                        {item.status} · acknowledgement {item.acknowledgement_status} · attempts {item.attempts}
+                        {item.expense_report_id ? <> · <Link className="text-primary hover:underline" href={`/reports/${item.expense_report_id}`}>report #{item.expense_report_id}</Link></> : null}
+                      </p>
+                      {item.rejection_reason || item.last_error ? (
+                        <p className="text-rose-600 dark:text-rose-300 truncate" title={item.rejection_reason || item.last_error || undefined}>{item.rejection_reason || item.last_error}</p>
+                      ) : null}
+                    </div>
+                    {retryable ? (
+                      <button
+                        type="button"
+                        onClick={() => retryIngestionMutation.mutate(item.message_key)}
+                        disabled={retryIngestionMutation.isPending}
+                        className="shrink-0 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-semibold disabled:opacity-50"
+                      >
+                        Retry
+                      </button>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
 
         <hr className="border-border" />
 

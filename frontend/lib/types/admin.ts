@@ -61,6 +61,21 @@ export interface ImapTestResult {
   message: string;
 }
 
+export type ImapIngestionStatus = "CLAIMED" | "FAILED" | "PROCESSED" | "REJECTED";
+export type ImapAcknowledgementStatus = "NONE" | "PENDING" | "CONFIRMED";
+
+export interface ImapIngestionRecovery {
+  message_key: string;
+  status: ImapIngestionStatus;
+  acknowledgement_status: ImapAcknowledgementStatus;
+  attempts: number;
+  expense_report_id: number | null;
+  last_error: string | null;
+  rejection_reason: string | null;
+  next_attempt_at: string | null;
+  claimed_at: string | null;
+}
+
 export interface OcrConfig {
   provider: string;
   ocr_enabled: boolean;

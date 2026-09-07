@@ -45,3 +45,19 @@ _Avoid_: pre-payment, avans
 **Technician**:
 An employee who incurs and submits expenses. A `User` with role `technician`; reimbursed for the exact EUR amount debited from their bank account.
 _Avoid_: employee, worker, user
+
+**Delegation email**:
+An incoming email from an active Technician that contains the information needed to create a draft ExpenseReport for a work assignment.
+_Avoid_: email import, incoming expense
+
+**Rejected delegation email**:
+A delegation email that cannot be accepted because its sender or content is permanently invalid. It creates no ExpenseReport and requires explicit administrative retry if circumstances change.
+_Avoid_: failed email
+
+**Durably processed delegation**:
+A delegation email for which the draft ExpenseReport and its association with the source message are committed together. This is distinct from the mailbox acknowledgement.
+_Avoid_: sent email, completed acknowledgement
+
+**Mailbox acknowledgement**:
+The external IMAP operation that marks a durably processed or rejected delegation email as seen. It may be retried independently without creating another ExpenseReport.
+_Avoid_: processing, completion

@@ -13,6 +13,8 @@ import eu.nt.xpenses.dto.settings.FxTestRequest
 import eu.nt.xpenses.dto.settings.FxTestResponse
 import eu.nt.xpenses.dto.settings.ImapConfigIn
 import eu.nt.xpenses.dto.settings.ImapConfigOut
+import eu.nt.xpenses.dto.settings.IngestionRetryIn
+import eu.nt.xpenses.ingestion.TechnicianEmailIngestion
 import eu.nt.xpenses.dto.settings.MileageRatesOut
 import eu.nt.xpenses.dto.settings.MileageRatesUpdate
 import eu.nt.xpenses.dto.settings.OCRConfigOut
@@ -44,6 +46,7 @@ class AppSettingsController(
     private val appSettingsService: AppSettingsService,
     private val ocrService: OcrService,
     private val emailSettingsService: EmailSettingsService,
+    private val technicianEmailIngestion: TechnicianEmailIngestion,
     private val storageService: StorageService,
     private val emailImportService: EmailImportService,
     private val httpFxRateProvider: HttpFxRateProvider
@@ -322,6 +325,16 @@ class AppSettingsController(
         val result = emailImportService.simulateIncomingEmail(body.fromAddress, body.bodyText, body.parser)
         return ResponseEntity.ok(result)
     }
+
+    @GetMapping("/imap/ingestion")
+    @PreAuthorize("hasRole('mod')")
+    fun listImapIngestionRecovery(): ResponseEntity<*> =
+        ResponseEntity.ok(technicianEmailIngestion.listRecovery())
+
+    @PostMapping("/imap/ingestion/retry")
+    @PreAuthorize("hasRole('mod')")
+    fun retryImapIngestion(@Valid @RequestBody body: IngestionRetryIn): ResponseEntity<*> =
+        ResponseEntity.ok(technicianEmailIngestion.retry(body.messageKey))
 
     // --- Storage Settings ---
     @GetMapping("/storage")

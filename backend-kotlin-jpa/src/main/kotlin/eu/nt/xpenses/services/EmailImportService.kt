@@ -3,22 +3,19 @@ package eu.nt.xpenses.services
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
+import eu.nt.xpenses.ingestion.DelegationDraft
+import eu.nt.xpenses.ingestion.ImapIngestionLedger
+import eu.nt.xpenses.ingestion.ProcessingClaim
 import eu.nt.xpenses.model.ExpenseReport
 import eu.nt.xpenses.repositories.ExpenseReportRepository
 import eu.nt.xpenses.repositories.UserRepository
-import jakarta.mail.*
-import jakarta.mail.search.FlagTerm
 import org.slf4j.LoggerFactory
 import org.springframework.http.MediaType
-import org.springframework.scheduling.annotation.Async
-import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.client.RestClient
 import org.springframework.web.client.body
 import org.springframework.http.client.JdkClientHttpRequestFactory
-import eu.nt.xpenses.ingestion.ImapIngestionLedger
-import eu.nt.xpenses.ingestion.ImapMessageKey
 import java.net.http.HttpClient
 import java.time.Duration
 import java.time.Instant
@@ -32,7 +29,6 @@ class EmailImportService(
     private val expenseReportRepository: ExpenseReportRepository,
     private val ocrService: OcrService,
     private val objectMapper: ObjectMapper,
-    private val emailSettingsService: EmailSettingsService,
     private val imapIngestionLedger: ImapIngestionLedger
 ) {
     private val log = LoggerFactory.getLogger(EmailImportService::class.java)
@@ -424,30 +420,66 @@ class EmailImportService(
         }
 
         val parsed = parseDelegationEmailAsync(bodyText) ?: return false
+        val delegation = DelegationDraft.fromParsedValues(parsed) ?: return false
+        return createReport(fromAddress, delegation) != null
+    }
+
+    @Transactional
+    fun createReportAndComplete(
+        claim: ProcessingClaim,
+        fromAddress: String,
+        delegation: DelegationDraft
+    ): Int? {
+        val report = createReport(fromAddress, delegation) ?: return null
+        val reportId = requireNotNull(report.id)
+        imapIngestionLedger.markProcessed(claim, reportId)
+        return reportId
+    }
+
+    fun hasActiveSender(fromAddress: String): Boolean = findActiveSender(fromAddress) != null
+
+    fun createReport(fromAddress: String, delegation: DelegationDraft): ExpenseReport? {
+        val user = findActiveSender(fromAddress) ?: return null
 
         val report = ExpenseReport(
-            title = parsed["title"]!!,
-            description = parsed["description"],
-            dateFrom = parsed["date_from"],
-            dateTo = parsed["date_to"],
+            title = delegation.title,
+            description = delegation.description,
+            dateFrom = delegation.dateFrom,
+            dateTo = delegation.dateTo,
             status = "draft",
             user = user,
-            kundenauftrag = parsed["kundenauftrag"]?.ifEmpty { null },
-            auftragsart = parsed["auftragsart"]?.ifEmpty { null },
-            positionstyp = parsed["positionstyp"]?.ifEmpty { null },
-            technplatzRaw = parsed["technplatz_raw"]?.ifEmpty { null },
-            technplatzLine = parsed["technplatz_line"]?.toBoolean() ?: false,
-            kundeCode = parsed["kunde_code"]?.ifEmpty { null },
-            kundeName = parsed["kunde_name"]?.ifEmpty { null },
-            adresse = parsed["adresse"]?.ifEmpty { null },
-            vorgang = parsed["vorgang"]?.ifEmpty { null },
-            arbeitsplatz = parsed["arbeitsplatz"]?.ifEmpty { null },
-            techniker = parsed["techniker"]?.ifEmpty { null },
+            kundenauftrag = delegation.kundenauftrag,
+            auftragsart = delegation.auftragsart,
+            positionstyp = delegation.positionstyp,
+            technplatzRaw = delegation.technplatzRaw,
+            technplatzLine = delegation.technplatzLine,
+            kundeCode = delegation.kundeCode,
+            kundeName = delegation.kundeName,
+            adresse = delegation.adresse,
+            vorgang = delegation.vorgang,
+            arbeitsplatz = delegation.arbeitsplatz,
+            techniker = delegation.techniker,
             createdAt = Instant.now(),
             updatedAt = Instant.now()
         )
-        expenseReportRepository.save(report)
-        return true
+        return expenseReportRepository.save(report)
+    }
+
+    private fun findActiveSender(fromAddress: String): eu.nt.xpenses.model.User? {
+        var emailClean = fromAddress.trim()
+        if (emailClean.contains("<") && emailClean.contains(">")) {
+            emailClean = emailClean.substringAfter("<").substringBefore(">").trim()
+        }
+        val user = userRepository.findByEmail(emailClean)
+        if (user == null) {
+            log.info("Email import skipped: no user found with email {}", emailClean)
+            return null
+        }
+        if (!user.isActive || user.role != "technician") {
+            log.info("Email import skipped: sender is inactive or not a Technician: {}", emailClean)
+            return null
+        }
+        return user
     }
 
     @Transactional
@@ -546,133 +578,6 @@ class EmailImportService(
         )
     }
 
-    @Async
-    @Scheduled(fixedDelayString = "\${imap.poll-interval:300000}")
-    fun pollAndProcessEmails() {
-        val config = emailSettingsService.getImapConfig()
-        if (!config.enabled || config.imapHost.isBlank() || config.imapUser.isBlank()) {
-            return
-        }
-        log.info("Starting scheduled IMAP polling on host: {}, user: {}", config.imapHost, config.imapUser)
 
-        var store: Store? = null
-        var folder: Folder? = null
-        try {
-            val props = java.util.Properties().apply {
-                put("mail.imap.connectiontimeout", "10000")
-                put("mail.imap.timeout", "10000")
-                put("mail.imap.starttls.enable", "true")
-                put("mail.imap.ssl.enable", (config.imapPort == 993).toString())
-            }
-            val session = Session.getInstance(props)
-            val protocol = if (config.imapPort == 993) "imaps" else "imap"
-            store = session.getStore(protocol)
-            store.connect(config.imapHost, config.imapPort, config.imapUser, config.imapPass)
 
-            folder = store.getFolder(config.imapFolder)
-            if (!folder.exists()) {
-                log.warn("IMAP folder '{}' does not exist", config.imapFolder)
-                return
-            }
-            folder.open(Folder.READ_WRITE)
-
-            val unseenTerm = FlagTerm(Flags(Flags.Flag.SEEN), false)
-            val messages = folder.search(unseenTerm)
-            log.info("Found {} unseen emails to process", messages.size)
-
-            for (message in messages) {
-                val messageKey = try {
-                    ImapMessageKey.from(message)
-                } catch (e: Exception) {
-                    log.warn("Failed to generate IMAP message key: {}", e.message)
-                    continue
-                }
-
-                if (!imapIngestionLedger.claim(messageKey)) {
-                    log.info("Message {} is already claimed or processed, skipping", messageKey)
-                    continue
-                }
-
-                try {
-                    val fromAddresses = message.from
-                    val fromAddress = fromAddresses?.firstOrNull()?.toString()
-                    if (fromAddress == null) {
-                        imapIngestionLedger.markFailed(messageKey, IllegalArgumentException("Missing From header"))
-                        continue
-                    }
-
-                    // Authenticate sender provenance: reject if SPF or DKIM failed at mailbox gateway
-                    val authResults = message.getHeader("Authentication-Results")?.joinToString(" ")
-                    val spfResult = message.getHeader("Received-SPF")?.joinToString(" ")
-                    if ((authResults != null && (authResults.contains("spf=fail") || authResults.contains("dkim=fail"))) ||
-                        (spfResult != null && spfResult.startsWith("fail", ignoreCase = true))
-                    ) {
-                        log.warn("Rejecting email from {} due to failed authentication: authResults={}, spf={}", fromAddress, authResults, spfResult)
-                        imapIngestionLedger.markFailed(messageKey, SecurityException("SPF/DKIM verification failed"))
-                        continue
-                    }
-
-                    val bodyText = getTextFromMessage(message)
-                    log.info("Processing email from: {}", fromAddress)
-                    val processed = processIncomingEmail(fromAddress, bodyText)
-                    if (processed) {
-                        log.info("Successfully processed email from {}", fromAddress)
-                        imapIngestionLedger.markProcessed(messageKey)
-                        message.setFlag(Flags.Flag.SEEN, true)
-                    } else {
-                        log.info("Email from {} was not processed (e.g. user not found or no delegation patterns)", fromAddress)
-                        imapIngestionLedger.markFailed(messageKey, IllegalStateException("No user found or pattern mismatch"))
-                    }
-                } catch (e: Exception) {
-                    log.error("Failed to process message: {}", e.message, e)
-                    imapIngestionLedger.markFailed(messageKey, e)
-                }
-            }
-        } catch (e: Exception) {
-            log.error("Error during IMAP polling: {}", e.message)
-        } finally {
-            try {
-                folder?.close(true)
-            } catch (e: Exception) {
-                // ignore
-            }
-            try {
-                store?.close()
-            } catch (e: Exception) {
-                // ignore
-            }
-        }
-    }
-
-    private fun getTextFromMessage(message: Message): String {
-        return when {
-            message.isMimeType("text/plain") -> message.content.toString()
-            message.isMimeType("text/html") -> message.content.toString()
-            message.isMimeType("multipart/*") -> {
-                val mimeMultipart = message.content as Multipart
-                getTextFromMimeMultipart(mimeMultipart)
-            }
-            else -> ""
-        }
-    }
-
-    private fun getTextFromMimeMultipart(mimeMultipart: Multipart): String {
-        val result = StringBuilder()
-        val count = mimeMultipart.count
-        for (i in 0 until count) {
-            val bodyPart = mimeMultipart.getBodyPart(i)
-            when {
-                bodyPart.isMimeType("text/plain") -> {
-                    result.append(bodyPart.content.toString())
-                }
-                bodyPart.isMimeType("text/html") -> {
-                    result.append(bodyPart.content.toString())
-                }
-                bodyPart.content is Multipart -> {
-                    result.append(getTextFromMimeMultipart(bodyPart.content as Multipart))
-                }
-            }
-        }
-        return result.toString()
-    }
 }

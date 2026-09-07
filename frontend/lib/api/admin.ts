@@ -1,4 +1,4 @@
-import type { OcrConfig, OCRComparisonHistoryResponse, StorageConfig, StorageMigrationStatus, FxProvidersConfig, FxTestResult } from "@/lib/types/admin";
+import type { OcrConfig, OCRComparisonHistoryResponse, StorageConfig, StorageMigrationStatus, FxProvidersConfig, FxTestResult, ImapIngestionRecovery } from "@/lib/types/admin";
 import api from "@/lib/api";
 
 export async function getFxProviders(): Promise<FxProvidersConfig> {
@@ -60,5 +60,21 @@ import type { EmailSimulationIn, EmailSimulationOut } from "@/lib/types/report";
 
 export async function simulateEmailIngestion(payload: EmailSimulationIn): Promise<EmailSimulationOut> {
   const { data } = await api.post<EmailSimulationOut>("/settings/imap/simulate", payload);
+  return data;
+}
+
+export async function getImapIngestionRecovery(): Promise<ImapIngestionRecovery[]> {
+  const { data } = await api.get<ImapIngestionRecovery[]>("/settings/imap/ingestion");
+  return data;
+}
+
+export async function retryImapIngestion(messageKey: string): Promise<{
+  message_key: string;
+  acknowledged: boolean;
+  processed: boolean;
+  rejected: boolean;
+  reason?: string | null;
+}> {
+  const { data } = await api.post("/settings/imap/ingestion/retry", { message_key: messageKey });
   return data;
 }

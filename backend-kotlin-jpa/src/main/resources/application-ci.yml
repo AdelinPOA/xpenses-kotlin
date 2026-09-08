@@ -1,0 +1,26 @@
+# Disposable CI profile: production-like migrations and storage wiring without secure
+# cookies, external services, or demo identities.
+spring:
+  flyway:
+    baseline-on-migrate: false
+    validate-on-migrate: true
+  task:
+    scheduling:
+      enabled: false
+  data:
+    redis:
+      url: ${REDIS_URL}
+
+cookie:
+  secure: false
+
+rate-limiting:
+  enabled: false
+  store: redis
+  fail-closed: false
+
+ci:
+  test:
+    technician:
+      username: ${CI_TEST_TECHNICIAN_USERNAME:}
+      password: ${CI_TEST_TECHNICIAN_PASSWORD:}

@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
@@ -37,7 +37,7 @@ jobs:
         uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: '21'
+          java-version: "21"
           cache: gradle
 
       - name: Build and Test Kotlin Backend
@@ -55,8 +55,8 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v5
         with:
-          node-version: '22'
-          cache: 'npm'
+          node-version: "22"
+          cache: "npm"
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install dependencies
@@ -83,37 +83,140 @@ jobs:
           cd frontend
           npm run build
 
-      - name: Install Playwright browsers
-        run: |
-          cd frontend
-          npx playwright install --with-deps chromium webkit
-
-      - name: Run mobile UI and accessibility tests
-        env:
-          PLAYWRIGHT_USER: ${{ secrets.PLAYWRIGHT_USER }}
-          PLAYWRIGHT_PASSWORD: ${{ secrets.PLAYWRIGHT_PASSWORD }}
-          # Authenticated flows are opt-in; the public accessibility suite uses API stubs.
-          PLAYWRIGHT_AUTHENTICATED_UI: "false"
-        run: |
-          cd frontend
-          npm run test:e2e:mobile
-
-      - name: Upload Playwright report on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: mobile-playwright-report
-          path: frontend/playwright-report
-          if-no-files-found: ignore
-
-  build-docker:
-    name: Build Docker Images
+  compose-integration:
+    name: Compose Integration & Security Gates
     runs-on: ubuntu-latest
     needs: [build-kotlin, build-frontend]
+    timeout-minutes: 35
+    env:
+      COMPOSE_PROJECT_NAME: xpenses-ci
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
 
-      - name: Build Docker images
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend test dependencies
+        run: npm ci --prefix frontend
+
+      - name: Create disposable CI environment
+        shell: bash
         run: |
-          docker compose build
+          set -euo pipefail
+          ci_user="ci-tech-$(openssl rand -hex 6)"
+          ci_password="$(openssl rand -hex 24)"
+          db_password="$(openssl rand -hex 24)"
+          jwt_secret="$(openssl rand -hex 32)"
+          jwt_salt="$(openssl rand -hex 32)"
+          encryption_secret="$(openssl rand -hex 32)"
+
+          for secret in "$ci_user" "$ci_password" "$db_password" "$jwt_secret" "$jwt_salt" "$encryption_secret"; do
+            echo "::add-mask::$secret"
+          done
+
+          cat > .env <<EOF
+          COMPOSE_CONTAINER_PREFIX=xpenses-ci
+          DB_USER=xpenses
+          DB_PASSWORD=$db_password
+          DB_NAME=xpenses
+          JWT_SECRET=$jwt_secret
+          JWT_SALT=$jwt_salt
+          ENCRYPTION_SECRET=$encryption_secret
+          SPRING_PROFILES_ACTIVE=ci
+          SEED_DEMO_USERS=false
+          COOKIE_SECURE=false
+          CI_TEST_TECHNICIAN_USERNAME=$ci_user
+          CI_TEST_TECHNICIAN_PASSWORD=$ci_password
+          CORS_ALLOWED_ORIGINS=http://localhost:3001,http://127.0.0.1:3001
+          REDIS_URL=redis://redis:6379
+          RATE_LIMITING_ENABLED=false
+          FRONTEND_BIND_IP=127.0.0.1
+          BACKEND_BIND_IP=127.0.0.1
+          EOF
+
+          {
+            echo "PLAYWRIGHT_USER=$ci_user"
+            echo "PLAYWRIGHT_PASSWORD=$ci_password"
+            echo "PLAYWRIGHT_AUTHENTICATED_UI=true"
+            echo "PLAYWRIGHT_PORT=3001"
+          } >> "$GITHUB_ENV"
+
+      - name: Test npm audit policy
+        run: node scripts/check-npm-audit.test.mjs
+
+      - name: Audit frontend dependencies
+        shell: bash
+        run: |
+          set +e
+          npm audit --prefix frontend --json > frontend/npm-audit.json
+          audit_exit=$?
+          set -e
+          node scripts/check-npm-audit.mjs frontend/npm-audit.json
+          echo "npm audit command exit status: $audit_exit"
+
+      - name: Build Docker images
+        run: docker compose build backend frontend
+
+      - name: Scan backend image
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: xpenses-backend:latest
+          format: json
+          output: trivy-backend.json
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+
+      - name: Scan frontend image
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: xpenses-frontend:latest
+          format: json
+          output: trivy-frontend.json
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+
+      - name: Start disposable Compose stack
+        run: docker compose up --wait --wait-timeout 300
+
+      - name: Verify service health
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --retry 10 --retry-delay 2 http://127.0.0.1:8001/api/health
+          curl --fail --silent --show-error --retry 10 --retry-delay 2 http://127.0.0.1:3001/login > /dev/null
+          docker compose ps
+
+      - name: Install Playwright browsers
+        run: cd frontend && npx playwright install --with-deps chromium webkit
+
+      - name: Run authenticated mobile UI smoke tests
+        run: npm run test:e2e:mobile --prefix frontend
+
+      - name: Collect Compose logs on failure
+        if: failure()
+        run: docker compose logs --no-color > compose.log || true
+
+      - name: Upload CI evidence on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compose-integration-evidence
+          path: |
+            frontend/playwright-report
+            frontend/test-results
+            frontend/npm-audit.json
+            trivy-backend.json
+            trivy-frontend.json
+            compose.log
+          if-no-files-found: ignore
+
+      - name: Tear down disposable Compose stack
+        if: always()
+        run: docker compose down -v --remove-orphans

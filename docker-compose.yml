@@ -1,7 +1,7 @@
 services:
   db:
     image: postgres:16-alpine@sha256:16bc17c64a573ef34162af9298258d1aec548232985b33ed7b1eac33ba35c229
-    container_name: xpenses-db
+    container_name: ${COMPOSE_CONTAINER_PREFIX:-xpenses}-db
     environment:
       POSTGRES_USER: ${DB_USER:-xpenses}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-xpenses}
@@ -24,7 +24,7 @@ services:
 
   redis:
     image: redis:7.4-alpine
-    container_name: xpenses-redis
+    container_name: ${COMPOSE_CONTAINER_PREFIX:-xpenses}-redis
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
       - redisdata:/data
@@ -42,7 +42,7 @@ services:
     build:
       context: ./backend-kotlin-jpa
       dockerfile: Dockerfile
-    container_name: xpenses-backend
+    container_name: ${COMPOSE_CONTAINER_PREFIX:-xpenses}-backend
     ports:
       - "${BACKEND_BIND_IP:-127.0.0.1}:8001:8080"
     env_file: .env
@@ -83,7 +83,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: xpenses-frontend
+    container_name: ${COMPOSE_CONTAINER_PREFIX:-xpenses}-frontend
     ports:
       - "${FRONTEND_BIND_IP:-127.0.0.1}:3001:3000"
     environment:

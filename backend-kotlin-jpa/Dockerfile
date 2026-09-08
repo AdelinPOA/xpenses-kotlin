@@ -1,5 +1,5 @@
 # ── Stage 1: Build & Compile using JDK 21 ──
-FROM eclipse-temurin:21-jdk-alpine@sha256:4fb80de7aeb277ad949cfbe89b4f504e50bb34c57fd908c5825236473d71e986 AS builder
+FROM eclipse-temurin:21-jdk-alpine@sha256:6ea5548706b60ac0a602eaf48af74792cbab012d90e811ca8db6184b16b5c3d6 AS builder
 
 WORKDIR /workspace/app
 
@@ -24,11 +24,11 @@ RUN --mount=type=cache,target=/root/.gradle \
     jar -xf ../build/libs/*.jar
 
 # ── Stage 2: Minimal JRE 21 Runtime ──
-FROM eclipse-temurin:21-jre-alpine@sha256:704db3c40204a44f471191446ddd9cda5d60dab40f0e15c6507b815ed897238b AS release
+FROM eclipse-temurin:21-jre-alpine@sha256:974b08960c5d96694c780e65b2d5705268ab1e1ca1a0dd0caf4ba6c3fe34d699 AS release
 WORKDIR /app
 
 # Install curl for healthchecks + su-exec for privilege dropping
-RUN apk add --no-cache curl su-exec
+RUN apk upgrade --no-cache && apk add --no-cache curl su-exec
 
 # Hardened security: Run as non-root user
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup

@@ -2,7 +2,7 @@ plugins {
     kotlin("jvm") version "2.4.0"
     kotlin("plugin.spring") version "2.4.0"
     kotlin("plugin.jpa") version "2.4.0"
-    id("org.springframework.boot") version "3.4.5"
+    id("org.springframework.boot") version "3.5.16"
     id("io.spring.dependency-management") version "1.1.7"
     id("org.graalvm.buildtools.native") version "0.10.4"
 }
@@ -39,7 +39,7 @@ dependencies {
     implementation("com.github.ben-manes.caffeine:jcache")
 
     // Database
-    runtimeOnly("org.postgresql:postgresql")
+    runtimeOnly("org.postgresql:postgresql:42.7.13")
     implementation("org.flywaydb:flyway-database-postgresql")
 
     // JWT

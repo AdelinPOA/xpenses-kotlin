@@ -113,4 +113,18 @@ test.describe("mobile authenticated UI", () => {
     await expectNoHorizontalOverflow(page);
     await expectNoSeriousAxeViolations(page);
   });
+
+  test("Technician can create an Expense without a Receipt", async ({ page }) => {
+    await page.goto("/expenses/new");
+    await page.getByLabel(/Amount/i).fill("12.34");
+    await page.getByLabel(/Merchant/i).fill("CI smoke test");
+    await page.getByLabel(/Category/i).selectOption({ index: 1 });
+
+    const createRequest = page.waitForResponse((response) =>
+      response.url().endsWith("/api/expenses") && response.request().method() === "POST" && response.status() === 201
+    );
+    await page.getByRole("button", { name: "Create expense", exact: true }).click();
+    await createRequest;
+    await expect(page).toHaveURL(/\/expenses$/);
+  });
 });

@@ -90,6 +90,7 @@ jobs:
     timeout-minutes: 35
     env:
       COMPOSE_PROJECT_NAME: xpenses-ci
+      COMPOSE_FILE: docker-compose.yml:.github/docker-compose.ci.yml
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5

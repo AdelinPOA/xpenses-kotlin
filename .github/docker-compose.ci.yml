@@ -1,0 +1,21 @@
+services:
+  db:
+    deploy:
+      resources:
+        limits:
+          cpus: '0.75'
+  redis:
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+  backend:
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+  frontend:
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'

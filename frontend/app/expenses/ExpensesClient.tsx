@@ -16,7 +16,7 @@ import { useAllowNavigation } from "@/lib/navigationGuard";
 import dynamic from "next/dynamic";
 import BulkUploadZone from "@/components/expenses/BulkUploadZone";
 import ReceiptLightbox from "@/components/expenses/ReceiptLightbox";
-import { Plus, Trash2, Pencil, Copy, Download, Search, Check, FileText } from "lucide-react";
+import { Plus, Trash2, Pencil, Copy, Download, Search, Check, FileText, SlidersHorizontal, MoreHorizontal } from "lucide-react";
 import { formatAmount } from "@/lib/format";
 import clsx from "clsx";
 import { useTranslations } from "next-intl";
@@ -70,6 +70,7 @@ function ExpensesPageContent() {
   const [exporting, setExporting] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [exportRange, setExportRange] = useState<ExportRange>("all");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [bulkFiles, setBulkFiles] = useState<File[]>([]);
   const [showBulkDrawer, setShowBulkDrawer] = useState(false);
@@ -197,6 +198,11 @@ function ExpensesPageContent() {
   const selectedTotalEur = selectedExpensesList.reduce((sum, e) => sum + (e.amount_eur || 0), 0);
 
   const hasActiveFilters = !!(statusFilter || categoryFilter || qParam);
+  const activeFilterCount = [statusFilter, categoryFilter].filter(Boolean).length;
+
+  useEffect(() => {
+    if (statusFilter || categoryFilter) setFiltersOpen(true);
+  }, [statusFilter, categoryFilter]);
 
   // When filters yield nothing, check once whether there's any data at all,
   // so we can show "No results + Clear filters" instead of the cold empty state.
@@ -301,10 +307,10 @@ function ExpensesPageContent() {
         onClose={() => setShowBulkDrawer(false)}
       />
 
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">{t("title")}</h1>
-          <p className="text-muted text-sm mt-1">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">{t("title")}</h1>
+          <p className="text-muted text-sm mt-0.5 truncate">
             {totalElements} {t("total")}
             {offline.pendingCount > 0 && (
               <> · <button
@@ -319,68 +325,84 @@ function ExpensesPageContent() {
             )}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <BulkUploadZone isDragging={isDragging} onFilesDropped={handleFilesDropped} />
-          <div className="relative">
-            <button
-              disabled={exporting}
-              onClick={() => setExportOpen((v) => !v)}
-              aria-expanded={exportOpen}
-              className="flex min-h-11 items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 disabled:opacity-50 cursor-pointer"
+        <div className="flex items-center gap-2 shrink-0">
+          <details
+            className="relative"
+            onToggle={(event) => {
+              if (!event.currentTarget.open) setExportOpen(false);
+            }}
+          >
+            <summary
+              aria-label={t("more_actions")}
+              className="list-none min-h-11 min-w-11 inline-flex items-center justify-center rounded-lg border border-border text-muted hover:bg-card-hover cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
-              <Download className="w-4 h-4" />
-              {exporting ? t("exporting") : t("export")}
-            </button>
-            {exportOpen && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setExportOpen(false)} />
-                <div className="absolute right-0 top-full mt-1 w-48 bg-input border border-border rounded-lg shadow-lg z-50 py-1">
-                  <p className="px-3 pt-1 pb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{t("export_range_label")}</p>
-                  {([
-                    ["this_month", t("export_this_month")],
-                    ["last_month", t("export_last_month")],
-                    ["this_year", t("export_this_year")],
-                    ["all", t("export_all_time")],
-                  ] as [ExportRange, string][]).map(([value, label]) => (
-                    <button
-                      key={value}
-                      onClick={() => setExportRange(value)}
-                      role="menuitemradio"
-                      aria-checked={exportRange === value}
-                      className={clsx(
-                        "w-full text-left px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center justify-between",
-                        exportRange === value ? "text-primary font-semibold" : "text-slate-700 dark:text-slate-200"
-                      )}
+              <MoreHorizontal className="w-5 h-5" aria-hidden="true" />
+              <span className="sr-only">{t("more_actions")}</span>
+            </summary>
+            <div className="absolute right-0 top-full mt-2 z-20 min-w-52 rounded-xl border border-border bg-card p-2 shadow-xl">
+              <BulkUploadZone isDragging={isDragging} onFilesDropped={handleFilesDropped} />
+              <div className="relative mt-2">
+                <button
+                  type="button"
+                  disabled={exporting}
+                  onClick={() => setExportOpen((v) => !v)}
+                  aria-expanded={exportOpen}
+                  className="flex min-h-11 w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted hover:bg-card-hover disabled:opacity-50 cursor-pointer"
+                >
+                  <Download className="w-4 h-4" aria-hidden="true" />
+                  {exporting ? t("exporting") : t("export")}
+                </button>
+                {exportOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setExportOpen(false)} />
+                    <div
+                      role="menu"
+                      aria-label={t("export_range_label")}
+                      className="absolute right-0 top-full mt-1 w-48 bg-input border border-border rounded-lg shadow-lg z-50 py-1"
                     >
-                      {label}
-                      {exportRange === value && <span aria-hidden="true">✓</span>}
-                    </button>
-                  ))}
-                  <hr className="my-1 border-border" />
-                  <button
-                    onClick={() => handleExport("csv")}
-                    className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700"
-                  >
-                    {t("download_csv")}
-                  </button>
-                  <button
-                    onClick={() => handleExport("xlsx")}
-                    className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700"
-                  >
-                    {t("download_xlsx")}
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
+                      <p className="px-3 pt-1 pb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{t("export_range_label")}</p>
+                      {([
+                        ["this_month", t("export_this_month")],
+                        ["last_month", t("export_last_month")],
+                        ["this_year", t("export_this_year")],
+                        ["all", t("export_all_time")],
+                      ] as [ExportRange, string][]).map(([value, label]) => (
+                        <button
+                          key={value}
+                          type="button"
+                          onClick={() => setExportRange(value)}
+                          role="menuitemradio"
+                          aria-checked={exportRange === value}
+                          className={clsx(
+                            "w-full min-h-11 text-left px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center justify-between",
+                            exportRange === value ? "text-primary font-semibold" : "text-slate-700 dark:text-slate-200"
+                          )}
+                        >
+                          {label}
+                          {exportRange === value && <span aria-hidden="true">✓</span>}
+                        </button>
+                      ))}
+                      <hr className="my-1 border-border" />
+                      <button type="button" onClick={() => handleExport("csv")} className="w-full min-h-11 text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700">
+                        {t("download_csv")}
+                      </button>
+                      <button type="button" onClick={() => handleExport("xlsx")} className="w-full min-h-11 text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700">
+                        {t("download_xlsx")}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </details>
           <Link
             href="/expenses/new"
             onClick={(e) => {
               if (!allowNavigation()) e.preventDefault();
             }}
-            className="flex min-h-11 items-center gap-2 px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-hover w-fit"
+            className="min-h-11 inline-flex items-center gap-2 rounded-lg bg-primary px-3 sm:px-4 py-2 text-sm font-semibold text-white hover:bg-primary-hover w-fit"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-4 h-4" aria-hidden="true" />
             {t("add_expense")}
           </Link>
         </div>
@@ -388,27 +410,10 @@ function ExpensesPageContent() {
 
       {showOfflineQueue && <OfflineQueuePanel onClose={() => setShowOfflineQueue(false)} />}
 
-      <div className="bg-card rounded-xl shadow-sm">
-        <div className="p-4 border-b border-slate-100 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center gap-3">
-          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar snap-x snap-mandatory -mx-4 px-4 sm:mx-0 sm:px-0">
-            {STATUS_PILLS.map((s) => (
-              <button
-                key={s}
-                type="button"
-                onClick={() => updateParams({ status: s || null }, true)}
-                aria-pressed={statusFilter === s}
-                className={`min-h-11 px-4 py-2 rounded-full text-xs font-medium transition-colors snap-start shrink-0 whitespace-nowrap ${
-                  statusFilter === s
-                    ? "bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-900"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700"
-                }`}
-              >
-                {pillLabels[s]}
-              </button>
-            ))}
-          </div>
-          <div className="flex items-center gap-2 w-full sm:w-auto sm:ml-auto">
-            <div className="relative flex-1 sm:w-56">
+      <div className="bg-card rounded-xl shadow-sm overflow-hidden">
+        <div className="p-3 border-b border-slate-100 dark:border-slate-700">
+          <div className="flex items-center gap-2">
+            <div className="relative min-w-0 flex-1">
               <Search aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
               <label htmlFor="expense-search" className="sr-only">{t("search_placeholder_expenses")}</label>
               <input
@@ -417,23 +422,67 @@ function ExpensesPageContent() {
                 value={searchText}
                 onChange={(e) => setSearchText(e.target.value)}
                 placeholder={t("search_placeholder_expenses")}
-                className="w-full min-h-11 pl-9 pr-3 border border-border rounded-lg text-xs bg-input text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full min-h-11 pl-9 pr-3 border border-border rounded-lg text-base lg:text-sm bg-input text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
-            <label htmlFor="expense-category-filter" className="sr-only">{t("all_categories")}</label>
-            <select
-              id="expense-category-filter"
-              aria-label={t("all_categories")}
-              value={categoryFilter}
-              onChange={(e) => updateParams({ category_id: e.target.value || null }, true)}
-              className="w-auto min-h-11 px-3 py-2 border border-border rounded-lg text-xs bg-input text-slate-700 dark:text-slate-300"
+            <button
+              type="button"
+              aria-expanded={filtersOpen}
+              aria-controls="expense-filters"
+              onClick={() => setFiltersOpen((value) => !value)}
+              className="min-h-11 shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-border px-3 text-sm font-semibold text-muted hover:bg-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
-              <option value="">{t("all_categories")}</option>
-              {categories?.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
+              <SlidersHorizontal className="w-4 h-4" aria-hidden="true" />
+              {t("filters")}{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
+            </button>
           </div>
+          {filtersOpen && (
+            <div id="expense-filters" role="region" aria-label={t("filters")} className="mt-3 rounded-lg border border-border-subtle bg-background p-3">
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <h2 className="text-sm font-semibold text-foreground">{t("filter_by_status")}</h2>
+                <button type="button" onClick={() => setFiltersOpen(false)} className="min-h-11 px-2 text-sm text-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-lg">
+                  {tc("close")}
+                </button>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {STATUS_PILLS.map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => updateParams({ status: s || null }, true)}
+                    aria-pressed={statusFilter === s}
+                    className={clsx(
+                      "min-h-11 rounded-lg px-3 py-2 text-sm font-medium text-left transition-colors",
+                      statusFilter === s
+                        ? "bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-900"
+                        : "bg-card text-muted hover:bg-card-hover border border-border"
+                    )}
+                  >
+                    {pillLabels[s]}
+                  </button>
+                ))}
+              </div>
+              <div className="mt-3">
+                <label htmlFor="expense-category-filter" className="mb-1 block text-sm font-medium text-muted">{t("all_categories")}</label>
+                <select
+                  id="expense-category-filter"
+                  value={categoryFilter}
+                  onChange={(e) => updateParams({ category_id: e.target.value || null }, true)}
+                  className="w-full min-h-11 px-3 py-2 border border-border rounded-lg text-base lg:text-sm bg-input text-slate-700 dark:text-slate-300"
+                >
+                  <option value="">{t("all_categories")}</option>
+                  {categories?.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+              {hasActiveFilters && (
+                <button type="button" onClick={() => router.replace("/expenses", { scroll: false })} className="mt-3 min-h-11 px-3 text-sm font-semibold text-primary hover:underline rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                  {t("clear_filters")}
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {isLoading ? (
@@ -455,8 +504,9 @@ function ExpensesPageContent() {
               {expenses.map((e) => (
                 <div
                   key={e.id}
+                  data-expense-row
                   onClick={() => router.push(e.status === "draft" ? `/expenses/${e.id}/edit` : `/expenses/${e.id}`)}
-                  className="p-4 active:bg-muted/10 transition-colors cursor-pointer"
+                  className="p-3 active:bg-muted/10 transition-colors cursor-pointer"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-start gap-2.5 min-w-0">

@@ -2,6 +2,7 @@
 
 import { use, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { ArrowLeft, Edit3, Download, FileText, Calendar, Tag, Building, DollarSign, Eye } from "lucide-react";
@@ -15,6 +16,7 @@ import clsx from "clsx";
 
 export default function ExpenseDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const router = useRouter();
   const t = useTranslations("expenses");
   const tc = useTranslations("common");
   const [lightboxImage, setLightboxImage] = useState<{ url: string; title: string; onDownload?: () => void } | null>(null);
@@ -26,7 +28,15 @@ export default function ExpenseDetailPage({ params }: { params: Promise<{ id: st
 
   const handleDownload = async (receiptId: number, originalName: string | null) => {
     const filename = originalName || `receipt-${receiptId}.jpg`;
-    await downloadBlob(`/expenses/${id}/receipts/${receiptId}/download`, {}, filename);
+    await downloadBlob(`/expenses/${id}/receipts/${receiptId}`, {}, filename);
+  };
+
+  const handleBack = () => {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back();
+    } else {
+      router.push("/expenses");
+    }
   };
 
   return (
@@ -34,13 +44,14 @@ export default function ExpenseDetailPage({ params }: { params: Promise<{ id: st
       <div className="max-w-4xl mx-auto pb-12">
         {/* Top Back Nav */}
         <div className="mb-6 flex items-center justify-between">
-          <Link
-            href="/expenses"
-            className="inline-flex items-center min-h-[44px] px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+          <button
+            type="button"
+            onClick={handleBack}
+            className="inline-flex items-center min-h-[44px] px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors rounded-lg focus:outline-none focus:ring-2 focus:ring-primary cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4 mr-1.5" />
             {tc("back")}
-          </Link>
+          </button>
           {expense && expense.status === "draft" && (
             <Link
               href={`/expenses/${id}/edit`}

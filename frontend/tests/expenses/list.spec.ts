@@ -42,8 +42,10 @@ test.describe("Expenses list", () => {
   test("filter pills sync to URL, filter requests, and rejected shows no-results state", async ({ page }) => {
     const log = await mockExpensesApi(page);
     await page.goto("/expenses", { waitUntil: "load" });
+    await page.getByRole("button", { name: /^Filters/ }).click();
     await expect(page.getByRole("button", { name: "Draft", exact: true })).toBeVisible();
 
+    // Filter disclosure keeps the compact list header while retaining the same URL semantics.
     // Pill click → ?status=draft in the URL → server request carries it.
     await page.getByRole("button", { name: "Draft", exact: true }).click();
     await expect(page).toHaveURL(/\/expenses\?status=draft$/);
@@ -57,7 +59,7 @@ test.describe("Expenses list", () => {
     await page.getByRole("button", { name: "Rejected", exact: true }).click();
     await expect(page).toHaveURL(/status=rejected/);
     await expect(page.getByText("No results match your filters.")).toBeVisible({ timeout: 8000 });
-    await page.getByRole("button", { name: /clear filters/i }).click();
+    await page.getByRole("region", { name: "Filters" }).getByRole("button", { name: /clear filters/i }).click();
 
     // Clear filters resets to a clean URL and restores all rows.
     await expect(page).toHaveURL(/\/expenses$/);
@@ -98,7 +100,8 @@ test.describe("Expenses list", () => {
     });
 
     await page.goto("/expenses", { waitUntil: "load" });
-    await page.getByRole("button", { name: /export/i }).first().click();
+    await page.locator('summary[aria-label="More actions"]').click();
+    await page.getByRole("button", { name: /^Export$/ }).click();
     // Pick "This month" from the range popover, then trigger CSV download.
     await page.getByRole("menuitemradio", { name: /this month/i }).click();
     const downloadPromise = page.waitForEvent("download", { timeout: 10000 });

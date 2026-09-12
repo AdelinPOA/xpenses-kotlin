@@ -180,7 +180,7 @@ function ReportAccordionDetail({
             <button
               type="button"
               onClick={() => setShowRejectInput(false)}
-              className="px-3 py-1.5 text-xs font-medium text-muted hover:text-foreground"
+              className="px-3 py-2 min-h-[44px] text-xs sm:text-sm font-medium text-muted hover:text-foreground inline-flex items-center justify-center cursor-pointer"
             >
               {tc("cancel")}
             </button>
@@ -188,7 +188,7 @@ function ReportAccordionDetail({
               type="button"
               onClick={handleRejectSubmit}
               disabled={actionPending || !rejectReason.trim()}
-              className="px-3.5 py-1.5 rounded-lg bg-rose-600 text-white text-xs font-bold hover:bg-rose-700 disabled:opacity-50 flex items-center gap-1"
+              className="px-3.5 py-2 min-h-[44px] rounded-lg bg-rose-600 text-white text-xs sm:text-sm font-bold hover:bg-rose-700 disabled:opacity-50 inline-flex items-center gap-1 cursor-pointer"
             >
               {actionPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <X className="w-3.5 h-3.5" />}
               {t("reject_report")}
@@ -201,7 +201,7 @@ function ReportAccordionDetail({
       <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
         <Link
           href={`/reports/${report.id}`}
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline min-h-[44px]"
         >
           <Eye className="w-3.5 h-3.5" />
           {t("view_details")}
@@ -213,7 +213,7 @@ function ReportAccordionDetail({
               type="button"
               onClick={() => setShowRejectInput(true)}
               disabled={actionPending}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3.5 py-2 text-xs sm:text-sm font-semibold text-rose-700 hover:bg-rose-100 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-300 disabled:opacity-50 cursor-pointer"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3.5 py-2 min-h-[44px] text-xs sm:text-sm font-semibold text-rose-700 hover:bg-rose-100 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-300 disabled:opacity-50 cursor-pointer"
             >
               <X className="w-4 h-4" />
               {tc("reject")}
@@ -224,7 +224,7 @@ function ReportAccordionDetail({
             type="button"
             onClick={() => onApprove(report.id)}
             disabled={actionPending}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-xs sm:text-sm font-bold text-white hover:bg-emerald-700 shadow-sm disabled:opacity-50 cursor-pointer"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 min-h-[44px] text-xs sm:text-sm font-bold text-white hover:bg-emerald-700 shadow-sm disabled:opacity-50 cursor-pointer"
           >
             {actionPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
             {t("approve_report")}
@@ -363,14 +363,14 @@ export default function PendingReportsTable({
             {reports.length}
           </span>
         </div>
-        <Link href="/approvals" className="text-xs font-semibold text-primary hover:underline">
+        <Link href="/approvals" className="text-xs font-semibold text-primary hover:underline min-h-[44px] inline-flex items-center">
           {t("open_review_queue")}
         </Link>
         {canSelectMultiple && !selectionMode && (
           <button
             type="button"
             onClick={() => setSelectionMode(true)}
-            className="text-xs font-semibold text-muted hover:text-primary transition-colors cursor-pointer"
+            className="text-xs font-semibold text-muted hover:text-primary transition-colors cursor-pointer min-h-[44px] inline-flex items-center"
           >
             {t("select_reports")}
           </button>
@@ -380,7 +380,7 @@ export default function PendingReportsTable({
             type="button"
             onClick={exitSelectionMode}
             disabled={bulkPending}
-            className="text-xs font-semibold text-muted hover:text-foreground transition-colors cursor-pointer disabled:opacity-50"
+            className="text-xs font-semibold text-muted hover:text-foreground transition-colors cursor-pointer disabled:opacity-50 min-h-[44px] inline-flex items-center"
           >
             {tc("cancel")}
           </button>
@@ -502,7 +502,7 @@ export default function PendingReportsTable({
             type="button"
             onClick={submitBulkApprove}
             disabled={bulkPending}
-            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 disabled:opacity-50 cursor-pointer whitespace-nowrap"
+            className="inline-flex items-center gap-1.5 px-4 py-2 min-h-[44px] rounded-full bg-emerald-600 text-white text-xs sm:text-sm font-bold hover:bg-emerald-700 disabled:opacity-50 cursor-pointer whitespace-nowrap"
           >
             <Check className="w-3.5 h-3.5" />
             {t("bulk_approve", { count: selectedIds.size })}
@@ -511,7 +511,7 @@ export default function PendingReportsTable({
             type="button"
             onClick={() => setBulkRejectOpen(true)}
             disabled={bulkPending}
-            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full border border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-300 text-xs font-bold hover:bg-rose-100 dark:hover:bg-rose-900/50 disabled:opacity-50 cursor-pointer whitespace-nowrap"
+            className="inline-flex items-center gap-1.5 px-4 py-2 min-h-[44px] rounded-full border border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-300 text-xs sm:text-sm font-bold hover:bg-rose-100 dark:hover:bg-rose-900/50 disabled:opacity-50 cursor-pointer whitespace-nowrap"
           >
             <X className="w-3.5 h-3.5" />
             {t("bulk_reject", { count: selectedIds.size })}
@@ -536,7 +536,6 @@ export default function PendingReportsTable({
               value={bulkRejectReason}
               onChange={(e) => setBulkRejectReason(e.target.value)}
               rows={3}
-              autoFocus
               className="w-full rounded-lg border border-border bg-background p-2.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-rose-500 resize-none"
               placeholder={t("add_notes")}
             />
@@ -545,7 +544,7 @@ export default function PendingReportsTable({
                 type="button"
                 onClick={() => setBulkRejectOpen(false)}
                 disabled={bulkPending}
-                className="px-3 py-1.5 text-xs font-medium text-muted hover:text-foreground cursor-pointer"
+                className="px-3.5 py-2 min-h-[44px] text-xs sm:text-sm font-medium text-muted hover:text-foreground inline-flex items-center justify-center cursor-pointer"
               >
                 {tc("cancel")}
               </button>
@@ -553,7 +552,7 @@ export default function PendingReportsTable({
                 type="button"
                 onClick={submitBulkReject}
                 disabled={bulkPending || !bulkRejectReason.trim()}
-                className="px-4 py-1.5 rounded-lg bg-rose-600 text-white text-xs font-bold hover:bg-rose-700 disabled:opacity-50 cursor-pointer"
+                className="px-4 py-2 min-h-[44px] rounded-lg bg-rose-600 text-white text-xs sm:text-sm font-bold hover:bg-rose-700 disabled:opacity-50 inline-flex items-center justify-center cursor-pointer"
               >
                 {t("bulk_reject", { count: selectedIds.size })}
               </button>

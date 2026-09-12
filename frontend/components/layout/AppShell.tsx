@@ -125,7 +125,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
       <main
         id="main-content"
-        className="flex-1 lg:ml-[220px] pt-[calc(3.5rem+env(safe-area-inset-top,0px)+1rem)] sm:pt-[calc(3.5rem+env(safe-area-inset-top,0px)+1.5rem)] lg:pt-6 pb-[calc(4rem+env(safe-area-inset-bottom,0px)+1rem)] lg:pb-0 p-4 sm:p-6 lg:p-8"
+        className="app-main flex-1 lg:ml-[220px] pt-[calc(3.5rem+env(safe-area-inset-top,0px)+1rem)] sm:pt-[calc(3.5rem+env(safe-area-inset-top,0px)+1.5rem)] lg:pt-6 pb-[calc(4rem+env(safe-area-inset-bottom,0px)+1rem)] lg:pb-0 p-4 sm:p-6 lg:p-8"
       >
         {children}
       </main>
@@ -151,15 +151,22 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                   if (!allowNavigation()) e.preventDefault();
                 }}
                 className={clsx(
-                  "relative -top-3.5 flex flex-col items-center justify-center w-[52px] h-[52px] rounded-full shadow-lg border-4 border-card transition-transform active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+                "relative flex min-w-0 flex-1 h-full flex-col items-center justify-end pb-1 text-[11px] font-semibold leading-none whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary",
+                active ? "text-nav-active" : "text-muted hover:text-foreground"
+              )}
+            >
+              <span
+                className={clsx(
+                  "absolute bottom-6 flex h-[52px] w-[52px] items-center justify-center rounded-full border-4 border-card shadow-lg transition-transform active:scale-95",
                   active
                     ? "bg-primary-hover text-white ring-2 ring-primary"
                     : "bg-primary text-white hover:bg-primary-hover"
                 )}
               >
                 <Icon className="w-6 h-6" aria-hidden="true" />
-                <span className="sr-only">{tNav(labelKey)}</span>
-              </Link>
+              </span>
+              <span>{tNav(labelKey)}</span>
+            </Link>
             );
           }
 
@@ -172,8 +179,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 if (!allowNavigation()) e.preventDefault();
               }}
               className={clsx(
-                "flex flex-col items-center justify-center gap-1 min-w-14 min-h-14 text-[10px] font-bold uppercase tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary",
-                active ? "text-primary" : "text-muted hover:text-foreground"
+                "flex min-w-0 flex-1 flex-col items-center justify-center gap-1 min-h-14 px-0.5 text-[11px] font-semibold leading-none whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary",
+                active ? "text-nav-active" : "text-muted hover:text-foreground"
               )}
             >
               <Icon className="w-5 h-5" aria-hidden="true" />

@@ -1,6 +1,8 @@
 # Analiză UI/UX mobil — accent iOS
 
-Status: direcția de produs este agreată; acest document descrie fluxul țintă, nu o implementare finalizată.
+Status: direcția de produs este agreată și taskurile de execuție sunt publicate; implementarea nu este finalizată.
+
+**Pentru alt agent:** începe cu [ghidul de execuție](EXECUTION.md) și [issue-ul părinte #45](https://github.com/AdelinPOA/xpenses-kotlin/issues/45). GitHub Issues sunt sursa de adevăr. [#47](https://github.com/AdelinPOA/xpenses-kotlin/issues/47) este primul milestone de îmbunătățire vizibilă a frontendului, independent de backend. [#46](https://github.com/AdelinPOA/xpenses-kotlin/issues/46) este gate-ul tehnic înainte de integrarea persistenței.
 
 ## Decizii confirmate în discuție
 
@@ -45,7 +47,7 @@ Status: direcția de produs este agreată; acest document descrie fluxul țintă
 - La 375 px, suma și moneda sunt lizibile integral, iar controalele nu se suprapun. Testăm română/engleză și light/dark.
 - Pe iPhone real, câmpul activ și confirmarea rămân accesibile cu tastatura deschisă; testăm Safari, standalone și VoiceOver.
 
-**De investigat tehnic înainte de implementarea fluxului:** cum persistăm verificarea explicită separat de statusul financiar al Expense-ului; când este bonul efectiv recuperabil în raport cu OCR; ce garantează coada offline pentru bon și modificări. Acestea nu se rezolvă printr-un badge local sau printr-un mesaj de succes optimist.
+**Gate tehnic înainte de implementarea fluxului — #46:** cum persistăm verificarea explicită separat de statusul financiar al Expense-ului; când este bonul efectiv recuperabil în raport cu OCR; ce garantează coada offline pentru bon și modificări. Acestea nu se rezolvă printr-un badge local sau printr-un mesaj de succes optimist. ADR 0004 și #35 trebuie aliniate cu verificarea imediată ca nou flux implicit, păstrând procesarea de fundal și promovarea idempotentă. Lucrările UI independente #47/#48 nu așteaptă acest gate.
 
 ## Metodă și limite
 
@@ -65,13 +67,15 @@ Fundația merită păstrată: burger, navigare de jos cu etichete, paleta slate/
 
 ## Probleme prioritare
 
+Observațiile de mai jos descriu starea din audit, nu garantează că sursa curentă este neschimbată. Există implementări paralele; revalidați înainte de editare. Recomandările sunt detaliate în taskurile GitHub, iar investigațiile tehnice rămân explicit gated.
+
 ### 1. Revizuirea bulk nu este utilizabilă confortabil pe telefon
 
 **Confirmat în browser:** la 375 px câmpul sumei măsoară **18 px lățime**, moneda 64 px și data 80,5 px. Suma nu se poate citi, data este tăiată. La 390 px suma are tot numai 20 px.
 
 Sursă: `frontend/components/expenses/BulkReviewDrawer.tsx:236–344`. Thumbnail, formular în două coloane și ștergere concurează pe același rând, după două niveluri de padding.
 
-Propunere: antet cu miniatură/comerciant/meniu; apoi câmpuri pe lățimea disponibilă, cu un rând proiectat explicit pentru sumă + monedă. Pentru loturi mari, explorat un bon pe ecran cu „Următorul”, fără a impune această alegere înainte de clarificarea utilizării.
+Propunere: antet cu miniatură/comerciant/meniu; apoi câmpuri pe lățimea disponibilă, cu un rând proiectat explicit pentru sumă + monedă. Pentru primul increment păstrăm lotul și corectăm layout-ul; navigarea separată bon-cu-bon pentru bulk nu intră implicit în scope. Fluxul individual aprobat folosește verificare imediată.
 
 ![Bulk review la 375 px](bulk-375.png)
 
@@ -93,7 +97,7 @@ Propunere: diferențiere explicită între încărcare eșuată, ciornă creată
 
 Surse: `frontend/app/dashboard/DashboardClient.tsx:647–658, 778–794`; `frontend/app/expenses/capture/page.tsx:66–137`; `frontend/app/expenses/ExpensesClient.tsx:352–363`.
 
-Propunere: o intrare predictibilă pentru intenția „Adaugă cheltuială”, cu opțiuni clare Fotografiază / Alege fișier / Introdu manual. Păstrăm posibilitatea capturii succesive existente, dar decidem separat dacă verificarea datelor se face imediat sau ulterior. Nu confundăm salvarea ciornei cu trimiterea unui Report.
+Propunere: o intrare predictibilă pentru intenția „Adaugă cheltuială”, cu opțiuni clare Fotografiază / Alege fișier / Introdu manual. Verificarea imediată este acum aprobată ca flux implicit; captura succesivă continuă prin „Confirmă și scanează următorul”. Nu confundăm salvarea ciornei cu trimiterea unui Report.
 
 ![Fluxul Capture existent](capture.png)
 
@@ -161,7 +165,7 @@ Surse: `frontend/components/expenses/BulkReviewDrawer.tsx:100–127`; `frontend/
 
 Propunere tehnică, dacă intră în implementare: un **module** pentru prezentarea modală, cu **interface** mică, care deține focus, Escape, scroll lock, revenirea la elementul de deschidere și safe-area. Callers nu ar trebui să repete aceste reguli. Comportamentul VoiceOver și pinch trebuie verificat pe dispozitiv.
 
-## Direcție vizuală propusă, încă neaprobată
+## Direcție vizuală agreată
 
 „Registru de cheltuieli pentru teren”: conținut lizibil, sume ușor de comparat, stare clară și captură rapidă. Identitatea vine din asocierea miniaturii bonului cu suma și starea salvării, nu din carduri decorative sau grafice omniprezente.
 
@@ -171,15 +175,15 @@ Propunere tehnică, dacă intră în implementare: un **module** pentru prezenta
 - Densitate prin eliminarea redundanței, nu prin reducerea fonturilor ori a țintelor tactile.
 - Nu imităm Liquid Glass doar pentru a „arăta iOS”. Prioritare sunt interacțiunile predictibile și lizibilitatea.
 
-## Ordine recomandată pentru discuție
+## Execuție și limite de scope
 
-1. Clarificăm fluxul mobil prioritar și momentul verificării OCR.
-2. Remediem bulk layout/feedback, submit-ul accidental, contrastul și etichetele greșite.
-3. Unificăm intrarea în captură și simplificăm formularul/lista.
-4. Reordonăm Report și dashboard, apoi uniformizăm overlays.
-5. Validăm pe iPhone real: Safari + PWA, tastatură, fotografie/fișiere, landscape, VoiceOver, text mărit și conexiune întreruptă.
+1. #47: formular/listă compacte și navigare lizibilă — primul livrabil vizibil, cu capturi înainte/după.
+2. #48: bulk layout/feedback; #46: contractul de persistență, în paralel cu UI unde fișierele permit.
+3. #49: captură → verificare → listă, după #46 și #47 și prerechizitele backend identificate.
+4. #50: viewer mobil și comportament modal comun, după fundația UI. Reordonarea Report/dashboard manager rămâne în afara acestui increment.
+5. #51: dovezi finale și gate fizic iPhone pentru Safari/PWA, tastatură, cameră, landscape, VoiceOver, text mărit și întreruperi.
 
-Nu a fost modificat codul aplicației. Nu a fost creat un ADR: nu avem încă o decizie arhitecturală aprobată. Nu a fost schimbat glosarul de domeniu.
+Acest audit și handoff nu modifică aplicația; alte lucrări pot exista în working tree. Nu am schimbat ADR-urile sau glosarul: #46 trebuie să documenteze alinierea ADR 0004 și reprezentarea verificării, fără să anuleze contractul de durabilitate OCR.
 
 ## Surse de design consultate
 

@@ -2,6 +2,7 @@
 
 import { useRef } from "react";
 import { createPortal } from "react-dom";
+import { useTranslations } from "next-intl";
 import { UploadCloud } from "lucide-react";
 
 interface BulkUploadZoneProps {
@@ -26,6 +27,7 @@ function filterFiles(raw: FileList | File[]): { valid: File[]; rejected: string[
 }
 
 export default function BulkUploadZone({ isDragging, onFilesDropped }: BulkUploadZoneProps) {
+  const t = useTranslations("expenses");
   const inputRef = useRef<HTMLInputElement>(null);
 
   function handleDrop(e: React.DragEvent) {
@@ -60,10 +62,10 @@ export default function BulkUploadZone({ isDragging, onFilesDropped }: BulkUploa
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
-        className="inline-flex items-center gap-2 px-3 py-2 text-sm font-semibold rounded-lg border border-slate-300 dark:border-slate-700 bg-card text-slate-700 dark:text-slate-300 hover:bg-card-hover shadow-sm transition-colors"
+        className="min-h-11 inline-flex items-center gap-2 px-3 py-2 text-sm font-semibold rounded-lg border border-slate-300 dark:border-slate-700 bg-card text-slate-700 dark:text-slate-300 hover:bg-card-hover shadow-sm transition-colors"
       >
         <UploadCloud className="w-4 h-4" />
-        Upload receipts
+        {t("upload_receipts")}
       </button>
 
       {/* Full-viewport drag overlay — portalled so it sits above everything */}
@@ -77,10 +79,10 @@ export default function BulkUploadZone({ isDragging, onFilesDropped }: BulkUploa
           >
             <UploadCloud className="w-16 h-16 text-blue-500 dark:text-blue-400 mb-4 drop-shadow-lg animate-bounce" />
             <p className="text-2xl font-bold text-blue-700 dark:text-blue-300 drop-shadow">
-              Drop receipts to create expenses
+              {t("drag_heading")}
             </p>
             <p className="text-sm text-blue-600 dark:text-blue-400 mt-2">
-              JPG · PNG · WEBP · PDF — up to 10 MB each, max 20 files
+              {t("drag_subtext")}
             </p>
           </div>,
           document.body

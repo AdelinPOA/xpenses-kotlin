@@ -16,6 +16,7 @@
   --muted-foreground: #64748b;
   --primary: #c2410c;
   --primary-hover: #9a3412;
+  --nav-active-text: #9a3412;
   --sidebar: #0f172a;
   --sidebar-border: #1e293b;
 }
@@ -33,6 +34,7 @@
   --muted-foreground: #94a3b8;
   --primary: #c2410c;
   --primary-hover: #9a3412;
+  --nav-active-text: #fb923c;
   --sidebar: #0a0e1a;
   --sidebar-border: #1a2236;
 }
@@ -50,6 +52,7 @@
   --color-muted-foreground: var(--muted-foreground);
   --color-primary: var(--primary);
   --color-primary-hover: var(--primary-hover);
+  --color-nav-active: var(--nav-active-text);
   --color-sidebar: var(--sidebar);
   --color-sidebar-border: var(--sidebar-border);
 
@@ -165,5 +168,20 @@
 
 * {
   box-sizing: border-box;
+}
+
+/* A sticky action bar would cover the first fields in short landscape viewports. */
+@media (orientation: landscape) and (max-height: 500px) {
+  .app-main {
+    padding-top: 64px !important;
+  }
+
+  .receipt-capture {
+    padding: 4px !important;
+  }
+
+  .expense-form-actions {
+    position: static !important;
+  }
 }
 

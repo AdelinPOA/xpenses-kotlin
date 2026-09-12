@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import api, { Expense, CURRENCIES } from "@/lib/api";
 import { reportKeys, expenseKeys, dashboardKeys } from "@/lib/queryKeys";
+import { useFormGuard } from "@/lib/useFormGuard";
 import AppShell from "@/components/layout/AppShell";
 import Badge from "@/components/ui/Badge";
 import { formatEur } from "@/lib/format";
@@ -23,6 +24,11 @@ function NewReportContent() {
   const [currency, setCurrency] = useState("EUR");
   const [error, setError] = useState("");
   const t = useTranslations("reports");
+
+  const isDirty = () => {
+    return !!(title.trim() || description.trim() || dateFrom || dateTo || selectedIds.size > 0);
+  };
+  const { clearDirty } = useFormGuard(isDirty, t("guard_unsaved_changes"));
 
   const initialIdsParam = searchParams.get("expense_ids");
 
@@ -86,6 +92,7 @@ function NewReportContent() {
       return report;
     },
     onSuccess: (report) => {
+      clearDirty();
       qc.invalidateQueries({ queryKey: reportKeys.all });
       qc.invalidateQueries({ queryKey: expenseKeys.all });
       qc.invalidateQueries({ queryKey: dashboardKeys.all });

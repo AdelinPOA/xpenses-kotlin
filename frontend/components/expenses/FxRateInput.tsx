@@ -136,7 +136,7 @@ export default function FxRateInput({
                   aria-selected={mode === m}
                   onClick={() => setMode(m)}
                   className={clsx(
-                    "px-3 py-1 text-xs font-medium transition-colors",
+                    "min-h-11 px-3 py-1 text-sm font-medium transition-colors",
                     mode === m
                       ? "bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400"
                       : "text-muted hover:bg-card-hover"
@@ -162,13 +162,13 @@ export default function FxRateInput({
                     }}
                     placeholder={t("fx_debit_amount")}
                     aria-label={t("fx_debit_amount")}
-                    className="w-full min-h-11 border border-input-border rounded-lg px-3 py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100"
+                    className="w-full min-h-11 border border-input-border rounded-lg px-3 py-2 text-base lg:text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100"
                   />
                   <select
                     value={debitCurrency}
                     onChange={(e) => setDebitCurrency(e.target.value)}
                     aria-label={t("fx_debit_currency")}
-                    className="min-h-11 border border-input-border rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100"
+                    className="min-h-11 border border-input-border rounded-lg px-2 py-2 text-base lg:text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100"
                   >
                     {debitCurrencies.map((c) => (
                       <option key={c} value={c}>{c}</option>
@@ -186,7 +186,7 @@ export default function FxRateInput({
                 value={rateValue}
                 onChange={(e) => setRateValue(e.target.value)}
                 aria-label={t("fx_rate")}
-                className="w-full min-h-11 border border-input-border rounded-lg px-3 py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100"
+                className="w-full min-h-11 border border-input-border rounded-lg px-3 py-2 text-base lg:text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100"
               />
             )}
 
@@ -211,7 +211,7 @@ export default function FxRateInput({
       <button
         type="button"
         onClick={onToggle}
-        className="mt-6 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400"
+        className="mt-3 min-h-11 min-w-11 inline-flex items-center justify-center rounded-lg text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         title={active ? t("fx_revert") : t("fx_edit")}
       >
         {active ? (

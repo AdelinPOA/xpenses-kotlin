@@ -60,6 +60,16 @@ class StorageServiceTest {
     }
 
     @Test
+    fun `storeFile OCR_SOURCE context stores a durable job-scoped path`() {
+        val upload = RawUpload(pngBytes, "scan.png", "image/png")
+
+        val path = storageService.storeFile(StorageContext.OCR_SOURCE, upload, entityId = 42)
+
+        assertEquals("ocr-sources/42_scan.png", path)
+        assertArrayEquals(pngBytes, storageService.downloadFile(path))
+    }
+
+    @Test
     fun `storeFile RECEIPT context rejects disallowed extension`() {
         val upload = RawUpload("some text file content".toByteArray(), "test.txt", "text/plain")
         val ex = assertThrows<IllegalArgumentException> {

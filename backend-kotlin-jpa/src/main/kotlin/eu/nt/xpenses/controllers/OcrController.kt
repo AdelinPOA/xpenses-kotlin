@@ -4,11 +4,15 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.annotation.JsonProperty
 import eu.nt.xpenses.model.OcrComparison
 import eu.nt.xpenses.model.OcrJob
+import eu.nt.xpenses.model.OcrJobStatus
 import eu.nt.xpenses.model.User
+import eu.nt.xpenses.models.RawUpload
 import eu.nt.xpenses.repositories.OcrComparisonRepository
 import eu.nt.xpenses.repositories.OcrJobRepository
 import eu.nt.xpenses.services.AsyncOcrService
 import eu.nt.xpenses.services.OcrService
+import eu.nt.xpenses.services.StorageContext
+import eu.nt.xpenses.services.StorageService
 import jakarta.servlet.http.HttpServletRequest
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
@@ -19,6 +23,8 @@ import org.springframework.web.server.ResponseStatusException
 import java.math.BigDecimal
 import eu.nt.xpenses.security.RateLimitStore
 import java.time.Instant
+import java.time.temporal.ChronoUnit
+import java.security.MessageDigest
 
 @RestController
 @RequestMapping("/api/ocr")
@@ -27,6 +33,7 @@ class OcrController(
     private val asyncOcrService: AsyncOcrService,
     private val ocrComparisonRepository: OcrComparisonRepository,
     private val ocrJobRepository: OcrJobRepository,
+    private val storageService: StorageService,
     private val objectMapper: ObjectMapper,
     private val rateLimitStore: RateLimitStore
 ) {
@@ -78,19 +85,47 @@ class OcrController(
         val job = OcrJob(
             user = currentUser,
             filename = filename,
-            status = "pending"
+            status = OcrJobStatus.PENDING
         )
         val savedJob = ocrJobRepository.save(job)
+        val jobId = savedJob.id!!
+        var sourcePath: String? = null
 
         try {
-            asyncOcrService.processOcr(savedJob.id!!, file.bytes, filename)
+            sourcePath = storageService.storeFile(
+                StorageContext.OCR_SOURCE,
+                RawUpload(fileBytes, filename, file.contentType),
+                jobId
+            )
+            savedJob.sourcePath = sourcePath
+            savedJob.sourceContentType = file.contentType
+            savedJob.sourceSizeBytes = fileBytes.size.toLong()
+            savedJob.sourceSha256 = sha256Hex(fileBytes)
+            savedJob.expiresAt = Instant.now().plus(30, ChronoUnit.DAYS)
+            ocrJobRepository.saveAndFlush(savedJob)
         } catch (e: Exception) {
-            // Async dispatch was rejected (e.g. the executor queue is full). Mark the job
-            // failed so it doesn't sit in 'pending' forever with clients polling indefinitely.
-            savedJob.status = "failed"
+            if (sourcePath != null) {
+                runCatching { storageService.deleteFile(sourcePath) }
+            }
+            savedJob.status = OcrJobStatus.PERMANENT_FAILURE
+            savedJob.errorCode = "OCR_SOURCE_STORE_FAILED"
+            savedJob.errorMessage = "OCR source could not be durably stored"
+            ocrJobRepository.save(savedJob)
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(mapOf("detail" to "OCR source could not be stored"))
+        }
+
+        try {
+            asyncOcrService.processOcr(jobId)
+        } catch (e: Exception) {
+            // Async dispatch was rejected (e.g. the executor queue is full). Keep the
+            // durable source so an explicit retry can reuse it, but make the state visible.
+            savedJob.status = OcrJobStatus.PERMANENT_FAILURE
+            savedJob.errorCode = "OCR_QUEUE_REJECTED"
             savedJob.errorMessage = "OCR queue is full or rejected"
             ocrJobRepository.save(savedJob)
-            return ResponseEntity.status(503).body(mapOf("detail" to "OCR queue is full or rejected"))
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(mapOf("detail" to "OCR queue is full or rejected"))
         }
 
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(mapOf(
@@ -99,6 +134,10 @@ class OcrController(
             "status_url" to "/ocr/status/${savedJob.id}"
         ))
     }
+
+    private fun sha256Hex(bytes: ByteArray): String =
+        MessageDigest.getInstance("SHA-256").digest(bytes)
+            .joinToString("") { "%02x".format(it.toInt() and 0xff) }
 
     @GetMapping("/status/{jobId}")
     fun getJobStatus(
@@ -118,13 +157,20 @@ class OcrController(
 
         val response = mutableMapOf<String, Any?>(
             "job_id" to job.id,
-            "status" to job.status
+            // Keep the polling response compatible with the current capture flow;
+            // the recovery API will expose the canonical persisted vocabulary.
+            "status" to when (job.status) {
+                OcrJobStatus.COMPLETED -> "completed"
+                OcrJobStatus.PERMANENT_FAILURE, OcrJobStatus.UNRECOVERABLE -> "failed"
+                else -> job.status.lowercase()
+            },
+            "stage" to job.stage
         )
 
-        if (job.status == "completed" && job.resultJson != null) {
+        if (job.status == OcrJobStatus.COMPLETED && job.resultJson != null) {
             response["result"] = objectMapper.readValue(job.resultJson, Map::class.java)
-        } else if (job.status == "failed") {
-            response["error"] = job.errorMessage
+        } else if (job.status == OcrJobStatus.PERMANENT_FAILURE || job.status == OcrJobStatus.UNRECOVERABLE) {
+            response["error"] = job.errorMessage ?: job.unrecoverableReason
         }
 
         return ResponseEntity.ok(response)

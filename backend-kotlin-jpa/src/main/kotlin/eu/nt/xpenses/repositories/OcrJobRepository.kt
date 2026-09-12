@@ -2,7 +2,129 @@ package eu.nt.xpenses.repositories
 
 import eu.nt.xpenses.model.OcrJob
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Modifying
+import org.springframework.data.jpa.repository.Query
+import org.springframework.data.repository.query.Param
 import org.springframework.stereotype.Repository
+import org.springframework.transaction.annotation.Transactional
+import java.time.Instant
 
 @Repository
-interface OcrJobRepository : JpaRepository<OcrJob, Int>
+interface OcrJobRepository : JpaRepository<OcrJob, Int> {
+    /**
+     * Claims one stage only if the persisted snapshot is still eligible. The
+     * affected-row count is the fencing result: exactly one means ownership;
+     * zero means another worker won or the job is no longer eligible.
+     */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Transactional
+    @Query(
+        value = """
+            UPDATE ocr_jobs
+            SET status = 'PROCESSING',
+                lease_token = :leaseToken,
+                lease_until = :leaseUntil,
+                attempt_count = attempt_count + 1,
+                next_attempt_at = NULL,
+                updated_at = :now
+            WHERE id = :jobId
+              AND stage = :stage
+              AND (
+                    status = 'PENDING'
+                    OR (status = 'RETRY_WAIT' AND (next_attempt_at IS NULL OR next_attempt_at <= :now))
+                  )
+            """,
+        nativeQuery = true
+    )
+    fun claimEligible(
+        @Param("jobId") jobId: Int,
+        @Param("stage") stage: String,
+        @Param("leaseToken") leaseToken: String,
+        @Param("leaseUntil") leaseUntil: Instant,
+        @Param("now") now: Instant
+    ): Int
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Transactional
+    @Query(
+        value = """
+            UPDATE ocr_jobs
+            SET stage = CASE stage
+                            WHEN 'OCR' THEN 'EXPENSE'
+                            WHEN 'EXPENSE' THEN 'RECEIPT'
+                            ELSE stage
+                        END,
+                status = CASE WHEN stage = 'RECEIPT' THEN 'COMPLETED' ELSE 'PENDING' END,
+                completed_at = CASE WHEN stage = 'RECEIPT' THEN :now ELSE completed_at END,
+                lease_token = NULL,
+                lease_until = NULL,
+                updated_at = :now
+            WHERE id = :jobId
+              AND stage IN ('OCR', 'EXPENSE', 'RECEIPT')
+              AND status = 'PROCESSING'
+              AND lease_token = :leaseToken
+              AND lease_until > :now
+            """,
+        nativeQuery = true
+    )
+    fun completeClaimedStage(
+        @Param("jobId") jobId: Int,
+        @Param("leaseToken") leaseToken: String,
+        @Param("now") now: Instant
+    ): Int
+
+    /** Replaces an expired lease in one compare-and-set operation. */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Transactional
+    @Query(
+        value = """
+            UPDATE ocr_jobs
+            SET lease_token = :leaseToken,
+                lease_until = :leaseUntil,
+                attempt_count = attempt_count + 1,
+                next_attempt_at = NULL,
+                updated_at = :now
+            WHERE id = :jobId
+              AND stage = :stage
+              AND status = 'PROCESSING'
+              AND lease_until IS NOT NULL
+              AND lease_until <= :now
+            """,
+        nativeQuery = true
+    )
+    fun reclaimExpired(
+        @Param("jobId") jobId: Int,
+        @Param("stage") stage: String,
+        @Param("leaseToken") leaseToken: String,
+        @Param("leaseUntil") leaseUntil: Instant,
+        @Param("now") now: Instant
+    ): Int
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Transactional
+    @Query(
+        value = """
+            UPDATE ocr_jobs
+            SET status = 'RETRY_WAIT',
+                next_attempt_at = :nextAttemptAt,
+                error_code = :errorCode,
+                error_message = :errorMessage,
+                lease_token = NULL,
+                lease_until = NULL,
+                updated_at = :now
+            WHERE id = :jobId
+              AND status = 'PROCESSING'
+              AND lease_token = :leaseToken
+              AND lease_until > :now
+            """,
+        nativeQuery = true
+    )
+    fun recordTransientFailure(
+        @Param("jobId") jobId: Int,
+        @Param("leaseToken") leaseToken: String,
+        @Param("nextAttemptAt") nextAttemptAt: Instant,
+        @Param("errorCode") errorCode: String,
+        @Param("errorMessage") errorMessage: String?,
+        @Param("now") now: Instant
+    ): Int
+}

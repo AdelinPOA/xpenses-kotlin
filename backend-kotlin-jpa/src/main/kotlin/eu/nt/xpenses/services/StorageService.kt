@@ -29,6 +29,13 @@ enum class StorageContext(
     val maxSizeInBytes: Long,
     val pathBuilder: (entityId: Int, filename: String) -> String
 ) {
+    OCR_SOURCE(
+        allowedExtensions = setOf("jpg", "jpeg", "png", "pdf", "webp"),
+        maxSizeInBytes = 10L * 1024 * 1024,
+        pathBuilder = { entityId, filename ->
+            "ocr-sources/${entityId}_$filename"
+        }
+    ),
     RECEIPT(
         allowedExtensions = setOf("jpg", "jpeg", "png", "gif", "pdf", "webp"),
         maxSizeInBytes = 10L * 1024 * 1024,

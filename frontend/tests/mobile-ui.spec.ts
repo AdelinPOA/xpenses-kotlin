@@ -227,8 +227,12 @@ test.describe("mobile authenticated UI", () => {
 
   test("expense controls meet their mobile contract", async ({ page }) => {
     await page.goto("/expenses");
+    const filterToggle = page.getByRole("button", { name: /^Filters(?: \(\d+\))?$/ });
+    await expect(filterToggle).toBeVisible();
+    await filterToggle.click();
+    const filterRegion = page.getByRole("region", { name: "Filters" });
     for (const label of ["All", "Draft", "Submitted", "Paid"]) {
-      const control = page.getByRole("button", { name: label, exact: true });
+      const control = filterRegion.getByRole("button", { name: label, exact: true });
       await expect(control).toBeVisible();
       const box = await control.boundingBox();
       expect(box?.height).toBeGreaterThanOrEqual(44);
@@ -246,16 +250,20 @@ test.describe("mobile authenticated UI", () => {
 
   test("new expense fields are addressable by their labels", async ({ page }) => {
     await page.goto("/expenses/new");
-    for (const label of ["Amount", "Currency", "Date", "Merchant", "Category", "Description", "Receipts"]) {
+    for (const label of ["Amount", "Currency", "Date", "Merchant", "Category", "Receipts"]) {
       await expect(page.getByLabel(new RegExp(label, "i")).first()).toBeVisible();
     }
+    const additionalDetails = page.getByText(/Additional details/i);
+    await expect(additionalDetails).toBeVisible();
+    await additionalDetails.click();
+    await expect(page.getByLabel(/Description/i).first()).toBeVisible();
     await expectNoHorizontalOverflow(page);
     await expectNoSeriousAxeViolations(page);
   });
 
   test("Technician can create an Expense without a Receipt", async ({ page }) => {
     await page.goto("/expenses/new");
-    await page.getByLabel(/Amount/i).fill("12.34");
+    await page.locator("#expense-amount").fill("12.34");
     await page.getByLabel(/Merchant/i).fill("CI smoke test");
     await page.getByLabel(/Category/i).selectOption({ index: 1 });
 

@@ -79,3 +79,12 @@ The current durable step of an OcrJob: provider OCR, draft Expense creation, or 
 
 **OCR lease**:
 An opaque token and expiry held by one worker for one OcrJob stage. Database compare-and-set writes require the token, so an expired or stale worker cannot persist a result.
+
+**Storage context**:
+A domain categorization of stored files (`RECEIPT`, `SIGNATURE`, `OCR_SOURCE`) defining per-context rules: allowed file extensions, maximum payload size, magic-byte validation, and relative path construction.
+_Avoid_: storage bucket, file category
+
+**OCR service**:
+The service responsible for optical character recognition on receipt uploads. OCR rate-limiting, queuing, and provider concurrency control live internally within this service.
+_Avoid_: scanner service
+

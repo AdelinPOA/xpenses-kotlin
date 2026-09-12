@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect, useCallback, useRef, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import api, { Expense, Category, duplicateExpense, downloadBlob, isPagedResponse, PagedResponse } from "@/lib/api";
+import api, { Expense, Category, duplicateExpense, downloadBlob, isPagedResponse, PagedResponse, API_BASE_URL } from "@/lib/api";
 import { expenseKeys, dashboardKeys, categoryKeys } from "@/lib/queryKeys";
 import AppShell from "@/components/layout/AppShell";
 import Badge from "@/components/ui/Badge";
@@ -15,7 +15,8 @@ import OfflineQueuePanel from "@/components/expenses/OfflineQueuePanel";
 import { useAllowNavigation } from "@/lib/navigationGuard";
 import dynamic from "next/dynamic";
 import BulkUploadZone from "@/components/expenses/BulkUploadZone";
-import { Plus, Trash2, Pencil, Copy, Download, Search } from "lucide-react";
+import ReceiptLightbox from "@/components/expenses/ReceiptLightbox";
+import { Plus, Trash2, Pencil, Copy, Download, Search, Check, FileText } from "lucide-react";
 import { formatAmount } from "@/lib/format";
 import clsx from "clsx";
 import { useTranslations } from "next-intl";
@@ -73,6 +74,13 @@ function ExpensesPageContent() {
   const [bulkFiles, setBulkFiles] = useState<File[]>([]);
   const [showBulkDrawer, setShowBulkDrawer] = useState(false);
   const [showOfflineQueue, setShowOfflineQueue] = useState(false);
+  const [lightboxReceipt, setLightboxReceipt] = useState<{
+    url: string;
+    title: string;
+    expenseId: number;
+    receiptId: number;
+    filename: string;
+  } | null>(null);
   const dragCounterRef = useRef(0); // track nested drag-enter/leave pairs
   // Two-step inline delete ("Confirm delete?" for 3s) instead of window.confirm.
   const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
@@ -81,6 +89,21 @@ function ExpensesPageContent() {
   const [searchText, setSearchText] = useState(qParam);
 
   useEffect(() => setSearchText(qParam), [qParam]);
+
+  const [selectedExpenseIds, setSelectedExpenseIds] = useState<Set<number>>(new Set());
+
+  const toggleSelectExpense = useCallback((id: number) => {
+    setSelectedExpenseIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const clearSelection = useCallback(() => {
+    setSelectedExpenseIds(new Set());
+  }, []);
 
   const updateParams = useCallback((updates: Record<string, string | null>, resetPage = false) => {
     const sp = new URLSearchParams(searchParams.toString());
@@ -169,6 +192,9 @@ function ExpensesPageContent() {
   const expenses: Expense[] = paged ? paged.data : (Array.isArray(expensesPayload) ? expensesPayload : []);
   const totalPages = paged?.total_pages ?? 1;
   const totalElements = paged?.total_elements ?? expenses.length;
+
+  const selectedExpensesList = expenses.filter((e) => selectedExpenseIds.has(e.id));
+  const selectedTotalEur = selectedExpensesList.reduce((sum, e) => sum + (e.amount_eur || 0), 0);
 
   const hasActiveFilters = !!(statusFilter || categoryFilter || qParam);
 
@@ -363,47 +389,51 @@ function ExpensesPageContent() {
       {showOfflineQueue && <OfflineQueuePanel onClose={() => setShowOfflineQueue(false)} />}
 
       <div className="bg-card rounded-xl shadow-sm">
-        <div className="p-4 border-b border-slate-100 dark:border-slate-700 flex flex-wrap gap-2 items-center">
-          {STATUS_PILLS.map((s) => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => updateParams({ status: s || null }, true)}
-              aria-pressed={statusFilter === s}
-              className={`min-h-11 px-4 py-2 rounded-full text-xs font-medium transition-colors ${
-                statusFilter === s
-                  ? "bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-900"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700"
-              }`}
-            >
-              {pillLabels[s]}
-            </button>
-          ))}
-          <div className="relative w-full sm:w-auto sm:ml-auto">
-            <Search aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-            <label htmlFor="expense-search" className="sr-only">{t("search_placeholder_expenses")}</label>
-            <input
-              id="expense-search"
-              type="search"
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-              placeholder={t("search_placeholder_expenses")}
-              className="w-full sm:w-56 min-h-11 pl-9 pr-3 border border-border rounded-lg text-xs bg-input text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-          </div>
-          <label htmlFor="expense-category-filter" className="sr-only">{t("all_categories")}</label>
-          <select
-            id="expense-category-filter"
-            aria-label={t("all_categories")}
-            value={categoryFilter}
-            onChange={(e) => updateParams({ category_id: e.target.value || null }, true)}
-            className="w-full sm:w-auto min-h-11 px-3 py-2 border border-border rounded-lg text-xs bg-input text-slate-700 dark:text-slate-300"
-          >
-            <option value="">{t("all_categories")}</option>
-            {categories?.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
+        <div className="p-4 border-b border-slate-100 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar snap-x snap-mandatory -mx-4 px-4 sm:mx-0 sm:px-0">
+            {STATUS_PILLS.map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => updateParams({ status: s || null }, true)}
+                aria-pressed={statusFilter === s}
+                className={`min-h-11 px-4 py-2 rounded-full text-xs font-medium transition-colors snap-start shrink-0 whitespace-nowrap ${
+                  statusFilter === s
+                    ? "bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-900"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700"
+                }`}
+              >
+                {pillLabels[s]}
+              </button>
             ))}
-          </select>
+          </div>
+          <div className="flex items-center gap-2 w-full sm:w-auto sm:ml-auto">
+            <div className="relative flex-1 sm:w-56">
+              <Search aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+              <label htmlFor="expense-search" className="sr-only">{t("search_placeholder_expenses")}</label>
+              <input
+                id="expense-search"
+                type="search"
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                placeholder={t("search_placeholder_expenses")}
+                className="w-full min-h-11 pl-9 pr-3 border border-border rounded-lg text-xs bg-input text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+            <label htmlFor="expense-category-filter" className="sr-only">{t("all_categories")}</label>
+            <select
+              id="expense-category-filter"
+              aria-label={t("all_categories")}
+              value={categoryFilter}
+              onChange={(e) => updateParams({ category_id: e.target.value || null }, true)}
+              className="w-auto min-h-11 px-3 py-2 border border-border rounded-lg text-xs bg-input text-slate-700 dark:text-slate-300"
+            >
+              <option value="">{t("all_categories")}</option>
+              {categories?.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </div>
         </div>
 
         {isLoading ? (
@@ -423,11 +453,27 @@ function ExpensesPageContent() {
             {/* Mobile: stacked cards */}
             <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-700">
               {expenses.map((e) => (
-                <div key={e.id} className="p-4">
+                <div
+                  key={e.id}
+                  onClick={() => router.push(e.status === "draft" ? `/expenses/${e.id}/edit` : `/expenses/${e.id}`)}
+                  className="p-4 active:bg-muted/10 transition-colors cursor-pointer"
+                >
                   <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="font-medium text-foreground">{e.merchant || "—"}</p>
-                      <p className="text-xs text-muted mt-0.5">{e.date} · {e.category_name || "—"}</p>
+                    <div className="flex items-start gap-2.5 min-w-0">
+                      {e.status === "draft" && (
+                        <input
+                          type="checkbox"
+                          checked={selectedExpenseIds.has(e.id)}
+                          aria-label={t("bundle_checkbox_aria", { name: e.merchant || e.description || String(e.id) })}
+                          onChange={() => toggleSelectExpense(e.id)}
+                          onClick={(ev) => ev.stopPropagation()}
+                          className="w-5 h-5 mt-0.5 rounded accent-blue-600 cursor-pointer shrink-0"
+                        />
+                      )}
+                      <div className="min-w-0">
+                        <p className="font-medium text-foreground truncate">{e.merchant || "—"}</p>
+                        <p className="text-xs text-muted mt-0.5">{e.date} · {e.category_name || "—"}</p>
+                      </div>
                     </div>
                     <div className="text-right shrink-0">
                       <p className="font-semibold text-foreground">{formatAmount(e.amount_eur, "EUR")}</p>
@@ -444,20 +490,41 @@ function ExpensesPageContent() {
                   {e.description && (
                     <p className="text-sm text-muted mt-2">{e.description}</p>
                   )}
-                  <div className="flex items-center justify-between mt-3">
+                  <div
+                    className="flex items-center justify-between mt-3"
+                    onClick={(ev) => ev.stopPropagation()}
+                  >
                     <Badge status={e.status} />
                     <div className="flex items-center gap-1">
                       {e.receipts?.length > 0 && (
                         <div className="flex items-center gap-2">
-                          {e.receipts!.map((r: { id: number; original_name?: string | null }) => (
-                            <button
-                              key={r.id}
-                              onClick={() => downloadBlob(`/expenses/${e.id}/receipts/${r.id}`, {}, r.original_name || `receipt_${r.id}`)}
-                              className="min-h-11 px-2 inline-flex items-center text-blue-600 dark:text-blue-400 hover:underline text-xs cursor-pointer"
-                            >
-                              {e.receipts!.length === 1 ? t("view_receipt") : (r.original_name?.split(".").pop()?.toUpperCase() || t("view_receipt"))}
-                            </button>
-                          ))}
+                          {e.receipts!.map((r: { id: number; original_name?: string | null }) => {
+                            const isImg = /\.(jpg|jpeg|png|webp)$/i.test(r.original_name || "");
+                            const filename = r.original_name || `receipt_${r.id}`;
+                            const receiptUrl = `${API_BASE_URL}/expenses/${e.id}/receipts/${r.id}`;
+                            return (
+                              <button
+                                key={r.id}
+                                type="button"
+                                onClick={() => {
+                                  if (isImg) {
+                                    setLightboxReceipt({
+                                      url: receiptUrl,
+                                      title: filename,
+                                      expenseId: e.id,
+                                      receiptId: r.id,
+                                      filename,
+                                    });
+                                  } else {
+                                    downloadBlob(`/expenses/${e.id}/receipts/${r.id}`, {}, filename);
+                                  }
+                                }}
+                                className="min-h-11 px-2 inline-flex items-center text-blue-600 dark:text-blue-400 hover:underline text-xs cursor-pointer"
+                              >
+                                {e.receipts!.length === 1 ? t("view_receipt") : (r.original_name?.split(".").pop()?.toUpperCase() || t("view_receipt"))}
+                              </button>
+                            );
+                          })}
                         </div>
                       )}
                       <button
@@ -488,6 +555,9 @@ function ExpensesPageContent() {
               <table className="w-full text-sm">
                 <thead className="bg-slate-50 dark:bg-slate-800 text-xs text-muted uppercase">
                   <tr>
+                    <th className="w-10 px-4 py-3 text-center">
+                      <span className="sr-only">{t("bundle_toolbar_aria")}</span>
+                    </th>
                     <th className="text-left px-4 py-3">{t("table_date")}</th>
                     <th className="text-left px-4 py-3">{t("table_merchant")}</th>
                     <th className="text-left px-4 py-3">{t("table_category")}</th>
@@ -501,6 +571,17 @@ function ExpensesPageContent() {
                 <tbody>
                   {expenses.map((e) => (
                     <tr key={e.id} className="border-t border-slate-100 dark:border-slate-700 hover:bg-card-hover/50">
+                      <td className="px-4 py-3 text-center">
+                        {e.status === "draft" && (
+                          <input
+                            type="checkbox"
+                            checked={selectedExpenseIds.has(e.id)}
+                            aria-label={t("bundle_checkbox_aria", { name: e.merchant || e.description || String(e.id) })}
+                            onChange={() => toggleSelectExpense(e.id)}
+                            className="w-4 h-4 mx-auto rounded accent-blue-600 cursor-pointer block"
+                          />
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{e.date}</td>
                       <td className="px-4 py-3 font-medium text-foreground">{e.merchant || "—"}</td>
                       <td className="px-4 py-3 text-muted">{e.category_name || "—"}</td>
@@ -524,15 +605,33 @@ function ExpensesPageContent() {
                       <td className="px-4 py-3 text-right">
                         {e.receipts?.length > 0 ? (
                           <div className="flex items-center justify-end gap-1">
-                            {e.receipts!.map((r: { id: number; original_name?: string | null }) => (
-                              <button
-                                key={r.id}
-                                onClick={() => downloadBlob(`/expenses/${e.id}/receipts/${r.id}`, {}, r.original_name || `receipt_${r.id}`)}
-                                className="min-h-11 px-2 inline-flex items-center text-blue-600 dark:text-blue-400 hover:underline text-xs cursor-pointer"
-                              >
-                                {e.receipts!.length === 1 ? t("view_receipt") : (r.original_name?.split(".").pop()?.toUpperCase() || t("view_receipt"))}
-                              </button>
-                            ))}
+                            {e.receipts!.map((r: { id: number; original_name?: string | null }) => {
+                              const isImg = /\.(jpg|jpeg|png|webp)$/i.test(r.original_name || "");
+                              const filename = r.original_name || `receipt_${r.id}`;
+                              const receiptUrl = `${API_BASE_URL}/expenses/${e.id}/receipts/${r.id}`;
+                              return (
+                                <button
+                                  key={r.id}
+                                  type="button"
+                                  onClick={() => {
+                                    if (isImg) {
+                                      setLightboxReceipt({
+                                        url: receiptUrl,
+                                        title: filename,
+                                        expenseId: e.id,
+                                        receiptId: r.id,
+                                        filename,
+                                      });
+                                    } else {
+                                      downloadBlob(`/expenses/${e.id}/receipts/${r.id}`, {}, filename);
+                                    }
+                                  }}
+                                  className="min-h-11 px-2 inline-flex items-center text-blue-600 dark:text-blue-400 hover:underline text-xs cursor-pointer"
+                                >
+                                  {e.receipts!.length === 1 ? t("view_receipt") : (r.original_name?.split(".").pop()?.toUpperCase() || t("view_receipt"))}
+                                </button>
+                              );
+                            })}
                           </div>
                         ) : (
                           <span className="text-slate-300 dark:text-slate-600 text-xs">—</span>
@@ -593,6 +692,64 @@ function ExpensesPageContent() {
         )}
       </div>
       </div>  {/* end drag wrapper */}
+
+      {selectedExpenseIds.size > 0 && (
+        <div
+          role="region"
+          aria-label={t("bundle_toolbar_aria")}
+          className="fixed bottom-20 sm:bottom-6 left-4 right-4 sm:left-auto sm:right-6 sm:max-w-md z-40 bg-slate-900/95 dark:bg-slate-800/95 text-white rounded-2xl shadow-2xl p-3 px-4 flex items-center justify-between gap-3 border border-slate-700/60 backdrop-blur-md animate-in slide-in-from-bottom duration-200"
+        >
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span className="inline-flex items-center justify-center bg-primary text-white text-xs font-bold rounded-full w-6 h-6 shrink-0">
+              {selectedExpenseIds.size}
+            </span>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold truncate">
+                {t("bundle_selected", { count: selectedExpenseIds.size })}
+              </p>
+              <p className="text-[11px] text-slate-300 truncate">
+                {t("bundle_total", { amount: formatAmount(selectedTotalEur, "EUR") })}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={clearSelection}
+              className="px-3 py-1.5 text-xs text-slate-300 hover:text-white rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+            >
+              {t("bundle_clear")}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const ids = Array.from(selectedExpenseIds).join(",");
+                router.push(`/reports/new?expense_ids=${ids}`);
+              }}
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-primary hover:bg-primary-hover text-white text-xs font-semibold rounded-xl shadow-sm transition-transform active:scale-95 cursor-pointer"
+            >
+              <FileText className="w-3.5 h-3.5" />
+              {t("bundle_create_report")}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {lightboxReceipt && (
+        <ReceiptLightbox
+          isOpen={!!lightboxReceipt}
+          onClose={() => setLightboxReceipt(null)}
+          imageUrl={lightboxReceipt.url}
+          title={lightboxReceipt.title}
+          onDownload={() =>
+            downloadBlob(
+              `/expenses/${lightboxReceipt.expenseId}/receipts/${lightboxReceipt.receiptId}`,
+              {},
+              lightboxReceipt.filename
+            )
+          }
+        />
+      )}
     </AppShell>
   );
 }

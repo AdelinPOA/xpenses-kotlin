@@ -24,12 +24,22 @@ try {
   const roKeys = getKeys(ro);
 
   const roKeySet = new Set(roKeys);
-  const missing = enKeys.filter((k) => !roKeySet.has(k));
+  const enKeySet = new Set(enKeys);
+  const missingInRo = enKeys.filter((k) => !roKeySet.has(k));
+  const missingInEn = roKeys.filter((k) => !enKeySet.has(k));
 
-  if (missing.length > 0) {
-    console.error(`\x1b[31mi18n parity check failed: ${missing.length} missing key(s) in ro.json:\x1b[0m`);
-    for (const key of missing) {
-      console.error(`  - ${key}`);
+  if (missingInRo.length > 0 || missingInEn.length > 0) {
+    if (missingInRo.length > 0) {
+      console.error(`\x1b[31mi18n parity check failed: ${missingInRo.length} missing key(s) in ro.json:\x1b[0m`);
+      for (const key of missingInRo) {
+        console.error(`  - ${key}`);
+      }
+    }
+    if (missingInEn.length > 0) {
+      console.error(`\x1b[31mi18n parity check failed: ${missingInEn.length} missing key(s) in en.json:\x1b[0m`);
+      for (const key of missingInEn) {
+        console.error(`  - ${key}`);
+      }
     }
     process.exit(1);
   }

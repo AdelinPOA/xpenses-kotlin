@@ -5,7 +5,7 @@ const VIEWPORTS = {
   tablet: { width: 768, height: 1024 },
   desktop: { width: 1280, height: 800 },
 };
-const PORT = process.env.PLAYWRIGHT_PORT ?? "3001";
+const PORT = process.env.PLAYWRIGHT_PORT ?? "3100";
 const BASE_URL = `http://localhost:${PORT}`;
 
 export default defineConfig({
@@ -13,9 +13,9 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  workers: process.env.CI ? 1 : 4,
   reporter: [
-    ["html", { outputFolder: "playwright-report" }],
+    ["html", { outputFolder: "playwright-report", open: "never" }],
     ["list"],
   ],
   snapshotDir: "tests/__snapshots__",

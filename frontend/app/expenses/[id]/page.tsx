@@ -1,20 +1,23 @@
 "use client";
 
-import { use } from "react";
+import { use, useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
-import { ArrowLeft, Edit3, Download, FileText, Calendar, Tag, Building, DollarSign } from "lucide-react";
+import { ArrowLeft, Edit3, Download, FileText, Calendar, Tag, Building, DollarSign, Eye } from "lucide-react";
 import AppShell from "@/components/layout/AppShell";
 import Badge from "@/components/ui/Badge";
-import api, { Expense, downloadBlob } from "@/lib/api";
+import api, { Expense, downloadBlob, API_BASE_URL } from "@/lib/api";
 import { expenseKeys } from "@/lib/queryKeys";
 import { formatAmount, formatEur, formatDate } from "@/lib/format";
+import ReceiptLightbox from "@/components/expenses/ReceiptLightbox";
+import clsx from "clsx";
 
 export default function ExpenseDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const t = useTranslations("expenses");
   const tc = useTranslations("common");
+  const [lightboxImage, setLightboxImage] = useState<{ url: string; title: string; onDownload?: () => void } | null>(null);
 
   const { data: expense, isLoading, error } = useQuery<Expense>({
     queryKey: expenseKeys.detail(parseInt(id, 10)),
@@ -166,29 +169,74 @@ export default function ExpenseDetailPage({ params }: { params: Promise<{ id: st
 
                 {expense.receipts && expense.receipts.length > 0 ? (
                   <div className="space-y-3">
-                    {expense.receipts.map((r) => (
-                      <div
-                        key={r.id}
-                        className="flex items-center justify-between p-3 rounded-xl bg-background/50 border border-border/60 hover:border-primary/50 transition-colors"
-                      >
-                        <div className="min-w-0 flex-1 mr-3">
-                          <p className="text-sm font-medium text-foreground truncate">
-                            {r.original_name || `Receipt-${r.id}`}
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            {formatDate(r.created_at)}
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handleDownload(r.id, r.original_name)}
-                          className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] p-2 text-primary hover:text-primary/80 hover:bg-primary/10 rounded-lg transition-colors"
-                          aria-label={`Download ${r.original_name || "receipt"}`}
+                    {expense.receipts.map((r) => {
+                      const receiptUrl = `${API_BASE_URL}/expenses/${id}/receipts/${r.id}`;
+                      const isImage = /\.(jpg|jpeg|png|webp)$/i.test(r.original_name || "");
+                      return (
+                        <div
+                          key={r.id}
+                          className="flex items-center justify-between p-3 rounded-xl bg-background/50 border border-border/60 hover:border-primary/50 transition-colors"
                         >
-                          <Download className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
+                          <div
+                            onClick={() => {
+                              if (isImage) {
+                                setLightboxImage({
+                                  url: receiptUrl,
+                                  title: r.original_name || `Receipt #${r.id}`,
+                                  onDownload: () => handleDownload(r.id, r.original_name),
+                                });
+                              }
+                            }}
+                            className={clsx("flex items-center gap-3 min-w-0 flex-1 mr-3", isImage && "cursor-pointer group")}
+                          >
+                            {isImage && (
+                              <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted/20 border border-border shrink-0">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={receiptUrl}
+                                  alt=""
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                                />
+                              </div>
+                            )}
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium text-foreground truncate group-hover:text-primary transition-colors">
+                                {r.original_name || `Receipt-${r.id}`}
+                              </p>
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                {formatDate(r.created_at)}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            {isImage && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setLightboxImage({
+                                    url: receiptUrl,
+                                    title: r.original_name || `Receipt #${r.id}`,
+                                    onDownload: () => handleDownload(r.id, r.original_name),
+                                  })
+                                }
+                                className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                                aria-label={`View ${r.original_name || "receipt"}`}
+                              >
+                                <Eye className="w-4 h-4" />
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => handleDownload(r.id, r.original_name)}
+                              className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] p-2 text-primary hover:text-primary/80 hover:bg-primary/10 rounded-lg transition-colors"
+                              aria-label={`Download ${r.original_name || "receipt"}`}
+                            >
+                              <Download className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 ) : (
                   <p className="text-sm text-muted-foreground py-6 text-center">
@@ -212,6 +260,16 @@ export default function ExpenseDetailPage({ params }: { params: Promise<{ id: st
           </div>
         )}
       </div>
+
+      {lightboxImage && (
+        <ReceiptLightbox
+          isOpen={!!lightboxImage}
+          onClose={() => setLightboxImage(null)}
+          imageUrl={lightboxImage.url}
+          title={lightboxImage.title}
+          onDownload={lightboxImage.onDownload}
+        />
+      )}
     </AppShell>
   );
 }

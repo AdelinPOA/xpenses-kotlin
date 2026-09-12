@@ -6,6 +6,19 @@ import { User } from "@/lib/api";
 import { getMe, logout as apiLogout, refreshTokens } from "@/lib/auth";
 import { writeLangCookie } from "@/i18n/LocaleProvider";
 import { useQueryClient } from "@tanstack/react-query";
+import { clearPersistedQueryCache } from "@/lib/queryPersister";
+
+const USER_STORAGE_KEY = "xpenses_user_profile";
+
+function getStoredUser(): User | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(USER_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
 
 interface AuthContextType {
   user: User | null;
@@ -31,8 +44,8 @@ const ACCESS_TOKEN_TTL_MS = 60 * 60 * 1000;
 const PROACTIVE_REFRESH_MS = ACCESS_TOKEN_TTL_MS - 10 * 60 * 1000;
 
 export default function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<User | null>(getStoredUser);
+  const [loading, setLoading] = useState(() => !getStoredUser());
   const router = useRouter();
   const pathname = usePathname();
   const queryClient = useQueryClient();
@@ -67,11 +80,27 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
         .then((u) => {
           if (!mounted) return;
           setUser(u);
+          try {
+            localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(u));
+          } catch {}
           writeLangCookie(u.language || "en");
           scheduleProactiveRefresh();
         })
-        .catch(() => {
+        .catch((err: any) => {
           if (!mounted) return;
+          const isOffline =
+            (typeof navigator !== "undefined" && !navigator.onLine) ||
+            err?.code === "ERR_NETWORK" ||
+            err?.message === "Network Error" ||
+            (!err?.response && !err?.status);
+
+          if (isOffline && getStoredUser()) {
+            return;
+          }
+
+          try {
+            localStorage.removeItem(USER_STORAGE_KEY);
+          } catch {}
           setUser(null);
           clearProactiveRefresh();
           if (window.location.pathname !== "/login") {
@@ -104,6 +133,10 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
 
   const logout = useCallback(async () => {
     clearProactiveRefresh();
+    try {
+      localStorage.removeItem(USER_STORAGE_KEY);
+    } catch {}
+    void clearPersistedQueryCache();
     try {
       await apiLogout();
     } catch {

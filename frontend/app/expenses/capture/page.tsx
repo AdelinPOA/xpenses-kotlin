@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import dynamic from "next/dynamic";
 import AppShell from "@/components/layout/AppShell";
 import { useToast } from "@/components/ToastProvider";
 import { useAuth } from "@/components/AuthProvider";
@@ -13,19 +12,27 @@ import { expenseKeys, dashboardKeys } from "@/lib/queryKeys";
 import { OCRScanResult } from "@/lib/api";
 import { scanReceipt, ScanProgress, ScanCancelledError, ScanTimeoutError, ScanJobError } from "@/lib/ocrScan";
 import { saveNewExpense } from "@/lib/expenseSaving";
-import { Camera, FileText, RotateCcw } from "lucide-react";
+import { triggerHaptic } from "@/lib/haptics";
+import { formatEur } from "@/lib/format";
+import ReceiptLightbox from "@/components/expenses/ReceiptLightbox";
+import { Camera, FileText, CheckCircle2, AlertTriangle, XCircle, ArrowRight, Loader2, Maximize2 } from "lucide-react";
 import clsx from "clsx";
 import { useTranslations } from "next-intl";
 
-const ReceiptScanner = dynamic(() => import("@/components/expenses/ReceiptScanner"), {
-  loading: () => <div className="animate-pulse bg-card h-32 rounded-xl" />,
-});
+interface CapturedItem {
+  id: string;
+  file: File;
+  previewUrl: string;
+  status: "uploading" | "reading" | "ready" | "needs_details" | "failed";
+  progressPhase?: string;
+  progressSeconds?: number;
+  expenseId?: number;
+  merchant?: string | null;
+  amountEur?: number | null;
+  errorMessage?: string;
+  createdAt: number;
+}
 
-/**
- * Receipt-first capture (Phase 1.2): snap a receipt → draft is created
- * automatically with OCR-prefilled fields → stay on the screen ready for
- * the next receipt. Works offline through the IndexedDB draft queue.
- */
 export default function CapturePage() {
   const router = useRouter();
   const qc = useQueryClient();
@@ -37,47 +44,46 @@ export default function CapturePage() {
 
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const scanInputRef = useRef<HTMLInputElement>(null);
-  const [busy, setBusy] = useState(false);
-  const [progress, setProgress] = useState<ScanProgress | null>(null);
-  const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
-  const [sessionDrafts, setSessionDrafts] = useState<{ id: number; merchant: string | null }[]>([]);
-  const objectUrlRef = useRef<string | null>(null);
+  const [sessionItems, setSessionItems] = useState<CapturedItem[]>([]);
+  const objectUrlsRef = useRef<string[]>([]);
+  const [lightboxImage, setLightboxImage] = useState<{ url: string; title: string } | null>(null);
 
   useEffect(() => {
+    const urls = objectUrlsRef.current;
     return () => {
-      if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+      urls.forEach((url) => URL.revokeObjectURL(url));
     };
   }, []);
 
-  function showThumbnail(file: File) {
-    if (!file.type.startsWith("image/")) return;
-    if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
-    objectUrlRef.current = URL.createObjectURL(file);
-    setThumbnailUrl(objectUrlRef.current);
-  }
+  const updateItem = useCallback((id: string, updates: Partial<CapturedItem>) => {
+    setSessionItems((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, ...updates } : item))
+    );
+  }, []);
 
-  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file || busy) return;
-    await capture(file);
-  }
+  const processCapturedFile = useCallback(async (clientItemId: string, file: File) => {
+    updateItem(clientItemId, { status: "uploading" });
 
-  async function capture(file: File) {
-    setBusy(true);
-    showThumbnail(file);
     let scanned: OCRScanResult | null = null;
     try {
-      scanned = await scanReceipt(file, { signal: undefined, onProgress: setProgress });
+      scanned = await scanReceipt(file, {
+        signal: undefined,
+        onProgress: (p: ScanProgress) => {
+          updateItem(clientItemId, {
+            status: p.phase === "uploading" ? "uploading" : "reading",
+            progressPhase: p.phase,
+            progressSeconds: p.elapsedSeconds,
+          });
+        },
+      });
     } catch (err: any) {
       if (err instanceof ScanCancelledError || err?.name === "AbortError") {
-        setThumbnailUrl(null);
+        setSessionItems((prev) => prev.filter((item) => item.id !== clientItemId));
         return;
       }
-      // OCR failed — still create a draft holding just the photo.
       scanned = null;
       if (!(err instanceof ScanTimeoutError) && !(err instanceof ScanJobError)) {
-        console.warn("OCR scan failed", err);
+        console.warn("OCR background scan warning", err);
       }
     }
 
@@ -102,49 +108,84 @@ export default function CapturePage() {
 
       if (outcome.status === "failed") {
         await refreshOffline();
+        updateItem(clientItemId, {
+          status: "failed",
+          errorMessage: outcome.message,
+        });
         toast.error(outcome.message);
         return;
       }
+
       if (outcome.status === "queued") {
         await refreshOffline();
+        updateItem(clientItemId, {
+          status: "ready",
+          merchant: (payload.merchant as string | null) ?? null,
+          amountEur: typeof payload.amount === "number" ? payload.amount : 0,
+        });
         toast.success(t("saved_offline_toast"));
-        resetForNext();
         return;
       }
 
-      const id = outcome.expense.id;
-      setSessionDrafts((prev) => [...prev, { id, merchant: (payload.merchant as string | null) ?? null }]);
-      if (outcome.status === "partial") {
+      const expenseId = outcome.expense.id;
+      const amountEur = outcome.expense.amount_eur;
+      const merchant = outcome.expense.merchant;
+
+      if (outcome.status === "partial" || !scanned) {
         await refreshOffline();
-        toast.warning(t("warning_expense_saved_receipt_failed"));
-        if (scanned) {
-          resetForNext();
-        } else {
-          router.push(`/expenses/${id}/edit?upload_failed=1`);
-        }
-      } else if (scanned) {
-        toast.success(tc("draft_saved_toast"));
-        resetForNext();
-      } else {
-        // Nothing readable — send the technician straight to details.
+        updateItem(clientItemId, {
+          status: "needs_details",
+          expenseId,
+          merchant,
+          amountEur,
+        });
         toast.warning(tc("draft_needs_details_toast"));
-        router.push(`/expenses/${id}/edit`);
+      } else {
+        updateItem(clientItemId, {
+          status: "ready",
+          expenseId,
+          merchant,
+          amountEur,
+        });
+        toast.success(tc("draft_saved_toast"));
       }
     } catch (err: any) {
+      updateItem(clientItemId, {
+        status: "failed",
+        errorMessage: err?.response?.data?.detail ?? err?.message ?? t("error_save"),
+      });
       toast.error(err?.response?.data?.detail ?? err?.message ?? t("error_save"));
-    } finally {
-      setBusy(false);
-      setProgress(null);
     }
-  }
+  }, [user?.id, t, tc, qc, refreshOffline, toast, updateItem]);
 
-  function resetForNext() {
-    setThumbnailUrl(null);
-  }
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+
+    triggerHaptic(15);
+
+    const clientItemId = crypto.randomUUID();
+    const previewUrl = URL.createObjectURL(file);
+    objectUrlsRef.current.push(previewUrl);
+
+    const newItem: CapturedItem = {
+      id: clientItemId,
+      file,
+      previewUrl,
+      status: "uploading",
+      createdAt: Date.now(),
+    };
+
+    setSessionItems((prev) => [newItem, ...prev]);
+
+    // Asynchronous non-blocking processing (ADR 0004)
+    processCapturedFile(clientItemId, file);
+  };
 
   return (
     <AppShell>
-      <div className="max-w-lg mx-auto flex flex-col gap-6">
+      <div className="max-w-lg mx-auto flex flex-col gap-5 pb-8">
         <input
           ref={cameraInputRef}
           type="file"
@@ -163,88 +204,171 @@ export default function CapturePage() {
           aria-hidden="true"
         />
 
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">{tc("title")}</h1>
-          <p className="text-muted text-sm mt-1">{tc("subtitle")}</p>
+        {/* Page Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-black text-foreground">{tc("title")}</h1>
+            <p className="text-xs text-muted-foreground mt-0.5">{tc("subtitle")}</p>
+          </div>
+          {sessionItems.length > 0 && (
+            <Link
+              href="/expenses"
+              className="text-xs font-bold text-primary hover:underline"
+            >
+              {tc("view_all")}
+            </Link>
+          )}
         </div>
 
+        {/* Main Instant Capture Hero Button */}
         <button
           type="button"
-          disabled={busy}
-          onClick={() => cameraInputRef.current?.click()}
-          className={clsx(
-            "relative flex flex-col items-center justify-center gap-3 min-h-[280px] rounded-2xl border-2 border-dashed transition-all",
-            busy ? "border-blue-400 bg-blue-50/40 dark:bg-blue-950/20" : "border-input-border hover:bg-card-hover/40 active:scale-[0.99]"
-          )}
+          onClick={() => {
+            triggerHaptic(10);
+            cameraInputRef.current?.click();
+          }}
+          className="relative flex flex-col items-center justify-center gap-3 min-h-[200px] sm:min-h-[220px] rounded-3xl border-2 border-dashed border-primary/40 hover:border-primary bg-primary/5 hover:bg-primary/10 transition-all active:scale-[0.99] cursor-pointer shadow-xs"
+          aria-label={tc("tap_to_capture")}
         >
-          {thumbnailUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={thumbnailUrl} alt="" className="absolute inset-0 w-full h-full object-contain rounded-xl p-2" />
-          ) : (
-            <>
-              <Camera aria-hidden="true" className="w-12 h-12 text-slate-400" />
-              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                {tc("tap_to_capture")}
-              </span>
-            </>
-          )}
-
-          {busy && (
-            <div role="status" aria-live="polite" className="absolute bottom-4 left-0 right-0 flex flex-col items-center gap-2 bg-card/80 py-2">
-              <div aria-hidden="true" className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-              <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
-                {progress?.phase === "uploading" ? t("scan_uploading") : t("scan_reading", { seconds: progress?.elapsedSeconds ?? 0 })}
-              </p>
-            </div>
-          )}
+          <div className="w-16 h-16 rounded-2xl bg-primary text-white flex items-center justify-center shadow-md">
+            <Camera className="w-8 h-8" aria-hidden="true" />
+          </div>
+          <div className="text-center px-4">
+            <span className="text-sm font-bold text-foreground block">
+              {tc("tap_to_capture")}
+            </span>
+            <span className="text-[11px] text-muted-foreground mt-0.5 block">
+              {tc("batch_hint")}
+            </span>
+          </div>
         </button>
 
+        {/* Action Controls */}
         <div className="flex gap-3">
           <button
             type="button"
-            disabled={busy}
-            onClick={() => cameraInputRef.current?.click()}
-            className="min-h-11 flex-1 inline-flex items-center justify-center gap-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-hover disabled:opacity-50"
+            onClick={() => {
+              triggerHaptic(10);
+              cameraInputRef.current?.click();
+            }}
+            className="min-h-11 flex-1 inline-flex items-center justify-center gap-2 bg-primary text-white text-sm font-bold rounded-xl hover:bg-primary-hover active:scale-[0.99] shadow-xs"
           >
             <Camera className="w-4 h-4" aria-hidden="true" />
             {tc("take_photo")}
           </button>
           <button
             type="button"
-            disabled={busy}
             onClick={() => scanInputRef.current?.click()}
-            className="min-h-11 flex-1 inline-flex items-center justify-center gap-2 border border-input-border text-slate-700 dark:text-slate-300 text-sm font-medium rounded-lg hover:bg-card-hover disabled:opacity-50"
+            className="min-h-11 flex-1 inline-flex items-center justify-center gap-2 border border-border text-foreground text-sm font-semibold rounded-xl hover:bg-card-hover active:scale-[0.99]"
           >
             <FileText className="w-4 h-4" aria-hidden="true" />
             {tc("choose_file")}
           </button>
         </div>
 
-        {(sessionDrafts.length > 0 || busy) && (
-          <div className="bg-card rounded-xl p-4 shadow-sm">
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-              {tc("session_drafts", { count: sessionDrafts.length })}
-            </p>
-            {sessionDrafts.length > 0 && (
-              <ul className="space-y-1.5">
-                {sessionDrafts.slice().reverse().map((d) => (
-                  <li key={d.id}>
-                    <Link href={`/expenses/${d.id}/edit`} className="flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 hover:underline min-h-11 items-center">
-                      <RotateCcw className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                      <span className="truncate">{d.merchant || t("unknown_merchant_fallback")}</span>
+        {/* Continuous Session Ingestion Feed */}
+        {sessionItems.length > 0 && (
+          <div className="bg-card rounded-2xl border border-border p-4 shadow-xs space-y-3">
+            <div className="flex items-center justify-between border-b border-border pb-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                {tc("session_drafts", { count: sessionItems.length })}
+              </span>
+              <span className="text-[11px] text-muted-foreground">
+                {sessionItems.filter((i) => i.status === "uploading" || i.status === "reading").length > 0
+                  ? tc("processing")
+                  : ""}
+              </span>
+            </div>
+
+            <div className="divide-y divide-border/60">
+              {sessionItems.map((item) => (
+                <div
+                  key={item.id}
+                  className="py-3 flex items-center justify-between gap-3 first:pt-1 last:pb-1"
+                >
+                  {/* Thumbnail with tap-to-expand lightbox */}
+                  <div
+                    onClick={() => setLightboxImage({ url: item.previewUrl, title: item.merchant || "Receipt" })}
+                    className="relative w-14 h-14 rounded-xl overflow-hidden bg-muted/20 border border-border shrink-0 cursor-pointer group"
+                    title={t("view_receipt")}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={item.previewUrl}
+                      alt=""
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                    />
+                    <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white">
+                      <Maximize2 className="w-3.5 h-3.5" aria-hidden="true" />
+                    </div>
+                  </div>
+
+                  {/* Metadata and Stage Status */}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-bold text-foreground truncate">
+                      {item.merchant || (item.status === "ready" ? t("unknown_merchant_fallback") : item.file.name)}
+                    </p>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      {item.status === "uploading" && (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 dark:text-blue-400">
+                          <Loader2 className="w-3 h-3 animate-spin" aria-hidden="true" />
+                          {t("scan_uploading")}
+                        </span>
+                      )}
+                      {item.status === "reading" && (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 dark:text-blue-400">
+                          <Loader2 className="w-3 h-3 animate-spin" aria-hidden="true" />
+                          {t("scan_reading", { seconds: item.progressSeconds ?? 0 })}
+                        </span>
+                      )}
+                      {item.status === "ready" && (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+                          <CheckCircle2 className="w-3.5 h-3.5" aria-hidden="true" />
+                          {tc("status_ready")} {item.amountEur ? `· ${formatEur(item.amountEur)}` : ""}
+                        </span>
+                      )}
+                      {item.status === "needs_details" && (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-600 dark:text-amber-400">
+                          <AlertTriangle className="w-3.5 h-3.5" aria-hidden="true" />
+                          {tc("status_needs_review")}
+                        </span>
+                      )}
+                      {item.status === "failed" && (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-600 dark:text-rose-400">
+                          <XCircle className="w-3.5 h-3.5" aria-hidden="true" />
+                          {tc("status_failed")}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Navigation to edit draft */}
+                  {item.expenseId && (
+                    <Link
+                      href={`/expenses/${item.expenseId}/edit`}
+                      className="min-h-11 px-3 inline-flex items-center justify-center gap-1 text-xs font-bold text-primary hover:bg-primary/10 rounded-xl transition-colors shrink-0"
+                      aria-label={`${tc("view_details")} ${item.merchant || item.expenseId}`}
+                    >
+                      <span>{tc("view_details")}</span>
+                      <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
                     </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {sessionDrafts.length > 0 && (
-              <Link href="/expenses" className="inline-block mt-2 text-xs font-medium text-muted hover:text-foreground">
-                {tc("view_all")}
-              </Link>
-            )}
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>
+
+      {/* Fullscreen Receipt Lightbox */}
+      {lightboxImage && (
+        <ReceiptLightbox
+          isOpen={!!lightboxImage}
+          onClose={() => setLightboxImage(null)}
+          imageUrl={lightboxImage.url}
+          title={lightboxImage.title}
+        />
+      )}
     </AppShell>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api, { Report, Expense, API_BASE_URL, downloadBlob, duplicateExpense } from "@/lib/api";
@@ -14,6 +14,7 @@ import Link from "next/link";
 import { useAuth } from "@/components/AuthProvider";
 import { formatAmount } from "@/lib/format";
 import { useTranslations } from "next-intl";
+import { useBodyScrollLock } from "@/lib/useBodyScrollLock";
 
 export default function ReportDetailClient({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -22,6 +23,7 @@ export default function ReportDetailClient({ params }: { params: Promise<{ id: s
   const { user } = useAuth();
   const toast = useToast();
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [showPreflightDrawer, setShowPreflightDrawer] = useState(false);
   const [mutationError, setMutationError] = useState("");
   const [showRejectInput, setShowRejectInput] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
@@ -29,6 +31,7 @@ export default function ReportDetailClient({ params }: { params: Promise<{ id: s
   const [exportOpen, setExportOpen] = useState(false);
   const t = useTranslations("reports");
   const te = useTranslations("expenses");
+  const tc = useTranslations("common");
 
   async function handleExportExpenses(format: "csv" | "xlsx") {
     setExporting(true);
@@ -75,6 +78,7 @@ export default function ReportDetailClient({ params }: { params: Promise<{ id: s
       qc.invalidateQueries({ queryKey: reportKeys.all });
       qc.invalidateQueries({ queryKey: expenseKeys.all });
       qc.invalidateQueries({ queryKey: dashboardKeys.all });
+      setShowPreflightDrawer(false);
       clearError();
     },
     onError: onError(t("detail_error_submit")),
@@ -403,15 +407,28 @@ export default function ReportDetailClient({ params }: { params: Promise<{ id: s
                   </span>
                 </label>
                 {availableDrafts.map((e) => (
-                  <label key={e.id} className="flex items-center gap-3 cursor-pointer py-2">
-                    <input
-                      type="checkbox"
-                      checked={selectedIds.has(e.id)}
-                      onChange={() => toggleExpense(e.id)}
-                      className="w-4 h-4 accent-blue-600"
-                    />
-                    <span className="text-sm text-slate-700 dark:text-slate-300">
-                      {e.merchant || e.description || "—"} — {e.date} — {formatAmount(e.amount_eur, "EUR")}
+                  <label
+                    key={e.id}
+                    className="min-h-12 flex items-center justify-between gap-3 p-3 rounded-xl border border-border bg-background hover:bg-card-hover cursor-pointer transition-colors"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(e.id)}
+                        onChange={() => toggleExpense(e.id)}
+                        className="w-5 h-5 rounded accent-blue-600 shrink-0"
+                      />
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">
+                          {e.merchant || e.description || "—"}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {e.date} {e.category_name ? `· ${e.category_name}` : ""}
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-sm font-semibold text-foreground shrink-0">
+                      {formatAmount(e.amount_eur, "EUR")}
                     </span>
                   </label>
                 ))}
@@ -441,9 +458,10 @@ export default function ReportDetailClient({ params }: { params: Promise<{ id: s
             } {t("detail_submit_suffix")}
           </p>
           <button
-            onClick={() => submit.mutate()}
+            type="button"
+            onClick={() => setShowPreflightDrawer(true)}
             disabled={submit.isPending}
-            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 disabled:opacity-50 cursor-pointer"
           >
             <Send className="w-4 h-4" />
             {submit.isPending ? t("detail_submitting") : t("detail_submit_report")}
@@ -477,7 +495,7 @@ export default function ReportDetailClient({ params }: { params: Promise<{ id: s
                     className="flex items-center gap-2 px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-hover disabled:opacity-50"
                   >
                     <Check className="w-4 h-4" />
-                    {approve.isPending ? t("detail_approving") : t("common:approve")}
+                    {approve.isPending ? t("detail_approving") : tc("approve")}
                   </button>
                   <button
                     type="button"
@@ -485,7 +503,7 @@ export default function ReportDetailClient({ params }: { params: Promise<{ id: s
                     className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700"
                   >
                     <X className="w-4 h-4" />
-                    {t("common:reject")}
+                    {tc("reject")}
                   </button>
                 </>
               )}
@@ -702,6 +720,14 @@ export default function ReportDetailClient({ params }: { params: Promise<{ id: s
         )}
       </div>
 
+      <PreflightSubmissionDrawer
+        isOpen={showPreflightDrawer}
+        onClose={() => setShowPreflightDrawer(false)}
+        report={report}
+        displayTotal={displayTotal}
+        onSubmit={() => submit.mutate()}
+        isSubmitting={submit.isPending}
+      />
     </AppShell>
   );
 }
@@ -761,6 +787,154 @@ function DelegationReportDetails({ report }: { report: Report }) {
           <Row label="Adresse" value={report.adresse} />
           <Row label="Arbeitsplatz" value={report.arbeitsplatz} />
           <Row label="Techniker" value={report.techniker} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PreflightSubmissionDrawer({
+  isOpen,
+  onClose,
+  report,
+  displayTotal,
+  onSubmit,
+  isSubmitting,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  report: Report;
+  displayTotal: number;
+  onSubmit: () => void;
+  isSubmitting: boolean;
+}) {
+  const t = useTranslations("reports");
+  const tc = useTranslations("common");
+  useBodyScrollLock(isOpen);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isOpen, onClose]);
+
+  if (!isOpen) return null;
+
+  const expensesWithReceipts = report.expenses.filter((e) => (e.receipts?.length || 0) > 0).length;
+  const missingReceipts = report.expenses.length - expensesWithReceipts;
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="preflight-heading"
+      className="fixed inset-0 z-50 overflow-hidden bg-black/50 backdrop-blur-xs flex flex-col justify-end sm:justify-center items-center p-0 sm:p-4 transition-opacity animate-in fade-in duration-150"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="w-full sm:max-w-lg bg-card rounded-t-2xl sm:rounded-2xl border border-border shadow-2xl flex flex-col max-h-[90vh] max-h-[90dvh] overflow-hidden animate-in slide-in-from-bottom duration-200">
+        {/* Header */}
+        <div className="p-5 pt-[calc(1.25rem+env(safe-area-inset-top,0px))] border-b border-border flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 shrink-0">
+              <Send className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 id="preflight-heading" className="text-base font-bold text-foreground">
+                {t("preflight_title")}
+              </h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {t("preflight_subtitle")}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label={tc("close")}
+            className="min-w-10 min-h-10 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors cursor-pointer"
+          >
+            <X className="w-5 h-5" aria-hidden="true" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="p-5 space-y-4 overflow-y-auto min-h-0 text-sm">
+          {/* Report summary card */}
+          <div className="p-4 rounded-xl border border-border bg-slate-50/50 dark:bg-slate-800/40 space-y-2">
+            <div className="flex justify-between items-start gap-2">
+              <div>
+                <p className="font-semibold text-foreground">{report.title}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {report.date_from && report.date_to ? `${report.date_from} — ${report.date_to}` : "—"} · {report.expenses.length} {report.expenses.length === 1 ? t("detail_submit_expense_one") : t("detail_submit_expense_other")}
+                </p>
+              </div>
+            </div>
+            <hr className="border-border my-2" />
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div>
+                <span className="text-muted-foreground">{t("preflight_total")}:</span>
+                <p className="font-bold text-base text-foreground mt-0.5">{formatAmount(displayTotal, "EUR")}</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">{t("preflight_reimbursable")}:</span>
+                <p className="font-bold text-base text-emerald-600 dark:text-emerald-400 mt-0.5">{formatAmount(report.total_reimbursable, "EUR")}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Receipt Attachment Audit */}
+          <div>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+              {t("preflight_receipts_audit")}
+            </p>
+            {missingReceipts === 0 ? (
+              <div className="flex items-center gap-3 p-3 rounded-xl border border-emerald-200 dark:border-emerald-800/50 bg-emerald-50/60 dark:bg-emerald-950/20 text-emerald-800 dark:text-emerald-300 text-xs font-medium">
+                <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <span>{t("preflight_all_receipts", { count: expensesWithReceipts })}</span>
+              </div>
+            ) : (
+              <div className="p-3 rounded-xl border border-amber-200 dark:border-amber-800/50 bg-amber-50/60 dark:bg-amber-950/20 text-amber-800 dark:text-amber-300 text-xs space-y-1">
+                <div className="flex items-center gap-2 font-semibold">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                  <span>{t("preflight_missing_receipts", { count: missingReceipts })}</span>
+                </div>
+                <p className="text-[11px] text-amber-700 dark:text-amber-400 pl-6">
+                  {t("preflight_missing_receipts_hint")}
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Final Notice */}
+          <div className="p-3 rounded-lg bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/40 text-xs text-blue-800 dark:text-blue-300">
+            {t("preflight_notice")}
+          </div>
+        </div>
+
+        {/* Footer actions */}
+        <div className="p-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] border-t border-border bg-card flex items-center justify-end gap-3 shrink-0">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isSubmitting}
+            className="min-h-11 px-4 py-2 text-sm font-medium rounded-xl border border-input-border text-slate-700 dark:text-slate-300 hover:bg-card-hover transition-colors cursor-pointer"
+          >
+            {t("preflight_cancel")}
+          </button>
+          <button
+            type="button"
+            onClick={onSubmit}
+            disabled={isSubmitting}
+            className="min-h-11 px-5 py-2 text-sm font-semibold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm flex items-center gap-2 transition-transform active:scale-95 disabled:opacity-50 cursor-pointer"
+          >
+            <Send className="w-4 h-4" />
+            {isSubmitting ? t("detail_submitting") : t("preflight_confirm")}
+          </button>
         </div>
       </div>
     </div>

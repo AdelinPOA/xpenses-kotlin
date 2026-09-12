@@ -67,7 +67,8 @@
     "role_finance_lead": "Șef Finanțe",
     "role_administrator": "Administrator",
     "open_sidebar": "Deschide bara laterală",
-    "mobile_navigation": "Navigare mobilă principală"
+    "mobile_navigation": "Navigare mobilă principală",
+    "capture": "Captură"
   },
   "auth": {
     "login": {
@@ -362,7 +363,14 @@
     "bulk_no_expenses": "Nu au fost create cheltuieli",
     "bulk_footer_note": "Toate cheltuielile sunt salvate ca <b>ciornă</b>. Atribuiți-le unui raport când sunteți gata.",
     "receipt_formats": "JPG, PNG, PDF sau WEBP, până la 10 MB.",
-    "remove_receipt": "Elimină chitanța"
+    "remove_receipt": "Elimină chitanța",
+    "bundle_selected": "{count} selectate",
+    "bundle_total": "Total: {amount}",
+    "bundle_create_report": "Creează raport",
+    "bundle_clear": "Anulează",
+    "bundle_select_all": "Selectează toate ciornele",
+    "bundle_checkbox_aria": "Selectează cheltuiala {name}",
+    "bundle_toolbar_aria": "Bara de acțiuni pentru gruparea cheltuielilor"
   },
   "reports": {
     "company_reports": "Raporturi Companie",
@@ -578,7 +586,18 @@
     "detail_error_delete": "Eșec la ștergerea cheltuielii. Încercați din nou.",
     "detail_error_duplicate": "Eșec la duplicarea cheltuielii. Încercați din nou.",
     "detail_expense_edit": "Editează cheltuiala",
-    "detail_expense_delete": "Șterge cheltuiala"
+    "detail_expense_delete": "Șterge cheltuiala",
+    "preflight_title": "Trimite raportul de cheltuieli",
+    "preflight_subtitle": "Verifică sumarul înainte de trimiterea spre aprobare",
+    "preflight_total": "Sumă totală",
+    "preflight_reimbursable": "Net de rambursat",
+    "preflight_receipts_audit": "Audit chitanțe",
+    "preflight_all_receipts": "Toate cele {count} cheltuieli au chitanțe atașate.",
+    "preflight_missing_receipts": "{count} cheltuieli nu au chitanță atașată.",
+    "preflight_missing_receipts_hint": "Cheltuielile fără chitanțe pot necesita verificarea sau explicația managerului.",
+    "preflight_notice": "Odată trimis, raportul va fi blocat și trimis către manager pentru aprobare.",
+    "preflight_confirm": "Confirmă și trimite",
+    "preflight_cancel": "Continuă verificarea"
   },
   "admin": {
     "access_denied": "Acces Interzis",
@@ -894,6 +913,12 @@
     "draft_saved_toast": "Schiță salvată — atinge pentru detalii",
     "draft_needs_details_toast": "Schiță salvată doar cu poza — completează detaliile",
     "session_drafts": "{count} schiță(e) în această sesiune",
-    "view_all": "Vezi toate cheltuielile"
+    "view_all": "Vezi toate cheltuielile",
+    "processing": "Procesare în fundal…",
+    "status_ready": "Schiță gata",
+    "status_needs_review": "Necesită revizuire",
+    "status_failed": "Eșec la salvare",
+    "batch_hint": "Camera rămâne pregătită — continuă fotografierea chitanțelor.",
+    "view_details": "Editează detalii"
   }
 }

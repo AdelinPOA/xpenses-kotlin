@@ -67,7 +67,8 @@
     "role_finance_lead": "Finance Lead",
     "role_administrator": "Administrator",
     "open_sidebar": "Open sidebar",
-    "mobile_navigation": "Primary mobile navigation"
+    "mobile_navigation": "Primary mobile navigation",
+    "capture": "Capture"
   },
   "auth": {
     "login": {
@@ -360,9 +361,16 @@
     "no_preview_available": "No preview available for this file type.",
     "reset": "Reset",
     "bulk_no_expenses": "No expenses created",
-    "bulk_footer_note": "All expenses are saved as <b>draft</b>. Assign to a report when ready.",
+    "bulk_footer_note": "All expenses are saved as <b>draft</b>. Assign them to a report when ready.",
     "receipt_formats": "JPG, PNG, PDF or WEBP, up to 10 MB.",
-    "remove_receipt": "Remove receipt"
+    "remove_receipt": "Remove receipt",
+    "bundle_selected": "{count} selected",
+    "bundle_total": "Total: {amount}",
+    "bundle_create_report": "Create Report",
+    "bundle_clear": "Clear",
+    "bundle_select_all": "Select all drafts",
+    "bundle_checkbox_aria": "Select expense {name}",
+    "bundle_toolbar_aria": "Expense bundling toolbar"
   },
   "reports": {
     "company_reports": "Company Reports",
@@ -578,7 +586,18 @@
     "detail_error_delete": "Failed to delete expense. Please try again.",
     "detail_error_duplicate": "Failed to duplicate expense. Please try again.",
     "detail_expense_edit": "Edit expense",
-    "detail_expense_delete": "Delete expense"
+    "detail_expense_delete": "Delete expense",
+    "preflight_title": "Submit Expense Report",
+    "preflight_subtitle": "Review summary before submitting for approval",
+    "preflight_total": "Total amount",
+    "preflight_reimbursable": "Net reimbursable",
+    "preflight_receipts_audit": "Receipts audit",
+    "preflight_all_receipts": "All {count} expenses have receipts attached.",
+    "preflight_missing_receipts": "{count} expense(s) have no receipt attached.",
+    "preflight_missing_receipts_hint": "Expenses without receipts may require manager review or explanation.",
+    "preflight_notice": "Once submitted, this report will be locked until reviewed.",
+    "preflight_confirm": "Confirm & Submit",
+    "preflight_cancel": "Review more"
   },
   "admin": {
     "access_denied": "Access Denied",
@@ -894,6 +913,12 @@
     "draft_saved_toast": "Draft saved — tap to add details",
     "draft_needs_details_toast": "Draft saved with photo only — add the details",
     "session_drafts": "{count} draft(s) this session",
-    "view_all": "View all expenses"
+    "view_all": "View all expenses",
+    "processing": "Processing in background…",
+    "status_ready": "Draft Ready",
+    "status_needs_review": "Needs Review",
+    "status_failed": "Failed to save",
+    "batch_hint": "Camera stays ready — keep snapping your receipts.",
+    "view_details": "Edit details"
   }
 }

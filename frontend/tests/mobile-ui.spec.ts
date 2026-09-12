@@ -49,6 +49,144 @@ test("login is accessible and does not overflow", async ({ page }) => {
   await expectNoSeriousAxeViolations(page);
 });
 
+test("mobile expense bundling toolbar appears on selection and navigates to new report", async ({ page }) => {
+  await page.context().addCookies([
+    {
+      name: "access_token",
+      value: "mock-valid-token",
+      domain: "localhost",
+      path: "/",
+    },
+  ]);
+  await page.route("**/api/auth/me", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ id: 1, username: "tech1", role: "technician", language: "en" }),
+    })
+  );
+  await page.route("**/api/categories", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([]),
+    })
+  );
+  await page.route("**/api/expenses*", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: 42,
+          merchant: "Metro Transit",
+          amount_eur: 15.5,
+          amount_original: 15.5,
+          currency_original: "EUR",
+          status: "draft",
+          date: "2026-09-10",
+        },
+      ]),
+    })
+  );
+
+  await page.goto("/expenses");
+  const checkbox = page.getByRole("checkbox", { name: /Select expense Metro Transit/i }).first();
+  await expect(checkbox).toBeVisible({ timeout: 15000 });
+  await checkbox.click();
+
+  const toolbar = page.getByRole("region", { name: /Expense bundling toolbar/i });
+  await expect(toolbar).toBeVisible();
+  await expect(toolbar.getByText(/1 selected/i)).toBeVisible();
+
+  await toolbar.getByRole("button", { name: /Create Report/i }).click();
+  await expect(page).toHaveURL(/\/reports\/new\?expense_ids=42/);
+});
+
+test("mobile pre-flight submission drawer shows receipt audit and confirmation", async ({ page }) => {
+  await page.context().addCookies([
+    {
+      name: "access_token",
+      value: "mock-valid-token",
+      domain: "localhost",
+      path: "/",
+    },
+  ]);
+  await page.route("**/api/auth/me", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ id: 1, username: "tech1", role: "technician", language: "en" }),
+    })
+  );
+  await page.route("**/api/reports/10", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        id: 10,
+        title: "Field Intervention Report",
+        description: "Field mission",
+        status: "draft",
+        user_id: 1,
+        currency: "EUR",
+        created_at: "2026-09-10T10:00:00Z",
+        updated_at: "2026-09-10T10:00:00Z",
+        date_from: "2026-09-10",
+        date_to: "2026-09-10",
+        submitted_at: null,
+        paid_at: null,
+        approved_by: null,
+        approved_at: null,
+        rejected_reason: null,
+        signer_id: null,
+        signed_at: null,
+        advances: [],
+        total_advances: 0,
+        mileage_records: [],
+        total_mileage_eur: 0,
+        daily_allowance: 0,
+        expenses: [
+          {
+            id: 42,
+            merchant: "Metro Transit",
+            amount_eur: 15.5,
+            amount_original: 15.5,
+            currency_original: "EUR",
+            date: "2026-09-10",
+            status: "draft",
+            receipts: [],
+          },
+        ],
+        total_amount: 15.5,
+        total_reimbursable: 15.5,
+      }),
+    })
+  );
+  await page.route("**/api/expenses*", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([]),
+    })
+  );
+
+  await page.goto("/reports/10");
+  const submitBtn = page.getByRole("button", { name: /Submit report/i });
+  await expect(submitBtn).toBeVisible({ timeout: 15000 });
+  await submitBtn.click();
+
+  const drawer = page.getByRole("dialog");
+  await expect(drawer).toBeVisible({ timeout: 10000 });
+  await expect(drawer.getByRole("heading", { name: /Submit Expense Report/i })).toBeVisible();
+  await expect(drawer.getByText(/1 expense\(s\) have no receipt attached/i)).toBeVisible();
+  await expect(drawer.getByRole("button", { name: /Confirm & Submit/i })).toBeVisible();
+
+  // Cancel/close drawer
+  await drawer.getByRole("button", { name: /Review more/i }).click();
+  await expect(drawer).not.toBeVisible();
+});
+
 test.describe("mobile authenticated UI", () => {
   test.skip(!authenticatedUiEnabled || !username || !password, "Set PLAYWRIGHT_AUTHENTICATED_UI=true with test credentials and a reachable API");
 
@@ -73,6 +211,7 @@ test.describe("mobile authenticated UI", () => {
     await page.locator('nav[aria-label="Primary mobile navigation"] a[href="/reports"]').click();
     await expect(page).toHaveURL(/\/reports$/);
     await expect(page.locator('a[href="/reports"][aria-current="page"]')).toBeVisible();
+    await expect(page.locator('nav[aria-label="Primary mobile navigation"] a[href="/expenses/capture"]')).toBeVisible();
   });
 
   test("sidebar opens, closes with Escape and restores focus", async ({ page }) => {

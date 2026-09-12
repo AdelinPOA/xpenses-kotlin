@@ -37,7 +37,7 @@ export default function ReceiptScanner({
         onClick={onClick}
         role="button"
         tabIndex={0}
-        aria-label="Choose a receipt to scan"
+        aria-label={t("tap_photograph")}
         onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onClick(); } }}
         className={clsx(
           "border border-dashed rounded-lg p-6 text-center transition-all duration-200 cursor-pointer flex flex-col items-center justify-center min-h-[120px]",
@@ -49,7 +49,7 @@ export default function ReceiptScanner({
         <input
           ref={scanInputRef}
           id="receipt-scan-input"
-          aria-label="Choose receipt for OCR scanning"
+          aria-label={t("drag_browse")}
           type="file"
           accept=".jpg,.jpeg,.png,.pdf,.webp"
           onChange={onScan}
@@ -58,7 +58,7 @@ export default function ReceiptScanner({
         <input
           ref={cameraInputRef}
           id="receipt-camera-input"
-          aria-label="Take a receipt photo"
+          aria-label={t("take_photo")}
           type="file"
           accept="image/*"
           capture="environment"
@@ -91,13 +91,13 @@ export default function ReceiptScanner({
           <div className="flex flex-col items-center gap-2">
             <Camera aria-hidden="true" className={clsx("w-8 h-8 transition-colors", isDragging ? "text-blue-500" : "text-slate-400")} />
             <p className="hidden lg:block text-sm font-medium text-slate-700 dark:text-slate-300">
-              {isDragging ? "Drop your receipt here!" : "Drag & drop receipt here, or click to browse"}
+              {isDragging ? t("drop_receipt") : t("drag_browse")}
             </p>
             <p className="lg:hidden text-sm font-medium text-slate-700 dark:text-slate-300">
-              Tap to photograph or choose a receipt
+              {t("tap_photograph")}
             </p>
             <p className="text-[10px] text-muted-foreground">
-              Supports JPG, PNG, PDF, WEBP up to 10MB
+              {t("supports_formats")}
             </p>
           </div>
         )}
@@ -110,7 +110,7 @@ export default function ReceiptScanner({
         className="lg:hidden min-h-11 flex items-center justify-center gap-2 w-full py-2.5 border border-input-border rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300 bg-input hover:bg-card-hover disabled:opacity-50 mt-2"
       >
         <Camera className="w-4 h-4" aria-hidden="true" />
-        Take photo
+        {t("take_photo")}
       </button>
     </div>
   );

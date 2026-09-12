@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import api, { Expense, CURRENCIES } from "@/lib/api";
 import { reportKeys, expenseKeys, dashboardKeys } from "@/lib/queryKeys";
 import AppShell from "@/components/layout/AppShell";
@@ -10,8 +10,9 @@ import Badge from "@/components/ui/Badge";
 import { formatEur } from "@/lib/format";
 import { useTranslations } from "next-intl";
 
-export default function NewReportPage() {
+function NewReportContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const qc = useQueryClient();
 
   const [title, setTitle] = useState("");
@@ -23,10 +24,47 @@ export default function NewReportPage() {
   const [error, setError] = useState("");
   const t = useTranslations("reports");
 
+  const initialIdsParam = searchParams.get("expense_ids");
+
+  useEffect(() => {
+    if (initialIdsParam) {
+      const parsed = initialIdsParam
+        .split(",")
+        .map((x) => parseInt(x.trim(), 10))
+        .filter((x) => !isNaN(x) && x > 0);
+      if (parsed.length > 0) {
+        setSelectedIds(new Set(parsed));
+      }
+    }
+  }, [initialIdsParam]);
+
   const { data: draftExpenses } = useQuery<Expense[]>({
     queryKey: expenseKeys.list({ status: "draft" }),
     queryFn: () => api.get("/expenses", { params: { status: "draft" } }).then((r) => r.data),
   });
+
+  // When bundled draft expenses load, pre-populate date range and suggested title
+  useEffect(() => {
+    if (draftExpenses && selectedIds.size > 0) {
+      const selected = draftExpenses.filter((e) => selectedIds.has(e.id));
+      if (selected.length > 0) {
+        const dates = selected
+          .map((e) => e.date)
+          .filter(Boolean)
+          .sort();
+        if (dates.length > 0) {
+          setDateFrom((prev) => prev || dates[0]);
+          setDateTo((prev) => prev || dates[dates.length - 1]);
+          setTitle((prev) => {
+            if (prev) return prev;
+            const refDate = new Date(dates[0]);
+            const monthName = refDate.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+            return `Expense Report - ${monthName}`;
+          });
+        }
+      }
+    }
+  }, [draftExpenses, selectedIds]);
 
   const create = useMutation({
     mutationFn: async () => {
@@ -218,5 +256,19 @@ export default function NewReportPage() {
         </div>
       </form>
     </AppShell>
+  );
+}
+
+export default function NewReportPage() {
+  return (
+    <Suspense
+      fallback={
+        <div role="status" aria-label="Loading report form" className="flex items-center justify-center min-h-[50vh]">
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" aria-hidden="true" />
+        </div>
+      }
+    >
+      <NewReportContent />
+    </Suspense>
   );
 }

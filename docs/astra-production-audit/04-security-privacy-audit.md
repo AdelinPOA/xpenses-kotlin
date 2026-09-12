@@ -1,12 +1,27 @@
 # Security and privacy production audit
 
+> **Baseline findings SEC-001–012:** source and line references below refer to `87bec5a15457c3c74ebec613f2459ac1306093a5` (2026-09-06). Another workstream changed security code afterward. Current-state reconciliation for `bdb6fcba9845be7053b0087253bb4a1c191d96e3` is in `00-executive-summary.md`; SEC-001/004 have source remediation, SEC-002/003/005/006 remain partial. **SEC-013 below is a new Critical exposure discovered during reconciliation**, not part of the initial baseline. No purported secret is reproduced. Test evidence is in `06-test-and-verification-plan.md`.
+
+## SEC-013 — Separately committed audit discloses purported production secrets
+
+- **ID:** SEC-013
+- **Severity:** Critical
+- **Area:** Security
+- **Confidence:** Confirmed committed disclosure of values labelled production secrets; actual validity, reuse and external access are **Needs verification**. Critical treatment is precautionary because a potentially live signing/encryption key is an incident-response gate, not because exploitation was demonstrated.
+- **Evidence:** `docs/agy/audit/3.8/05-deployment-ops-audit.md`, OPS-001 Evidence paragraph beginning “When evaluating”, includes concrete JWT signing, encryption and salt values attributed to `.env`. `git log -1 --format='%h %s' -- docs/agy/audit/3.8/05-deployment-ops-audit.md` identifies commit `e2b3f44`. The file is tracked at reconciled HEAD. This audit used `docker compose config --quiet`, did not read `.env`, and does not validate the disclosed strings by attempting authentication or decryption.
+- **User impact / production risk:** If live or reused, signing material may enable impersonation, and encryption material can expose stored provider credentials given ciphertext access. Removing text alone does not revoke keys or remove copies in Git/history/artifacts.
+- **Recommended fix:** Restrict distribution of the contaminated report, identify affected environments and exposure window, and treat values as compromised pending owner verification. Coordinate signing/refresh-session revocation and encryption-key migration with protected backup/recovery; `B/services/CryptoService.kt` still has legacy JWT-derived decryption, so rotating JWT alone can strand settings. Remove/redact values from current documentation and, with repository-owner approval, remediate history and cached artifacts. Rotate affected downstream credentials where exposure warrants it. Do not paste values into tickets, scanners or this report.
+- **Acceptance criteria:** Old signing tokens are rejected; retained encrypted settings decrypt under approved current keys; keys exist only in protected secret storage; sanitized source/history/artifact scans and owner incident record establish scope and remediation. No data or credentials are lost during migration.
+- **Suggested tests:** Isolated old/new key compatibility and revocation tests using synthetic keys; full-history Gitleaks with redacted output; controlled owner inventory of secret consumers, copies and provider access logs. Do not authenticate using leaked values.
+- **Dependencies or sequencing:** **Phase 0 first.** Prove recovery (OPS-004), inventory legacy ciphertext and plan maintenance before key replacement. No unauthorized history rewrite or live rotation was performed in this audit.
+
 ## Verdict and evidence limits
 
 **Not ready for an unconditional production sign-off.** Source-confirmed trust-boundary failures include executable insurance uploads, cross-account offline replay, caching of authenticated page data, an expired-session recovery mismatch, and an unmetered OCR entry point. No live exploitation or production incident is asserted.
 
 This review is read-only apart from this report. No active network/security tests, database writes, provider requests, or application changes were performed by the security reviewer. Parent-run verification results belong in `06-test-and-verification-plan.md`; source references to existing tests below do **not** mean those tests were executed here. Findings marked **Needs verification** identify the missing deployment or concurrency evidence. Initial README, CONTEXT, planning project/roadmap, mobile remediation plan, and frontend agent guidance were read; implementation, not historical claims of completion, is authoritative.
 
-Severity expresses impact and preconditions: none is labelled Critical because an unauthenticated, deployment-independent takeover was not demonstrated. High findings still warrant release gates. `B/` below means `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/`; paths in that notation resolve exactly under the repository root.
+For the original SEC-001–012 findings, severity expresses impact and preconditions: none was labelled Critical because an unauthenticated, deployment-independent takeover was not demonstrated. The subsequently discovered SEC-013 disclosure is a separate Critical incident-response gate, with secret validity explicitly unverified. High findings still warrant release gates. `B/` below means `backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/`; paths in that notation resolve exactly under the repository root.
 
 ## Security surface inventory
 

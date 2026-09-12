@@ -1,5 +1,7 @@
 # Frontend production audit
 
+> **Baseline report:** source findings and line numbers below refer to `87bec5a15457c3c74ebec613f2459ac1306093a5` (2026-09-06). Current-state reconciliation at `bdb6fcba9845be7053b0087253bb4a1c191d96e3` is in `00-executive-summary.md`; later fixes were made by another workstream. In particular an expense detail route now exists but its receipt URL is incorrect. See `06-test-and-verification-plan.md` for fresh checks: build/types/parity pass, mobile has 2 passes/16 skips, and nominal lint success still ignores TSX. Do not interpret unchanged baseline wording as current verified defects or closure.
+
 ## Scope and evidence standard
 
 Read-only source audit of the current working tree, using the repository README, CONTEXT, planning PROJECT/ROADMAP, mobile remediation plan, frontend AGENTS/CLAUDE and React best-practice guidance. Application code was not changed. This reviewer did not run lint/build/Playwright; the coordinated command ledger belongs in `06-test-and-verification-plan.md`. Source-confirmed behavior is not a claim of an observed production incident.

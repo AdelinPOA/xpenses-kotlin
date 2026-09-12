@@ -1,5 +1,7 @@
 # Backend production audit
 
+> **Baseline report:** source findings and line numbers below refer to `87bec5a15457c3c74ebec613f2459ac1306093a5` (2026-09-06). Another workstream added remediation after this review. Current-state reconciliation for `bdb6fcba9845be7053b0087253bb4a1c191d96e3` is in `00-executive-summary.md`, notably partial fixes to BE-003/004/007. `06-test-and-verification-plan.md` distinguishes the initial 213-test run with 2 failures from the fresh current-HEAD 223-test pass. Existing suite success does not close the financial, crash-recovery or race findings without their targeted acceptance tests.
+
 ## Scope and evidence standard
 
 Read-only review of business rules, persistence, integrations and existing tests. No backend source changes, migration changes, database writes or provider calls were made by this reviewer. Test execution belongs to `06-test-and-verification-plan.md`; none of the findings below is represented as a reproduced production incident. **Confirmed** means the behavior follows directly from the inspected source; concurrency and failure-injection consequences still require the specified tests.

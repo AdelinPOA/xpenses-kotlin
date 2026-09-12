@@ -54,5 +54,7 @@ Thumbs.db
 /graphify-out/
 /.planning/graphs/
 /.claude/
+/.gsd/
+/.gsd-disabled/
 *.png
 

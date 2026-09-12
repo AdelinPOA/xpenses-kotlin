@@ -1,5 +1,7 @@
 # Mobile iOS / Android UX audit
 
+> **Baseline report:** source findings and line numbers below refer to `87bec5a15457c3c74ebec613f2459ac1306093a5` (2026-09-06). Another workstream subsequently changed application code. Read the current-state reconciliation in `00-executive-summary.md` before treating a finding as still present. Reconciled HEAD: `bdb6fcba9845be7053b0087253bb4a1c191d96e3` (2026-09-07). Coordinated browser runs passed the mocked public login axe/overflow check at 412×849 in Chromium and WebKit; **all authenticated cases were skipped**. Thus the login matrix's 412 NV is narrowed only by that public-page check, not full session/device verification. No physical-device or fresh screenshot sign-off is claimed.
+
 ## Verdict and evidence boundary
 
 **Not ready for mobile field-user sign-off.** Current source contains a broken primary expense navigation path, unsafe partial-save/replay behavior, inconsistent form and modal accessibility, and mobile regressions that the default mobile test command does not exercise.

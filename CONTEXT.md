@@ -8,6 +8,10 @@ Expense management for a field-service organization: technicians submit receipts
 A proof-of-purchase document (paper or electronic) uploaded by a technician. Contains at least an amount and a currency.
 _Avoid_: recipe
 
+**OCR source**:
+A temporary, Technician-owned representation submitted for Receipt OCR before an Expense or Receipt exists. On successful OCR completion it is promoted to the Receipt of an automatically created Expense; on permanent OCR failure it may support a photo-only draft, otherwise it is discarded after cancellation or expiry.
+_Avoid_: OCR receipt, uploaded Receipt
+
 **Expense**:
 A logged claim of money spent by a technician, created from a receipt (or manually), carrying the original amount and currency.
 _Avoid_: entry, claim
@@ -42,6 +46,10 @@ _Avoid_: billing currency, settlement currency
 A payment given to a technician in advance of expected expenses, later settled against a report.
 _Avoid_: pre-payment, avans
 
+**ExpenseReport**:
+A formal container of one or more Expenses submitted by a Technician for review and reimbursement, settled against any Advances and expressed in total EUR amount.
+_Avoid_: expense folder, expense pack, claim
+
 **Technician**:
 An employee who incurs and submits expenses. A `User` with role `technician`; reimbursed for the exact EUR amount debited from their bank account.
 _Avoid_: employee, worker, user
@@ -61,3 +69,13 @@ _Avoid_: sent email, completed acknowledgement
 **Mailbox acknowledgement**:
 The external IMAP operation that marks a durably processed or rejected delegation email as seen. It may be retried independently without creating another ExpenseReport.
 _Avoid_: processing, completion
+
+**OcrJob**:
+A durable, Technician-owned work record for OCR and its staged promotion into one draft Expense and one Receipt. Its persisted stage is `OCR`, `EXPENSE`, or `RECEIPT`; its status describes control flow independently of stage.
+_Avoid_: transient OCR request, in-memory scan
+
+**OCR stage**:
+The current durable step of an OcrJob: provider OCR, draft Expense creation, or Receipt attachment. A successful stage transition advances the same OcrJob rather than creating a new job.
+
+**OCR lease**:
+An opaque token and expiry held by one worker for one OcrJob stage. Database compare-and-set writes require the token, so an expired or stale worker cannot persist a result.

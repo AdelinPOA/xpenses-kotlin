@@ -88,7 +88,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 title={tOffline("banner_offline")}
               >
                 <WifiOff className="w-3 h-3 shrink-0" aria-hidden="true" />
-                <span className="hidden sm:inline">{tOffline("banner_offline")}</span>
+                <span className="hidden sm:inline">Offline</span>
                 <span className="sm:hidden">{pendingCount > 0 ? `${pendingCount}` : "Offline"}</span>
               </span>
             )}

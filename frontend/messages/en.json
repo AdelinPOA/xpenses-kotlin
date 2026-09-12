@@ -413,6 +413,7 @@
     "clear_filter": "Clear filter",
     "create_first": "Create your first report",
     "delete_title": "Delete Report",
+    "delete_report": "Delete report",
     "delete_description": "How would you like to proceed with the expenses associated with this report?",
     "delete_keep": "Keep expenses as unlinked Draft",
     "delete_recommended": "(Recommended)",

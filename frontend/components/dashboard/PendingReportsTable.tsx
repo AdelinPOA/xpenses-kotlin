@@ -346,9 +346,7 @@ export default function PendingReportsTable({
 
   return (
     <>
-
-  return (
-    <div className="flex flex-col rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+      <div className="flex flex-col rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between gap-3 border-b border-border bg-amber-500/[0.04] p-4 sm:p-5">
         <div className="flex items-center gap-2.5">

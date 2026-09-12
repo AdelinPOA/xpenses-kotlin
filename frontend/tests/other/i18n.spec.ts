@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { USERS } from "../shared/mocks";
+import { USERS, APP_ORIGIN } from "../shared/mocks";
 
 const TECH_USER = { ...USERS.user, language: "en" };
 const TECH_USER_RO = { ...USERS.user, language: "ro" };
@@ -13,9 +13,9 @@ test.describe("i18n language packs", () => {
     let currentUser = { ...TECH_USER };
 
     await page.context().addCookies([
-      { name: "access_token", value: "mock-jwt-token", url: "http://localhost:3001" },
-      { name: "refresh_token", value: "mock-refresh-token", url: "http://localhost:3001" },
-      { name: "lang", value: "en", url: "http://localhost:3001" },
+      { name: "access_token", value: "mock-jwt-token", url: APP_ORIGIN },
+      { name: "refresh_token", value: "mock-refresh-token", url: APP_ORIGIN },
+      { name: "lang", value: "en", url: APP_ORIGIN },
     ]);
     await page.route("**/api/auth/me", (route) => route.fulfill({ json: currentUser }));
     await page.route("**/api/auth/refresh", (route) => route.fulfill({ json: { access_token: "new-mock-token" } }));
@@ -61,9 +61,9 @@ test.describe("i18n language packs", () => {
     let currentUser = { ...TECH_USER_RO };
 
     await page.context().addCookies([
-      { name: "access_token", value: "mock-jwt-token", url: "http://localhost:3001" },
-      { name: "refresh_token", value: "mock-refresh-token", url: "http://localhost:3001" },
-      { name: "lang", value: "ro", url: "http://localhost:3001" },
+      { name: "access_token", value: "mock-jwt-token", url: APP_ORIGIN },
+      { name: "refresh_token", value: "mock-refresh-token", url: APP_ORIGIN },
+      { name: "lang", value: "ro", url: APP_ORIGIN },
     ]);
     await page.route("**/api/auth/me", (route) => route.fulfill({ json: currentUser }));
     await page.route("**/api/auth/refresh", (route) => route.fulfill({ json: { access_token: "new-mock-token" } }));
@@ -100,9 +100,9 @@ test.describe("i18n language packs", () => {
 
   test("10.4 logout keeps last-used language cookie", async ({ page }) => {
     await page.context().addCookies([
-      { name: "access_token", value: "mock-jwt-token", url: "http://localhost:3001" },
-      { name: "refresh_token", value: "mock-refresh-token", url: "http://localhost:3001" },
-      { name: "lang", value: "ro", url: "http://localhost:3001" },
+      { name: "access_token", value: "mock-jwt-token", url: APP_ORIGIN },
+      { name: "refresh_token", value: "mock-refresh-token", url: APP_ORIGIN },
+      { name: "lang", value: "ro", url: APP_ORIGIN },
     ]);
     await page.route("**/api/auth/me", (route) => route.fulfill({ json: TECH_USER_RO }));
     await page.route("**/api/auth/refresh", (route) => route.fulfill({ json: { access_token: "new-mock-token" } }));

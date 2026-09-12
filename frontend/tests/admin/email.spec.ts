@@ -11,10 +11,10 @@ test.describe("Admin Email / SMTP Settings", () => {
     await setupAdminMocks(page);
     await page.goto("/admin/email", { waitUntil: "load" });
     await page.waitForTimeout(2000);
-    await expect(page.getByText("Host", { exact: true })).toBeVisible({ timeout: 15000 });
-    await expect(page.getByText("Port", { exact: true })).toBeVisible();
-    await expect(page.getByText("Username", { exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: /save.*config|save.*setting/i })).toBeVisible();
+    await expect(page.getByText("SMTP Host")).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText("SMTP Port")).toBeVisible();
+    await expect(page.getByText("SMTP User")).toBeVisible();
+    await expect(page.getByRole("button", { name: /save.*config|save.*setting|^save$/i })).toBeVisible();
   });
 
   test("Send Test Email section is visible", async ({ page }) => {

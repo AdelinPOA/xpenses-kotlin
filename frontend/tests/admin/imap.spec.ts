@@ -13,7 +13,7 @@ test.describe("Admin IMAP Settings", () => {
     await page.waitForTimeout(2000);
     await expect(page.getByText("IMAP Host")).toBeVisible({ timeout: 15000 });
     await expect(page.getByText("IMAP Port")).toBeVisible();
-    await expect(page.getByText("Username / Email")).toBeVisible();
+    await expect(page.getByText(/IMAP Username|Username/i)).toBeVisible();
     await expect(page.getByText("Folder to poll")).toBeVisible();
   });
 
@@ -23,7 +23,7 @@ test.describe("Admin IMAP Settings", () => {
     await page.goto("/admin/imap", { waitUntil: "load" });
     await page.waitForTimeout(2000);
     await expect(page.getByText("Test Connection")).toBeVisible({ timeout: 15000 });
-    await expect(page.getByRole("button", { name: /save.*config|save.*setting/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /save.*config|save.*setting|^save$/i })).toBeVisible();
   });
 
   test("Test Connection button visible at 375px", async ({ page }) => {

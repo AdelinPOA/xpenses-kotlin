@@ -1,7 +1,6 @@
 import type { Page } from "@playwright/test";
 
-/** App origin under test — override when running against a non-default port. */
-export const APP_ORIGIN = process.env.PLAYWRIGHT_ORIGIN ?? "http://localhost:3001";
+export const APP_ORIGIN = process.env.PLAYWRIGHT_ORIGIN ?? (process.env.PLAYWRIGHT_PORT ? `http://localhost:${process.env.PLAYWRIGHT_PORT}` : "http://localhost:3100");
 
 export const USERS = {
   mod: { id: 1, username: "mod1", display_name: "Moderator One", role: "mod", email: "mod1@xpenses.local", active: true, auth_source: "local", created_at: "2025-01-01T00:00:00Z", email_notifications: false },

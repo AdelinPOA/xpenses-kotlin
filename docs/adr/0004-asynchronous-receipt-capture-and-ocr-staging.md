@@ -13,11 +13,12 @@ Technicians in the field frequently incur multiple expenses in sequence (fuel, m
 
 1. **Instant Capture to OCR Source**: Capturing a photo immediately stores the photo locally (IndexedDB if offline or temporary object store) as an **OCR source** and immediately resets the camera viewport.
 2. **Background OcrJob Execution**: An **OcrJob** is initiated in the background. The mobile UI monitors progress through an unobtrusive session drawer/feed without blocking further photos.
-3. **Graceful Photo-Only Draft Fallback**: If OCR extraction fails or produces low confidence, the item is promoted to a photo-only draft **Expense** tagged with a visible `"Needs Review"` status. The app never navigates away during capture.
+3. **Graceful Photo-Only Draft Fallback**: If OCR extraction fails or produces low confidence, the item is promoted to a photo-only draft **Expense**. The persisted Expense status remains `draft`; the capture UI derives the visible `"Needs Review"` marker from missing details or the OcrJob error metadata. The app never navigates away during capture.
 4. **Batch Review at Technician's Convenience**: Technicians can review and edit all captured drafts in one batch either from the session drawer or the main Expense list.
 
 ## Consequences
 
 - The capture view remains responsive and operable even during slow network conditions or offline periods.
-- The frontend must manage staged `OcrJob` state transitions (`OCR` → `EXPENSE` → `RECEIPT`) and thumbnail queues.
+- The frontend consumes the Expense and Receipt IDs produced by the durable pipeline; it does not upload the captured image a second time.
+- Stage promotion is lease-fenced and queue rejection leaves the OcrJob pending for scheduled recovery.
 - Synchronous error alerts are replaced with persistent, non-intrusive status badges on draft cards.

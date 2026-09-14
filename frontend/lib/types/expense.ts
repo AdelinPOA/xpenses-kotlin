@@ -62,4 +62,7 @@ export interface OCRScanResult {
   confidence: number;
   warnings: string[];
   comparison_id?: number | null;
+  expense_id?: number | null;
+  receipt_id?: number | null;
+  error_code?: string | null;
 }

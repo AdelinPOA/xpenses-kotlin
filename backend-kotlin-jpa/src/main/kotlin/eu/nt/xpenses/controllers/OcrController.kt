@@ -9,7 +9,7 @@ import eu.nt.xpenses.model.User
 import eu.nt.xpenses.models.RawUpload
 import eu.nt.xpenses.repositories.OcrComparisonRepository
 import eu.nt.xpenses.repositories.OcrJobRepository
-import eu.nt.xpenses.services.AsyncOcrService
+import eu.nt.xpenses.services.OcrJobPipeline
 import eu.nt.xpenses.services.OcrService
 import eu.nt.xpenses.services.StorageContext
 import eu.nt.xpenses.services.StorageService
@@ -30,7 +30,7 @@ import java.security.MessageDigest
 @RequestMapping("/api/ocr")
 class OcrController(
     private val ocrService: OcrService,
-    private val asyncOcrService: AsyncOcrService,
+    private val ocrJobPipeline: OcrJobPipeline,
     private val ocrComparisonRepository: OcrComparisonRepository,
     private val ocrJobRepository: OcrJobRepository,
     private val storageService: StorageService,
@@ -85,7 +85,8 @@ class OcrController(
         val job = OcrJob(
             user = currentUser,
             filename = filename,
-            status = OcrJobStatus.PENDING
+            // Keep the job invisible to recovery until the OCR source is durable.
+            status = OcrJobStatus.PAUSED
         )
         val savedJob = ocrJobRepository.save(job)
         val jobId = savedJob.id!!
@@ -102,6 +103,7 @@ class OcrController(
             savedJob.sourceSizeBytes = fileBytes.size.toLong()
             savedJob.sourceSha256 = sha256Hex(fileBytes)
             savedJob.expiresAt = Instant.now().plus(30, ChronoUnit.DAYS)
+            savedJob.status = OcrJobStatus.PENDING
             ocrJobRepository.saveAndFlush(savedJob)
         } catch (e: Exception) {
             if (sourcePath != null) {
@@ -116,16 +118,14 @@ class OcrController(
         }
 
         try {
-            asyncOcrService.processOcr(jobId)
-        } catch (e: Exception) {
-            // Async dispatch was rejected (e.g. the executor queue is full). Keep the
-            // durable source so an explicit retry can reuse it, but make the state visible.
-            savedJob.status = OcrJobStatus.PERMANENT_FAILURE
-            savedJob.errorCode = "OCR_QUEUE_REJECTED"
-            savedJob.errorMessage = "OCR queue is full or rejected"
-            ocrJobRepository.save(savedJob)
-            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
-                .body(mapOf("detail" to "OCR queue is full or rejected"))
+            ocrJobPipeline.processOcr(jobId)
+        } catch (e: java.util.concurrent.RejectedExecutionException) {
+            // The durable job remains PENDING; the scheduled recovery worker will retry it.
+            return ResponseEntity.status(HttpStatus.ACCEPTED).body(mapOf(
+                "job_id" to savedJob.id,
+                "status" to "pending",
+                "status_url" to "/ocr/status/${savedJob.id}"
+            ))
         }
 
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(mapOf(
@@ -164,7 +164,10 @@ class OcrController(
                 OcrJobStatus.PERMANENT_FAILURE, OcrJobStatus.UNRECOVERABLE -> "failed"
                 else -> job.status.lowercase()
             },
-            "stage" to job.stage
+            "stage" to job.stage,
+            "expense_id" to job.expenseId,
+            "receipt_id" to job.receiptId,
+            "error_code" to job.errorCode
         )
 
         if (job.status == OcrJobStatus.COMPLETED && job.resultJson != null) {
@@ -174,6 +177,19 @@ class OcrController(
         }
 
         return ResponseEntity.ok(response)
+    }
+
+    @DeleteMapping("/jobs/{jobId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    fun cancelJob(
+        @PathVariable jobId: Int,
+        request: HttpServletRequest
+    ) {
+        val currentUser = request.getAttribute("currentUser") as? User
+            ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
+        if (!ocrJobPipeline.cancel(jobId, currentUser)) {
+            throw ResponseStatusException(HttpStatus.CONFLICT, "OCR job cannot be cancelled")
+        }
     }
 
     @GetMapping("/comparison")

@@ -269,7 +269,9 @@ class ExpenseReportLifecycle(
     ) {
         val expenses = expenseRepository.findAllById(expenseIds)
         val valid = expenses.filter {
-            it.status == ExpenseReportLifecycleState.DRAFT.value && it.user?.id == actor.id
+            it.status == ExpenseReportLifecycleState.DRAFT.value &&
+                it.user?.id == actor.id &&
+                it.amountOriginal.signum() > 0
         }
 
         for (expense in valid) {
@@ -280,7 +282,7 @@ class ExpenseReportLifecycle(
 
         val invalid = expenseIds.toSet() - valid.map { it.id!! }.toSet()
         if (invalid.isNotEmpty()) {
-            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid, non-draft, or not-owned expense IDs: $invalid")
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid, incomplete, non-draft, or not-owned expense IDs: $invalid")
         }
 
         for (expense in valid) {

@@ -6,12 +6,9 @@ import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import AppShell from "@/components/layout/AppShell";
 import { useToast } from "@/components/ToastProvider";
-import { useAuth } from "@/components/AuthProvider";
-import { useOfflineSync } from "@/components/OfflineSyncProvider";
 import { expenseKeys, dashboardKeys } from "@/lib/queryKeys";
 import { OCRScanResult } from "@/lib/api";
 import { scanReceipt, ScanProgress, ScanCancelledError, ScanTimeoutError, ScanJobError } from "@/lib/ocrScan";
-import { saveNewExpense } from "@/lib/expenseSaving";
 import { triggerHaptic } from "@/lib/haptics";
 import { formatEur } from "@/lib/format";
 import ReceiptLightbox from "@/components/expenses/ReceiptLightbox";
@@ -37,8 +34,6 @@ export default function CapturePage() {
   const router = useRouter();
   const qc = useQueryClient();
   const toast = useToast();
-  const { user } = useAuth();
-  const { refreshCount: refreshOffline } = useOfflineSync();
   const t = useTranslations("expenses");
   const tc = useTranslations("capture");
 
@@ -87,68 +82,22 @@ export default function CapturePage() {
       }
     }
 
-    const payload: Record<string, unknown> = {
-      amount: scanned?.amount ?? 0,
-      currency: scanned?.currency ?? "EUR",
-      date: scanned?.date ?? new Date().toISOString().slice(0, 10),
-      merchant: scanned?.merchant ?? null,
-      description: scanned?.description ?? null,
-      category_id: scanned?.category_id ?? null,
-      tax_amount: scanned?.tax_amount ?? 0,
-      tax_rate: scanned?.tax_rate ?? null,
-      raw_ocr_text: scanned?.raw_text ?? null,
-      comparison_id: scanned?.comparison_id ?? null,
-    };
-
     try {
-      if (!user?.id) throw new Error(t("error_save"));
-      const outcome = await saveNewExpense(payload, [file], user.id);
+      if (!scanned?.expense_id) throw new Error(t("error_save"));
       qc.invalidateQueries({ queryKey: expenseKeys.all });
       qc.invalidateQueries({ queryKey: dashboardKeys.all });
 
-      if (outcome.status === "failed") {
-        await refreshOffline();
-        updateItem(clientItemId, {
-          status: "failed",
-          errorMessage: outcome.message,
-        });
-        toast.error(outcome.message);
-        return;
-      }
-
-      if (outcome.status === "queued") {
-        await refreshOffline();
-        updateItem(clientItemId, {
-          status: "ready",
-          merchant: (payload.merchant as string | null) ?? null,
-          amountEur: typeof payload.amount === "number" ? payload.amount : 0,
-        });
-        toast.success(t("saved_offline_toast"));
-        return;
-      }
-
-      const expenseId = outcome.expense.id;
-      const amountEur = outcome.expense.amount_eur;
-      const merchant = outcome.expense.merchant;
-
-      if (outcome.status === "partial" || !scanned) {
-        await refreshOffline();
-        updateItem(clientItemId, {
-          status: "needs_details",
-          expenseId,
-          merchant,
-          amountEur,
-        });
-        toast.warning(tc("draft_needs_details_toast"));
-      } else {
-        updateItem(clientItemId, {
-          status: "ready",
-          expenseId,
-          merchant,
-          amountEur,
-        });
-        toast.success(tc("draft_saved_toast"));
-      }
+      const needsDetails = !scanned.amount || Boolean(scanned.error_code) || scanned.warnings?.length > 0;
+      updateItem(clientItemId, {
+        status: needsDetails ? "needs_details" : "ready",
+        expenseId: scanned.expense_id,
+        merchant: scanned.merchant,
+        amountEur: scanned.amount,
+        errorMessage: scanned.error_code ?? undefined,
+      });
+      toast[needsDetails ? "warning" : "success"](
+        tc(needsDetails ? "draft_needs_details_toast" : "draft_saved_toast")
+      );
     } catch (err: any) {
       updateItem(clientItemId, {
         status: "failed",
@@ -156,7 +105,7 @@ export default function CapturePage() {
       });
       toast.error(err?.response?.data?.detail ?? err?.message ?? t("error_save"));
     }
-  }, [user?.id, t, tc, qc, refreshOffline, toast, updateItem]);
+  }, [t, tc, qc, toast, updateItem]);
 
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

@@ -48,6 +48,52 @@ class OcrJobRepositoryTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `OCR completion persists the result while advancing the fenced stage`() {
+        val user = userRepository.findByUsername("tech1")!!
+        val now = Instant.parse("2026-09-10T10:00:00Z")
+        val job = ocrJobRepository.saveAndFlush(
+            OcrJob(
+                user = user,
+                status = OcrJobStatus.PENDING,
+                stage = OcrJobStage.OCR,
+                filename = "result.jpg"
+            )
+        )
+
+        assertEquals(1, ocrJobRepository.claimEligible(job.id!!, OcrJobStage.OCR, "lease-result", now.plusSeconds(60), now))
+        assertEquals(
+            1,
+            ocrJobRepository.completeOcrStage(
+                job.id!!,
+                "lease-result",
+                "{\"amount\":12.50}",
+                "OCR_PARTIAL",
+                now.plusSeconds(1)
+            )
+        )
+
+        val reloaded = ocrJobRepository.findById(job.id!!).orElseThrow()
+        assertEquals(OcrJobStage.EXPENSE, reloaded.stage)
+        assertEquals(OcrJobStatus.PENDING, reloaded.status)
+        assertEquals("{\"amount\":12.50}", reloaded.resultJson)
+        assertEquals("OCR_PARTIAL", reloaded.errorCode)
+    }
+
+    @Test
+    fun `claimable finder returns pending jobs in bounded order`() {
+        val user = userRepository.findByUsername("tech1")!!
+        val now = Instant.parse("2026-09-10T10:00:00Z")
+        ocrJobRepository.saveAllAndFlush(listOf(
+            OcrJob(user = user, status = OcrJobStatus.PENDING, filename = "one.jpg"),
+            OcrJob(user = user, status = OcrJobStatus.PENDING, filename = "two.jpg")
+        ))
+
+        val ids = ocrJobRepository.findClaimableJobIds(now, 1)
+
+        assertEquals(1, ids.size)
+    }
+
+    @Test
     fun `claim is compare and set and stale lease cannot complete`() {
         val user = userRepository.findByUsername("tech1")!!
         val now = Instant.parse("2026-09-10T10:00:00Z")

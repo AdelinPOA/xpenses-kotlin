@@ -11,6 +11,140 @@ import java.time.Instant
 
 @Repository
 interface OcrJobRepository : JpaRepository<OcrJob, Int> {
+    @Query(
+        value = """
+            SELECT id FROM ocr_jobs
+            WHERE status IN ('PENDING', 'RETRY_WAIT')
+              AND (status = 'PENDING' OR next_attempt_at IS NULL OR next_attempt_at <= :now)
+            ORDER BY id ASC
+            LIMIT :batchSize
+            """,
+        nativeQuery = true
+    )
+    fun findClaimableJobIds(
+        @Param("now") now: Instant,
+        @Param("batchSize") batchSize: Int
+    ): List<Int>
+
+    @Query(
+        value = """
+            SELECT id FROM ocr_jobs
+            WHERE status = 'PROCESSING'
+              AND lease_until IS NOT NULL
+              AND lease_until <= :now
+            ORDER BY id ASC
+            LIMIT :batchSize
+            """,
+        nativeQuery = true
+    )
+    fun findExpiredJobIds(
+        @Param("now") now: Instant,
+        @Param("batchSize") batchSize: Int
+    ): List<Int>
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Transactional
+    @Query(
+        value = """
+            UPDATE ocr_jobs
+            SET result_json = :resultJson,
+                stage = 'EXPENSE',
+                status = 'PENDING',
+                error_code = COALESCE(:errorCode, error_code),
+                lease_token = NULL,
+                lease_until = NULL,
+                updated_at = :now
+            WHERE id = :jobId
+              AND stage = 'OCR'
+              AND status = 'PROCESSING'
+              AND lease_token = :leaseToken
+              AND lease_until > :now
+            """,
+        nativeQuery = true
+    )
+    fun completeOcrStage(
+        @Param("jobId") jobId: Int,
+        @Param("leaseToken") leaseToken: String,
+        @Param("resultJson") resultJson: String,
+        @Param("errorCode") errorCode: String?,
+        @Param("now") now: Instant
+    ): Int
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Transactional
+    @Query(
+        value = """
+            UPDATE ocr_jobs
+            SET expense_id = :expenseId,
+                stage = 'RECEIPT',
+                status = 'PENDING',
+                lease_token = NULL,
+                lease_until = NULL,
+                error_code = COALESCE(:errorCode, error_code),
+                updated_at = :now
+            WHERE id = :jobId
+              AND stage = 'EXPENSE'
+              AND status = 'PROCESSING'
+              AND lease_token = :leaseToken
+              AND lease_until > :now
+            """,
+        nativeQuery = true
+    )
+    fun completeExpenseStage(
+        @Param("jobId") jobId: Int,
+        @Param("leaseToken") leaseToken: String,
+        @Param("expenseId") expenseId: Int,
+        @Param("errorCode") errorCode: String?,
+        @Param("now") now: Instant
+    ): Int
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Transactional
+    @Query(
+        value = """
+            UPDATE ocr_jobs
+            SET receipt_id = :receiptId,
+                status = 'COMPLETED',
+                completed_at = :now,
+                lease_token = NULL,
+                lease_until = NULL,
+                updated_at = :now
+            WHERE id = :jobId
+              AND stage = 'RECEIPT'
+              AND status = 'PROCESSING'
+              AND lease_token = :leaseToken
+              AND lease_until > :now
+            """,
+        nativeQuery = true
+    )
+    fun completeReceiptStage(
+        @Param("jobId") jobId: Int,
+        @Param("leaseToken") leaseToken: String,
+        @Param("receiptId") receiptId: Int,
+        @Param("now") now: Instant
+    ): Int
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Transactional
+    @Query(
+        value = """
+            UPDATE ocr_jobs
+            SET status = 'CANCELLED',
+                lease_token = NULL,
+                lease_until = NULL,
+                updated_at = :now
+            WHERE id = :jobId
+              AND user_id = :userId
+              AND status IN ('PENDING', 'RETRY_WAIT', 'PROCESSING')
+            """,
+        nativeQuery = true
+    )
+    fun cancelClaimed(
+        @Param("jobId") jobId: Int,
+        @Param("userId") userId: Int,
+        @Param("now") now: Instant
+    ): Int
+
     /**
      * Claims one stage only if the persisted snapshot is still eligible. The
      * affected-row count is the fencing result: exactly one means ownership;
@@ -70,6 +204,32 @@ interface OcrJobRepository : JpaRepository<OcrJob, Int> {
     fun completeClaimedStage(
         @Param("jobId") jobId: Int,
         @Param("leaseToken") leaseToken: String,
+        @Param("now") now: Instant
+    ): Int
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Transactional
+    @Query(
+        value = """
+            UPDATE ocr_jobs
+            SET status = 'PERMANENT_FAILURE',
+                error_code = :errorCode,
+                error_message = :errorMessage,
+                lease_token = NULL,
+                lease_until = NULL,
+                updated_at = :now
+            WHERE id = :jobId
+              AND status = 'PROCESSING'
+              AND lease_token = :leaseToken
+              AND lease_until > :now
+            """,
+        nativeQuery = true
+    )
+    fun recordPermanentFailure(
+        @Param("jobId") jobId: Int,
+        @Param("leaseToken") leaseToken: String,
+        @Param("errorCode") errorCode: String,
+        @Param("errorMessage") errorMessage: String?,
         @Param("now") now: Instant
     ): Int
 

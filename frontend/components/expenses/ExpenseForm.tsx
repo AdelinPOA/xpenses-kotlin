@@ -52,12 +52,15 @@ interface Props {
 export default function ExpenseForm({ expense, reportId, defaultCurrency, highlightReceipts }: Props) {
   const router = useRouter();
   const qc = useQueryClient();
-  const isEdit = !!expense;
   const t = useTranslations("expenses");
   const tc = useTranslations("common");
   const toast = useToast();
   const { user } = useAuth();
   const { refreshCount: refreshOffline } = useOfflineSync();
+
+  const [ocrExpense, setOcrExpense] = useState<Expense | null>(null);
+  const currentExpense = expense ?? ocrExpense;
+  const isEdit = !!currentExpense;
 
   const [form, setForm] = useState<FormFields>({
     amount: expense?.amount_original?.toString() ?? "",
@@ -161,13 +164,13 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency, highli
     gcTime: 600_000,
   });
 
-  const existingReceipts = expense?.receipts?.filter((r) => !deletedReceiptIds.has(r.id)) ?? [];
+  const existingReceipts = currentExpense?.receipts?.filter((r) => !deletedReceiptIds.has(r.id)) ?? [];
 
   const items = [
     ...existingReceipts.map((r) => ({
       key: `existing-${r.id}`,
       name: r.original_name || r.file_path.split("/").pop() || t("mobile_receipt"),
-      url: `${API_BASE_URL}/expenses/${expense!.id}/receipts/${r.id}`,
+      url: `${API_BASE_URL}/expenses/${currentExpense!.id}/receipts/${r.id}`,
       isImage: /\.(jpg|jpeg|png|webp)$/i.test(r.file_path || r.original_name || ""),
       isPdf: /\.pdf$/i.test(r.file_path || r.original_name || ""),
     })),
@@ -200,14 +203,15 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency, highli
         raw_ocr_text: form.raw_ocr_text || null,
         comparison_id: scanResult?.comparison_id || null,
         ...(manualRate !== null ? { fx_rate: manualRate, fx_rate_manual: true } : {}),
-        ...(reportId && !isEdit ? { report_id: reportId } : {}),
+        ...(reportId && !currentExpense?.report_id ? { report_id: reportId } : {}),
       };
 
-      if (isEdit) {
+      if (isEdit && currentExpense) {
         if (!navigator.onLine) throw new Error(t("edit_offline_unsupported"));
         let result: Expense;
         try {
-          result = await api.patch(`/expenses/${expense.id}`, payload).then((r) => r.data);
+          result = await api.patch(`/expenses/${currentExpense.id}`, payload).then((r) => r.data);
+          if (!expense) setOcrExpense(result);
         } catch (e: any) {
           throw new Error(e.response?.data?.detail ?? t("error_save"));
         }
@@ -331,6 +335,13 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency, highli
     scanAbortRef.current = ac;
     try {
       const result = await scanReceipt(file, { signal: ac.signal, onProgress: setScanProgress });
+      if (result.expense_id != null || result.receipt_id != null) {
+        if (result.expense_id == null || result.receipt_id == null) {
+          throw new ScanJobError(t("error_ocr_job"));
+        }
+        const canonicalExpense = await api.get<Expense>(`/expenses/${result.expense_id}`).then((response) => response.data);
+        setOcrExpense(canonicalExpense);
+      }
       setScanResult(result);
       setForm((f) => ({
         ...f,
@@ -344,7 +355,9 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency, highli
         description: f.description || result.description || "",
         raw_ocr_text: result.raw_text || "",
       }));
-      setReceiptFiles((prev) => [...prev, { id: crypto.randomUUID(), file }]);
+      if (result.expense_id == null && result.receipt_id == null) {
+        setReceiptFiles((prev) => [...prev, { id: crypto.randomUUID(), file }]);
+      }
     } catch (e: any) {
       if (e instanceof ScanCancelledError || e?.name === "AbortError") {
         // Cancelled — pre-scan state is already intact (nothing was applied).
@@ -464,8 +477,8 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency, highli
               currency={form.currency}
               amount={form.amount}
               date={form.date}
-              initialRate={expense?.fx_rate ?? null}
-              initialManualRate={expense?.fx_rate_manual ? expense.fx_rate ?? null : null}
+              initialRate={currentExpense?.fx_rate ?? null}
+              initialManualRate={currentExpense?.fx_rate_manual ? currentExpense.fx_rate ?? null : null}
               onToggle={() => {
                 if (fxRateEditMode) {
                   setFxRateEditMode(false);

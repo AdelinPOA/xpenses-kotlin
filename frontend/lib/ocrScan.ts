@@ -108,12 +108,16 @@ export async function scanReceipt(file: File, opts: ScanOptions = {}): Promise<O
         await sleep(1500, signal);
         const statusRes = await api.get(res.data.status_url, { signal });
         if (statusRes.data.status === "completed") {
-          result = {
+          const promotedResult = {
             ...(statusRes.data.result ?? {}),
             expense_id: statusRes.data.expense_id,
             receipt_id: statusRes.data.receipt_id,
             error_code: statusRes.data.error_code,
           } as OCRScanResult;
+          if (promotedResult.expense_id == null || promotedResult.receipt_id == null) {
+            throw new ScanJobError();
+          }
+          result = promotedResult;
           break;
         }
         if (statusRes.data.status === "failed") {

@@ -181,6 +181,88 @@ test.describe("Mobile expense layout (#47)", () => {
     await expectNoSeriousAxeViolations(page);
   });
 
+  test("OCR-created Expense is updated instead of recreated", async ({ page }) => {
+    await page.route("**/api/categories**", (route) => route.fulfill({ json: CATEGORIES }));
+    const requests: Array<{ method: string; url: string; postData?: string | null }> = [];
+    page.on("request", (request) => {
+      if (request.url().includes("/api/expenses")) {
+        requests.push({ method: request.method(), url: request.url(), postData: request.postData() });
+      }
+    });
+
+    const scannedExpense = {
+      id: 77,
+      category_id: 3,
+      category_name: "Meals",
+      report_id: null,
+      amount_original: 12.34,
+      currency_original: "EUR",
+      amount_eur: 12.34,
+      fx_rate: 1,
+      fx_rate_manual: false,
+      tax_amount: 0,
+      tax_rate: null,
+      tax_amount_eur: 0,
+      date: "2026-07-15",
+      description: null,
+      merchant: "Field Market",
+      receipt_path: "receipts/77.jpg",
+      receipts: [{ id: 88, expense_id: 77, original_name: "receipt.jpg", file_path: "receipts/77.jpg", created_at: "2026-07-15T10:00:00Z" }],
+      status: "draft",
+      raw_ocr_text: "FIELD MARKET 12.34 EUR",
+      created_at: "2026-07-15T10:00:00Z",
+      updated_at: "2026-07-15T10:00:00Z",
+    };
+    await page.route("**/api/ocr/scan", (route) => route.fulfill({
+      json: {
+        amount: 12.34,
+        currency: "EUR",
+        date: "2026-07-15",
+        merchant: "Field Market",
+        category_id: 3,
+        raw_text: "FIELD MARKET 12.34 EUR",
+        comparison_id: 9,
+        expense_id: 77,
+        receipt_id: 88,
+      },
+    }));
+    await page.route("**/api/expenses/77", async (route, request) => {
+      if (request.method() === "GET") {
+        await route.fulfill({ json: scannedExpense });
+        return;
+      }
+      if (request.method() === "PATCH") {
+        const body = JSON.parse(request.postData() ?? "{}");
+        await route.fulfill({ json: { ...scannedExpense, ...body, report_id: body.report_id ?? null } });
+        return;
+      }
+      await route.continue();
+    });
+    await page.route("**/api/expenses/77/receipts/88", (route) => route.fulfill({ body: "receipt", contentType: "image/jpeg" }));
+    await page.route("**/api/expenses/77/receipts", (route) => route.fulfill({ status: 500, json: { detail: "unexpected source upload" } }));
+
+    await page.goto("/expenses/new?reportId=2", { waitUntil: "load" });
+    await page.locator("#receipt-scan-input").setInputFiles({
+      name: "receipt.jpg",
+      mimeType: "image/jpeg",
+      buffer: Buffer.from("receipt"),
+    });
+
+    await expect(page.getByText("receipt.jpg").first()).toBeVisible();
+    await expect(page.getByRole("button", { name: /Save changes|Salvează modificările/i })).toBeVisible();
+    await page.getByLabel(/Merchant|Comerciant/i).fill("Reviewed Market");
+    await page.getByRole("button", { name: /Save changes|Salvează modificările/i }).click();
+    await expect(page).toHaveURL(/\/reports\/2$/);
+
+    const creates = requests.filter((request) => request.method === "POST" && request.url.endsWith("/api/expenses"));
+    const sourceUploads = requests.filter((request) => request.method === "POST" && request.url.includes("/api/expenses/77/receipts"));
+    const patch = requests.find((request) => request.method === "PATCH" && request.url.endsWith("/api/expenses/77"));
+    expect(creates).toHaveLength(0);
+    expect(sourceUploads).toHaveLength(0);
+    expect(patch).toBeDefined();
+    expect(JSON.parse(patch?.postData ?? "{}")).toMatchObject({ merchant: "Reviewed Market", report_id: 2 });
+  });
+
   test("receipt download inside the form does not submit or navigate", async ({ page }) => {
     const expense = {
       ...EXPENSES[1],

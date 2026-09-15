@@ -74,6 +74,19 @@ test.describe("Mobile expense layout (#47)", () => {
     await expect(page.locator("#mobile-bottom-nav").getByRole("link", { name: "Capture" })).toBeVisible();
   });
 
+  test("admin-enabled quick-add FAB is visible and opens a new Expense", async ({ page }) => {
+    await page.route("**/api/settings/ui", (route) => route.fulfill({ json: { mobile_quick_add_fab_enabled: true } }));
+    await page.route("**/api/dashboard**", (route) => route.fulfill({ json: DASHBOARD_DATA }));
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/dashboard", { waitUntil: "load" });
+
+    const fab = page.locator('a[aria-label="Add New Expense"]:visible');
+    await expect(fab).toHaveCount(1);
+    await expect(fab).toHaveAttribute("href", "/expenses/new");
+    await fab.click();
+    await expect(page).toHaveURL(/\/expenses\/new$/);
+  });
+
   test("expense list is compact, preserves filter URLs, and fits two rows above navigation", async ({ page }) => {
     await mockExpenses(page);
 

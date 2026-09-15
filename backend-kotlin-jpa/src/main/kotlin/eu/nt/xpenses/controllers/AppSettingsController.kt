@@ -60,7 +60,7 @@ class AppSettingsController(
         ResponseEntity.ok(MobileUiConfigOut(appSettingsService.isMobileQuickAddFabEnabled()))
 
     @PatchMapping("/ui")
-    @PreAuthorize("hasRole('chef_finance')")
+    @PreAuthorize("hasRole('mod')")
     fun updateMobileUiConfig(@Valid @RequestBody body: MobileUiConfigUpdate): ResponseEntity<MobileUiConfigOut> =
         ResponseEntity.ok(MobileUiConfigOut(appSettingsService.updateMobileQuickAddFab(body.mobileQuickAddFabEnabled)))
 

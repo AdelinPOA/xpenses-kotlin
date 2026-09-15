@@ -185,7 +185,10 @@ export async function setupCommonMocks(page: Page, opts?: { role?: keyof typeof 
   await setupAdminMocks(page);
 }
 
-export async function setupAdminMocks(page: Page, options?: { fxMarginsPatchResponse?: { status: number; body: unknown } }) {
+export async function setupAdminMocks(page: Page, options?: {
+  fxMarginsPatchResponse?: { status: number; body: unknown };
+  mobileUiPatchResponse?: { status: number; body: unknown };
+}) {
   let fxMargins = { ...FX_MARGINS, margins: { ...FX_MARGINS.margins } };
   await page.route("**/api/settings/fx-margins", async (route, req) => {
     if (req.method() === "GET") {
@@ -237,6 +240,10 @@ export async function setupAdminMocks(page: Page, options?: { fxMarginsPatchResp
   await page.route("**/api/settings/ui", async (route, req) => {
     if (req.method() === "GET") {
       await route.fulfill({ json: mobileUiSettings });
+      return;
+    }
+    if (options?.mobileUiPatchResponse) {
+      await route.fulfill({ status: options.mobileUiPatchResponse.status, json: options.mobileUiPatchResponse.body });
       return;
     }
     mobileUiSettings = { ...mobileUiSettings, ...(req.postDataJSON() as Partial<typeof mobileUiSettings>) };

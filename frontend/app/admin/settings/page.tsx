@@ -12,17 +12,15 @@ export default async function SettingsPage() {
 
   try {
     const [rates, allowanceData, fxProvidersData, mobileUiData] = await Promise.all([
-      serverFetch<MileageRates>("/settings/mileage-rates"),
-      serverFetch<{ daily_allowance_rate: number }>("/settings/daily-allowance-rate"),
+      serverFetch<MileageRates>("/settings/mileage-rates").catch(() => null),
+      serverFetch<{ daily_allowance_rate: number }>("/settings/daily-allowance-rate").catch(() => null),
       serverFetch<FxProvidersConfig>("/settings/fx-providers").catch(() => null),
-      serverFetch<MobileUiConfig>("/settings/ui"),
+      serverFetch<MobileUiConfig>("/settings/ui").catch(() => null),
     ]);
-    queryClient.setQueryData(settingsKeys.mileageRates(), rates);
-    queryClient.setQueryData(settingsKeys.dailyAllowanceRate(), allowanceData);
-    queryClient.setQueryData(settingsKeys.mobileUi(), mobileUiData);
-    if (fxProvidersData) {
-      queryClient.setQueryData(settingsKeys.fxProviders(), fxProvidersData);
-    }
+    if (rates) queryClient.setQueryData(settingsKeys.mileageRates(), rates);
+    if (allowanceData) queryClient.setQueryData(settingsKeys.dailyAllowanceRate(), allowanceData);
+    if (mobileUiData) queryClient.setQueryData(settingsKeys.mobileUi(), mobileUiData);
+    if (fxProvidersData) queryClient.setQueryData(settingsKeys.fxProviders(), fxProvidersData);
   } catch (error) {
     console.error("Admin settings prefetch failed:", error);
   }

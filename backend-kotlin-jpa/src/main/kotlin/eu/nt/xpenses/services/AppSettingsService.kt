@@ -42,6 +42,7 @@ class AppSettingsService(
 
     // --- Mobile UI ---
 
+    @Transactional(readOnly = true)
     fun isMobileQuickAddFabEnabled(): Boolean =
         appSettingRepository.findById(MOBILE_QUICK_ADD_FAB_SETTING).orElse(null)?.value?.toBooleanStrictOrNull() ?: false
 

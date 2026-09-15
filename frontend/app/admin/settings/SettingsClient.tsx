@@ -11,9 +11,76 @@ import { useTranslations } from "next-intl";
 import type { AxiosError } from "axios";
 import type { MobileUiConfig } from "@/lib/types/admin";
 
+function MobileUiSettingsCard() {
+  const qc = useQueryClient();
+  const t = useTranslations("admin");
+  const tc = useTranslations("common");
+  const { data: mobileUiConfig, isLoading } = useQuery<MobileUiConfig>({
+    queryKey: settingsKeys.mobileUi(),
+    queryFn: () => api.get("/settings/ui").then((r) => r.data),
+    staleTime: 300_000,
+    gcTime: 600_000,
+  });
+  const [enabled, setEnabled] = useState(false);
+
+  useEffect(() => {
+    if (mobileUiConfig) setEnabled(mobileUiConfig.mobile_quick_add_fab_enabled);
+  }, [mobileUiConfig]);
+
+  const updateMobileUi = useMutation<MobileUiConfig, unknown, boolean, { previous: MobileUiConfig | undefined; previousEnabled: boolean }>({
+    mutationFn: (nextEnabled) => api.patch("/settings/ui", { mobile_quick_add_fab_enabled: nextEnabled }).then((response) => response.data as MobileUiConfig),
+    onMutate: async (nextEnabled) => {
+      await qc.cancelQueries({ queryKey: settingsKeys.mobileUi() });
+      const previous = qc.getQueryData<MobileUiConfig>(settingsKeys.mobileUi());
+      return {
+        previous,
+        previousEnabled: previous?.mobile_quick_add_fab_enabled ?? !nextEnabled,
+      };
+    },
+    onSuccess: (data) => {
+      setEnabled(data.mobile_quick_add_fab_enabled);
+      qc.setQueryData(settingsKeys.mobileUi(), data);
+    },
+    onError: (_error, _nextEnabled, context) => {
+      setEnabled(context?.previousEnabled ?? false);
+      if (context?.previous) qc.setQueryData(settingsKeys.mobileUi(), context.previous);
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: settingsKeys.mobileUi() }),
+  });
+
+  if (isLoading) return <p className="text-slate-400 text-sm mt-8">{tc("loading")}</p>;
+
+  return (
+    <div className="bg-card rounded-xl shadow-sm p-6">
+      <h2 className="text-lg font-semibold text-foreground mb-2">{t("mobile_ui")}</h2>
+      <p className="text-sm text-muted mb-6">{t("mobile_ui_description")}</p>
+      <label className="flex items-center justify-between gap-4 cursor-pointer">
+        <span className="text-sm font-medium text-foreground">{t("mobile_quick_add_fab")}</span>
+        <input
+          type="checkbox"
+          role="switch"
+          aria-label={t("mobile_quick_add_fab")}
+          checked={enabled}
+          onChange={(event) => {
+            const nextEnabled = event.target.checked;
+            setEnabled(nextEnabled);
+            updateMobileUi.mutate(nextEnabled);
+          }}
+          disabled={updateMobileUi.isPending}
+          className="h-5 w-5 accent-primary"
+        />
+      </label>
+      {updateMobileUi.isSuccess && <p className="mt-3 text-sm text-emerald-600 dark:text-emerald-400">{t("config_saved")}</p>}
+      {updateMobileUi.isError && <p className="mt-3 text-sm text-red-600 dark:text-red-400">{t("failed_save")}</p>}
+    </div>
+  );
+}
+
 export default function SettingsClient() {
   const { user } = useAuth();
   const qc = useQueryClient();
+  const isChefFinance = user?.role === "chef_finance";
+  const isMod = user?.role === "mod";
   const t = useTranslations("admin");
   const tc = useTranslations("common");
 
@@ -22,6 +89,7 @@ export default function SettingsClient() {
     queryFn: () => api.get("/settings/mileage-rates").then((r) => r.data),
     staleTime: 300_000,
     gcTime: 600_000,
+    enabled: isChefFinance,
   });
 
   const { data: allowanceData, isLoading: allowanceLoading } = useQuery<{ daily_allowance_rate: number }>({
@@ -29,6 +97,7 @@ export default function SettingsClient() {
     queryFn: () => api.get("/settings/daily-allowance-rate").then((r) => r.data),
     staleTime: 300_000,
     gcTime: 600_000,
+    enabled: isChefFinance,
   });
 
   const { data: fxMarginsData, isLoading: fxMarginsLoading } = useQuery<FxMargins>({
@@ -36,13 +105,7 @@ export default function SettingsClient() {
     queryFn: () => api.get("/settings/fx-margins").then((r) => ({ ...r.data, defaultMargin: r.data.default_margin })),
     staleTime: 300_000,
     gcTime: 600_000,
-  });
-
-  const { data: mobileUiConfig, isLoading: mobileUiLoading } = useQuery<MobileUiConfig>({
-    queryKey: settingsKeys.mobileUi(),
-    queryFn: () => api.get("/settings/ui").then((r) => r.data),
-    staleTime: 300_000,
-    gcTime: 600_000,
+    enabled: isChefFinance,
   });
 
   const { data: fxProvidersData, isLoading: fxProvidersLoading } = useQuery<FxProvidersConfig>({
@@ -50,6 +113,7 @@ export default function SettingsClient() {
     queryFn: () => getFxProviders(),
     staleTime: 300_000,
     gcTime: 600_000,
+    enabled: isChefFinance,
   });
 
   const [bt, setBt] = useState("");
@@ -60,7 +124,6 @@ export default function SettingsClient() {
   const [incomeTaxRate, setIncomeTaxRate] = useState("");
   const [taxDeduction, setTaxDeduction] = useState("");
   const [dailyRate, setDailyRate] = useState("");
-  const [mobileQuickAddFabEnabled, setMobileQuickAddFabEnabled] = useState(false);
   const [fxMargins, setFxMargins] = useState<Record<string, string>>({});
   const [fxDefaultMargin, setFxDefaultMargin] = useState("");
   const [fxErrors, setFxErrors] = useState<Record<string, string>>({});
@@ -93,12 +156,6 @@ export default function SettingsClient() {
   }, [allowanceData]);
 
   useEffect(() => {
-    if (mobileUiConfig) {
-      setMobileQuickAddFabEnabled(mobileUiConfig.mobile_quick_add_fab_enabled);
-    }
-  }, [mobileUiConfig]);
-
-  useEffect(() => {
     if (fxMarginsData) {
       setFxMargins(Object.fromEntries(Object.entries(fxMarginsData.margins).map(([key, value]) => [key, String(value)])));
       setFxDefaultMargin(String(fxMarginsData.defaultMargin));
@@ -121,14 +178,6 @@ export default function SettingsClient() {
     mutationFn: (data: { daily_allowance_rate: number }) =>
       api.patch("/settings/daily-allowance-rate", data),
     onSuccess: () => qc.invalidateQueries({ queryKey: settingsKeys.dailyAllowanceRate() }),
-  });
-
-  const updateMobileUi = useMutation({
-    mutationFn: (enabled: boolean) => api.patch("/settings/ui", { mobile_quick_add_fab_enabled: enabled }).then((response) => response.data as MobileUiConfig),
-    onSuccess: (data: MobileUiConfig) => {
-      setMobileQuickAddFabEnabled(data.mobile_quick_add_fab_enabled);
-      qc.invalidateQueries({ queryKey: settingsKeys.mobileUi() });
-    },
   });
 
   const updateFxMargins = useMutation<FxMargins, AxiosError<ApiValidationError>, { margins: Record<string, number>; default_margin: number }>({
@@ -269,11 +318,21 @@ export default function SettingsClient() {
     updateFxMargins.mutate({ margins: values, default_margin: defaultValue });
   };
 
-  if (user?.role !== "chef_finance") {
+  if (!isChefFinance && !isMod) {
     return <AppShell><p className="text-red-500 text-sm">{t("access_denied")}</p></AppShell>;
   }
 
-  if (ratesLoading || allowanceLoading || fxMarginsLoading || mobileUiLoading) return <AppShell><p className="text-slate-400 text-sm mt-8">{tc("loading")}</p></AppShell>;
+  if (isMod) {
+    return (
+      <AppShell>
+        <div className="space-y-6 max-w-lg">
+          <MobileUiSettingsCard />
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (ratesLoading || allowanceLoading || fxMarginsLoading || fxProvidersLoading) return <AppShell><p className="text-slate-400 text-sm mt-8">{tc("loading")}</p></AppShell>;
 
   return (
     <AppShell>
@@ -375,29 +434,6 @@ export default function SettingsClient() {
               <p className="text-sm text-emerald-600 dark:text-emerald-400">{t("config_saved")}</p>
             )}
           </div>
-        </div>
-
-        <div className="bg-card rounded-xl shadow-sm p-6">
-          <h2 className="text-lg font-semibold text-foreground mb-2">{t("mobile_ui")}</h2>
-          <p className="text-sm text-muted mb-6">{t("mobile_ui_description")}</p>
-          <label className="flex items-center justify-between gap-4 cursor-pointer">
-            <span className="text-sm font-medium text-foreground">{t("mobile_quick_add_fab")}</span>
-            <input
-              type="checkbox"
-              role="switch"
-              aria-label={t("mobile_quick_add_fab")}
-              checked={mobileQuickAddFabEnabled}
-              onChange={(event) => {
-                const enabled = event.target.checked;
-                setMobileQuickAddFabEnabled(enabled);
-                updateMobileUi.mutate(enabled);
-              }}
-              disabled={updateMobileUi.isPending}
-              className="h-5 w-5 accent-primary"
-            />
-          </label>
-          {updateMobileUi.isSuccess && <p className="mt-3 text-sm text-emerald-600 dark:text-emerald-400">{t("config_saved")}</p>}
-          {updateMobileUi.isError && <p className="mt-3 text-sm text-red-600 dark:text-red-400">{t("failed_save")}</p>}
         </div>
 
         <div className="bg-card rounded-xl shadow-sm p-6">

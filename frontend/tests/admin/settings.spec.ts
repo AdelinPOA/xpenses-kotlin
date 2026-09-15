@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { setupAuthMocks, setupAdminMocks } from "../shared/mocks";
 
-test.describe("Admin Settings (chef_finance)", () => {
+test.describe("Admin Settings", () => {
   test.beforeEach(async ({ page }) => {
     await page.route("**/sw.js", (route) => route.abort());
   });
@@ -15,15 +15,34 @@ test.describe("Admin Settings (chef_finance)", () => {
     await expect(page.getByRole("heading", { name: /daily allowance/i })).toBeVisible();
   });
 
-  test("can configure the mobile quick-add FAB", async ({ page }) => {
-    await setupAuthMocks(page, "cfo");
+  test("only mod can configure the mobile quick-add FAB", async ({ page }) => {
+    await setupAuthMocks(page, "mod");
     await setupAdminMocks(page);
     await page.goto("/admin/settings", { waitUntil: "load" });
     const fabToggle = page.getByRole("switch", { name: /mobile quick-add/i });
     await expect(fabToggle).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole("heading", { name: /mileage rates/i })).not.toBeVisible();
     await expect(fabToggle).not.toBeChecked();
     await fabToggle.check();
     await expect(fabToggle).toBeChecked();
+  });
+
+  test("chef_finance cannot configure the mobile quick-add FAB", async ({ page }) => {
+    await setupAuthMocks(page, "cfo");
+    await setupAdminMocks(page);
+    await page.goto("/admin/settings", { waitUntil: "load" });
+    await expect(page.getByRole("switch", { name: /mobile quick-add/i })).not.toBeVisible();
+  });
+
+  test("failed mobile FAB save rolls back the toggle", async ({ page }) => {
+    await setupAuthMocks(page, "mod");
+    await setupAdminMocks(page, { mobileUiPatchResponse: { status: 500, body: { detail: "Save failed" } } });
+    await page.goto("/admin/settings", { waitUntil: "load" });
+    const fabToggle = page.getByRole("switch", { name: /mobile quick-add/i });
+    await expect(fabToggle).toBeVisible({ timeout: 15000 });
+    await fabToggle.check();
+    await expect(fabToggle).not.toBeChecked();
+    await expect(page.getByText(/failed to save/i)).toBeVisible();
   });
 
   test("Save buttons are visible", async ({ page }) => {

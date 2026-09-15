@@ -63,6 +63,7 @@ test.describe("Dashboard", () => {
   test("mobile FAB button visible at 375px", async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 });
     await setupCommonMocks(page);
+    await page.route("**/api/settings/ui", (route) => route.fulfill({ json: { mobile_quick_add_fab_enabled: true } }));
     await page.goto("/dashboard", { waitUntil: "load" });
     await page.waitForTimeout(2000);
     await expect(page.getByRole("link", { name: "Add New Expense" })).toBeVisible({ timeout: 15000 });

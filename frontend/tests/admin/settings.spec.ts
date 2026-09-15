@@ -15,6 +15,17 @@ test.describe("Admin Settings (chef_finance)", () => {
     await expect(page.getByRole("heading", { name: /daily allowance/i })).toBeVisible();
   });
 
+  test("can configure the mobile quick-add FAB", async ({ page }) => {
+    await setupAuthMocks(page, "cfo");
+    await setupAdminMocks(page);
+    await page.goto("/admin/settings", { waitUntil: "load" });
+    const fabToggle = page.getByRole("switch", { name: /mobile quick-add/i });
+    await expect(fabToggle).toBeVisible({ timeout: 15000 });
+    await expect(fabToggle).not.toBeChecked();
+    await fabToggle.check();
+    await expect(fabToggle).toBeChecked();
+  });
+
   test("Save buttons are visible", async ({ page }) => {
     await setupAuthMocks(page, "cfo");
     await setupAdminMocks(page);

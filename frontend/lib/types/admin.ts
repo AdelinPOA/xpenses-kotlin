@@ -82,6 +82,10 @@ export interface OcrConfig {
   gemini_api_key?: string | null;
 }
 
+export interface MobileUiConfig {
+  mobile_quick_add_fab_enabled: boolean;
+}
+
 export interface StorageConfig {
   provider_type: string;
   local?: { path?: string | null } | null;

@@ -152,6 +152,8 @@ export const MILEAGE_RATES = {
 
 export const DAILY_ALLOWANCE_RATE = { daily_allowance_rate: 45.0 };
 
+export const MOBILE_UI_SETTINGS = { mobile_quick_add_fab_enabled: false };
+
 export const FX_MARGINS = {
   margins: { EUR: 2.0, USD: 2.5, GBP: 2.0, CHF: 2.0, RON: 0.0 },
   default_margin: 2.0,
@@ -231,6 +233,15 @@ export async function setupAdminMocks(page: Page, options?: { fxMarginsPatchResp
   await page.route("**/api/settings/storage/test", (route) => route.fulfill({ json: { success: true, message: "Storage connection OK" } }));
   await page.route("**/api/settings/storage/migration-status", (route) => route.fulfill({ json: { migrating: false, progress: 100, total: 0, errors: [] } }));
   await page.route("**/api/settings/daily-allowance-rate*", (route) => route.fulfill({ json: DAILY_ALLOWANCE_RATE }));
+  let mobileUiSettings = { ...MOBILE_UI_SETTINGS };
+  await page.route("**/api/settings/ui", async (route, req) => {
+    if (req.method() === "GET") {
+      await route.fulfill({ json: mobileUiSettings });
+      return;
+    }
+    mobileUiSettings = { ...mobileUiSettings, ...(req.postDataJSON() as Partial<typeof mobileUiSettings>) };
+    await route.fulfill({ json: mobileUiSettings });
+  });
   await page.route("**/api/settings/mileage-rates*", (route) => route.fulfill({ json: MILEAGE_RATES }));
   await page.route("**/api/ocr/comparison", (route) => route.fulfill({ json: { history: [], stats: { total_scanned: 0, gemini_amount_accuracy: 0, gemini_date_accuracy: 0, gemini_merchant_accuracy: 0, gemini_category_accuracy: 0 } } }));
   await page.route("**/api/categories**", (route) => route.fulfill({ json: CATEGORIES }));

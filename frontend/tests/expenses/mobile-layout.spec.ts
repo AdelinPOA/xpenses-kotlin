@@ -1,6 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
-import { APP_ORIGIN, CATEGORIES, EXPENSES, setupAuthMocks, USERS } from "../shared/mocks";
+import { APP_ORIGIN, CATEGORIES, DASHBOARD_DATA, EXPENSES, setupAuthMocks, USERS } from "../shared/mocks";
 
 const EVIDENCE_DIR = "../docs/ux/mobile-ios-review/issue-47/after";
 
@@ -62,6 +62,16 @@ test.describe("Mobile expense layout (#47)", () => {
   test.beforeEach(async ({ page }) => {
     await page.route("**/sw.js", (route) => route.abort());
     await setupAuthMocks(page, "user");
+  });
+
+  test("admin-disabled quick-add FAB leaves the bottom-bar Capture action available", async ({ page }) => {
+    await page.route("**/api/settings/ui", (route) => route.fulfill({ json: { mobile_quick_add_fab_enabled: false } }));
+    await page.route("**/api/dashboard**", (route) => route.fulfill({ json: DASHBOARD_DATA }));
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/dashboard", { waitUntil: "load" });
+
+    await expect(page.locator('a[aria-label="Add New Expense"]')).not.toBeVisible();
+    await expect(page.locator("#mobile-bottom-nav").getByRole("link", { name: "Capture" })).toBeVisible();
   });
 
   test("expense list is compact, preserves filter URLs, and fits two rows above navigation", async ({ page }) => {

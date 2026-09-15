@@ -17,6 +17,8 @@ import eu.nt.xpenses.dto.settings.IngestionRetryIn
 import eu.nt.xpenses.ingestion.TechnicianEmailIngestion
 import eu.nt.xpenses.dto.settings.MileageRatesOut
 import eu.nt.xpenses.dto.settings.MileageRatesUpdate
+import eu.nt.xpenses.dto.settings.MobileUiConfigOut
+import eu.nt.xpenses.dto.settings.MobileUiConfigUpdate
 import eu.nt.xpenses.dto.settings.OCRConfigOut
 import eu.nt.xpenses.dto.settings.OCRConfigUpdate
 import eu.nt.xpenses.dto.settings.OCRTestRequest
@@ -51,6 +53,16 @@ class AppSettingsController(
     private val emailImportService: EmailImportService,
     private val httpFxRateProvider: HttpFxRateProvider
 ) {
+
+    // --- Mobile UI ---
+    @GetMapping("/ui")
+    fun readMobileUiConfig(): ResponseEntity<MobileUiConfigOut> =
+        ResponseEntity.ok(MobileUiConfigOut(appSettingsService.isMobileQuickAddFabEnabled()))
+
+    @PatchMapping("/ui")
+    @PreAuthorize("hasRole('chef_finance')")
+    fun updateMobileUiConfig(@Valid @RequestBody body: MobileUiConfigUpdate): ResponseEntity<MobileUiConfigOut> =
+        ResponseEntity.ok(MobileUiConfigOut(appSettingsService.updateMobileQuickAddFab(body.mobileQuickAddFabEnabled)))
 
     // --- Daily Allowance Rate ---
     @GetMapping("/daily-allowance-rate")

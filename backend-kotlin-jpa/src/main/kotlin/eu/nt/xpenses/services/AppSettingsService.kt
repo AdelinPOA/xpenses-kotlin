@@ -37,6 +37,18 @@ class AppSettingsService(
         private val SECRET_PLACEHOLDERS = setOf("••••••••", "****")
         private const val DEFAULT_LOCAL_RECEIPTS_PATH = "/app/data/receipts"
         val DEFAULT_DAILY_ALLOWANCE_RATE: BigDecimal = BigDecimal("50.00")
+        const val MOBILE_QUICK_ADD_FAB_SETTING = "mobile_quick_add_fab_enabled"
+    }
+
+    // --- Mobile UI ---
+
+    fun isMobileQuickAddFabEnabled(): Boolean =
+        appSettingRepository.findById(MOBILE_QUICK_ADD_FAB_SETTING).orElse(null)?.value?.toBooleanStrictOrNull() ?: false
+
+    @Transactional
+    fun updateMobileQuickAddFab(enabled: Boolean): Boolean {
+        appSettingRepository.save(AppSetting(MOBILE_QUICK_ADD_FAB_SETTING, enabled.toString(), Instant.now()))
+        return enabled
     }
 
     // --- Daily Allowance Rate ---

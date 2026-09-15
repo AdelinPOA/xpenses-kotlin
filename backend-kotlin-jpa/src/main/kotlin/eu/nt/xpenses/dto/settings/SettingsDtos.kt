@@ -14,6 +14,14 @@ data class DailyAllowanceUpdate(
     @JsonProperty("daily_allowance_rate") val dailyAllowanceRate: BigDecimal
 )
 
+data class MobileUiConfigOut(
+    @JsonProperty("mobile_quick_add_fab_enabled") val mobileQuickAddFabEnabled: Boolean
+)
+
+data class MobileUiConfigUpdate(
+    @JsonProperty("mobile_quick_add_fab_enabled") val mobileQuickAddFabEnabled: Boolean
+)
+
 data class MileageRatesOut(
     @JsonProperty("mileage_rate_before_tax") val mileageRateBeforeTax: BigDecimal,
     @JsonProperty("mileage_rate_after_tax") val mileageRateAfterTax: BigDecimal,

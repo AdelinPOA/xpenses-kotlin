@@ -3,7 +3,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState, useMemo, useEffect } from "react";
 import api, { DashboardStats, Report, downloadBlob, ManagerDashboardStats } from "@/lib/api";
-import { dashboardKeys, reportKeys } from "@/lib/queryKeys";
+import type { MobileUiConfig } from "@/lib/types/admin";
+import { dashboardKeys, reportKeys, settingsKeys } from "@/lib/queryKeys";
 import { triggerHaptic } from "@/lib/haptics";
 import AppShell from "@/components/layout/AppShell";
 import SpendChart from "@/components/dashboard/SpendChart";
@@ -75,6 +76,14 @@ export default function DashboardClient() {
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  const { data: mobileUiConfig } = useQuery<MobileUiConfig>({
+    queryKey: settingsKeys.mobileUi(),
+    queryFn: () => api.get("/settings/ui").then((r) => r.data),
+    enabled: !!user,
+    staleTime: 300_000,
+    gcTime: 600_000,
+  });
 
   // Fetch standard dashboard stats
   const { data, isLoading } = useQuery<DashboardStats>({
@@ -776,23 +785,25 @@ export default function DashboardClient() {
               total={data?.expense_count_month ?? 0}
             />
 
-            {/* Collapsible Floating Action Button (FAB) on Mobile */}
-            <div className="fixed bottom-[calc(4rem+env(safe-area-inset-bottom,0px)+1rem)] right-4 z-20">
-              <Link
-                href="/expenses/new"
-                aria-label={t("add_expense")}
-                onClick={() => triggerHaptic(15)}
-                className={clsx(
-                  "flex items-center justify-center bg-primary hover:bg-primary-hover text-white shadow-lg font-bold text-xs uppercase tracking-wider transition-all duration-300 active:scale-95 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
-                  isScrolled
-                    ? "w-12 h-12 rounded-full p-0"
-                    : "h-12 px-4 py-3 rounded-full gap-2"
-                )}
-              >
-                <Camera className="w-5 h-5 shrink-0" />
-                {!isScrolled && <span className="whitespace-nowrap transition-opacity duration-200">{t("quick_add_expense")}</span>}
-              </Link>
-            </div>
+            {/* Optional quick-add FAB; the bottom navigation Capture action is always available. */}
+            {mobileUiConfig?.mobile_quick_add_fab_enabled === true && (
+              <div className="fixed bottom-[calc(4rem+env(safe-area-inset-bottom,0px)+1rem)] right-4 z-20">
+                <Link
+                  href="/expenses/new"
+                  aria-label={t("add_expense")}
+                  onClick={() => triggerHaptic(15)}
+                  className={clsx(
+                    "flex items-center justify-center bg-primary hover:bg-primary-hover text-white shadow-lg font-bold text-xs uppercase tracking-wider transition-all duration-300 active:scale-95 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+                    isScrolled
+                      ? "w-12 h-12 rounded-full p-0"
+                      : "h-12 px-4 py-3 rounded-full gap-2"
+                  )}
+                >
+                  <Camera className="w-5 h-5 shrink-0" />
+                  {!isScrolled && <span className="whitespace-nowrap transition-opacity duration-200">{t("quick_add_expense")}</span>}
+                </Link>
+              </div>
+            )}
           </div>
         </div>
       )}

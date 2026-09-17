@@ -44,8 +44,11 @@ const ACCESS_TOKEN_TTL_MS = 60 * 60 * 1000;
 const PROACTIVE_REFRESH_MS = ACCESS_TOKEN_TTL_MS - 10 * 60 * 1000;
 
 export default function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(getStoredUser);
-  const [loading, setLoading] = useState(() => !getStoredUser());
+  // Keep the first render identical on the server and client. Reading
+  // localStorage in a state initializer makes the client render a different
+  // tree when a cached session exists, which causes hydration to fail.
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
   const queryClient = useQueryClient();
@@ -119,6 +122,11 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     };
 
     document.addEventListener("visibilitychange", handleVisibility);
+
+    // Browser storage is only read after hydration so the initial tree stays
+    // deterministic. This also preserves cached sessions while offline.
+    const storedUser = getStoredUser();
+    if (storedUser) setUser(storedUser);
 
     checkAuth();
     interval = setInterval(checkAuth, 5 * 60 * 1000);

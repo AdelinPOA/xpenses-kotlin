@@ -7,7 +7,9 @@ import { setupAuthMocks, setupCommonMocks } from "../shared/mocks";
  * creates the Expense once and then completes its Receipt batch.
  */
 
-async function idbQueueItems(page: Page): Promise<Array<Record<string, unknown>>> {
+async function idbQueueItems(
+  page: Page,
+): Promise<Array<Record<string, unknown>>> {
   return page.evaluate(async () => {
     const db = await new Promise<IDBDatabase>((resolve, reject) => {
       // Omit the version so this helper follows schema migrations.
@@ -15,12 +17,15 @@ async function idbQueueItems(page: Page): Promise<Array<Record<string, unknown>>
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);
     });
-    const items = await new Promise<Array<Record<string, unknown>>>((resolve, reject) => {
-      const tx = db.transaction("pending_expenses", "readonly");
-      const request = tx.objectStore("pending_expenses").getAll();
-      request.onsuccess = () => resolve(request.result as Array<Record<string, unknown>>);
-      request.onerror = () => reject(request.error);
-    });
+    const items = await new Promise<Array<Record<string, unknown>>>(
+      (resolve, reject) => {
+        const tx = db.transaction("pending_expenses", "readonly");
+        const request = tx.objectStore("pending_expenses").getAll();
+        request.onsuccess = () =>
+          resolve(request.result as Array<Record<string, unknown>>);
+        request.onerror = () => reject(request.error);
+      },
+    );
     db.close();
     return items;
   });
@@ -37,8 +42,11 @@ test.describe("Offline draft queue", () => {
     await setupCommonMocks(page);
   });
 
-  test("save offline queues the draft and syncs when back online", async ({ page }) => {
-    let syncedPayload: { amount?: number; merchant?: string | null } | null = null;
+  test("save offline queues the draft and syncs when back online", async ({
+    page,
+  }) => {
+    let syncedPayload: { amount?: number; merchant?: string | null } | null =
+      null;
 
     // LIFO: this more-specific route wins once registered.
     await page.route("**/api/expenses", async (route, req) => {
@@ -73,14 +81,16 @@ test.describe("Offline draft queue", () => {
     });
 
     await page.goto("/expenses/new", { waitUntil: "load" });
-    await expect(page.getByLabel("Amount")).toBeVisible();
+    await expect(page.locator("#expense-amount")).toBeVisible();
 
     // Go offline and save.
     await page.context().setOffline(true);
     // navigator.onLine propagates lazily to the renderer — wait for it,
     // otherwise the save takes the online path with a hung request.
-    await expect.poll(() => page.evaluate(() => navigator.onLine), { timeout: 10000 }).toBe(false);
-    await page.getByLabel("Amount").fill("42.5");
+    await expect
+      .poll(() => page.evaluate(() => navigator.onLine), { timeout: 10000 })
+      .toBe(false);
+    await page.locator("#expense-amount").fill("42.5");
     await page.getByLabel("Merchant", { exact: true }).fill("Offline Shop");
     await page.getByRole("button", { name: /Create expense/i }).click();
 
@@ -102,7 +112,9 @@ test.describe("Offline draft queue", () => {
     await expect.poll(() => idbQueueCount(page), { timeout: 10000 }).toBe(0);
   });
 
-  test("reuses an acknowledged Expense when Receipt upload fails", async ({ page }) => {
+  test("reuses an acknowledged Expense when Receipt upload fails", async ({
+    page,
+  }) => {
     let createCount = 0;
     let receiptCount = 0;
     let allowReceiptRetry = false;
@@ -144,12 +156,17 @@ test.describe("Offline draft queue", () => {
         await route.abort("failed");
         return;
       }
-      await route.fulfill({ status: 200, json: [{ id: 1, file_path: "receipt.jpg", original_name: "receipt.jpg" }] });
+      await route.fulfill({
+        status: 200,
+        json: [
+          { id: 1, file_path: "receipt.jpg", original_name: "receipt.jpg" },
+        ],
+      });
     });
 
     await page.goto("/expenses/new", { waitUntil: "load" });
-    await expect(page.getByLabel("Amount")).toBeVisible();
-    await page.getByLabel("Amount").fill("42.5");
+    await expect(page.locator("#expense-amount")).toBeVisible();
+    await page.locator("#expense-amount").fill("42.5");
     await page.getByLabel("Merchant", { exact: true }).fill("Receipt Shop");
     await page.locator('input[name="receipts"]').setInputFiles({
       name: "receipt.jpg",
@@ -159,29 +176,39 @@ test.describe("Offline draft queue", () => {
     await page.getByRole("button", { name: /Create expense/i }).click();
 
     await expect(page).toHaveURL(/\/expenses\/999\/edit\?upload_failed=1/);
-    await expect.poll(async () => {
-      const [item] = await idbQueueItems(page);
-      return item?.expenseId;
-    }).toBe(999);
+    await expect
+      .poll(async () => {
+        const [item] = await idbQueueItems(page);
+        return item?.expenseId;
+      })
+      .toBe(999);
     expect(createCount).toBe(1);
     expect(receiptCount).toBeGreaterThanOrEqual(1);
 
     // Allow the provider's backoff timer to resume the Receipt stage without
     // issuing a second Expense creation.
     allowReceiptRetry = true;
-    await expect.poll(() => receiptCount, { timeout: 15000 }).toBeGreaterThan(1);
+    await expect
+      .poll(() => receiptCount, { timeout: 15000 })
+      .toBeGreaterThan(1);
     await expect.poll(() => idbQueueCount(page), { timeout: 10000 }).toBe(0);
     expect(createCount).toBe(1);
   });
 
-  test("connection banner appears when offline with a queue and clears on reconnect", async ({ page }) => {
+  test("connection banner appears when offline with a queue and clears on reconnect", async ({
+    page,
+  }) => {
     await page.goto("/expenses/new", { waitUntil: "load" });
-    await expect(page.getByLabel("Amount")).toBeVisible();
+    await expect(page.locator("#expense-amount")).toBeVisible();
 
     await page.context().setOffline(true);
-    await expect(page.getByText(/Offline — changes will sync automatically/i)).toBeVisible();
+    await expect(
+      page.getByText(/Offline — changes will sync automatically/i),
+    ).toBeVisible();
 
     await page.context().setOffline(false);
-    await expect(page.getByText(/Offline — changes will sync automatically/i)).toBeHidden({ timeout: 10000 });
+    await expect(
+      page.getByText(/Offline — changes will sync automatically/i),
+    ).toBeHidden({ timeout: 10000 });
   });
 });

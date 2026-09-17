@@ -1,15 +1,28 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import api, { Category, Expense, CURRENCIES, API_BASE_URL, downloadBlob, OCRScanResult } from "@/lib/api";
+import api, {
+  Category,
+  Expense,
+  CURRENCIES,
+  API_BASE_URL,
+  downloadBlob,
+  OCRScanResult,
+} from "@/lib/api";
 import { categoryKeys, expenseKeys, dashboardKeys } from "@/lib/queryKeys";
 import { useFormGuard } from "@/lib/useFormGuard";
-import { scanReceipt, ScanProgress, ScanCancelledError, ScanTimeoutError, ScanJobError } from "@/lib/ocrScan";
+import {
+  captureReceipt,
+  isReceiptCaptureCancelled,
+  ScanTimeoutError,
+  ScanJobError,
+} from "@/lib/receiptCapture";
+import type { ScanProgress } from "@/lib/receiptCapture";
 import { saveNewExpense } from "@/lib/expenseSaving";
 import { useOfflineSync } from "@/components/OfflineSyncProvider";
-import { Camera, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import clsx from "clsx";
 import { formatEur } from "@/lib/format";
 import ReceiptScanner from "./ReceiptScanner";
@@ -23,10 +36,18 @@ function sanitizeUrl(url: string): string {
   try {
     const parsed = new URL(url, window.location.origin);
     const protocol = parsed.protocol.toLowerCase();
-    if (protocol === "javascript:" || protocol === "data:" || protocol === "file:" || protocol === "vbscript:") return "";
+    if (
+      protocol === "javascript:" ||
+      protocol === "data:" ||
+      protocol === "file:" ||
+      protocol === "vbscript:"
+    )
+      return "";
     if (url.startsWith("blob:")) return url;
     return parsed.href;
-  } catch { return ""; }
+  } catch {
+    return "";
+  }
 }
 
 interface FormFields {
@@ -49,7 +70,12 @@ interface Props {
   highlightReceipts?: boolean;
 }
 
-export default function ExpenseForm({ expense, reportId, defaultCurrency, highlightReceipts }: Props) {
+export default function ExpenseForm({
+  expense,
+  reportId,
+  defaultCurrency,
+  highlightReceipts,
+}: Props) {
   const router = useRouter();
   const qc = useQueryClient();
   const t = useTranslations("expenses");
@@ -76,8 +102,12 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency, highli
   const [fxRateEditMode, setFxRateEditMode] = useState(false);
   // Effective manual FX rate (raw or derived from the debited amount), reported by FxRateInput.
   const [manualFxRate, setManualFxRate] = useState<number | null>(null);
-  const [receiptFiles, setReceiptFiles] = useState<{ id: string; file: File }[]>([]);
-  const [deletedReceiptIds, setDeletedReceiptIds] = useState<Set<number>>(new Set());
+  const [receiptFiles, setReceiptFiles] = useState<
+    { id: string; file: File }[]
+  >([]);
+  const [deletedReceiptIds, setDeletedReceiptIds] = useState<Set<number>>(
+    new Set(),
+  );
   const [error, setError] = useState("");
   const [savedExpense, setSavedExpense] = useState<Expense | null>(null);
   const [isScanning, setIsScanning] = useState(false);
@@ -91,7 +121,8 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency, highli
   const [isUploadingReceipts, setIsUploadingReceipts] = useState(false);
   // Set when a save succeeded but receipt upload failed while editing:
   // stays on the page and highlights the receipt section.
-  const [receiptUploadFailedLocal, setReceiptUploadFailedLocal] = useState(false);
+  const [receiptUploadFailedLocal, setReceiptUploadFailedLocal] =
+    useState(false);
   const scanInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
@@ -100,7 +131,9 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency, highli
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDraggingImage, setIsDraggingImage] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const [activeMobileTab, setActiveMobileTab] = useState<'details' | 'receipt'>('details');
+  const [activeMobileTab, setActiveMobileTab] = useState<"details" | "receipt">(
+    "details",
+  );
   const [isDragging, setIsDragging] = useState(false);
 
   // Unsaved-changes guard: any field drift from initial values, or receipt
@@ -110,7 +143,9 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency, highli
   const initialFxRef = useRef({ fxRateEditMode, manualFxRate });
   const isDirty = () =>
     Object.keys(initialFieldsRef.current).some(
-      (k) => form[k as keyof FormFields] !== initialFieldsRef.current[k as keyof FormFields]
+      (k) =>
+        form[k as keyof FormFields] !==
+        initialFieldsRef.current[k as keyof FormFields],
     ) ||
     fxRateEditMode !== initialFxRef.current.fxRateEditMode ||
     manualFxRate !== initialFxRef.current.manualFxRate ||
@@ -134,7 +169,8 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency, highli
   const redirectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const getObjectUrl = (file: File) => {
-    if (!objectUrlsRef.current.has(file)) objectUrlsRef.current.set(file, URL.createObjectURL(file));
+    if (!objectUrlsRef.current.has(file))
+      objectUrlsRef.current.set(file, URL.createObjectURL(file));
     return objectUrlsRef.current.get(file)!;
   };
 
@@ -150,12 +186,17 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency, highli
 
   useEffect(() => {
     return () => {
+      scanAbortRef.current?.abort();
+      scanAbortRef.current = null;
       objectUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
       if (redirectTimeoutRef.current) clearTimeout(redirectTimeoutRef.current);
     };
   }, []);
 
-  useEffect(() => { setZoom(1); setPosition({ x: 0, y: 0 }); }, [activeReceiptKey]);
+  useEffect(() => {
+    setZoom(1);
+    setPosition({ x: 0, y: 0 });
+  }, [activeReceiptKey]);
 
   const { data: categories } = useQuery<Category[]>({
     queryKey: categoryKeys.list(),
@@ -164,25 +205,34 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency, highli
     gcTime: 600_000,
   });
 
-  const existingReceipts = currentExpense?.receipts?.filter((r) => !deletedReceiptIds.has(r.id)) ?? [];
+  const existingReceipts =
+    currentExpense?.receipts?.filter((r) => !deletedReceiptIds.has(r.id)) ?? [];
 
   const items = [
     ...existingReceipts.map((r) => ({
       key: `existing-${r.id}`,
-      name: r.original_name || r.file_path.split("/").pop() || t("mobile_receipt"),
+      name:
+        r.original_name || r.file_path.split("/").pop() || t("mobile_receipt"),
       url: `${API_BASE_URL}/expenses/${currentExpense!.id}/receipts/${r.id}`,
-      isImage: /\.(jpg|jpeg|png|webp)$/i.test(r.file_path || r.original_name || ""),
+      isImage: /\.(jpg|jpeg|png|webp)$/i.test(
+        r.file_path || r.original_name || "",
+      ),
       isPdf: /\.pdf$/i.test(r.file_path || r.original_name || ""),
     })),
     ...receiptFiles.map((entry) => ({
       key: `new-${entry.id}`,
       name: entry.file.name,
       url: getObjectUrl(entry.file),
-      isImage: entry.file.type.startsWith("image/") || /\.(jpg|jpeg|png|webp)$/i.test(entry.file.name),
-      isPdf: entry.file.type === "application/pdf" || entry.file.name.toLowerCase().endsWith(".pdf"),
+      isImage:
+        entry.file.type.startsWith("image/") ||
+        /\.(jpg|jpeg|png|webp)$/i.test(entry.file.name),
+      isPdf:
+        entry.file.type === "application/pdf" ||
+        entry.file.name.toLowerCase().endsWith(".pdf"),
     })),
   ];
-  const activeItem = items.find((it) => it.key === activeReceiptKey) || items[0] || null;
+  const activeItem =
+    items.find((it) => it.key === activeReceiptKey) || items[0] || null;
 
   const save = useMutation({
     // "always": TanStack otherwise PAUSES mutations while navigator.onLine
@@ -202,15 +252,21 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency, highli
         tax_rate: form.tax_rate ? parseFloat(form.tax_rate) : null,
         raw_ocr_text: form.raw_ocr_text || null,
         comparison_id: scanResult?.comparison_id || null,
-        ...(manualRate !== null ? { fx_rate: manualRate, fx_rate_manual: true } : {}),
-        ...(reportId && !currentExpense?.report_id ? { report_id: reportId } : {}),
+        ...(manualRate !== null
+          ? { fx_rate: manualRate, fx_rate_manual: true }
+          : {}),
+        ...(reportId && !currentExpense?.report_id
+          ? { report_id: reportId }
+          : {}),
       };
 
       if (isEdit && currentExpense) {
         if (!navigator.onLine) throw new Error(t("edit_offline_unsupported"));
         let result: Expense;
         try {
-          result = await api.patch(`/expenses/${currentExpense.id}`, payload).then((r) => r.data);
+          result = await api
+            .patch(`/expenses/${currentExpense.id}`, payload)
+            .then((r) => r.data);
           if (!expense) setOcrExpense(result);
         } catch (e: any) {
           throw new Error(e.response?.data?.detail ?? t("error_save"));
@@ -239,36 +295,72 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency, highli
           // Editing an existing Expense never creates a replacement Expense.
           qc.invalidateQueries({ queryKey: expenseKeys.all });
           qc.invalidateQueries({ queryKey: dashboardKeys.all });
-          return { expense: result, receiptUploadFailed: true as const, queued: null, failed: null };
+          return {
+            expense: result,
+            receiptUploadFailed: true as const,
+            queued: null,
+            failed: null,
+          };
         } finally {
           setIsUploadingReceipts(false);
         }
-        return { expense: result, receiptUploadFailed: false, queued: null, failed: null };
+        return {
+          expense: result,
+          receiptUploadFailed: false,
+          queued: null,
+          failed: null,
+        };
       }
 
       try {
         if (!user?.id) throw new Error(t("error_save"));
-        if (receiptFiles.length > 0 && navigator.onLine) setIsUploadingReceipts(true);
+        if (receiptFiles.length > 0 && navigator.onLine)
+          setIsUploadingReceipts(true);
         const outcome = await saveNewExpense(
           payload,
           receiptFiles.map(({ file }) => file),
           user.id,
         );
         if (outcome.status === "failed") {
-          return { expense: null, receiptUploadFailed: false, queued: null, failed: outcome.message };
+          return {
+            expense: null,
+            receiptUploadFailed: false,
+            queued: null,
+            failed: outcome.message,
+          };
         }
         if (outcome.status === "queued") {
-          return { expense: null, receiptUploadFailed: false, queued: outcome.item, failed: null };
+          return {
+            expense: null,
+            receiptUploadFailed: false,
+            queued: outcome.item,
+            failed: null,
+          };
         }
         if (outcome.status === "partial") {
-          return { expense: outcome.expense, receiptUploadFailed: true as const, queued: outcome.item, failed: null };
+          return {
+            expense: outcome.expense,
+            receiptUploadFailed: true as const,
+            queued: outcome.item,
+            failed: null,
+          };
         }
-        return { expense: outcome.expense, receiptUploadFailed: false, queued: null, failed: null };
+        return {
+          expense: outcome.expense,
+          receiptUploadFailed: false,
+          queued: null,
+          failed: null,
+        };
       } finally {
         setIsUploadingReceipts(false);
       }
     },
-    onSuccess: async ({ expense: result, receiptUploadFailed, queued, failed }) => {
+    onSuccess: async ({
+      expense: result,
+      receiptUploadFailed,
+      queued,
+      failed,
+    }) => {
       if (failed) {
         setError(failed);
         await refreshOffline();
@@ -302,25 +394,42 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency, highli
       if (result.currency_original !== "EUR") {
         setSavedExpense(result);
         clearDirty();
-        redirectTimeoutRef.current = setTimeout(() => router.push(destination), 2000);
+        redirectTimeoutRef.current = setTimeout(
+          () => router.push(destination),
+          2000,
+        );
       } else {
         clearDirty();
         router.push(destination);
       }
     },
-    onError: (e: any) => setError(e.message ?? e.response?.data?.detail ?? t("error_save_generic")),
+    onError: (e: any) =>
+      setError(
+        e.message ?? e.response?.data?.detail ?? t("error_save_generic"),
+      ),
   });
 
-  const setField = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
-    setForm((f) => ({ ...f, [k]: e.target.value }));
+  const setField =
+    (k: string) =>
+    (
+      e: React.ChangeEvent<
+        HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+      >,
+    ) =>
+      setForm((f) => ({ ...f, [k]: e.target.value }));
 
   const addFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
-    setReceiptFiles((prev) => [...prev, ...files.map((f) => ({ id: crypto.randomUUID(), file: f }))]);
+    setReceiptFiles((prev) => [
+      ...prev,
+      ...files.map((f) => ({ id: crypto.randomUUID(), file: f })),
+    ]);
     e.target.value = "";
   };
-  const removeNewFile = (index: number) => setReceiptFiles((prev) => prev.filter((_, i) => i !== index));
-  const markDeleteReceipt = (receiptId: number) => setDeletedReceiptIds((prev) => new Set(prev).add(receiptId));
+  const removeNewFile = (index: number) =>
+    setReceiptFiles((prev) => prev.filter((_, i) => i !== index));
+  const markDeleteReceipt = (receiptId: number) =>
+    setDeletedReceiptIds((prev) => new Set(prev).add(receiptId));
 
   const cancelScan = () => scanAbortRef.current?.abort();
 
@@ -329,17 +438,19 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency, highli
     scanInFlightRef.current = true;
     setIsScanning(true);
     setScanResult(null);
-    setScanProgress({ phase: "uploading", elapsedSeconds: 0 });
     setError("");
     const ac = new AbortController();
     scanAbortRef.current = ac;
     try {
-      const result = await scanReceipt(file, { signal: ac.signal, onProgress: setScanProgress });
-      if (result.expense_id != null || result.receipt_id != null) {
-        if (result.expense_id == null || result.receipt_id == null) {
-          throw new ScanJobError(t("error_ocr_job"));
-        }
-        const canonicalExpense = await api.get<Expense>(`/expenses/${result.expense_id}`).then((response) => response.data);
+      const capture = await captureReceipt(file, {
+        signal: ac.signal,
+        onProgress: setScanProgress,
+      });
+      const result = capture.result;
+      if (capture.kind === "promoted") {
+        const canonicalExpense = await api
+          .get<Expense>(`/expenses/${capture.expenseId}`)
+          .then((response) => response.data);
         setOcrExpense(canonicalExpense);
       }
       setScanResult(result);
@@ -347,25 +458,30 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency, highli
         ...f,
         amount: f.amount || (result.amount?.toString() ?? ""),
         currency: result.currency && !f.amount ? result.currency : f.currency,
-        tax_amount: f.tax_amount === "0" || !f.tax_amount ? (result.tax_amount?.toString() ?? "0") : f.tax_amount,
+        tax_amount:
+          f.tax_amount === "0" || !f.tax_amount
+            ? (result.tax_amount?.toString() ?? "0")
+            : f.tax_amount,
         tax_rate: f.tax_rate || (result.tax_rate?.toString() ?? ""),
-        date: f.date === new Date().toISOString().slice(0, 10) && result.date ? result.date : f.date,
+        date:
+          f.date === new Date().toISOString().slice(0, 10) && result.date
+            ? result.date
+            : f.date,
         merchant: f.merchant || result.merchant || "",
         category_id: f.category_id || (result.category_id?.toString() ?? ""),
         description: f.description || result.description || "",
         raw_ocr_text: result.raw_text || "",
       }));
-      if (result.expense_id == null && result.receipt_id == null) {
-        setReceiptFiles((prev) => [...prev, { id: crypto.randomUUID(), file }]);
-      }
     } catch (e: any) {
-      if (e instanceof ScanCancelledError || e?.name === "AbortError") {
+      if (isReceiptCaptureCancelled(e)) {
         // Cancelled — pre-scan state is already intact (nothing was applied).
         return;
       }
       if (e instanceof ScanTimeoutError) setError(t("error_ocr_timeout"));
-      else if (e instanceof ScanJobError) setError(e.detail ?? t("error_ocr_job"));
-      else setError(e.response?.data?.detail ?? e.message ?? t("error_ocr_scan"));
+      else if (e instanceof ScanJobError)
+        setError(e.detail ?? t("error_ocr_job"));
+      else
+        setError(e.response?.data?.detail ?? e.message ?? t("error_ocr_scan"));
     } finally {
       scanAbortRef.current = null;
       scanInFlightRef.current = false;
@@ -385,7 +501,10 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency, highli
     e.preventDefault();
     if (!isScanning) setIsDragging(true);
   };
-  const handleDragLeave = (e: React.DragEvent) => { e.preventDefault(); setIsDragging(false); };
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
   const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
@@ -396,16 +515,24 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency, highli
 
   return (
     <div className="flex flex-col gap-2 max-w-6xl w-full items-start">
-      <div className="flex lg:hidden w-full border-b border-border-subtle/80 mb-0.5 bg-card rounded-lg p-0.5" role="tablist" aria-label="Expense views">
+      <div
+        className="flex lg:hidden w-full border-b border-border-subtle/80 mb-0.5 bg-card rounded-lg p-0.5"
+        role="tablist"
+        aria-label="Expense views"
+      >
         <button
           type="button"
           role="tab"
           id="tab-details"
           aria-controls="panel-details"
-          aria-selected={activeMobileTab === 'details'}
-          onClick={() => setActiveMobileTab('details')}
-          className={clsx("flex-1 min-h-11 py-2 text-center text-sm font-semibold rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-            activeMobileTab === 'details' ? "bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400" : "text-muted hover:bg-card-hover")}
+          aria-selected={activeMobileTab === "details"}
+          onClick={() => setActiveMobileTab("details")}
+          className={clsx(
+            "flex-1 min-h-11 py-2 text-center text-sm font-semibold rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+            activeMobileTab === "details"
+              ? "bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400"
+              : "text-muted hover:bg-card-hover",
+          )}
         >
           {t("mobile_details")}
         </button>
@@ -414,10 +541,14 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency, highli
           role="tab"
           id="tab-receipt"
           aria-controls="panel-receipt"
-          aria-selected={activeMobileTab === 'receipt'}
-          onClick={() => setActiveMobileTab('receipt')}
-          className={clsx("flex-1 min-h-11 py-2 text-center text-sm font-semibold rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-            activeMobileTab === 'receipt' ? "bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400" : "text-muted hover:bg-card-hover")}
+          aria-selected={activeMobileTab === "receipt"}
+          onClick={() => setActiveMobileTab("receipt")}
+          className={clsx(
+            "flex-1 min-h-11 py-2 text-center text-sm font-semibold rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+            activeMobileTab === "receipt"
+              ? "bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400"
+              : "text-muted hover:bg-card-hover",
+          )}
         >
           {t("mobile_receipt")} ({items.length})
         </button>
@@ -428,14 +559,32 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency, highli
           id="panel-details"
           role="tabpanel"
           aria-labelledby="tab-details"
-          onSubmit={(e) => { e.preventDefault(); save.mutate(); }}
-          className={clsx("bg-card rounded-xl shadow-sm p-3 sm:p-6 flex-1 w-full max-w-lg space-y-4", activeMobileTab !== 'details' && "hidden lg:block")}
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (isScanning) return;
+            save.mutate();
+          }}
+          className={clsx(
+            "bg-card rounded-xl shadow-sm p-3 sm:p-6 flex-1 w-full max-w-lg space-y-4",
+            activeMobileTab !== "details" && "hidden lg:block",
+          )}
         >
-          {error && <p id="expense-form-error" role="alert" className="text-red-600 text-sm">{error}</p>}
+          {error && (
+            <p
+              id="expense-form-error"
+              role="alert"
+              className="text-red-600 text-sm"
+            >
+              {error}
+            </p>
+          )}
 
           {savedExpense && savedExpense.currency_original !== "EUR" && (
             <div className="bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 rounded-lg p-3 text-sm text-emerald-800 dark:text-emerald-400">
-              {savedExpense.amount_original} {savedExpense.currency_original} → {formatEur(savedExpense.amount_eur)} (rate: {savedExpense.fx_rate.toFixed(4)}{savedExpense.fx_rate_manual ? " manual" : ""})
+              {savedExpense.amount_original} {savedExpense.currency_original} →{" "}
+              {formatEur(savedExpense.amount_eur)} (rate:{" "}
+              {savedExpense.fx_rate.toFixed(4)}
+              {savedExpense.fx_rate_manual ? " manual" : ""})
             </div>
           )}
 
@@ -458,15 +607,44 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency, highli
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label htmlFor="expense-amount" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("label_amount")}</label>
-              <input id="expense-amount" name="amount" type="number" step="0.01" min="0" inputMode="decimal" required value={form.amount} onChange={setField("amount")}
-                className="w-full min-h-11 border border-input-border rounded-lg px-3 py-2 text-base lg:text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100" />
+              <label
+                htmlFor="expense-amount"
+                className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1"
+              >
+                {t("label_amount")}
+              </label>
+              <input
+                id="expense-amount"
+                name="amount"
+                type="number"
+                step="0.01"
+                min="0"
+                inputMode="decimal"
+                required
+                value={form.amount}
+                onChange={setField("amount")}
+                className="w-full min-h-11 border border-input-border rounded-lg px-3 py-2 text-base lg:text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100"
+              />
             </div>
             <div>
-              <label htmlFor="expense-currency" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("label_currency")}</label>
-              <select id="expense-currency" name="currency" value={form.currency} onChange={setField("currency")}
-                className="w-full min-h-11 border border-input-border rounded-lg px-3 py-2 text-base lg:text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100">
-                {CURRENCIES.map((c) => (<option key={c} value={c}>{c}</option>))}
+              <label
+                htmlFor="expense-currency"
+                className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1"
+              >
+                {t("label_currency")}
+              </label>
+              <select
+                id="expense-currency"
+                name="currency"
+                value={form.currency}
+                onChange={setField("currency")}
+                className="w-full min-h-11 border border-input-border rounded-lg px-3 py-2 text-base lg:text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100"
+              >
+                {CURRENCIES.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
@@ -478,7 +656,11 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency, highli
               amount={form.amount}
               date={form.date}
               initialRate={currentExpense?.fx_rate ?? null}
-              initialManualRate={currentExpense?.fx_rate_manual ? currentExpense.fx_rate ?? null : null}
+              initialManualRate={
+                currentExpense?.fx_rate_manual
+                  ? (currentExpense.fx_rate ?? null)
+                  : null
+              }
               onToggle={() => {
                 if (fxRateEditMode) {
                   setFxRateEditMode(false);
@@ -492,23 +674,61 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency, highli
           )}
 
           <div>
-            <label htmlFor="expense-merchant" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("label_merchant")}</label>
-            <input id="expense-merchant" name="merchant" type="text" value={form.merchant} onChange={setField("merchant")} placeholder={t("placeholder_merchant")}
-              className="w-full min-h-11 border border-input-border rounded-lg px-3 py-2 text-base lg:text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100" />
+            <label
+              htmlFor="expense-merchant"
+              className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1"
+            >
+              {t("label_merchant")}
+            </label>
+            <input
+              id="expense-merchant"
+              name="merchant"
+              type="text"
+              value={form.merchant}
+              onChange={setField("merchant")}
+              placeholder={t("placeholder_merchant")}
+              className="w-full min-h-11 border border-input-border rounded-lg px-3 py-2 text-base lg:text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100"
+            />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label htmlFor="expense-date" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("label_date")}</label>
-              <input id="expense-date" name="date" type="date" required value={form.date} onChange={setField("date")}
-                className="w-full min-h-11 border border-input-border rounded-lg px-3 py-2 text-base lg:text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100" />
+              <label
+                htmlFor="expense-date"
+                className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1"
+              >
+                {t("label_date")}
+              </label>
+              <input
+                id="expense-date"
+                name="date"
+                type="date"
+                required
+                value={form.date}
+                onChange={setField("date")}
+                className="w-full min-h-11 border border-input-border rounded-lg px-3 py-2 text-base lg:text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100"
+              />
             </div>
             <div>
-              <label htmlFor="expense-category" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("label_category")}</label>
-              <select id="expense-category" name="category_id" value={form.category_id} onChange={setField("category_id")}
-                className="w-full min-h-11 border border-input-border rounded-lg px-3 py-2 text-base lg:text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100">
+              <label
+                htmlFor="expense-category"
+                className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1"
+              >
+                {t("label_category")}
+              </label>
+              <select
+                id="expense-category"
+                name="category_id"
+                value={form.category_id}
+                onChange={setField("category_id")}
+                className="w-full min-h-11 border border-input-border rounded-lg px-3 py-2 text-base lg:text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100"
+              >
                 <option value="">{t("select_category")}</option>
-                {categories?.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
+                {categories?.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
@@ -519,42 +739,114 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency, highli
             </summary>
             <div className="space-y-3 pb-3">
               <div>
-                <label htmlFor="expense-description" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("label_description")}</label>
-                <textarea id="expense-description" name="description" value={form.description} onChange={setField("description")} rows={2} placeholder={t("placeholder_description")}
-                  className="w-full min-h-11 border border-input-border rounded-lg px-3 py-2 text-base lg:text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none dark:bg-slate-800 dark:text-slate-100" />
+                <label
+                  htmlFor="expense-description"
+                  className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1"
+                >
+                  {t("label_description")}
+                </label>
+                <textarea
+                  id="expense-description"
+                  name="description"
+                  value={form.description}
+                  onChange={setField("description")}
+                  rows={2}
+                  placeholder={t("placeholder_description")}
+                  className="w-full min-h-11 border border-input-border rounded-lg px-3 py-2 text-base lg:text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none dark:bg-slate-800 dark:text-slate-100"
+                />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label htmlFor="expense-tax-amount" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("label_tax_amount")}</label>
-                  <input id="expense-tax-amount" name="tax_amount" type="number" step="0.01" min="0" inputMode="decimal" value={form.tax_amount} onChange={setField("tax_amount")}
-                    className="w-full min-h-11 border border-input-border rounded-lg px-3 py-2 text-base lg:text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100" />
+                  <label
+                    htmlFor="expense-tax-amount"
+                    className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1"
+                  >
+                    {t("label_tax_amount")}
+                  </label>
+                  <input
+                    id="expense-tax-amount"
+                    name="tax_amount"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    inputMode="decimal"
+                    value={form.tax_amount}
+                    onChange={setField("tax_amount")}
+                    className="w-full min-h-11 border border-input-border rounded-lg px-3 py-2 text-base lg:text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100"
+                  />
                 </div>
                 <div>
-                  <label htmlFor="expense-tax-rate" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("label_tax_rate")}</label>
-                  <input id="expense-tax-rate" name="tax_rate" type="number" step="0.01" min="0" inputMode="decimal" value={form.tax_rate} onChange={setField("tax_rate")}
-                    className="w-full min-h-11 border border-input-border rounded-lg px-3 py-2 text-base lg:text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100" />
+                  <label
+                    htmlFor="expense-tax-rate"
+                    className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1"
+                  >
+                    {t("label_tax_rate")}
+                  </label>
+                  <input
+                    id="expense-tax-rate"
+                    name="tax_rate"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    inputMode="decimal"
+                    value={form.tax_rate}
+                    onChange={setField("tax_rate")}
+                    className="w-full min-h-11 border border-input-border rounded-lg px-3 py-2 text-base lg:text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100"
+                  />
                 </div>
               </div>
             </div>
           </details>
 
           <div>
-            <label htmlFor="expense-receipts" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("label_receipts")}</label>
+            <label
+              htmlFor="expense-receipts"
+              className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1"
+            >
+              {t("label_receipts")}
+            </label>
             {(highlightReceipts || receiptUploadFailedLocal) && (
-              <p role="alert" className="mb-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
+              <p
+                role="alert"
+                className="mb-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200"
+              >
                 {t("warning_expense_saved_receipt_failed")}
               </p>
             )}
-            <p id="expense-receipts-help" className="text-xs text-muted mb-2">{t("receipt_formats")}</p>
-            <input id="expense-receipts" name="receipts" aria-describedby="expense-receipts-help" type="file" accept=".jpg,.jpeg,.png,.pdf,.webp" multiple onChange={addFiles}
-              className="w-full min-h-11 text-base lg:text-sm text-slate-600 dark:text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:border file:border-slate-300 dark:file:border-slate-600 file:rounded-lg file:text-xs file:bg-slate-50 dark:file:bg-slate-800 hover:file:bg-slate-100 dark:hover:file:bg-slate-700" />
+            <p id="expense-receipts-help" className="text-xs text-muted mb-2">
+              {t("receipt_formats")}
+            </p>
+            <input
+              id="expense-receipts"
+              name="receipts"
+              aria-describedby="expense-receipts-help"
+              type="file"
+              accept=".jpg,.jpeg,.png,.pdf,.webp"
+              multiple
+              onChange={addFiles}
+              className="w-full min-h-11 text-base lg:text-sm text-slate-600 dark:text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:border file:border-slate-300 dark:file:border-slate-600 file:rounded-lg file:text-xs file:bg-slate-50 dark:file:bg-slate-800 hover:file:bg-slate-100 dark:hover:file:bg-slate-700"
+            />
 
             {existingReceipts.length > 0 && (
               <div className="mt-2 space-y-1">
                 {existingReceipts.map((r) => (
-                  <div key={r.id} className="flex items-center gap-2 text-xs text-muted">
-                    <button type="button" onClick={() => downloadBlob(`/expenses/${expense!.id}/receipts/${r.id}`, {}, r.original_name || r.file_path.split("/").pop() || "Receipt")}
-                      className="min-h-11 text-left text-blue-600 dark:text-blue-400 hover:underline truncate max-w-[200px] cursor-pointer">
+                  <div
+                    key={r.id}
+                    className="flex items-center gap-2 text-xs text-muted"
+                  >
+                    <button
+                      type="button"
+                      onClick={() =>
+                        downloadBlob(
+                          `/expenses/${expense!.id}/receipts/${r.id}`,
+                          {},
+                          r.original_name ||
+                            r.file_path.split("/").pop() ||
+                            "Receipt",
+                        )
+                      }
+                      className="min-h-11 text-left text-blue-600 dark:text-blue-400 hover:underline truncate max-w-[200px] cursor-pointer"
+                    >
                       {r.original_name || r.file_path.split("/").pop()}
                     </button>
                     <button
@@ -573,9 +865,16 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency, highli
             {receiptFiles.length > 0 && (
               <div className="mt-2 space-y-1">
                 {receiptFiles.map((entry, i) => (
-                  <div key={entry.id} className="flex items-center gap-2 text-xs text-muted">
-                    <span className="truncate max-w-[200px]">{entry.file.name}</span>
-                    <span className="text-slate-500 dark:text-slate-400">({(entry.file.size / 1024).toFixed(0)} KB)</span>
+                  <div
+                    key={entry.id}
+                    className="flex items-center gap-2 text-xs text-muted"
+                  >
+                    <span className="truncate max-w-[200px]">
+                      {entry.file.name}
+                    </span>
+                    <span className="text-slate-500 dark:text-slate-400">
+                      ({(entry.file.size / 1024).toFixed(0)} KB)
+                    </span>
                     <button
                       type="button"
                       onClick={() => removeNewFile(i)}
@@ -591,16 +890,27 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency, highli
           </div>
 
           <div className="expense-form-actions sticky bottom-[calc(4rem+env(safe-area-inset-bottom,0px))] lg:static z-20 flex gap-3 pt-3 pb-3 bg-card border-t border-border lg:border-0">
-            <button type="submit" disabled={save.isPending}
-              className="min-h-11 px-5 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-hover disabled:opacity-50">
+            <button
+              type="submit"
+              disabled={save.isPending || isScanning}
+              className="min-h-11 px-5 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-hover disabled:opacity-50"
+            >
               {save.isPending
-                ? isUploadingReceipts ? t("uploading_receipts") : tc("saving")
-                : isEdit ? t("save_changes") : t("create_expense")}
+                ? isUploadingReceipts
+                  ? t("uploading_receipts")
+                  : tc("saving")
+                : isEdit
+                  ? t("save_changes")
+                  : t("create_expense")}
             </button>
-            <button type="button" onClick={() => {
-                if (!isDirty() || window.confirm(t("guard_unsaved_changes"))) router.back();
+            <button
+              type="button"
+              onClick={() => {
+                if (!isDirty() || window.confirm(t("guard_unsaved_changes")))
+                  router.back();
               }}
-              className="min-h-11 px-5 py-2 border border-input-border text-slate-600 dark:text-slate-400 text-sm font-medium rounded-lg hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700">
+              className="min-h-11 px-5 py-2 border border-input-border text-slate-600 dark:text-slate-400 text-sm font-medium rounded-lg hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700"
+            >
               {tc("cancel")}
             </button>
           </div>
@@ -610,7 +920,10 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency, highli
           id="panel-receipt"
           role="tabpanel"
           aria-labelledby="tab-receipt"
-          className={clsx("w-full lg:flex-1", activeMobileTab !== 'receipt' && "hidden lg:block")}
+          className={clsx(
+            "w-full lg:flex-1",
+            activeMobileTab !== "receipt" && "hidden lg:block",
+          )}
         >
           <ReceiptPreview
             items={items}
@@ -622,7 +935,10 @@ export default function ExpenseForm({ expense, reportId, defaultCurrency, highli
             onSelectItem={setActiveReceiptKey}
             onZoomIn={() => setZoom((z) => Math.min(3, z + 0.25))}
             onZoomOut={() => setZoom((z) => Math.max(0.5, z - 0.25))}
-            onReset={() => { setZoom(1); setPosition({ x: 0, y: 0 }); }}
+            onReset={() => {
+              setZoom(1);
+              setPosition({ x: 0, y: 0 });
+            }}
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}

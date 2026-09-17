@@ -3,7 +3,7 @@
 import { Camera, FileUp, X } from "lucide-react";
 import clsx from "clsx";
 import { useTranslations } from "next-intl";
-import type { ScanProgress } from "@/lib/ocrScan";
+import type { ScanProgress } from "@/lib/receiptCapture";
 
 interface Props {
   isScanning: boolean;
@@ -23,9 +23,18 @@ interface Props {
 }
 
 export default function ReceiptScanner({
-  isScanning, scanProgress, onCancelScan, isDragging, onScan, onCameraCapture,
-  onDragOver, onDragLeave, onDrop, onClick,
-  scanInputRef, cameraInputRef,
+  isScanning,
+  scanProgress,
+  onCancelScan,
+  isDragging,
+  onScan,
+  onCameraCapture,
+  onDragOver,
+  onDragLeave,
+  onDrop,
+  onClick,
+  scanInputRef,
+  cameraInputRef,
 }: Props) {
   const t = useTranslations("expenses");
 
@@ -35,7 +44,7 @@ export default function ReceiptScanner({
         "receipt-capture rounded-xl border p-3 transition-colors",
         isDragging
           ? "border-blue-500 bg-blue-50/50 dark:bg-blue-950/20"
-          : "border-input-border bg-background/60"
+          : "border-input-border bg-background/60",
       )}
       onDragOver={(event) => {
         event.preventDefault();
@@ -71,12 +80,21 @@ export default function ReceiptScanner({
       />
 
       {isScanning ? (
-        <div role="status" aria-live="polite" className="flex min-h-14 items-center gap-3 px-1">
-          <div aria-hidden="true" className="h-6 w-6 shrink-0 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+        <div
+          role="status"
+          aria-live="polite"
+          className="flex min-h-14 items-center gap-3 px-1"
+        >
+          <div
+            aria-hidden="true"
+            className="h-6 w-6 shrink-0 animate-spin rounded-full border-2 border-blue-500 border-t-transparent"
+          />
           <p className="min-w-0 flex-1 text-sm font-medium text-slate-600 dark:text-slate-400">
             {scanProgress?.phase === "uploading"
               ? t("scan_uploading")
-              : t("scan_reading", { seconds: scanProgress?.elapsedSeconds ?? 0 })}
+              : t("scan_reading", {
+                  seconds: scanProgress?.elapsedSeconds ?? 0,
+                })}
           </p>
           {onCancelScan && (
             <button
@@ -95,7 +113,9 @@ export default function ReceiptScanner({
             <Camera aria-hidden="true" className="h-5 w-5" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-foreground">{t("receipt_capture_heading")}</p>
+            <p className="text-sm font-semibold text-foreground">
+              {t("receipt_capture_heading")}
+            </p>
             <p className="truncate text-xs text-muted-foreground">
               {isDragging ? t("drop_receipt") : t("receipt_capture_hint")}
             </p>

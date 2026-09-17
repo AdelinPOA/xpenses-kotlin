@@ -1,7 +1,7 @@
 "use client";
 
 import api, { type Expense } from "@/lib/api";
-import { compressImage } from "@/lib/ocrScan";
+import { compressImage } from "@/lib/receiptCapture";
 import {
   claimPendingExpense,
   enqueueExpense,
@@ -18,17 +18,36 @@ import {
 } from "@/lib/offlineQueue";
 
 export interface ExpenseTransport {
-  createExpense(payload: Record<string, unknown>, signal?: AbortSignal): Promise<Expense>;
-  uploadReceipts(expenseId: number, receipts: PendingReceipt[], signal?: AbortSignal): Promise<void>;
+  createExpense(
+    payload: Record<string, unknown>,
+    signal?: AbortSignal,
+  ): Promise<Expense>;
+  uploadReceipts(
+    expenseId: number,
+    receipts: PendingReceipt[],
+    signal?: AbortSignal,
+  ): Promise<void>;
 }
 
 export interface PendingExpenseStore {
-  enqueue(payload: Record<string, unknown>, receipts: PendingReceipt[], userId: number): Promise<PendingExpense>;
+  enqueue(
+    payload: Record<string, unknown>,
+    receipts: PendingReceipt[],
+    userId: number,
+  ): Promise<PendingExpense>;
   get(id: string, userId?: number): Promise<PendingExpense | null>;
   list(userId: number): Promise<PendingExpense[]>;
-  claim(id: string, userId: number, at?: number): Promise<PendingExpense | null>;
+  claim(
+    id: string,
+    userId: number,
+    at?: number,
+  ): Promise<PendingExpense | null>;
   update(item: PendingExpense, expectedLeaseToken?: string): Promise<void>;
-  remove(id: string, userId?: number, expectedLeaseToken?: string): Promise<void>;
+  remove(
+    id: string,
+    userId?: number,
+    expectedLeaseToken?: string,
+  ): Promise<void>;
   retry(id: string, userId: number): Promise<PendingExpense | null>;
   renew(item: PendingExpense, at?: number): Promise<PendingExpense | null>;
   release(item: PendingExpense): Promise<void>;
@@ -41,7 +60,9 @@ const productionTransport: ExpenseTransport = {
   },
   async uploadReceipts(expenseId, receipts, signal) {
     const formData = new FormData();
-    receipts.forEach((receipt) => formData.append("files", receipt.blob, receipt.name));
+    receipts.forEach((receipt) =>
+      formData.append("files", receipt.blob, receipt.name),
+    );
     await api.post(`/expenses/${expenseId}/receipts`, formData, { signal });
   },
 };
@@ -73,7 +94,11 @@ interface ResolvedExpenseSavingDependencies {
 }
 
 export type NewExpenseSaveResult =
-  | { status: "queued"; item: PendingExpense; reason: "offline" | "retryable" | "auth" }
+  | {
+      status: "queued";
+      item: PendingExpense;
+      reason: "offline" | "retryable" | "auth";
+    }
   | { status: "saved"; expense: Expense }
   | { status: "partial"; expense: Expense; item: PendingExpense }
   | { status: "failed"; item: PendingExpense; message: string };
@@ -91,7 +116,10 @@ function isBrowserOnline(): boolean {
 }
 
 function responseStatus(error: unknown): number | undefined {
-  const candidate = error as { response?: { status?: number }; status?: number } | null;
+  const candidate = error as {
+    response?: { status?: number };
+    status?: number;
+  } | null;
   return candidate?.response?.status ?? candidate?.status;
 }
 
@@ -100,15 +128,25 @@ function errorMessage(error: unknown): string {
     response?: { data?: { detail?: string; message?: string } };
     message?: string;
   } | null;
-  return candidate?.response?.data?.detail
-    ?? candidate?.response?.data?.message
-    ?? candidate?.message
-    ?? "Expense could not be synchronized";
+  return (
+    candidate?.response?.data?.detail ??
+    candidate?.response?.data?.message ??
+    candidate?.message ??
+    "Expense could not be synchronized"
+  );
 }
 
 function isNetworkFailure(error: unknown): boolean {
-  const candidate = error as { response?: unknown; code?: string; request?: unknown } | null;
-  return !candidate?.response || candidate?.code === "ECONNABORTED" || Boolean(candidate?.request && !candidate?.response);
+  const candidate = error as {
+    response?: unknown;
+    code?: string;
+    request?: unknown;
+  } | null;
+  return (
+    !candidate?.response ||
+    candidate?.code === "ECONNABORTED" ||
+    Boolean(candidate?.request && !candidate?.response)
+  );
 }
 
 export interface ClassifiedFailure {
@@ -119,15 +157,25 @@ export interface ClassifiedFailure {
 export function classifyExpenseFailure(error: unknown): ClassifiedFailure {
   const status = responseStatus(error);
   if (status === 401) return { kind: "auth", message: errorMessage(error) };
-  if (status === 404 || status === 410 || status === 409) return { kind: "stale", message: errorMessage(error) };
-  if (isNetworkFailure(error) || status === 408 || status === 425 || status === 429 || (status !== undefined && status >= 500)) {
+  if (status === 404 || status === 410 || status === 409)
+    return { kind: "stale", message: errorMessage(error) };
+  if (
+    isNetworkFailure(error) ||
+    status === 408 ||
+    status === 425 ||
+    status === 429 ||
+    (status !== undefined && status >= 500)
+  ) {
     return { kind: "retryable", message: errorMessage(error) };
   }
   return { kind: "permanent", message: errorMessage(error) };
 }
 
 function nextAttemptAt(at: number, attempts: number): number {
-  const delay = Math.min(MAX_BACKOFF_MS, 1000 * 2 ** Math.min(Math.max(attempts - 1, 0), 8));
+  const delay = Math.min(
+    MAX_BACKOFF_MS,
+    1000 * 2 ** Math.min(Math.max(attempts - 1, 0), 8),
+  );
   return at + delay;
 }
 
@@ -154,14 +202,20 @@ async function recordFailure(
   return { item: updated, failure };
 }
 
-export async function prepareReceiptFiles(files: File[]): Promise<PendingReceipt[]> {
-  return Promise.all(files.map(async (file) => {
-    const blob = await compressImage(file);
-    return { name: file.name, type: blob.type || file.type, blob };
-  }));
+export async function prepareReceiptFiles(
+  files: File[],
+): Promise<PendingReceipt[]> {
+  return Promise.all(
+    files.map(async (file) => {
+      const blob = await compressImage(file);
+      return { name: file.name, type: blob.type || file.type, blob };
+    }),
+  );
 }
 
-function dependenciesFor(overrides: ExpenseSavingDependencies): ResolvedExpenseSavingDependencies {
+function dependenciesFor(
+  overrides: ExpenseSavingDependencies,
+): ResolvedExpenseSavingDependencies {
   return {
     transport: overrides.transport ?? productionTransport,
     store: overrides.store ?? productionStore,
@@ -202,7 +256,11 @@ export async function saveNewExpense(
   const dependencies = dependenciesFor(overrides);
   const receipts = await prepareReceiptFiles(files);
   const queued = await dependencies.store.enqueue(payload, receipts, userId);
-  const claimed = await dependencies.store.claim(queued.id, userId, dependencies.now());
+  const claimed = await dependencies.store.claim(
+    queued.id,
+    userId,
+    dependencies.now(),
+  );
 
   if (!claimed) return { status: "queued", item: queued, reason: "retryable" };
   if (!isBrowserOnline()) {
@@ -214,14 +272,28 @@ export async function saveNewExpense(
   try {
     expense = await withLeaseHeartbeat(claimed, dependencies, () => {
       throwIfAborted(dependencies.signal);
-      return dependencies.transport.createExpense(claimed.payload, dependencies.signal);
+      return dependencies.transport.createExpense(
+        claimed.payload,
+        dependencies.signal,
+      );
     });
   } catch (error) {
     const recorded = await recordFailure(claimed, error, dependencies);
-    if (recorded.failure.kind === "permanent" || recorded.failure.kind === "stale") {
-      return { status: "failed", item: recorded.item, message: recorded.failure.message };
+    if (
+      recorded.failure.kind === "permanent" ||
+      recorded.failure.kind === "stale"
+    ) {
+      return {
+        status: "failed",
+        item: recorded.item,
+        message: recorded.failure.message,
+      };
     }
-    return { status: "queued", item: recorded.item, reason: recorded.failure.kind === "auth" ? "auth" : "retryable" };
+    return {
+      status: "queued",
+      item: recorded.item,
+      reason: recorded.failure.kind === "auth" ? "auth" : "retryable",
+    };
   }
 
   const withExpenseId: PendingExpense = {
@@ -238,17 +310,29 @@ export async function saveNewExpense(
 
   if (receipts.length === 0) {
     throwIfAborted(dependencies.signal);
-    await dependencies.store.remove(withExpenseId.id, userId, withExpenseId.leaseToken);
+    await dependencies.store.remove(
+      withExpenseId.id,
+      userId,
+      withExpenseId.leaseToken,
+    );
     return { status: "saved", expense };
   }
 
   try {
     await withLeaseHeartbeat(withExpenseId, dependencies, () => {
       throwIfAborted(dependencies.signal);
-      return dependencies.transport.uploadReceipts(expense.id, receipts, dependencies.signal);
+      return dependencies.transport.uploadReceipts(
+        expense.id,
+        receipts,
+        dependencies.signal,
+      );
     });
     throwIfAborted(dependencies.signal);
-    await dependencies.store.remove(withExpenseId.id, userId, withExpenseId.leaseToken);
+    await dependencies.store.remove(
+      withExpenseId.id,
+      userId,
+      withExpenseId.leaseToken,
+    );
     return { status: "saved", expense };
   } catch (error) {
     const recorded = await recordFailure(withExpenseId, error, dependencies);
@@ -261,7 +345,8 @@ export async function syncPendingExpenses(
   overrides: ExpenseSavingDependencies = {},
 ): Promise<SyncResult> {
   const dependencies = dependenciesFor(overrides);
-  if (!isBrowserOnline()) return { synced: 0, stoppedForNetwork: true, stoppedForAuth: false };
+  if (!isBrowserOnline())
+    return { synced: 0, stoppedForNetwork: true, stoppedForAuth: false };
   throwIfAborted(dependencies.signal);
 
   let synced = 0;
@@ -272,7 +357,11 @@ export async function syncPendingExpenses(
   for (const listed of items) {
     if (dependencies.signal?.aborted) break;
     if (listed.error || listed.nextAttemptAt > dependencies.now()) continue;
-    const item = await dependencies.store.claim(listed.id, userId, dependencies.now());
+    const item = await dependencies.store.claim(
+      listed.id,
+      userId,
+      dependencies.now(),
+    );
     if (!item) continue;
 
     let current = item;
@@ -280,7 +369,10 @@ export async function syncPendingExpenses(
       if (current.stage === "creation_pending") {
         const expense = await withLeaseHeartbeat(current, dependencies, () => {
           throwIfAborted(dependencies.signal);
-          return dependencies.transport.createExpense(current.payload, dependencies.signal);
+          return dependencies.transport.createExpense(
+            current.payload,
+            dependencies.signal,
+          );
         });
         current = {
           ...current,
@@ -304,7 +396,11 @@ export async function syncPendingExpenses(
 
       await withLeaseHeartbeat(current, dependencies, () => {
         throwIfAborted(dependencies.signal);
-        return dependencies.transport.uploadReceipts(current.expenseId!, current.receipts, dependencies.signal);
+        return dependencies.transport.uploadReceipts(
+          current.expenseId!,
+          current.receipts,
+          dependencies.signal,
+        );
       });
       throwIfAborted(dependencies.signal);
       await dependencies.store.remove(current.id, userId, item.leaseToken);

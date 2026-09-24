@@ -187,6 +187,60 @@ test("mobile pre-flight submission drawer shows receipt audit and confirmation",
   await expect(drawer).not.toBeVisible();
 });
 
+test("mobile expense date field stays inside its card at narrow widths", async ({ page }) => {
+  await page.context().addCookies([
+    {
+      name: "access_token",
+      value: "mock-valid-token",
+      domain: "localhost",
+      path: "/",
+    },
+  ]);
+  await page.route("**/api/auth/me", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        id: 1,
+        username: "tech1",
+        role: "technician",
+        language: "en",
+      }),
+    }),
+  );
+  await page.route("**/api/categories**", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: "[]" }),
+  );
+
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto("/expenses/new");
+  const date = page.locator("#expense-date");
+  await expect(date).toBeVisible();
+
+  for (const width of [375, 390]) {
+    await page.setViewportSize({ width, height: 844 });
+    const edges = await page.evaluate(() => {
+      const dateInput = document.querySelector<HTMLInputElement>("#expense-date");
+      const form = document.querySelector<HTMLFormElement>("#panel-details");
+      if (!dateInput || !form) throw new Error("Expense date field or form is missing");
+      const formStyle = getComputedStyle(form);
+      const formBox = form.getBoundingClientRect();
+      return {
+        dateRight: dateInput.getBoundingClientRect().right,
+        contentRight:
+          formBox.right -
+          parseFloat(formStyle.borderRightWidth) -
+          parseFloat(formStyle.paddingRight),
+      };
+    });
+
+    expect(
+      edges.dateRight,
+      `date field should stay inside the form card at ${width}px`,
+    ).toBeLessThanOrEqual(edges.contentRight + 1);
+  }
+});
+
 test.describe("mobile authenticated UI", () => {
   test.skip(!authenticatedUiEnabled || !username || !password, "Set PLAYWRIGHT_AUTHENTICATED_UI=true with test credentials and a reachable API");
 

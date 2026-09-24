@@ -673,7 +673,7 @@ export default function ExpenseForm({
             />
           )}
 
-          <div>
+          <div className="min-w-0">
             <label
               htmlFor="expense-merchant"
               className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1"
@@ -706,7 +706,7 @@ export default function ExpenseForm({
                 required
                 value={form.date}
                 onChange={setField("date")}
-                className="w-full min-h-11 border border-input-border rounded-lg px-3 py-2 text-base lg:text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100"
+                className="block w-full min-w-0 max-w-full min-h-11 border border-input-border rounded-lg px-3 py-2 text-base lg:text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800 dark:text-slate-100"
               />
             </div>
             <div>

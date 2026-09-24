@@ -673,7 +673,7 @@ export default function ExpenseForm({
             />
           )}
 
-          <div className="min-w-0">
+          <div>
             <label
               htmlFor="expense-merchant"
               className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1"
@@ -692,7 +692,7 @@ export default function ExpenseForm({
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
+            <div className="min-w-0">
               <label
                 htmlFor="expense-date"
                 className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1"

@@ -559,6 +559,7 @@ class PdfService(
         val totalAdv = advances.filter { it.status == "paid" }.map { it.amountEur }.fold(BigDecimal.ZERO) { acc, v -> acc.add(v) }
         val allowance = calculateDailyAllowance(report.dateFrom, report.dateTo)
         val totalMil = mileage.map { it.amountEur }.fold(BigDecimal.ZERO) { acc, v -> acc.add(v) }
+        // Note: Accounting policy explicitly requires mileage (totalMil) to be excluded from totalReimbursable in the PDF summary.
         val totalReimbursable = totalEur.add(allowance).subtract(totalAdv)
 
         val reimbursableStr = if (totalReimbursable < BigDecimal.ZERO) {

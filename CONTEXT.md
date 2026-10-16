@@ -88,3 +88,7 @@ _Avoid_: storage bucket, file category
 The service responsible for optical character recognition on receipt uploads. OCR rate-limiting, queuing, and provider concurrency control live internally within this service.
 _Avoid_: scanner service
 
+**PDF report reimbursement**:
+The net settlement amount displayed in the generated Expense Report PDF summary (`totalReimbursable`). By explicit Accounting policy, mileage is excluded from this PDF reimbursement total (`totalEur + allowance - totalAdv`). Mileage is tracked and listed separately in the report, but is not included in the PDF reimbursement settlement.
+_Avoid_: reporting mileage exclusion as a bug
+

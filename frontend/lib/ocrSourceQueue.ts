@@ -4,12 +4,19 @@
  * Owner-scoped IndexedDB storage for OCR sources captured while offline.
  * Sources remain available until the receipt-capture flow acknowledges them.
  */
+export type OcrSourceContext = "batch" | "form";
+export type OcrSourceData = ArrayBuffer | Blob;
+
 export interface PendingOcrSource {
   id: string;
   userId: number;
   name: string;
   type: string;
-  data: ArrayBuffer;
+  data: OcrSourceData;
+  context: OcrSourceContext;
+  formSessionId?: string;
+  remoteJobId?: number;
+  statusUrl?: string;
   createdAt: number;
   updatedAt: number;
   leaseToken?: string;
@@ -22,6 +29,8 @@ export interface NewOcrSource {
   name: string;
   type: string;
   data: ArrayBuffer;
+  context?: OcrSourceContext;
+  formSessionId?: string;
 }
 
 const DB_NAME = "xpenses-ocr-sources";
@@ -30,6 +39,40 @@ const STORE = "pending_sources";
 const LEASE_DURATION_MS = 30_000;
 const MAX_QUEUE_SIZE = 20;
 const MAX_QUEUE_BYTES = 100 * 1024 * 1024;
+const LEASE_STORAGE_PREFIX = "xpenses-ocr-source-lease:";
+
+function leaseStorageKey(sourceId: string): string {
+  return `${LEASE_STORAGE_PREFIX}${sourceId}`;
+}
+
+/** The per-tab lease token survives reload without being shared with another tab. */
+export function getStoredOcrSourceLease(sourceId: string): string | undefined {
+  try {
+    return sessionStorage.getItem(leaseStorageKey(sourceId)) ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export function storeOcrSourceLease(
+  sourceId: string,
+  leaseToken?: string,
+): void {
+  if (!leaseToken) return;
+  try {
+    sessionStorage.setItem(leaseStorageKey(sourceId), leaseToken);
+  } catch {
+    // Session storage is optional; the normal lease expiry remains the fallback.
+  }
+}
+
+export function clearOcrSourceLease(sourceId: string): void {
+  try {
+    sessionStorage.removeItem(leaseStorageKey(sourceId));
+  } catch {
+    // Session storage is optional.
+  }
+}
 
 function now(): number {
   return Date.now();
@@ -39,9 +82,27 @@ function createLeaseToken(): string {
   return crypto.randomUUID();
 }
 
-function normalizeSource(value: PendingOcrSource): PendingOcrSource {
+function isBlobData(data: OcrSourceData): data is Blob {
+  return typeof Blob !== "undefined" && data instanceof Blob;
+}
+
+function sourceDataSize(data: OcrSourceData): number {
+  return isBlobData(data) ? data.size : data.byteLength;
+}
+
+function normalizeSource(
+  value: Partial<PendingOcrSource> &
+    Pick<
+      PendingOcrSource,
+      "id" | "userId" | "name" | "type" | "data" | "createdAt"
+    >,
+): PendingOcrSource {
   return {
     ...value,
+    context: value.context ?? "batch",
+    formSessionId: value.formSessionId,
+    remoteJobId: value.remoteJobId,
+    statusUrl: value.statusUrl,
     updatedAt: value.updatedAt ?? value.createdAt,
     leaseToken: value.leaseToken,
     leaseUntil: value.leaseUntil,
@@ -150,6 +211,7 @@ export async function enqueueOcrSource(
   const timestamp = now();
   const item: PendingOcrSource = {
     ...source,
+    context: source.context ?? "batch",
     createdAt: timestamp,
     updatedAt: timestamp,
   };
@@ -160,10 +222,12 @@ export async function enqueueOcrSource(
       const items = (request.result as PendingOcrSource[]).map(normalizeSource);
       const current = items.find((existing) => existing.id === item.id);
       const bytes = items.reduce((total, existing) => {
-        return total + existing.data.byteLength;
+        return total + sourceDataSize(existing.data);
       }, 0);
       const totalBytes =
-        bytes - (current?.data.byteLength ?? 0) + item.data.byteLength;
+        bytes -
+        (current ? sourceDataSize(current.data) : 0) +
+        sourceDataSize(item.data);
 
       if (!current && items.length >= MAX_QUEUE_SIZE) {
         fail(
@@ -192,15 +256,23 @@ export async function enqueueOcrSource(
 /** Return only sources owned by the authenticated Technician. */
 export async function listOcrSources(
   userId: number | undefined,
+  context: OcrSourceContext = "batch",
+  formSessionId?: string,
 ): Promise<PendingOcrSource[]> {
   if (!isValidUserId(userId)) return [];
+  if (context === "form" && !formSessionId) return [];
   const ownerId = userId;
   const items = await withStore<PendingOcrSource[]>("readonly", (store) =>
     store.getAll(),
   );
   return items
     .map(normalizeSource)
-    .filter((item) => item.userId === ownerId)
+    .filter(
+      (item) =>
+        item.userId === ownerId &&
+        item.context === context &&
+        (context !== "form" || item.formSessionId === formSessionId),
+    )
     .sort((a, b) => a.createdAt - b.createdAt);
 }
 
@@ -209,6 +281,7 @@ export async function claimOcrSource(
   id: string,
   userId: number | undefined,
   at = now(),
+  reclaimLeaseToken?: string,
 ): Promise<PendingOcrSource | null> {
   if (!isValidUserId(userId)) return null;
   return runTransaction<PendingOcrSource | null>(
@@ -223,7 +296,11 @@ export async function claimOcrSource(
           setResult(null);
           return;
         }
-        if (current.leaseUntil && current.leaseUntil > at) {
+        if (
+          current.leaseUntil &&
+          current.leaseUntil > at &&
+          current.leaseToken !== reclaimLeaseToken
+        ) {
           setResult(null);
           return;
         }
@@ -241,6 +318,131 @@ export async function claimOcrSource(
       };
       request.onerror = () =>
         fail(request.error ?? new Error("Could not claim OCR source"));
+    },
+  );
+}
+
+/** Extend an active claim while OCR polling is still in progress. */
+export async function renewOcrSource(
+  source: PendingOcrSource,
+  at = now(),
+): Promise<PendingOcrSource | null> {
+  if (!isValidUserId(source.userId) || !source.leaseToken) return null;
+
+  return runTransaction<PendingOcrSource | null>(
+    "readwrite",
+    (store, setResult, fail) => {
+      const request = store.get(source.id);
+      request.onsuccess = () => {
+        const current = request.result
+          ? normalizeSource(request.result as PendingOcrSource)
+          : null;
+        if (
+          !current ||
+          current.userId !== source.userId ||
+          current.leaseToken !== source.leaseToken ||
+          (current.leaseUntil !== undefined && current.leaseUntil <= at)
+        ) {
+          setResult(null);
+          return;
+        }
+        const renewed: PendingOcrSource = {
+          ...current,
+          leaseUntil: at + LEASE_DURATION_MS,
+          updatedAt: at,
+        };
+        const put = store.put(renewed);
+        put.onsuccess = () => setResult(renewed);
+        put.onerror = () =>
+          fail(put.error ?? new Error("Could not renew OCR source"));
+      };
+      request.onerror = () =>
+        fail(request.error ?? new Error("Could not renew OCR source"));
+    },
+  );
+}
+
+/** Keep a long-running browser OCR worker fenced to its original tab. */
+export function startOcrSourceLeaseHeartbeat(
+  source: PendingOcrSource,
+  onRenewed: (source: PendingOcrSource) => void,
+  onLost: () => void,
+): () => void {
+  let current = source;
+  let stopped = false;
+  const timer = setInterval(() => {
+    void renewOcrSource(current)
+      .then((renewed) => {
+        if (stopped) return;
+        if (!renewed) {
+          stopped = true;
+          clearInterval(timer);
+          onLost();
+          return;
+        }
+        current = renewed;
+        onRenewed(renewed);
+      })
+      .catch(() => {
+        if (stopped) return;
+        stopped = true;
+        clearInterval(timer);
+        onLost();
+      });
+  }, 10_000);
+
+  return () => {
+    stopped = true;
+    clearInterval(timer);
+  };
+}
+
+/** Persist the remote OcrJob reference while the source lease is held. */
+export async function setOcrSourceJob(
+  source: PendingOcrSource,
+  remoteJobId: number,
+  statusUrl?: string,
+  at = now(),
+): Promise<PendingOcrSource | null> {
+  if (
+    !isValidUserId(source.userId) ||
+    !source.leaseToken ||
+    !Number.isInteger(remoteJobId) ||
+    remoteJobId <= 0
+  ) {
+    return null;
+  }
+
+  return runTransaction<PendingOcrSource | null>(
+    "readwrite",
+    (store, setResult, fail) => {
+      const request = store.get(source.id);
+      request.onsuccess = () => {
+        const current = request.result
+          ? normalizeSource(request.result as PendingOcrSource)
+          : null;
+        if (
+          !current ||
+          current.userId !== source.userId ||
+          current.leaseToken !== source.leaseToken
+        ) {
+          setResult(null);
+          return;
+        }
+        const updated: PendingOcrSource = {
+          ...current,
+          remoteJobId,
+          statusUrl,
+          leaseUntil: at + LEASE_DURATION_MS,
+          updatedAt: at,
+        };
+        const put = store.put(updated);
+        put.onsuccess = () => setResult(updated);
+        put.onerror = () =>
+          fail(put.error ?? new Error("Could not persist OCR job"));
+      };
+      request.onerror = () =>
+        fail(request.error ?? new Error("Could not persist OCR job"));
     },
   );
 }

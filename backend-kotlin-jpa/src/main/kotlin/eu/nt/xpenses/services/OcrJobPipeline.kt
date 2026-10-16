@@ -3,7 +3,7 @@ package eu.nt.xpenses.services
 import eu.nt.xpenses.model.User
 
 /**
- * Durable OCR promotion module. Callers do not coordinate leases or stages;
+ * Durable OcrJob lifecycle module. Callers do not coordinate leases or stages;
  * they only dispatch work, recover pending work, or cancel an owned job.
  */
 interface OcrJobPipeline {

@@ -46,14 +46,36 @@ export interface ScanProgress {
   elapsedSeconds: number;
 }
 
+export interface OcrJobReference {
+  jobId: number;
+  statusUrl: string;
+}
+
 /** Raised when the user cancels the scan. */
-export class ScanCancelledError extends Error {}
+export class ScanCancelledError extends Error {
+  constructor() {
+    super("OCR_CAPTURE_CANCELLED");
+    this.name = "ScanCancelledError";
+  }
+}
+
 /** Raised when the OCR job exceeds the total wait cap. */
-export class ScanTimeoutError extends Error {}
+export class ScanTimeoutError extends Error {
+  constructor(public jobId?: number) {
+    super("OCR_JOB_TIMEOUT");
+    this.name = "ScanTimeoutError";
+  }
+}
+
 /** Raised when OCR cannot produce a promoted Expense and Receipt. */
 export class ScanJobError extends Error {
-  constructor(public detail?: string) {
-    super(detail ?? "OCR job failed");
+  constructor(
+    public detail?: string,
+    public errorCode?: string,
+    public jobId?: number,
+  ) {
+    super(detail ?? errorCode ?? "OCR_JOB_FAILED");
+    this.name = "ScanJobError";
   }
 }
 
@@ -83,6 +105,10 @@ export interface ScanOptions {
   signal?: AbortSignal;
   /** Total wait cap for the whole scan (default 5 minutes for provider fallbacks). */
   maxWaitMs?: number;
+  /** Persist the server job before polling starts. */
+  onJobCreated?: (job: OcrJobReference) => void | Promise<void>;
+  /** Unmounts release a durable job; explicit cancellation deletes it. */
+  cancelRemoteJobOnAbort?: boolean | (() => boolean);
 }
 
 /** The durable pipeline outcome shared by all receipt-capture callers. */
@@ -111,13 +137,17 @@ export function interpretReceiptCapture(result: OCRScanResult): ReceiptCapture {
       needsDetails: needsReceiptDetails(result),
     };
   }
-  throw new ScanJobError();
+  throw new ScanJobError(
+    undefined,
+    result.error_code ?? "OCR_PROMOTION_MISSING",
+  );
 }
 
 /** Keeps the capture feed and the form aligned on when OCR needs human review. */
 function needsReceiptDetails(result: OCRScanResult): boolean {
   return (
     !result.amount ||
+    result.fallback === "photo_only" ||
     Boolean(result.error_code) ||
     (result.warnings?.length ?? 0) > 0
   );
@@ -148,6 +178,91 @@ function hasErrorCode(error: unknown, code: string): boolean {
   return (error as { code?: unknown }).code === code;
 }
 
+function shouldCancelRemoteJob(opts: ScanOptions): boolean {
+  const choice = opts.cancelRemoteJobOnAbort;
+  return typeof choice === "function" ? choice() : choice !== false;
+}
+
+function cancelRemoteJobOnAbort(
+  error: unknown,
+  remoteJobId: number | null,
+  opts: ScanOptions,
+): never {
+  if (isAbortLikeError(error)) {
+    if (remoteJobId !== null && shouldCancelRemoteJob(opts)) {
+      void api.delete(`/ocr/jobs/${remoteJobId}`).catch(() => undefined);
+    }
+    throw new ScanCancelledError();
+  }
+  throw error;
+}
+
+async function pollOcrJob(
+  statusUrl: string,
+  remoteJobId: number | null,
+  opts: ScanOptions,
+): Promise<OCRScanResult> {
+  const { onProgress, signal, maxWaitMs = 5 * 60_000 } = opts;
+  const startedAt = Date.now();
+  let ticker: ReturnType<typeof setInterval> | null = null;
+  const stopTicker = () => {
+    if (ticker) {
+      clearInterval(ticker);
+      ticker = null;
+    }
+  };
+
+  onProgress?.({ phase: "reading", elapsedSeconds: 0 });
+  ticker = setInterval(() => {
+    onProgress?.({
+      phase: "reading",
+      elapsedSeconds: Math.round((Date.now() - startedAt) / 1000),
+    });
+  }, 1000);
+
+  try {
+    const deadline = startedAt + maxWaitMs;
+    while (Date.now() < deadline) {
+      await sleep(1500, signal);
+      const statusRes = await api.get(statusUrl, { signal });
+      const data = statusRes.data as {
+        status?: string;
+        result?: Partial<OCRScanResult>;
+        expense_id?: number | null;
+        receipt_id?: number | null;
+        error_code?: string | null;
+        fallback?: string | null;
+        fallback_reason?: string | null;
+        provider_error?: string | null;
+        error?: string;
+      };
+      if (data.status === "completed") {
+        const result = data.result ?? {};
+        return {
+          ...result,
+          expense_id: data.expense_id ?? result.expense_id,
+          receipt_id: data.receipt_id ?? result.receipt_id,
+          error_code: data.error_code ?? result.error_code,
+          fallback: data.fallback ?? result.fallback,
+          fallback_reason: data.fallback_reason ?? result.fallback_reason,
+          provider_error: data.provider_error ?? result.provider_error,
+          warnings: result.warnings ?? [],
+        } as OCRScanResult;
+      }
+      if (data.status === "failed") {
+        throw new ScanJobError(
+          data.error,
+          data.error_code ?? undefined,
+          remoteJobId ?? undefined,
+        );
+      }
+    }
+    throw new ScanTimeoutError(remoteJobId ?? undefined);
+  } finally {
+    stopTicker();
+  }
+}
+
 /**
  * Uploads a receipt for OCR, polls until completion, and interprets the result
  * for both the batch capture feed and the Expense form.
@@ -159,6 +274,19 @@ export async function captureReceipt(
   return interpretReceiptCapture(await scanReceipt(file, opts));
 }
 
+/** Resume an existing durable OcrJob without uploading its source again. */
+export async function resumeReceiptCapture(
+  jobId: number,
+  statusUrl = `/ocr/status/${jobId}`,
+  opts: ScanOptions = {},
+): Promise<ReceiptCapture> {
+  try {
+    return interpretReceiptCapture(await pollOcrJob(statusUrl, jobId, opts));
+  } catch (error: unknown) {
+    return cancelRemoteJobOnAbort(error, jobId, opts);
+  }
+}
+
 /**
  * Performs the transport and polling portion of receipt capture.
  * Kept exported through ocrScan.ts for compatibility with older callers.
@@ -167,18 +295,9 @@ export async function scanReceipt(
   file: File,
   opts: ScanOptions = {},
 ): Promise<OCRScanResult> {
-  const { onProgress, signal, maxWaitMs = 5 * 60_000 } = opts;
-  const startedAt = Date.now();
+  const { onProgress, signal } = opts;
   let remoteJobId: number | null = null;
 
-  // Elapsed-seconds ticker once we reach the polling phase.
-  let ticker: ReturnType<typeof setInterval> | null = null;
-  const stopTicker = () => {
-    if (ticker) {
-      clearInterval(ticker);
-      ticker = null;
-    }
-  };
   if (onProgress) {
     onProgress({ phase: "uploading", elapsedSeconds: 0 });
   }
@@ -191,64 +310,18 @@ export async function scanReceipt(
     fd.append("file", compressedBlob, file.name);
     const res = await api.post("/ocr/scan", fd, { signal });
 
-    let result: OCRScanResult | undefined;
     if (res.status === 202 && res.data.status_url) {
       remoteJobId =
         typeof res.data.job_id === "number" ? res.data.job_id : null;
-      onProgress?.({
-        phase: "reading",
-        elapsedSeconds: Math.round((Date.now() - startedAt) / 1000),
-      });
-      ticker = setInterval(() => {
-        onProgress?.({
-          phase: "reading",
-          elapsedSeconds: Math.round((Date.now() - startedAt) / 1000),
-        });
-      }, 1000);
-
-      const deadline = startedAt + maxWaitMs;
-      while (Date.now() < deadline) {
-        await sleep(1500, signal);
-        const statusRes = await api.get(res.data.status_url, { signal });
-        if (statusRes.data.status === "completed") {
-          const promotedResult = {
-            ...(statusRes.data.result ?? {}),
-            expense_id: statusRes.data.expense_id,
-            receipt_id: statusRes.data.receipt_id,
-            error_code: statusRes.data.error_code,
-          } as OCRScanResult;
-          if (
-            promotedResult.expense_id == null ||
-            promotedResult.receipt_id == null
-          ) {
-            throw new ScanJobError();
-          }
-          result = promotedResult;
-          break;
-        }
-        if (statusRes.data.status === "failed") {
-          throw new ScanJobError(statusRes.data.error);
-        }
-      }
-      if (!result) throw new ScanTimeoutError();
-    } else {
-      result = res.data as OCRScanResult;
-    }
-
-    onProgress?.({
-      phase: "reading",
-      elapsedSeconds: Math.round((Date.now() - startedAt) / 1000),
-    });
-    return result;
-  } catch (e: unknown) {
-    if (isAbortLikeError(e)) {
+      const statusUrl = res.data.status_url as string;
       if (remoteJobId !== null) {
-        void api.delete(`/ocr/jobs/${remoteJobId}`).catch(() => undefined);
+        await opts.onJobCreated?.({ jobId: remoteJobId, statusUrl });
       }
-      throw new ScanCancelledError();
+      return await pollOcrJob(statusUrl, remoteJobId, opts);
     }
-    throw e;
-  } finally {
-    stopTicker();
+
+    return res.data as OCRScanResult;
+  } catch (error: unknown) {
+    return cancelRemoteJobOnAbort(error, remoteJobId, opts);
   }
 }

@@ -105,6 +105,29 @@ class ExpenseServiceTest {
     }
 
     @Test
+    fun `createExpense with AuthenticatedActor should save expense with decoupled actor`() {
+        val createBody = ExpenseCreate(
+            amount = BigDecimal("50.00"),
+            currency = "EUR",
+            date = "2024-02-01",
+            fxRate = BigDecimal.ONE
+        )
+        val actor = eu.nt.xpenses.models.auth.AuthenticatedActor(
+            id = eu.nt.xpenses.models.auth.TechnicianId(42),
+            role = Authorization.ROLE_TECHNICIAN
+        )
+        doAnswer {
+            val exp = it.arguments[0] as Expense
+            exp.id = 99
+            exp
+        }.`when`(expenseRepository).save(anyObject(dummyExpense))
+
+        val result = expenseService.createExpense(createBody, actor)
+        assertEquals(BigDecimal("50.00"), result.amountOriginal)
+        assertEquals("EUR", result.currencyOriginal)
+    }
+
+    @Test
     fun `updateExpense should reject if not draft`() {
         val expense = Expense(id = 1, user = techUser, status = "submitted", amountOriginal = BigDecimal("10.00"), amountEur = BigDecimal("10.00"), currencyOriginal = "EUR", date = "2024-01-01")
         doReturn(Optional.of(expense)).`when`(expenseRepository).findById(1)

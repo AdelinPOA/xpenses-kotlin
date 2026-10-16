@@ -2,6 +2,7 @@
 
 import api, { type Expense } from "@/lib/api";
 import { compressImage } from "@/lib/receiptCapture";
+import { isNetworkFailure } from "@/lib/networkErrors";
 import {
   claimPendingExpense,
   enqueueExpense,
@@ -133,19 +134,6 @@ function errorMessage(error: unknown): string {
     candidate?.response?.data?.message ??
     candidate?.message ??
     "Expense could not be synchronized"
-  );
-}
-
-function isNetworkFailure(error: unknown): boolean {
-  const candidate = error as {
-    response?: unknown;
-    code?: string;
-    request?: unknown;
-  } | null;
-  return (
-    !candidate?.response ||
-    candidate?.code === "ECONNABORTED" ||
-    Boolean(candidate?.request && !candidate?.response)
   );
 }
 

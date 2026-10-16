@@ -5,11 +5,13 @@ import eu.nt.xpenses.dto.expense.ExpenseOut
 import eu.nt.xpenses.dto.expense.ExpenseUpdate
 import eu.nt.xpenses.model.*
 import eu.nt.xpenses.models.PagedResponse
+import eu.nt.xpenses.models.auth.AuthenticatedActor
 import eu.nt.xpenses.repositories.CategoryRepository
 import eu.nt.xpenses.repositories.ExpenseReportRepository
 import eu.nt.xpenses.repositories.ExpenseRepository
 import eu.nt.xpenses.repositories.OcrComparisonRepository
 import eu.nt.xpenses.repositories.ReceiptRepository
+import eu.nt.xpenses.repositories.UserRepository
 import eu.nt.xpenses.services.mapper.ExpenseMapper
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
@@ -36,13 +38,14 @@ class ExpenseService(
     private val storageService: StorageService,
     private val exportService: ExportService,
     private val expenseMapper: ExpenseMapper,
-    private val authorization: Authorization
+    private val authorization: Authorization,
+    private val userRepository: UserRepository? = null
 ) {
     private val log = LoggerFactory.getLogger(ExpenseService::class.java)
 
     @Transactional(readOnly = true)
     fun listExpenses(
-        currentUser: User,
+        actor: AuthenticatedActor,
         reportId: Int?,
         categoryId: Int?,
         status: String?,
@@ -53,7 +56,7 @@ class ExpenseService(
         size: Int,
         q: String?
     ): Any {
-        val uid = authorization.effectiveUserId(currentUser, all)
+        val uid = authorization.effectiveUserId(actor, all)
         val normalizedQuery = q?.trim()?.takeIf { it.isNotEmpty() }
 
         return if (page != null) {
@@ -73,24 +76,46 @@ class ExpenseService(
     }
 
     @Transactional(readOnly = true)
-    fun getExpense(expenseId: Int, currentUser: User): ExpenseOut {
+    fun listExpenses(
+        currentUser: User,
+        reportId: Int?,
+        categoryId: Int?,
+        status: String?,
+        fromDate: String?,
+        toDate: String?,
+        all: Boolean,
+        page: Int?,
+        size: Int,
+        q: String?
+    ): Any = listExpenses(AuthenticatedActor.fromUser(currentUser), reportId, categoryId, status, fromDate, toDate, all, page, size, q)
+
+    @Transactional(readOnly = true)
+    fun getExpense(expenseId: Int, actor: AuthenticatedActor): ExpenseOut {
         val expense = expenseRepository.findById(expenseId).orElseThrow {
             ResponseStatusException(HttpStatus.NOT_FOUND, "Expense not found")
         }
 
-        if (!authorization.canView(currentUser, expense.user?.id)) {
+        if (!authorization.canView(actor, expense.user?.id)) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Not your expense")
         }
 
         return expenseMapper.toExpenseOut(expense)
     }
 
+    @Transactional(readOnly = true)
+    fun getExpense(expenseId: Int, currentUser: User): ExpenseOut =
+        getExpense(expenseId, AuthenticatedActor.fromUser(currentUser))
+
     @Transactional
-    fun createExpense(body: ExpenseCreate, currentUser: User): ExpenseOut {
+    fun createExpense(body: ExpenseCreate, actor: AuthenticatedActor): ExpenseOut {
         val fxRate = resolveFxRate(body.fxRate, body.currency, body.date)
-        val saved = doCreateExpense(body, currentUser, fxRate)
+        val saved = doCreateExpense(body, actor, fxRate)
         return expenseMapper.toExpenseOut(saved)
     }
+
+    @Transactional
+    fun createExpense(body: ExpenseCreate, currentUser: User): ExpenseOut =
+        createExpense(body, AuthenticatedActor.fromUser(currentUser))
 
     private fun resolveFxRate(manualRate: BigDecimal?, currency: String, date: String): BigDecimal {
         if (manualRate != null) return manualRate
@@ -102,7 +127,7 @@ class ExpenseService(
     }
 
     @Transactional
-    fun doCreateExpense(body: ExpenseCreate, currentUser: User, fxRate: BigDecimal): Expense {
+    fun doCreateExpense(body: ExpenseCreate, actor: AuthenticatedActor, fxRate: BigDecimal): Expense {
         val fxRateManual = body.fxRate != null
 
         val amountEur = body.amount.multiply(fxRate).setScale(2, RoundingMode.HALF_UP)
@@ -122,7 +147,7 @@ class ExpenseService(
             val rep = expenseReportRepository.findById(it).orElseThrow {
                 ResponseStatusException(HttpStatus.NOT_FOUND, "Report not found")
             }
-            if (!authorization.canMutate(currentUser, rep.user?.id)) {
+            if (!authorization.canMutate(actor, rep.user?.id)) {
                 throw ResponseStatusException(HttpStatus.FORBIDDEN, "Cannot attach to another user's report")
             }
             if (rep.status != "draft") {
@@ -131,8 +156,11 @@ class ExpenseService(
             rep
         }
 
+        val userEntity = userRepository?.getReferenceById(actor.userId)
+            ?: User(username = "u${actor.userId}", displayName = "User").apply { id = actor.userId }
+
         val expense = Expense(
-            user = currentUser,
+            user = userEntity,
             category = category,
             report = report,
             amountOriginal = body.amount,
@@ -166,12 +194,16 @@ class ExpenseService(
     }
 
     @Transactional
-    fun updateExpense(expenseId: Int, body: ExpenseUpdate, currentUser: User): ExpenseOut {
+    fun doCreateExpense(body: ExpenseCreate, currentUser: User, fxRate: BigDecimal): Expense =
+        doCreateExpense(body, AuthenticatedActor.fromUser(currentUser), fxRate)
+
+    @Transactional
+    fun updateExpense(expenseId: Int, body: ExpenseUpdate, actor: AuthenticatedActor): ExpenseOut {
         val expense = expenseRepository.findById(expenseId).orElseThrow {
             ResponseStatusException(HttpStatus.NOT_FOUND, "Expense not found")
         }
 
-        if (!authorization.canMutate(currentUser, expense.user?.id)) {
+        if (!authorization.canMutate(actor, expense.user?.id)) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Only the owner can perform this action")
         }
         if (expense.status != "draft") {
@@ -229,7 +261,7 @@ class ExpenseService(
             val rep = expenseReportRepository.findById(body.reportId).orElseThrow {
                 ResponseStatusException(HttpStatus.NOT_FOUND, "Report not found")
             }
-            if (!authorization.canMutate(currentUser, rep.user?.id)) {
+            if (!authorization.canMutate(actor, rep.user?.id)) {
                 throw ResponseStatusException(HttpStatus.FORBIDDEN, "Cannot attach to another user's report")
             }
             if (rep.status != "draft") {
@@ -253,17 +285,24 @@ class ExpenseService(
     }
 
     @Transactional
-    fun duplicateExpense(expenseId: Int, currentUser: User): ExpenseOut {
+    fun updateExpense(expenseId: Int, body: ExpenseUpdate, currentUser: User): ExpenseOut =
+        updateExpense(expenseId, body, AuthenticatedActor.fromUser(currentUser))
+
+    @Transactional
+    fun duplicateExpense(expenseId: Int, actor: AuthenticatedActor): ExpenseOut {
         val expense = expenseRepository.findById(expenseId).orElseThrow {
             ResponseStatusException(HttpStatus.NOT_FOUND, "Expense not found")
         }
 
-        if (!authorization.canMutate(currentUser, expense.user?.id)) {
+        if (!authorization.canMutate(actor, expense.user?.id)) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Only the owner can perform this action")
         }
 
+        val userEntity = userRepository?.getReferenceById(actor.userId)
+            ?: User(username = "u${actor.userId}", displayName = "User").apply { id = actor.userId }
+
         val newExpense = Expense(
-            user = currentUser,
+            user = userEntity,
             category = expense.category,
             report = null,
             amountOriginal = expense.amountOriginal,
@@ -287,12 +326,16 @@ class ExpenseService(
     }
 
     @Transactional
-    fun deleteExpense(expenseId: Int, currentUser: User) {
+    fun duplicateExpense(expenseId: Int, currentUser: User): ExpenseOut =
+        duplicateExpense(expenseId, AuthenticatedActor.fromUser(currentUser))
+
+    @Transactional
+    fun deleteExpense(expenseId: Int, actor: AuthenticatedActor) {
         val expense = expenseRepository.findById(expenseId).orElseThrow {
             ResponseStatusException(HttpStatus.NOT_FOUND, "Expense not found")
         }
 
-        if (!authorization.canMutate(currentUser, expense.user?.id)) {
+        if (!authorization.canMutate(actor, expense.user?.id)) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Only the owner can perform this action")
         }
         if (expense.status != "draft") {
@@ -330,12 +373,16 @@ class ExpenseService(
     }
 
     @Transactional
-    fun uploadReceipts(expenseId: Int, files: List<MultipartFile>, currentUser: User): List<Map<String, Any>> {
+    fun deleteExpense(expenseId: Int, currentUser: User) =
+        deleteExpense(expenseId, AuthenticatedActor.fromUser(currentUser))
+
+    @Transactional
+    fun uploadReceipts(expenseId: Int, files: List<MultipartFile>, actor: AuthenticatedActor): List<Map<String, Any>> {
         val expense = expenseRepository.findById(expenseId).orElseThrow {
             ResponseStatusException(HttpStatus.NOT_FOUND, "Expense not found")
         }
 
-        if (!authorization.canMutate(currentUser, expense.user?.id)) {
+        if (!authorization.canMutate(actor, expense.user?.id)) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Only the owner can perform this action")
         }
         if (expense.status != "draft") {
@@ -395,11 +442,15 @@ class ExpenseService(
     }
 
     @Transactional
-    fun deleteSingleReceipt(expenseId: Int, receiptId: Int, currentUser: User) {
+    fun uploadReceipts(expenseId: Int, files: List<MultipartFile>, currentUser: User): List<Map<String, Any>> =
+        uploadReceipts(expenseId, files, AuthenticatedActor.fromUser(currentUser))
+
+    @Transactional
+    fun deleteSingleReceipt(expenseId: Int, receiptId: Int, actor: AuthenticatedActor) {
         val expense = expenseRepository.findById(expenseId).orElseThrow {
             ResponseStatusException(HttpStatus.NOT_FOUND, "Expense not found")
         }
-        if (!authorization.canMutate(currentUser, expense.user?.id)) {
+        if (!authorization.canMutate(actor, expense.user?.id)) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Only the owner can delete receipts")
         }
         if (expense.status != "draft") {
@@ -437,13 +488,17 @@ class ExpenseService(
         }
     }
 
+    @Transactional
+    fun deleteSingleReceipt(expenseId: Int, receiptId: Int, currentUser: User) =
+        deleteSingleReceipt(expenseId, receiptId, AuthenticatedActor.fromUser(currentUser))
+
     @Transactional(readOnly = true)
-    fun getReceiptBytes(expenseId: Int, receiptId: Int?, currentUser: User): Pair<ByteArray, String> {
+    fun getReceiptBytes(expenseId: Int, receiptId: Int?, actor: AuthenticatedActor): Pair<ByteArray, String> {
         val expense = expenseRepository.findById(expenseId).orElseThrow {
             ResponseStatusException(HttpStatus.NOT_FOUND, "Expense not found")
         }
 
-        if (!authorization.canView(currentUser, expense.user?.id)) {
+        if (!authorization.canView(actor, expense.user?.id)) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Not your expense")
         }
 
@@ -466,7 +521,7 @@ class ExpenseService(
 
         val receipt = expense.receipts.minByOrNull { it.createdAt }
         if (receipt != null) {
-            return getReceiptBytes(expenseId, receipt.id!!, currentUser)
+            return getReceiptBytes(expenseId, receipt.id!!, actor)
         }
 
         val rPath = expense.receiptPath ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "No receipt found")
@@ -481,8 +536,12 @@ class ExpenseService(
     }
 
     @Transactional(readOnly = true)
+    fun getReceiptBytes(expenseId: Int, receiptId: Int?, currentUser: User): Pair<ByteArray, String> =
+        getReceiptBytes(expenseId, receiptId, AuthenticatedActor.fromUser(currentUser))
+
+    @Transactional(readOnly = true)
     fun exportExpenses(
-        currentUser: User,
+        actor: AuthenticatedActor,
         format: String,
         reportId: Int?,
         categoryId: Int?,
@@ -496,10 +555,10 @@ class ExpenseService(
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported format '$format'. Use 'csv' or 'xlsx'.")
         }
 
-        val uid = authorization.effectiveUserId(currentUser, all)
+        val uid = authorization.effectiveUserId(actor, all)
         val expenses = expenseRepository.findAllWithFilters(uid, status, reportId, categoryId, fromDate, toDate, q)
 
-        val includeUser = authorization.canViewAll(currentUser) && all
+        val includeUser = authorization.canViewAll(actor) && all
         val columns = listOfNotNull(
             "id", "date", "merchant", "description", "category",
             "amount_original", "currency", "amount_eur", "fx_rate",
@@ -537,4 +596,18 @@ class ExpenseService(
             else -> Triple(exportService.buildCsv(rows, columns), "text/csv", "expenses_$today.csv")
         }
     }
+
+    @Transactional(readOnly = true)
+    fun exportExpenses(
+        currentUser: User,
+        format: String,
+        reportId: Int?,
+        categoryId: Int?,
+        status: String?,
+        fromDate: String?,
+        toDate: String?,
+        all: Boolean,
+        q: String?
+    ): Triple<ByteArray, String, String> =
+        exportExpenses(AuthenticatedActor.fromUser(currentUser), format, reportId, categoryId, status, fromDate, toDate, all, q)
 }

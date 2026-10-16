@@ -140,7 +140,7 @@ conditional, or still require reproduction. Severity: [critical] > [high] > [med
 
 - [ ] [low] OCR amount double-roundtrip precision loss — `services/OcrService.kt:380,417-422`
 
-- [ ] [low] No reaper for stuck OCR jobs — `services/AsyncOcrService.kt:35-37`
+- [x] [low] No reaper for stuck OCR jobs — stale: `services/OcrJobRecoveryScheduler.kt:7-20` delegates recovery to `OcrJobLifecycle.recover`.
 
 - [ ] [low] OCR cache cleanup ignores never-reused entries — `services/OcrResultCacheCleanupService.kt:22-28`
 

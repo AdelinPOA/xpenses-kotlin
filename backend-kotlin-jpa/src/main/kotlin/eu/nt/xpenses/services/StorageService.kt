@@ -21,8 +21,16 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.support.TransactionTemplate
 import org.springframework.web.server.ResponseStatusException
 import java.io.File
+import java.io.InputStream
+import java.net.URLConnection
+import java.security.DigestInputStream
+import java.security.MessageDigest
 import java.time.Instant
 import java.util.concurrent.Executor
+import eu.nt.xpenses.services.storage.ReceiptArchive
+import eu.nt.xpenses.services.storage.StoredContent
+import eu.nt.xpenses.services.storage.TransientObject
+import eu.nt.xpenses.services.storage.TransientStorage
 
 enum class StorageContext(
     val allowedExtensions: Set<String>,
@@ -66,7 +74,7 @@ open class StorageService(
     private val transactionTemplate: TransactionTemplate,
     private val migrationStateStore: eu.nt.xpenses.services.storage.StorageMigrationStateStore = eu.nt.xpenses.services.storage.NoopStorageMigrationStateStore,
     @Value("\${storage.location:/app/data/receipts}") private val defaultReceiptsDir: String = "/app/data/receipts"
-) {
+) : ReceiptArchive, TransientStorage {
     companion object {
         private const val MAX_FILE_SIZE = 50 * 1024 * 1024
     }
@@ -272,6 +280,27 @@ open class StorageService(
         upload: eu.nt.xpenses.models.RawUpload,
         entityId: Int
     ): String {
+        val safeName = validateUpload(context, upload)
+        val relativePath = context.buildPath(entityId, safeName)
+        uploadFile(relativePath, upload.bytes)
+        return relativePath
+    }
+
+    /** Stores a validated upload at a caller-owned path whose name is already fixed. */
+    open fun storeFileAtPath(
+        context: StorageContext,
+        upload: eu.nt.xpenses.models.RawUpload,
+        relativePath: String
+    ): String {
+        validateUpload(context, upload)
+        uploadFile(relativePath, upload.bytes)
+        return relativePath
+    }
+
+    private fun validateUpload(
+        context: StorageContext,
+        upload: eu.nt.xpenses.models.RawUpload
+    ): String {
         if (upload.bytes.size > context.maxSizeInBytes) {
             throw ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, "File exceeds size limit")
         }
@@ -293,11 +322,7 @@ open class StorageService(
         val allowedMimeTypes = context.allowedExtensions.mapNotNull { mapping[it] }.toSet()
         validateMagicBytes(upload.bytes, allowedMimeTypes)
 
-        val safeName = rawFilename.replace(" ", "_")
-        val relativePath = context.buildPath(entityId, safeName)
-
-        uploadFile(relativePath, upload.bytes)
-        return relativePath
+        return rawFilename.replace(" ", "_")
     }
 
     fun uploadFile(relativePath: String, content: ByteArray) {
@@ -436,5 +461,250 @@ open class StorageService(
                 ))
             }
         }
+    }
+
+    // --- ReceiptArchive implementation ---
+
+    override fun append(
+        receiptId: Int,
+        content: InputStream,
+        contentType: String,
+        filename: String
+    ): StoredContent {
+        val rawFilename = File(filename).name
+        val ext = rawFilename.substringAfterLast(".", "").lowercase()
+        if (ext !in StorageContext.RECEIPT.allowedExtensions) {
+            throw IllegalArgumentException("File type .$ext not allowed")
+        }
+
+        val safeName = rawFilename.replace(" ", "_")
+        val relativePath = StorageContext.RECEIPT.buildPath(receiptId, safeName)
+
+        val config = getStorageConfig()
+        val localDir = config.local?.path ?: defaultReceiptsDir
+        val localFile = StoragePathResolver.resolve(File(localDir), relativePath)
+        localFile.parentFile?.mkdirs()
+
+        val digest = MessageDigest.getInstance("SHA-256")
+        var sizeBytes = 0L
+
+        try {
+            localFile.outputStream().use { output ->
+                val dis = DigestInputStream(content, digest)
+                val buffer = ByteArray(8192)
+                var bytesRead: Int
+                var firstChunk = true
+                while (dis.read(buffer).also { bytesRead = it } != -1) {
+                    if (firstChunk) {
+                        val header = buffer.copyOf(bytesRead.coerceAtMost(32))
+                        val mapping = mapOf(
+                            "jpg" to "image/jpeg",
+                            "jpeg" to "image/jpeg",
+                            "png" to "image/png",
+                            "pdf" to "application/pdf",
+                            "webp" to "image/webp",
+                            "gif" to "image/gif"
+                        )
+                        val allowedMimes = StorageContext.RECEIPT.allowedExtensions.mapNotNull { mapping[it] }.toSet()
+                        validateMagicBytes(header, allowedMimes)
+                        firstChunk = false
+                    }
+                    output.write(buffer, 0, bytesRead)
+                    sizeBytes += bytesRead
+                    if (sizeBytes > StorageContext.RECEIPT.maxSizeInBytes) {
+                        throw ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, "File exceeds receipt size limit")
+                    }
+                }
+                if (firstChunk) {
+                    // Empty stream
+                    validateMagicBytes(ByteArray(0))
+                }
+            }
+        } catch (e: Exception) {
+            localFile.delete()
+            throw e
+        }
+
+        val sha256 = digest.digest().joinToString("") { "%02x".format(it.toInt() and 0xff) }
+
+        val remote = remoteProvider
+        if (remote != null) {
+            try {
+                remote.upload(relativePath, localFile.readBytes())
+            } catch (e: Exception) {
+                logger.error("Failed to upload receipt $relativePath to remote storage: ${e.message}", e)
+                localFile.delete()
+                throw ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Remote storage upload failed: ${e.message}", e)
+            }
+        }
+
+        logger.info("Receipt appended to archive: path={}, size={}, sha256={}", relativePath, sizeBytes, sha256)
+        return StoredContent(
+            contentType = contentType,
+            filename = safeName,
+            sizeBytes = sizeBytes,
+            sha256 = sha256,
+            relativePath = relativePath
+        )
+    }
+
+    override fun open(relativePath: String): InputStream {
+        val path = getLocalPath(relativePath)
+        val file = File(path)
+        if (!file.exists()) {
+            throw java.nio.file.NoSuchFileException("File not found: $relativePath")
+        }
+        return file.inputStream()
+    }
+
+    override fun verify(relativePath: String): StoredContent {
+        val path = getLocalPath(relativePath)
+        val file = File(path)
+        if (!file.exists()) {
+            throw java.nio.file.NoSuchFileException("File not found: $relativePath")
+        }
+        val digest = MessageDigest.getInstance("SHA-256")
+        var sizeBytes = 0L
+        file.inputStream().use { input ->
+            val dis = DigestInputStream(input, digest)
+            val buffer = ByteArray(8192)
+            var bytesRead: Int
+            while (dis.read(buffer).also { bytesRead = it } != -1) {
+                sizeBytes += bytesRead
+            }
+        }
+        val sha256 = digest.digest().joinToString("") { "%02x".format(it.toInt() and 0xff) }
+        val filename = file.name
+        val contentType = URLConnection.guessContentTypeFromName(filename) ?: "application/octet-stream"
+
+        return StoredContent(
+            contentType = contentType,
+            filename = filename,
+            sizeBytes = sizeBytes,
+            sha256 = sha256,
+            relativePath = relativePath
+        )
+    }
+
+    // --- TransientStorage implementation ---
+
+    override fun stage(
+        sourceId: Int,
+        content: InputStream,
+        contentType: String,
+        filename: String,
+        expiresAt: Instant
+    ): TransientObject {
+        val rawFilename = File(filename).name
+        val ext = rawFilename.substringAfterLast(".", "").lowercase()
+        if (ext !in StorageContext.OCR_SOURCE.allowedExtensions) {
+            throw IllegalArgumentException("File type .$ext not allowed")
+        }
+
+        val safeName = rawFilename.replace(" ", "_")
+        val relativePath = StorageContext.OCR_SOURCE.buildPath(sourceId, safeName)
+
+        val config = getStorageConfig()
+        val localDir = config.local?.path ?: defaultReceiptsDir
+        val localFile = StoragePathResolver.resolve(File(localDir), relativePath)
+        localFile.parentFile?.mkdirs()
+
+        val digest = MessageDigest.getInstance("SHA-256")
+        var sizeBytes = 0L
+
+        try {
+            localFile.outputStream().use { output ->
+                val dis = DigestInputStream(content, digest)
+                val buffer = ByteArray(8192)
+                var bytesRead: Int
+                var firstChunk = true
+                while (dis.read(buffer).also { bytesRead = it } != -1) {
+                    if (firstChunk) {
+                        val header = buffer.copyOf(bytesRead.coerceAtMost(32))
+                        val mapping = mapOf(
+                            "jpg" to "image/jpeg",
+                            "jpeg" to "image/jpeg",
+                            "png" to "image/png",
+                            "pdf" to "application/pdf",
+                            "webp" to "image/webp"
+                        )
+                        val allowedMimes = StorageContext.OCR_SOURCE.allowedExtensions.mapNotNull { mapping[it] }.toSet()
+                        validateMagicBytes(header, allowedMimes)
+                        firstChunk = false
+                    }
+                    output.write(buffer, 0, bytesRead)
+                    sizeBytes += bytesRead
+                    if (sizeBytes > StorageContext.OCR_SOURCE.maxSizeInBytes) {
+                        throw ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, "File exceeds OCR source size limit")
+                    }
+                }
+                if (firstChunk) {
+                    // Empty stream
+                    validateMagicBytes(ByteArray(0))
+                }
+            }
+        } catch (e: Exception) {
+            localFile.delete()
+            throw e
+        }
+
+        val sha256 = digest.digest().joinToString("") { "%02x".format(it.toInt() and 0xff) }
+
+        val remote = remoteProvider
+        if (remote != null) {
+            try {
+                remote.upload(relativePath, localFile.readBytes())
+            } catch (e: Exception) {
+                logger.error("Failed to upload transient file $relativePath to remote storage: ${e.message}", e)
+                localFile.delete()
+                throw ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Remote storage upload failed: ${e.message}", e)
+            }
+        }
+
+        logger.info("Transient object staged: path={}, size={}, sha256={}, expiresAt={}", relativePath, sizeBytes, sha256, expiresAt)
+        return TransientObject(
+            sourceId = sourceId,
+            relativePath = relativePath,
+            sizeBytes = sizeBytes,
+            sha256 = sha256,
+            expiresAt = expiresAt
+        )
+    }
+
+    override fun release(relativePath: String, reason: String) {
+        logger.info("Releasing transient file '{}' (reason: {})", relativePath, reason)
+        try {
+            deleteFile(relativePath)
+        } catch (e: Exception) {
+            logger.warn("Failed to release transient file '{}': {}", relativePath, e.message)
+        }
+    }
+
+    override fun reapExpired(now: Instant, limit: Int): Int {
+        val config = getStorageConfig()
+        val localDir = config.local?.path ?: defaultReceiptsDir
+        val ocrSourcesDir = File(localDir, "ocr-sources")
+        if (!ocrSourcesDir.exists() || !ocrSourcesDir.isDirectory) {
+            return 0
+        }
+        var deletedCount = 0
+        val files = ocrSourcesDir.listFiles() ?: return 0
+        for (file in files) {
+            if (deletedCount >= limit) break
+            if (file.isFile) {
+                val lastModified = Instant.ofEpochMilli(file.lastModified())
+                if (lastModified.isBefore(now)) {
+                    try {
+                        val relPath = "ocr-sources/${file.name}"
+                        deleteFile(relPath)
+                        deletedCount++
+                        logger.info("Reaped expired transient file: {}", relPath)
+                    } catch (e: Exception) {
+                        logger.warn("Failed to reap expired transient file {}: {}", file.name, e.message)
+                    }
+                }
+            }
+        }
+        return deletedCount
     }
 }

@@ -48,7 +48,7 @@ class OcrService(
 
     companion object {
         const val CACHE_PROVIDER = "gemini"
-        const val CACHE_CONTRACT_VERSION = "1"
+        const val CACHE_CONTRACT_VERSION = "2"
 
         // Tried in order; the first tier to return a parseable, non-empty result wins.
         val GEMINI_FALLBACK_CHAIN = listOf(
@@ -320,7 +320,8 @@ class OcrService(
                                 "tax_amount (total tax/VAT paid), tax_rate (percentage e.g. 19.0), date (in YYYY-MM-DD format), " +
                                 "raw_text (full OCR transcription of the text on the receipt), " +
                                 "category_id (Select the best-matching integer category ID from this list: $categoriesStr. If none match, return null), " +
-                                "and description (a brief, human-friendly summary of the expense description or receipt items)."
+                                "description (a brief, human-friendly summary of the expense description or receipt items), " +
+                                "and confidence (a number from 0.0 to 1.0 representing your confidence in the extracted details)."
                             )
                         ),
                         mapOf(
@@ -345,7 +346,8 @@ class OcrService(
                         "date" to mapOf("type" to "STRING"),
                         "category_id" to mapOf("type" to "INTEGER"),
                         "description" to mapOf("type" to "STRING"),
-                        "raw_text" to mapOf("type" to "STRING")
+                        "raw_text" to mapOf("type" to "STRING"),
+                        "confidence" to mapOf("type" to "NUMBER")
                     )
                 )
             )
@@ -386,8 +388,13 @@ class OcrService(
         if (merchant.isNullOrEmpty()) warnings.add("Could not extract merchant")
 
         val currency = (result["currency"] as? String)?.uppercase()?.trim()
+        if (currency == null || !Pattern.matches("^[A-Z]{3}$", currency)) {
+            warnings.add("Could not extract currency")
+        }
         val taxAmount = (result["tax_amount"] as? Number)?.toDouble()
         val taxRate = (result["tax_rate"] as? Number)?.toDouble()
+        // Missing confidence is a contract violation, not a high-confidence result.
+        val confidence = (result["confidence"] as? Number)?.toDouble()?.coerceIn(0.0, 1.0) ?: 0.0
 
         var categoryId = (result["category_id"] as? Number)?.toInt()
         if (categoryId != null) {
@@ -407,7 +414,7 @@ class OcrService(
             "category_id" to categoryId,
             "description" to result["description"],
             "raw_text" to (result["raw_text"] ?: ""),
-            "confidence" to 1.0,
+            "confidence" to confidence,
             "warnings" to warnings
         )
     }

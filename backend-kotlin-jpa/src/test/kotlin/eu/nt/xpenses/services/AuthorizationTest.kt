@@ -214,4 +214,50 @@ class AuthorizationTest {
             assertEquals("technician", Authorization.ROLE_TECHNICIAN)
         }
     }
+
+    @Nested
+    inner class AuthenticatedActorTests {
+        private val techActor = eu.nt.xpenses.models.auth.AuthenticatedActor(
+            id = eu.nt.xpenses.models.auth.TechnicianId(10),
+            role = Authorization.ROLE_TECHNICIAN
+        )
+        private val managerActor = eu.nt.xpenses.models.auth.AuthenticatedActor(
+            id = eu.nt.xpenses.models.auth.TechnicianId(20),
+            role = Authorization.ROLE_MANAGER
+        )
+        private val cfoActor = eu.nt.xpenses.models.auth.AuthenticatedActor(
+            id = eu.nt.xpenses.models.auth.TechnicianId(30),
+            role = Authorization.ROLE_CHEF_FINANCE
+        )
+
+        @Test
+        fun `actor permissions evaluate without User JPA entity`() {
+            assertTrue(authorization.canView(techActor, ownerId = 10))
+            assertFalse(authorization.canView(techActor, ownerId = 99))
+            assertTrue(authorization.canView(managerActor, ownerId = 99))
+
+            assertFalse(authorization.canManage(techActor))
+            assertTrue(authorization.canManage(managerActor))
+            assertTrue(authorization.canManage(cfoActor))
+
+            assertFalse(authorization.canPay(managerActor))
+            assertTrue(authorization.canPay(cfoActor))
+
+            assertEquals(10, authorization.effectiveUserId(techActor, all = true))
+            assertNull(authorization.effectiveUserId(managerActor, all = true))
+            assertEquals(20, authorization.effectiveUserId(managerActor, all = false))
+
+            assertTrue(authorization.canMutate(techActor, ownerId = 10))
+            assertFalse(authorization.canMutate(techActor, ownerId = 99))
+        }
+
+        @Test
+        fun `actor fromUser conversion works as expected`() {
+            val actor = eu.nt.xpenses.models.auth.AuthenticatedActor.fromUser(technician)
+            assertEquals(technician.id, actor.userId)
+            assertEquals(technician.role, actor.role)
+            assertEquals(technician.email, actor.email)
+            assertEquals(technician.isActive, actor.active)
+        }
+    }
 }

@@ -80,6 +80,18 @@ The current durable step of an OcrJob: provider OCR, draft Expense creation, or 
 **OCR lease**:
 An opaque token and expiry held by one worker for one OcrJob stage. Database compare-and-set writes require the token, so an expired or stale worker cannot persist a result.
 
+**OcrJob outcome**:
+The current durable lifecycle outcome of an OcrJob, describing control flow independently of its stage:
+- **Pending**: Work is queued and eligible for processing.
+- **In progress**: Exactly one worker holds an active lease for the current step (internally `PROCESSING`).
+- **Retryable failure**: The step failed with a transient error; the source remains eligible for scheduled retry (`RETRY_WAIT`).
+- **Permanent failure**: The step cannot complete automatically (`PERMANENT_FAILURE`). If stage is `OCR`, this may produce a photo-only draft Expense.
+- **Completed**: The draft Expense and Receipt were successfully created and linked (`COMPLETED`).
+- **Cancelled**: The Technician explicitly cancelled the job before completion (`CANCELLED`).
+- **Expired**: The retention window elapsed before the job could finish (`EXPIRED`).
+- **Unrecoverable**: The source was never durably stored or was corrupted (`UNRECOVERABLE`).
+_Avoid_: claimed status, raw worker state
+
 **Storage context**:
 A domain categorization of stored files (`RECEIPT`, `SIGNATURE`, `OCR_SOURCE`) defining per-context rules: allowed file extensions, maximum payload size, magic-byte validation, and relative path construction.
 _Avoid_: storage bucket, file category

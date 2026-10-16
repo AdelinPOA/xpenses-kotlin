@@ -1,7 +1,7 @@
 package eu.nt.xpenses.controllers
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.annotation.JsonProperty
+import com.fasterxml.jackson.databind.ObjectMapper
 import eu.nt.xpenses.model.OcrComparison
 import eu.nt.xpenses.model.OcrJob
 import eu.nt.xpenses.model.OcrJobStatus
@@ -9,6 +9,7 @@ import eu.nt.xpenses.model.User
 import eu.nt.xpenses.models.RawUpload
 import eu.nt.xpenses.repositories.OcrComparisonRepository
 import eu.nt.xpenses.repositories.OcrJobRepository
+import eu.nt.xpenses.security.RateLimitStore
 import eu.nt.xpenses.services.OcrJobPipeline
 import eu.nt.xpenses.services.OcrService
 import eu.nt.xpenses.services.StorageContext
@@ -21,10 +22,9 @@ import org.springframework.web.bind.annotation.*
 import org.springframework.web.multipart.MultipartFile
 import org.springframework.web.server.ResponseStatusException
 import java.math.BigDecimal
-import eu.nt.xpenses.security.RateLimitStore
+import java.security.MessageDigest
 import java.time.Instant
 import java.time.temporal.ChronoUnit
-import java.security.MessageDigest
 
 @RestController
 @RequestMapping("/api/ocr")
@@ -82,37 +82,46 @@ class OcrController(
         }
 
         // Create OCR Job
+        val capturedAt = Instant.now()
+        val expiresAt = capturedAt.plus(30, ChronoUnit.DAYS)
         val job = OcrJob(
             user = currentUser,
             filename = filename,
             // Keep the job invisible to recovery until the OCR source is durable.
-            status = OcrJobStatus.PAUSED
+            status = OcrJobStatus.PAUSED,
+            createdAt = capturedAt,
+            updatedAt = capturedAt,
+            expiresAt = expiresAt
         )
         val savedJob = ocrJobRepository.save(job)
         val jobId = savedJob.id!!
         var sourcePath: String? = null
 
         try {
-            sourcePath = storageService.storeFile(
-                StorageContext.OCR_SOURCE,
-                RawUpload(fileBytes, filename, file.contentType),
-                jobId
+            val staged = storageService.stage(
+                sourceId = jobId,
+                content = file.inputStream,
+                contentType = file.contentType ?: "application/octet-stream",
+                filename = filename,
+                expiresAt = expiresAt
             )
-            savedJob.sourcePath = sourcePath
-            savedJob.sourceContentType = file.contentType
-            savedJob.sourceSizeBytes = fileBytes.size.toLong()
-            savedJob.sourceSha256 = sha256Hex(fileBytes)
-            savedJob.expiresAt = Instant.now().plus(30, ChronoUnit.DAYS)
-            savedJob.status = OcrJobStatus.PENDING
-            ocrJobRepository.saveAndFlush(savedJob)
-        } catch (e: Exception) {
-            if (sourcePath != null) {
-                runCatching { storageService.deleteFile(sourcePath) }
+            sourcePath = staged.relativePath
+            if (ocrJobRepository.persistSourceCapture(
+                    jobId,
+                    staged.relativePath,
+                    file.contentType,
+                    staged.sizeBytes,
+                    staged.sha256,
+                    Instant.now()
+                ) != 1
+            ) {
+                runCatching { storageService.release(staged.relativePath, "unaccepted_source") }
+                return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .body(mapOf("detail" to "OCR job is no longer accepting its source"))
             }
-            savedJob.status = OcrJobStatus.PERMANENT_FAILURE
-            savedJob.errorCode = "OCR_SOURCE_STORE_FAILED"
-            savedJob.errorMessage = "OCR source could not be durably stored"
-            ocrJobRepository.save(savedJob)
+        } catch (e: Exception) {
+            sourcePath?.let { path -> runCatching { storageService.release(path, "capture_failed") } }
+            runCatching { ocrJobRepository.markSourceCaptureFailed(jobId, Instant.now()) }
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
                 .body(mapOf("detail" to "OCR source could not be stored"))
         }
@@ -161,7 +170,7 @@ class OcrController(
             // the recovery API will expose the canonical persisted vocabulary.
             "status" to when (job.status) {
                 OcrJobStatus.COMPLETED -> "completed"
-                OcrJobStatus.PERMANENT_FAILURE, OcrJobStatus.UNRECOVERABLE -> "failed"
+                OcrJobStatus.PERMANENT_FAILURE, OcrJobStatus.UNRECOVERABLE, OcrJobStatus.EXPIRED -> "failed"
                 else -> job.status.lowercase()
             },
             "stage" to job.stage,
@@ -172,7 +181,9 @@ class OcrController(
 
         if (job.status == OcrJobStatus.COMPLETED && job.resultJson != null) {
             response["result"] = objectMapper.readValue(job.resultJson, Map::class.java)
-        } else if (job.status == OcrJobStatus.PERMANENT_FAILURE || job.status == OcrJobStatus.UNRECOVERABLE) {
+        } else if (job.status == OcrJobStatus.PERMANENT_FAILURE ||
+            job.status == OcrJobStatus.UNRECOVERABLE || job.status == OcrJobStatus.EXPIRED
+        ) {
             response["error"] = job.errorMessage ?: job.unrecoverableReason
         }
 

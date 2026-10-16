@@ -47,6 +47,9 @@ class OcrJob(
     @Column(name = "source_sha256", length = 64)
     var sourceSha256: String? = null,
 
+    @Column(name = "receipt_staging_path")
+    var receiptStagingPath: String? = null,
+
     @Column(name = "result_json", columnDefinition = "TEXT")
     var resultJson: String? = null,
 

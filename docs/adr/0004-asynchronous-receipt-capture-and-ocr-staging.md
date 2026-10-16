@@ -20,5 +20,7 @@ Technicians in the field frequently incur multiple expenses in sequence (fuel, m
 
 - The capture view remains responsive and operable even during slow network conditions or offline periods.
 - The frontend consumes the Expense and Receipt IDs produced by the durable pipeline; it does not upload the captured image a second time.
-- Stage promotion is lease-fenced and queue rejection leaves the OcrJob pending for scheduled recovery.
+- Stage promotion is lease-fenced: each stage transition requires an active `lease_token`. A stale worker cannot commit or persist results after lease expiry or job reclaim by another worker.
+- Compare-and-set (CAS) updates in `OcrJobRepository` ensure single-winner transitions across stages (`OCR` -> `EXPENSE` -> `RECEIPT`).
+- Transient provider/database failures transition to `Retryable failure` with exponential backoff; permanent failures or missing sources transition to `Permanent failure` or `Unrecoverable`.
 - Synchronous error alerts are replaced with persistent, non-intrusive status badges on draft cards.

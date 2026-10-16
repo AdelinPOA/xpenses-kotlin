@@ -424,6 +424,192 @@ test.describe("Mobile expense layout (#47)", () => {
     await expect.poll(() => scanWasAborted).toBe(true);
   });
 
+  test("new expense OCR source survives offline reload and resumes when connection returns", async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      let online = false;
+      Object.defineProperty(navigator, "onLine", {
+        configurable: true,
+        get: () => online,
+      });
+      Object.defineProperty(window, "__goOnline", {
+        configurable: true,
+        value: () => {
+          online = true;
+          window.dispatchEvent(new Event("online"));
+        },
+      });
+    });
+    await page.route("**/api/categories**", (route) =>
+      route.fulfill({ json: CATEGORIES }),
+    );
+    let scanCount = 0;
+    await page.route("**/api/ocr/scan", async (route) => {
+      scanCount += 1;
+      await route.fulfill({
+        json: {
+          amount: 12.34,
+          currency: "EUR",
+          date: "2026-07-15",
+          merchant: "Field Market",
+          expense_id: 77,
+          receipt_id: 88,
+        },
+      });
+    });
+    await page.route("**/api/expenses/77", (route) =>
+      route.fulfill({
+        json: {
+          id: 77,
+          amount_original: 12.34,
+          currency_original: "EUR",
+          amount_eur: 12.34,
+          fx_rate: 1,
+          fx_rate_manual: false,
+          tax_amount: 0,
+          tax_rate: null,
+          date: "2026-07-15",
+          merchant: "Field Market",
+          description: null,
+          category_id: null,
+          report_id: null,
+          receipts: [
+            {
+              id: 88,
+              expense_id: 77,
+              original_name: "offline-form-receipt.txt",
+              file_path: "receipts/77.txt",
+            },
+          ],
+        },
+      }),
+    );
+
+    await page.setViewportSize({ width: 375, height: 667 });
+    await page.goto("/expenses/new", { waitUntil: "load" });
+    await page.locator("#receipt-scan-input").setInputFiles({
+      name: "offline-form-receipt.txt",
+      mimeType: "text/plain",
+      buffer: Buffer.from("offline form receipt"),
+    });
+    const scanner = page.getByRole("group", {
+      name: /Add a receipt|Adaugă un bon/i,
+    });
+    await expect(scanner).toHaveAttribute("aria-busy", "true");
+    await expect(
+      page.getByText(/Waiting for connection…|Așteaptă conexiunea…/i),
+    ).toBeVisible();
+    expect(scanCount).toBe(0);
+
+    await page.reload({ waitUntil: "load" });
+    await expect(scanner).toHaveAttribute("aria-busy", "true");
+    await expect(
+      page.getByText(/Waiting for connection…|Așteaptă conexiunea…/i),
+    ).toBeVisible();
+    expect(scanCount).toBe(0);
+
+    await page.evaluate(() => {
+      (window as unknown as { __goOnline: () => void }).__goOnline();
+    });
+    await expect(page.getByLabel(/Merchant|Comerciant/i)).toHaveValue(
+      "Field Market",
+      { timeout: 5000 },
+    );
+    await expect.poll(() => scanCount).toBe(1);
+  });
+
+  test("new expense resumes a posted OCR job after reload without re-uploading", async ({
+    page,
+  }) => {
+    await page.route("**/api/categories**", (route) =>
+      route.fulfill({ json: CATEGORIES }),
+    );
+    let scanCount = 0;
+    let statusCalls = 0;
+    let cancelRequests = 0;
+    await page.route("**/api/ocr/jobs/101", async (route, request) => {
+      if (request.method() === "DELETE") cancelRequests += 1;
+      await route.fulfill({ status: 204 });
+    });
+    await page.route("**/api/ocr/scan", async (route) => {
+      scanCount += 1;
+      await route.fulfill({
+        status: 202,
+        json: { job_id: 101, status_url: "/ocr/status/101" },
+      });
+    });
+    await page.route("**/api/ocr/status/101", async (route) => {
+      statusCalls += 1;
+      if (statusCalls === 1) {
+        await route.fulfill({ json: { status: "processing" } });
+        return;
+      }
+      await route.fulfill({
+        json: {
+          status: "completed",
+          expense_id: 77,
+          receipt_id: 88,
+          result: {
+            amount: 12.34,
+            currency: "EUR",
+            date: "2026-07-15",
+            merchant: "Field Market",
+            raw_text: "FIELD MARKET 12.34 EUR",
+          },
+        },
+      });
+    });
+    await page.route("**/api/expenses/77", (route) =>
+      route.fulfill({
+        json: {
+          id: 77,
+          amount_original: 12.34,
+          currency_original: "EUR",
+          amount_eur: 12.34,
+          fx_rate: 1,
+          fx_rate_manual: false,
+          tax_amount: 0,
+          tax_rate: null,
+          date: "2026-07-15",
+          merchant: "Field Market",
+          description: null,
+          category_id: null,
+          report_id: null,
+          receipts: [
+            {
+              id: 88,
+              expense_id: 77,
+              original_name: "reload-receipt.jpg",
+              file_path: "receipts/77.jpg",
+            },
+          ],
+        },
+      }),
+    );
+
+    await page.setViewportSize({ width: 375, height: 667 });
+    await page.goto("/expenses/new", { waitUntil: "load" });
+    await page.locator("#receipt-scan-input").setInputFiles({
+      name: "reload-receipt.jpg",
+      mimeType: "image/jpeg",
+      buffer: Buffer.from("reload receipt"),
+    });
+    const scanner = page.getByRole("group", {
+      name: /Add a receipt|Adaugă un bon/i,
+    });
+    await expect(scanner).toHaveAttribute("aria-busy", "true");
+    await expect.poll(() => statusCalls, { timeout: 5000 }).toBe(1);
+
+    await page.reload({ waitUntil: "load" });
+    await expect(page.getByLabel(/Merchant|Comerciant/i)).toHaveValue(
+      "Field Market",
+      { timeout: 7000 },
+    );
+    await expect.poll(() => scanCount).toBe(1);
+    expect(cancelRequests).toBe(0);
+  });
+
   test("batch capture can cancel one OCR source and continue with another", async ({
     page,
   }) => {
@@ -629,6 +815,63 @@ test.describe("Mobile expense layout (#47)", () => {
     await expect.poll(() => scanCount).toBe(1);
   });
 
+  test("batch capture resumes a posted OCR job after reload without re-uploading", async ({
+    page,
+  }) => {
+    let scanCount = 0;
+    let statusCalls = 0;
+    let cancelRequests = 0;
+    await page.route("**/api/ocr/jobs/101", async (route, request) => {
+      if (request.method() === "DELETE") cancelRequests += 1;
+      await route.fulfill({ status: 204 });
+    });
+    await page.route("**/api/ocr/scan", async (route) => {
+      scanCount += 1;
+      await route.fulfill({
+        status: 202,
+        json: { job_id: 101, status_url: "/ocr/status/101" },
+      });
+    });
+    await page.route("**/api/ocr/status/101", async (route) => {
+      statusCalls += 1;
+      if (statusCalls === 1) {
+        await route.fulfill({ json: { status: "processing" } });
+        return;
+      }
+      await route.fulfill({
+        json: {
+          status: "completed",
+          expense_id: 77,
+          receipt_id: 88,
+          result: {
+            amount: 12.34,
+            currency: "EUR",
+            date: "2026-07-15",
+            merchant: "Field Market",
+            raw_text: "FIELD MARKET 12.34 EUR",
+          },
+        },
+      });
+    });
+
+    await page.setViewportSize({ width: 375, height: 667 });
+    await page.goto("/expenses/capture", { waitUntil: "load" });
+    await page.locator('input[type="file"][accept="image/*"]').setInputFiles({
+      name: "batch-reload-receipt.jpg",
+      mimeType: "image/jpeg",
+      buffer: Buffer.from("batch reload receipt"),
+    });
+    await expect(
+      page.getByText(/Reading receipt|Se citește bonul/i),
+    ).toBeVisible();
+    await expect.poll(() => statusCalls, { timeout: 5000 }).toBe(1);
+
+    await page.reload({ waitUntil: "load" });
+    await expect(page.getByText("Field Market")).toBeVisible({ timeout: 7000 });
+    await expect.poll(() => scanCount).toBe(1);
+    expect(cancelRequests).toBe(0);
+  });
+
   test("batch capture surfaces OCR job failures", async ({ page }) => {
     await page.route("**/api/ocr/status/failure", (route) =>
       route.fulfill({
@@ -650,11 +893,15 @@ test.describe("Mobile expense layout (#47)", () => {
       mimeType: "text/plain",
       buffer: Buffer.from("failed receipt"),
     });
+    await expect(page.locator("[data-capture-error]")).toContainText(
+      "OCR job failed",
+      { timeout: 5000 },
+    );
     await expect(
       page
         .locator('[role="alert"]')
         .filter({ hasText: "OCR provider unavailable" }),
-    ).toBeVisible({ timeout: 5000 });
+    ).toHaveCount(0);
   });
 
   test("unpromoted OCR results do not trigger a second Receipt upload", async ({
@@ -719,7 +966,123 @@ test.describe("Mobile expense layout (#47)", () => {
       .getByRole("button", { name: /Create expense|Creează cheltuiala/i })
       .click();
     await expect.poll(() => expenseCreates).toBe(1);
+    await expect(page).toHaveURL(/\/expenses$/, { timeout: 5000 });
     expect(receiptUploads).toBe(0);
+  });
+
+  test("photo-only OCR fallback stays a Needs Review draft without a second Receipt upload", async ({
+    page,
+  }) => {
+    let receiptUploads = 0;
+    await page.route("**/api/ocr/scan", (route) =>
+      route.fulfill({
+        json: {
+          amount: null,
+          currency: null,
+          tax_amount: null,
+          tax_rate: null,
+          date: null,
+          merchant: null,
+          raw_text: "",
+          confidence: 0,
+          warnings: ["Could not reliably read the receipt"],
+          error_code: "OCR_LOW_CONFIDENCE",
+          fallback: "photo_only",
+          fallback_reason: "OCR_LOW_CONFIDENCE",
+          expense_id: 77,
+          receipt_id: 88,
+        },
+      }),
+    );
+    await page.route("**/api/expenses/77", (route) =>
+      route.fulfill({
+        json: {
+          id: 77,
+          amount_original: 0,
+          currency_original: "EUR",
+          amount_eur: 0,
+          fx_rate: 1,
+          fx_rate_manual: false,
+          tax_amount: 0,
+          tax_rate: null,
+          date: "2026-07-15",
+          merchant: null,
+          description: null,
+          category_id: null,
+          report_id: null,
+          receipts: [
+            {
+              id: 88,
+              expense_id: 77,
+              original_name: "photo-only-receipt.jpg",
+              file_path: "receipts/77.jpg",
+            },
+          ],
+        },
+      }),
+    );
+    await page.route("**/api/expenses/77/receipts", async (route, request) => {
+      if (request.method() === "POST") receiptUploads += 1;
+      await route.fulfill({ json: [] });
+    });
+
+    await page.goto("/expenses/new", { waitUntil: "load" });
+    await page.locator("#receipt-scan-input").setInputFiles({
+      name: "photo-only-receipt.jpg",
+      mimeType: "image/jpeg",
+      buffer: Buffer.from("photo only receipt"),
+    });
+
+    await expect(page.getByText(/Draft saved with photo only/i)).toBeVisible({
+      timeout: 5000,
+    });
+    await expect(page.locator("#expense-form-error")).toHaveCount(0);
+    await expect(page.locator("#expense-amount")).toHaveValue("");
+    expect(receiptUploads).toBe(0);
+  });
+
+  test("Expenses list marks photo-only drafts as Needs Review", async ({
+    page,
+  }) => {
+    await page.route("**/api/categories**", (route) =>
+      route.fulfill({ json: CATEGORIES }),
+    );
+    await page.route("**/api/expenses**", (route) =>
+      route.fulfill({
+        json: {
+          data: [
+            {
+              id: 77,
+              amount_original: 0,
+              currency_original: "EUR",
+              amount_eur: 0,
+              fx_rate: 1,
+              fx_rate_manual: false,
+              tax_amount: 0,
+              tax_rate: null,
+              tax_amount_eur: 0,
+              date: "2026-07-15",
+              merchant: null,
+              description: null,
+              category_id: null,
+              category_name: null,
+              status: "draft",
+              receipts: [{ id: 88, original_name: "photo-only.jpg" }],
+              report_id: null,
+            },
+          ],
+          total_elements: 1,
+          total_pages: 1,
+          page: 0,
+          size: 20,
+        },
+      }),
+    );
+
+    await page.goto("/expenses", { waitUntil: "load" });
+    await expect(page.locator("[data-needs-review]").first()).toHaveText(
+      "Needs Review",
+    );
   });
 
   test("OCR-created Expense is updated instead of recreated", async ({

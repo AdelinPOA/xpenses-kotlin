@@ -4,7 +4,10 @@ import eu.nt.xpenses.repositories.*
 import eu.nt.xpenses.services.EmailSettingsService
 import eu.nt.xpenses.services.FxService
 import eu.nt.xpenses.services.OcrService
+import org.junit.jupiter.api.Assumptions
 import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Tag
+import org.junit.jupiter.api.condition.EnabledIf
 import org.mockito.BDDMockito.given
 import org.mockito.ArgumentMatchers.anyString
 import org.springframework.beans.factory.annotation.Autowired
@@ -29,6 +32,8 @@ import java.math.BigDecimal
 // NOTE: data saved in a test method is visible to subsequent repository calls in the SAME
 // transaction but NOT to a second controller dispatch (which uses its own transaction scope).
 // authHelper.loginAs() queries committed seeded data only — never test-created entities.
+@Tag("integration")
+@EnabledIf("eu.nt.xpenses.IntegrationTestBase#isTestcontainersAllowed")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
@@ -37,15 +42,34 @@ abstract class IntegrationTestBase {
 
     companion object {
         @JvmStatic
-        val postgres: PostgreSQLContainer<*> = PostgreSQLContainer("postgres:16-alpine")
-            .also { it.start() }
+        fun isTestcontainersAllowed(): Boolean =
+            System.getenv("CI") == "true" ||
+                System.getenv("XPENSES_ENABLE_TESTCONTAINERS") == "true" ||
+                System.getProperty("xpenses.enable.testcontainers") == "true"
+
+        @JvmStatic
+        val postgres: PostgreSQLContainer<*>? by lazy {
+            if (isTestcontainersAllowed()) {
+                PostgreSQLContainer("postgres:16-alpine").also { it.start() }
+            } else {
+                null
+            }
+        }
 
         @DynamicPropertySource
         @JvmStatic
         fun overrideProperties(registry: DynamicPropertyRegistry) {
-            registry.add("spring.datasource.url", postgres::getJdbcUrl)
-            registry.add("spring.datasource.username", postgres::getUsername)
-            registry.add("spring.datasource.password", postgres::getPassword)
+            val container = postgres
+            if (container != null && isTestcontainersAllowed()) {
+                registry.add("spring.datasource.url", container::getJdbcUrl)
+                registry.add("spring.datasource.username", container::getUsername)
+                registry.add("spring.datasource.password", container::getPassword)
+            } else {
+                // Safeguard: Never allow fallback to production database!
+                registry.add("spring.datasource.url") { "jdbc:postgresql://127.0.0.1:54321/disabled_test_db" }
+                registry.add("spring.datasource.username") { "disabled" }
+                registry.add("spring.datasource.password") { "disabled" }
+            }
             registry.add("jwt.secret") { "test-secret-at-least-32-chars-long" }
             registry.add("encryption.secret") { "test-encryption-secret-different-from-jwt" }
             registry.add("bucket4j.enabled") { "false" }
@@ -74,6 +98,10 @@ abstract class IntegrationTestBase {
 
     @BeforeEach
     fun setUpBase() {
+        Assumptions.assumeTrue(
+            isTestcontainersAllowed(),
+            "Integration tests requiring Testcontainers are disabled on this host. Set CI=true or XPENSES_ENABLE_TESTCONTAINERS=true to enable."
+        )
         // Build MockMvc with the full Spring Security filter chain plus a default Origin header.
         // The csrfOriginRefererFilter (SecurityConfig) 403s state-changing requests lacking an
         // Origin/Referer; MockMvc sends none by default, so a default matching cors.allowed-origins

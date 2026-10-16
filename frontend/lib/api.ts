@@ -1,8 +1,11 @@
 import axios from "axios";
 
-export const API_BASE_URL = typeof window !== "undefined"
-  ? "/api"
-  : (process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api");
+export const API_BASE_URL =
+  typeof window !== "undefined"
+    ? "/api"
+    : process.env.INTERNAL_API_URL ||
+      process.env.NEXT_PUBLIC_API_URL ||
+      "http://localhost:8080/api";
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -10,7 +13,10 @@ const api = axios.create({
 });
 
 let isRefreshing = false;
-let failedQueue: Array<{ resolve: (token: string) => void; reject: (error: unknown) => void }> = [];
+let failedQueue: Array<{
+  resolve: (token: string) => void;
+  reject: (error: unknown) => void;
+}> = [];
 
 const processQueue = (error: unknown, token: string | null = null) => {
   failedQueue.forEach((prom) => {
@@ -34,7 +40,10 @@ api.interceptors.response.use(
       }
     }
     if (error.response?.status === 401 && !originalRequest._retry) {
-      if (originalRequest.url === "/auth/refresh" || originalRequest.url === "/auth/login") {
+      if (
+        originalRequest.url === "/auth/refresh" ||
+        originalRequest.url === "/auth/login"
+      ) {
         return Promise.reject(error);
       }
 
@@ -58,7 +67,9 @@ api.interceptors.response.use(
         if (typeof window !== "undefined") {
           const { pathname, search } = window.location;
           if (pathname !== "/login") {
-            window.location.assign(`/login?next=${encodeURIComponent(pathname + search)}`);
+            window.location.assign(
+              `/login?next=${encodeURIComponent(pathname + search)}`,
+            );
           }
         }
         return Promise.reject(refreshError);
@@ -67,7 +78,7 @@ api.interceptors.response.use(
       }
     }
     return Promise.reject(error);
-  }
+  },
 );
 
 export default api;
@@ -78,13 +89,54 @@ export default api;
 
 export type { PagedResponse, Currency } from "./types/common";
 export { CURRENCIES, isPagedResponse } from "./types/common";
-export type { Receipt, Expense, BulkUploadError, BulkUploadResult, OCRScanResult } from "./types/expense";
-export type { AdvancePayment, PendingAdvance, MileageRecord, MileageRates, Report, EmailSimulationIn, EmailSimulationOut, EmailSimulationParsed } from "./types/report";
+export type {
+  Receipt,
+  Expense,
+  BulkUploadError,
+  BulkUploadResult,
+  OCRScanResult,
+} from "./types/expense";
+export { isExpenseNeedingReview } from "./types/expense";
+export type {
+  AdvancePayment,
+  PendingAdvance,
+  MileageRecord,
+  MileageRates,
+  Report,
+  EmailSimulationIn,
+  EmailSimulationOut,
+  EmailSimulationParsed,
+} from "./types/report";
 export type { ReviewQueueItem } from "./types/reviewQueue";
 export type { BulkStatusResult } from "./api/reviewQueue";
 export type { User } from "./types/user";
-export type { DashboardStats, ManagerKpis, PendingReportSummary, PendingAdvanceSummary, ActivityFeedItem, ManagerDashboardStats } from "./types/dashboard";
-export type { LdapConfig, LdapSyncResult, LdapTestResult, SmtpConfig, SmtpTestResult, ImapConfig, ImapTestResult, ImapIngestionRecovery, OcrConfig, StorageConfig, StorageMigrationStatus, OCRComparisonStats, OCRComparisonRow, OCRComparisonHistoryResponse, FxMargins, FxProvidersConfig, FxTestResult } from "./types/admin";
+export type {
+  DashboardStats,
+  ManagerKpis,
+  PendingReportSummary,
+  PendingAdvanceSummary,
+  ActivityFeedItem,
+  ManagerDashboardStats,
+} from "./types/dashboard";
+export type {
+  LdapConfig,
+  LdapSyncResult,
+  LdapTestResult,
+  SmtpConfig,
+  SmtpTestResult,
+  ImapConfig,
+  ImapTestResult,
+  ImapIngestionRecovery,
+  OcrConfig,
+  StorageConfig,
+  StorageMigrationStatus,
+  OCRComparisonStats,
+  OCRComparisonRow,
+  OCRComparisonHistoryResponse,
+  FxMargins,
+  FxProvidersConfig,
+  FxTestResult,
+} from "./types/admin";
 
 export interface ApiValidationError {
   detail?: string;
@@ -95,10 +147,26 @@ export type { InsuranceFile } from "./types/insurance";
 export type { SearchResult } from "./types/search";
 export { bulkUploadExpenses, duplicateExpense } from "./api/expenses";
 export { getReviewQueue, bulkReportStatus } from "./api/reviewQueue";
-export { getOcrConfig, updateOcrConfig, testOcrConfig, getOcrComparisons, getStorageConfig, updateStorageConfig, testStorageConfig, getStorageMigrationStatus, simulateEmailIngestion, getImapIngestionRecovery, retryImapIngestion, getFxProviders, updateFxProviders, testFxProvider } from "./api/admin";
+export {
+  getOcrConfig,
+  updateOcrConfig,
+  testOcrConfig,
+  getOcrComparisons,
+  getStorageConfig,
+  updateStorageConfig,
+  testStorageConfig,
+  getStorageMigrationStatus,
+  simulateEmailIngestion,
+  getImapIngestionRecovery,
+  retryImapIngestion,
+  getFxProviders,
+  updateFxProviders,
+  testFxProvider,
+} from "./api/admin";
 
 function isStandalonePwa(): boolean {
-  if (typeof navigator === "undefined" || typeof window === "undefined") return false;
+  if (typeof navigator === "undefined" || typeof window === "undefined")
+    return false;
   return (
     window.matchMedia?.("(display-mode: standalone)").matches === true ||
     (navigator as { standalone?: boolean }).standalone === true
@@ -108,14 +176,20 @@ function isStandalonePwa(): boolean {
 export async function downloadBlob(
   url: string,
   params: Record<string, unknown>,
-  filename: string
+  filename: string,
 ): Promise<void> {
   const response = await api.get(url, { params, responseType: "blob" });
   const blob: Blob = response.data;
 
-  if (isStandalonePwa() && typeof navigator.share === "function" && typeof navigator.canShare === "function") {
+  if (
+    isStandalonePwa() &&
+    typeof navigator.share === "function" &&
+    typeof navigator.canShare === "function"
+  ) {
     try {
-      const file = new File([blob], filename, { type: blob.type || "application/octet-stream" });
+      const file = new File([blob], filename, {
+        type: blob.type || "application/octet-stream",
+      });
       if (navigator.canShare({ files: [file] })) {
         await navigator.share({ files: [file], title: filename });
         return;

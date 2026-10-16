@@ -4,6 +4,7 @@ import eu.nt.xpenses.dto.expense.ExpenseCreate
 import eu.nt.xpenses.dto.expense.ExpenseOut
 import eu.nt.xpenses.dto.expense.ExpenseUpdate
 import eu.nt.xpenses.model.User
+import eu.nt.xpenses.models.auth.AuthenticatedActor
 import eu.nt.xpenses.services.ExpenseService
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.validation.Valid
@@ -22,6 +23,12 @@ class ExpenseController(
     private val expenseService: ExpenseService
 ) {
 
+    private fun getActor(request: HttpServletRequest): AuthenticatedActor {
+        val currentUser = request.getAttribute("currentUser") as? User
+            ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
+        return AuthenticatedActor.fromUser(currentUser)
+    }
+
     @GetMapping
     fun listExpenses(
         @RequestParam(value = "report_id", required = false) reportId: Int?,
@@ -35,9 +42,8 @@ class ExpenseController(
         @RequestParam(value = "q", required = false) q: String?,
         request: HttpServletRequest
     ): Any {
-        val currentUser = request.getAttribute("currentUser") as? User
-            ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
-        return expenseService.listExpenses(currentUser, reportId, categoryId, status, fromDate, toDate, all, page, size, q)
+        val actor = getActor(request)
+        return expenseService.listExpenses(actor, reportId, categoryId, status, fromDate, toDate, all, page, size, q)
     }
 
     @PostMapping
@@ -45,9 +51,8 @@ class ExpenseController(
         @Valid @RequestBody body: ExpenseCreate,
         request: HttpServletRequest
     ): ResponseEntity<ExpenseOut> {
-        val currentUser = request.getAttribute("currentUser") as? User
-            ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
-        val savedExpense = expenseService.createExpense(body, currentUser)
+        val actor = getActor(request)
+        val savedExpense = expenseService.createExpense(body, actor)
         return ResponseEntity.status(HttpStatus.CREATED).body(savedExpense)
     }
 
@@ -56,9 +61,8 @@ class ExpenseController(
         @PathVariable expenseId: Int,
         request: HttpServletRequest
     ): ExpenseOut {
-        val currentUser = request.getAttribute("currentUser") as? User
-            ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
-        return expenseService.getExpense(expenseId, currentUser)
+        val actor = getActor(request)
+        return expenseService.getExpense(expenseId, actor)
     }
 
     @PatchMapping("/{expenseId}")
@@ -67,9 +71,8 @@ class ExpenseController(
         @Valid @RequestBody body: ExpenseUpdate,
         request: HttpServletRequest
     ): ExpenseOut {
-        val currentUser = request.getAttribute("currentUser") as? User
-            ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
-        return expenseService.updateExpense(expenseId, body, currentUser)
+        val actor = getActor(request)
+        return expenseService.updateExpense(expenseId, body, actor)
     }
 
     @PostMapping("/{expenseId}/duplicate")
@@ -77,9 +80,8 @@ class ExpenseController(
         @PathVariable expenseId: Int,
         request: HttpServletRequest
     ): ResponseEntity<ExpenseOut> {
-        val currentUser = request.getAttribute("currentUser") as? User
-            ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
-        val saved = expenseService.duplicateExpense(expenseId, currentUser)
+        val actor = getActor(request)
+        val saved = expenseService.duplicateExpense(expenseId, actor)
         return ResponseEntity.status(HttpStatus.CREATED).body(saved)
     }
 
@@ -89,9 +91,8 @@ class ExpenseController(
         @PathVariable expenseId: Int,
         request: HttpServletRequest
     ) {
-        val currentUser = request.getAttribute("currentUser") as? User
-            ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
-        expenseService.deleteExpense(expenseId, currentUser)
+        val actor = getActor(request)
+        expenseService.deleteExpense(expenseId, actor)
     }
 
     @PostMapping("/{expenseId}/receipts")
@@ -100,9 +101,8 @@ class ExpenseController(
         @RequestParam("files") files: List<MultipartFile>,
         request: HttpServletRequest
     ): List<Map<String, Any>> {
-        val currentUser = request.getAttribute("currentUser") as? User
-            ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
-        return expenseService.uploadReceipts(expenseId, files, currentUser)
+        val actor = getActor(request)
+        return expenseService.uploadReceipts(expenseId, files, actor)
     }
 
     @PostMapping("/{expenseId}/receipt")
@@ -111,9 +111,8 @@ class ExpenseController(
         @RequestParam("file") file: MultipartFile,
         request: HttpServletRequest
     ): List<Map<String, Any>> {
-        val currentUser = request.getAttribute("currentUser") as? User
-            ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
-        return expenseService.uploadReceipts(expenseId, listOf(file), currentUser)
+        val actor = getActor(request)
+        return expenseService.uploadReceipts(expenseId, listOf(file), actor)
     }
 
     @DeleteMapping("/{expenseId}/receipts/{receiptId}")
@@ -123,9 +122,8 @@ class ExpenseController(
         @PathVariable receiptId: Int,
         request: HttpServletRequest
     ) {
-        val currentUser = request.getAttribute("currentUser") as? User
-            ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
-        expenseService.deleteSingleReceipt(expenseId, receiptId, currentUser)
+        val actor = getActor(request)
+        expenseService.deleteSingleReceipt(expenseId, receiptId, actor)
     }
 
     @GetMapping("/{expenseId}/receipts/{receiptId}")
@@ -134,9 +132,8 @@ class ExpenseController(
         @PathVariable receiptId: Int,
         request: HttpServletRequest
     ): ResponseEntity<ByteArray> {
-        val currentUser = request.getAttribute("currentUser") as? User
-            ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
-        val (bytes, contentType) = expenseService.getReceiptBytes(expenseId, receiptId, currentUser)
+        val actor = getActor(request)
+        val (bytes, contentType) = expenseService.getReceiptBytes(expenseId, receiptId, actor)
         return ResponseEntity.ok()
             .contentType(MediaType.parseMediaType(contentType))
             .body(bytes)
@@ -147,9 +144,8 @@ class ExpenseController(
         @PathVariable expenseId: Int,
         request: HttpServletRequest
     ): ResponseEntity<ByteArray> {
-        val currentUser = request.getAttribute("currentUser") as? User
-            ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
-        val (bytes, contentType) = expenseService.getReceiptBytes(expenseId, null, currentUser)
+        val actor = getActor(request)
+        val (bytes, contentType) = expenseService.getReceiptBytes(expenseId, null, actor)
         return ResponseEntity.ok()
             .contentType(MediaType.parseMediaType(contentType))
             .body(bytes)
@@ -166,11 +162,10 @@ class ExpenseController(
         @RequestParam(value = "all", required = false, defaultValue = "false") all: Boolean,
         request: HttpServletRequest
     ): ResponseEntity<ByteArray> {
-        val currentUser = request.getAttribute("currentUser") as? User
-            ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
+        val actor = getActor(request)
 
         val (bytes, contentType, filename) = expenseService.exportExpenses(
-            currentUser, format, reportId, categoryId, status, fromDate, toDate, all, null
+            actor, format, reportId, categoryId, status, fromDate, toDate, all, null
         )
 
         val headers = HttpHeaders().apply {

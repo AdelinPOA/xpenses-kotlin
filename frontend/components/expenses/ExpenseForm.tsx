@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import api, {
@@ -15,12 +15,27 @@ import { categoryKeys, expenseKeys, dashboardKeys } from "@/lib/queryKeys";
 import { useFormGuard } from "@/lib/useFormGuard";
 import {
   captureReceipt,
+  resumeReceiptCapture,
   isReceiptCaptureCancelled,
   ScanTimeoutError,
   ScanJobError,
 } from "@/lib/receiptCapture";
 import type { ScanProgress } from "@/lib/receiptCapture";
 import { saveNewExpense } from "@/lib/expenseSaving";
+import {
+  enqueueOcrSource,
+  listOcrSources,
+  claimOcrSource,
+  releaseOcrSource,
+  removeOcrSource,
+  setOcrSourceJob,
+  getStoredOcrSourceLease,
+  storeOcrSourceLease,
+  clearOcrSourceLease,
+  startOcrSourceLeaseHeartbeat,
+  type PendingOcrSource,
+} from "@/lib/ocrSourceQueue";
+import { isRetryableFailure } from "@/lib/networkErrors";
 import { useOfflineSync } from "@/components/OfflineSyncProvider";
 import { Trash2 } from "lucide-react";
 import clsx from "clsx";
@@ -70,6 +85,15 @@ interface Props {
   highlightReceipts?: boolean;
 }
 
+const FORM_OCR_SESSION_KEY = "xpenses-form-ocr-session";
+
+function fileFromOcrSource(source: PendingOcrSource): File {
+  return new File([source.data], source.name, {
+    type: source.type || "application/octet-stream",
+    lastModified: source.createdAt,
+  });
+}
+
 export default function ExpenseForm({
   expense,
   reportId,
@@ -111,11 +135,18 @@ export default function ExpenseForm({
   const [error, setError] = useState("");
   const [savedExpense, setSavedExpense] = useState<Expense | null>(null);
   const [isScanning, setIsScanning] = useState(false);
+  const [scanQueued, setScanQueued] = useState(false);
+  const [scanNeedsReview, setScanNeedsReview] = useState(false);
   const [scanResult, setScanResult] = useState<OCRScanResult | null>(null);
   // Staged OCR progress ("Uploading… / Reading receipt… (n)s") + cancel.
   const [scanProgress, setScanProgress] = useState<ScanProgress | null>(null);
   const scanAbortRef = useRef<AbortController | null>(null);
   const scanInFlightRef = useRef(false);
+  const scanSourceRef = useRef<PendingOcrSource | null>(null);
+  const mountedRef = useRef(true);
+  const formSessionIdRef = useRef<string | null>(null);
+  const cancelledScanRef = useRef(false);
+  const cancelRemoteJobOnAbortRef = useRef(true);
   // Distinguishes the receipt-upload sub-phase of saving so slow uploads
   // don't look frozen on the submit button.
   const [isUploadingReceipts, setIsUploadingReceipts] = useState(false);
@@ -174,6 +205,27 @@ export default function ExpenseForm({
     return objectUrlsRef.current.get(file)!;
   };
 
+  const getFormSessionId = useCallback(() => {
+    if (formSessionIdRef.current) return formSessionIdRef.current;
+
+    let sessionId: string | null = null;
+    try {
+      sessionId = sessionStorage.getItem(FORM_OCR_SESSION_KEY);
+    } catch {
+      // Session storage is optional; the ref still protects the current mount.
+    }
+    if (!sessionId) {
+      sessionId = crypto.randomUUID();
+      try {
+        sessionStorage.setItem(FORM_OCR_SESSION_KEY, sessionId);
+      } catch {
+        // Continue with the in-memory session identifier.
+      }
+    }
+    formSessionIdRef.current = sessionId;
+    return sessionId;
+  }, []);
+
   useEffect(() => {
     const currentFiles = new Set(receiptFiles.map((e) => e.file));
     objectUrlsRef.current.forEach((url, file) => {
@@ -185,10 +237,23 @@ export default function ExpenseForm({
   }, [receiptFiles]);
 
   useEffect(() => {
+    mountedRef.current = true;
     return () => {
+      mountedRef.current = false;
+      // Navigating away pauses local polling but keeps the durable OcrJob alive
+      // so the next mount can resume it without uploading the source again.
+      cancelRemoteJobOnAbortRef.current = false;
       scanAbortRef.current?.abort();
       scanAbortRef.current = null;
+      const source = scanSourceRef.current;
+      if (source?.leaseToken) {
+        void releaseOcrSource(source)
+          .then(() => clearOcrSourceLease(source.id))
+          .catch(() => undefined);
+      }
+      scanSourceRef.current = null;
       objectUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+      objectUrlsRef.current.clear();
       if (redirectTimeoutRef.current) clearTimeout(redirectTimeoutRef.current);
     };
   }, []);
@@ -431,64 +496,273 @@ export default function ExpenseForm({
   const markDeleteReceipt = (receiptId: number) =>
     setDeletedReceiptIds((prev) => new Set(prev).add(receiptId));
 
-  const cancelScan = () => scanAbortRef.current?.abort();
-
-  const processFileScan = async (file: File) => {
-    if (scanInFlightRef.current) return;
-    scanInFlightRef.current = true;
-    setIsScanning(true);
-    setScanResult(null);
-    setError("");
-    const ac = new AbortController();
-    scanAbortRef.current = ac;
-    try {
-      const capture = await captureReceipt(file, {
-        signal: ac.signal,
-        onProgress: setScanProgress,
-      });
-      const result = capture.result;
-      if (capture.kind === "promoted") {
-        const canonicalExpense = await api
-          .get<Expense>(`/expenses/${capture.expenseId}`)
-          .then((response) => response.data);
-        setOcrExpense(canonicalExpense);
-      }
-      setScanResult(result);
-      setForm((f) => ({
-        ...f,
-        amount: f.amount || (result.amount?.toString() ?? ""),
-        currency: result.currency && !f.amount ? result.currency : f.currency,
-        tax_amount:
-          f.tax_amount === "0" || !f.tax_amount
-            ? (result.tax_amount?.toString() ?? "0")
-            : f.tax_amount,
-        tax_rate: f.tax_rate || (result.tax_rate?.toString() ?? ""),
-        date:
-          f.date === new Date().toISOString().slice(0, 10) && result.date
-            ? result.date
-            : f.date,
-        merchant: f.merchant || result.merchant || "",
-        category_id: f.category_id || (result.category_id?.toString() ?? ""),
-        description: f.description || result.description || "",
-        raw_ocr_text: result.raw_text || "",
-      }));
-    } catch (e: any) {
-      if (isReceiptCaptureCancelled(e)) {
-        // Cancelled — pre-scan state is already intact (nothing was applied).
-        return;
-      }
-      if (e instanceof ScanTimeoutError) setError(t("error_ocr_timeout"));
-      else if (e instanceof ScanJobError)
-        setError(e.detail ?? t("error_ocr_job"));
-      else
-        setError(e.response?.data?.detail ?? e.message ?? t("error_ocr_scan"));
-    } finally {
-      scanAbortRef.current = null;
-      scanInFlightRef.current = false;
+  const cancelScan = useCallback(() => {
+    cancelledScanRef.current = true;
+    cancelRemoteJobOnAbortRef.current = true;
+    const source = scanSourceRef.current;
+    scanAbortRef.current?.abort();
+    if (source && user?.id) {
+      void removeOcrSource(source.id, user.id, source.leaseToken).catch(
+        () => undefined,
+      );
+    }
+    if (!scanAbortRef.current) {
+      scanSourceRef.current = null;
+      setScanQueued(false);
       setScanProgress(null);
       setIsScanning(false);
     }
-  };
+  }, [user?.id]);
+
+  const processFileScan = useCallback(
+    async (file: File, existingSource?: PendingOcrSource) => {
+      if (!mountedRef.current || !user?.id || scanInFlightRef.current) return;
+      if (!existingSource && scanSourceRef.current) return;
+
+      const userId = user.id;
+      let source = existingSource;
+      if (!source) {
+        try {
+          source = await enqueueOcrSource({
+            id: crypto.randomUUID(),
+            userId,
+            context: "form",
+            formSessionId: getFormSessionId(),
+            name: file.name,
+            type: file.type,
+            data: await file.arrayBuffer(),
+          });
+        } catch (queueError) {
+          console.warn("Could not persist OCR source", queueError);
+          if (mountedRef.current) {
+            setError(t("error_ocr_queue"));
+            setScanQueued(false);
+            setIsScanning(false);
+          }
+          return;
+        }
+      }
+      if (!mountedRef.current) return;
+
+      scanSourceRef.current = source;
+      scanInFlightRef.current = true;
+      cancelledScanRef.current = false;
+      cancelRemoteJobOnAbortRef.current = true;
+      setIsScanning(true);
+      setScanQueued(false);
+      setScanResult(null);
+      setScanNeedsReview(false);
+      setError("");
+
+      let keepQueued = false;
+      let claimed: PendingOcrSource | null = null;
+      let stopLeaseHeartbeat = () => {};
+      try {
+        if (!navigator.onLine) {
+          keepQueued = true;
+          return;
+        }
+
+        try {
+          claimed = await claimOcrSource(
+            source.id,
+            userId,
+            Date.now(),
+            getStoredOcrSourceLease(source.id),
+          );
+        } catch (claimError) {
+          console.warn("Could not claim OCR source", claimError);
+          keepQueued = true;
+          return;
+        }
+        if (!claimed) {
+          keepQueued = true;
+          return;
+        }
+        storeOcrSourceLease(source.id, claimed.leaseToken);
+        if (!mountedRef.current) {
+          try {
+            await releaseOcrSource(claimed);
+            clearOcrSourceLease(source.id);
+          } catch {
+            // Keep the session lease token so a reload can reclaim this source.
+          }
+          return;
+        }
+
+        scanSourceRef.current = claimed;
+        const sourceForJob = claimed;
+        const controller = new AbortController();
+        scanAbortRef.current = controller;
+        let leaseLost = false;
+        stopLeaseHeartbeat = startOcrSourceLeaseHeartbeat(
+          sourceForJob,
+          (renewed) => {
+            claimed = renewed;
+            scanSourceRef.current = renewed;
+          },
+          () => {
+            leaseLost = true;
+            controller.abort();
+          },
+        );
+        const scanOptions = {
+          signal: controller.signal,
+          onProgress: setScanProgress,
+          cancelRemoteJobOnAbort: () =>
+            cancelRemoteJobOnAbortRef.current && !leaseLost,
+        };
+        const capture =
+          sourceForJob.remoteJobId != null
+            ? await resumeReceiptCapture(
+                sourceForJob.remoteJobId,
+                sourceForJob.statusUrl,
+                scanOptions,
+              )
+            : await captureReceipt(file, {
+                ...scanOptions,
+                onJobCreated: async ({ jobId, statusUrl }) => {
+                  const updated = await setOcrSourceJob(
+                    sourceForJob,
+                    jobId,
+                    statusUrl,
+                  );
+                  if (updated) {
+                    claimed = updated;
+                    scanSourceRef.current = updated;
+                  }
+                },
+              });
+
+        if (cancelledScanRef.current) return;
+
+        const result = capture.result;
+        let canonicalExpense: Expense | null = null;
+        if (capture.kind === "promoted") {
+          canonicalExpense = await api
+            .get<Expense>(`/expenses/${capture.expenseId}`)
+            .then((response) => response.data);
+        }
+        if (cancelledScanRef.current) {
+          scanSourceRef.current = null;
+          return;
+        }
+
+        // Keep the source until canonical hydration succeeds. A transient GET
+        // failure must be recoverable through the persisted remote job.
+        const completedSource = claimed;
+        await removeOcrSource(source.id, userId, completedSource?.leaseToken);
+        claimed = null;
+        scanSourceRef.current = null;
+        clearOcrSourceLease(source.id);
+
+        if (!mountedRef.current) return;
+        if (canonicalExpense) setOcrExpense(canonicalExpense);
+        setScanResult(result);
+        setScanNeedsReview(capture.needsDetails);
+        setForm((f) => ({
+          ...f,
+          amount: f.amount || (result.amount?.toString() ?? ""),
+          currency: result.currency && !f.amount ? result.currency : f.currency,
+          tax_amount:
+            f.tax_amount === "0" || !f.tax_amount
+              ? (result.tax_amount?.toString() ?? "0")
+              : f.tax_amount,
+          tax_rate: f.tax_rate || (result.tax_rate?.toString() ?? ""),
+          date:
+            f.date === new Date().toISOString().slice(0, 10) && result.date
+              ? result.date
+              : f.date,
+          merchant: f.merchant || result.merchant || "",
+          category_id: f.category_id || (result.category_id?.toString() ?? ""),
+          description: f.description || result.description || "",
+          raw_ocr_text: result.raw_text || "",
+        }));
+      } catch (error: unknown) {
+        if (isReceiptCaptureCancelled(error)) {
+          if (cancelledScanRef.current) {
+            try {
+              await removeOcrSource(source.id, userId, claimed?.leaseToken);
+              clearOcrSourceLease(source.id);
+            } catch {
+              // Keep the source for a later cleanup attempt.
+            }
+            scanSourceRef.current = null;
+          } else if (claimed) {
+            try {
+              await releaseOcrSource(claimed);
+              clearOcrSourceLease(source.id);
+            } catch {
+              // Keep the session lease token so a reload can reclaim this source.
+            }
+            scanSourceRef.current = {
+              ...claimed,
+              leaseToken: undefined,
+              leaseUntil: undefined,
+            };
+            keepQueued = true;
+          }
+          return;
+        }
+
+        if (
+          error instanceof ScanTimeoutError ||
+          (!(error instanceof ScanJobError) && isRetryableFailure(error))
+        ) {
+          if (claimed) {
+            try {
+              await releaseOcrSource(claimed);
+              clearOcrSourceLease(source.id);
+            } catch {
+              // Keep the session lease token so a reload can reclaim this source.
+            }
+            scanSourceRef.current = {
+              ...claimed,
+              leaseToken: undefined,
+              leaseUntil: undefined,
+            };
+          }
+          keepQueued = true;
+          if (mountedRef.current) {
+            setScanQueued(true);
+            setError(
+              error instanceof ScanTimeoutError
+                ? t("error_ocr_timeout")
+                : t("error_ocr_scan"),
+            );
+          }
+          return;
+        }
+
+        if (claimed) {
+          try {
+            await removeOcrSource(source.id, userId, claimed.leaseToken);
+            clearOcrSourceLease(source.id);
+          } catch {
+            // Keep the source for a later cleanup attempt.
+          }
+        }
+        scanSourceRef.current = null;
+        if (mountedRef.current) {
+          setError(
+            error instanceof ScanJobError
+              ? t("error_ocr_job")
+              : t("error_ocr_scan"),
+          );
+        }
+      } finally {
+        stopLeaseHeartbeat();
+        scanAbortRef.current = null;
+        scanInFlightRef.current = false;
+        if (mountedRef.current) {
+          setScanProgress(null);
+          setScanQueued(keepQueued);
+          setIsScanning(keepQueued);
+        }
+      }
+    },
+    [getFormSessionId, t, user?.id],
+  );
 
   const handleScan = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -512,6 +786,41 @@ export default function ExpenseForm({
     const file = e.dataTransfer.files?.[0];
     if (file) await processFileScan(file);
   };
+
+  const restorePendingOcrSource = useCallback(async () => {
+    if (!user?.id || isEdit || scanInFlightRef.current) return;
+    const sessionId = getFormSessionId();
+    let sources: PendingOcrSource[];
+    try {
+      sources = await listOcrSources(user.id, "form", sessionId);
+    } catch (restoreError) {
+      console.warn("Could not restore OCR source", restoreError);
+      return;
+    }
+    if (!mountedRef.current || scanInFlightRef.current) return;
+    const source = sources[0];
+    if (!source) return;
+
+    scanSourceRef.current = source;
+    if (!navigator.onLine) {
+      setScanQueued(true);
+      setIsScanning(true);
+      return;
+    }
+    void processFileScan(fileFromOcrSource(source), source);
+  }, [getFormSessionId, isEdit, processFileScan, user?.id]);
+
+  useEffect(() => {
+    if (!user?.id || isEdit) return;
+    const restore = () => void restorePendingOcrSource();
+    void restorePendingOcrSource();
+    window.addEventListener("online", restore);
+    document.addEventListener("visibilitychange", restore);
+    return () => {
+      window.removeEventListener("online", restore);
+      document.removeEventListener("visibilitychange", restore);
+    };
+  }, [isEdit, restorePendingOcrSource, user?.id]);
 
   return (
     <div className="flex flex-col gap-2 max-w-6xl w-full items-start">
@@ -579,6 +888,15 @@ export default function ExpenseForm({
             </p>
           )}
 
+          {scanNeedsReview && (
+            <p
+              role="status"
+              className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200"
+            >
+              {t("ocr_needs_review")}
+            </p>
+          )}
+
           {savedExpense && savedExpense.currency_original !== "EUR" && (
             <div className="bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 rounded-lg p-3 text-sm text-emerald-800 dark:text-emerald-400">
               {savedExpense.amount_original} {savedExpense.currency_original} →{" "}
@@ -592,6 +910,7 @@ export default function ExpenseForm({
             <ReceiptScanner
               isScanning={isScanning}
               scanProgress={scanProgress}
+              scanQueued={scanQueued}
               onCancelScan={cancelScan}
               isDragging={isDragging}
               onScan={handleScan}

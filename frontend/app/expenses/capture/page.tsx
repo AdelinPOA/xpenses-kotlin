@@ -9,6 +9,7 @@ import { useToast } from "@/components/ToastProvider";
 import { expenseKeys, dashboardKeys } from "@/lib/queryKeys";
 import {
   captureReceipt,
+  resumeReceiptCapture,
   isReceiptCaptureCancelled,
   ScanTimeoutError,
   ScanJobError,
@@ -20,9 +21,15 @@ import {
   listOcrSources,
   releaseOcrSource,
   removeOcrSource,
+  setOcrSourceJob,
+  getStoredOcrSourceLease,
+  storeOcrSourceLease,
+  clearOcrSourceLease,
+  startOcrSourceLeaseHeartbeat,
   type PendingOcrSource,
 } from "@/lib/ocrSourceQueue";
 import { triggerHaptic } from "@/lib/haptics";
+import { isRetryableFailure } from "@/lib/networkErrors";
 import { formatEur } from "@/lib/format";
 import ReceiptLightbox from "@/components/expenses/ReceiptLightbox";
 import {
@@ -66,19 +73,9 @@ function fileFromOcrSource(source: PendingOcrSource): File {
 }
 
 function isRetryableCaptureError(error: unknown): boolean {
-  if (error instanceof ScanTimeoutError || error instanceof ScanJobError) {
-    return false;
-  }
-  if (!navigator.onLine) return true;
-  if (typeof error !== "object" || error === null) return false;
-  if ("response" in error) {
-    return !(error as { response?: unknown }).response;
-  }
-  if ("code" in error) {
-    const code = (error as { code?: unknown }).code;
-    if (code === "ERR_NETWORK" || code === "ECONNABORTED") return true;
-  }
-  return error instanceof Error && /network|fetch/i.test(error.message);
+  if (error instanceof ScanJobError) return false;
+  if (error instanceof ScanTimeoutError) return true;
+  return isRetryableFailure(error);
 }
 
 export default function CapturePage() {
@@ -108,7 +105,9 @@ export default function CapturePage() {
       scanControllersRef.current.forEach((controller) => controller.abort());
       scanControllersRef.current.clear();
       sourceLeasesRef.current.forEach((source) => {
-        void releaseOcrSource(source).catch(() => undefined);
+        void releaseOcrSource(source)
+          .then(() => clearOcrSourceLease(source.id))
+          .catch(() => undefined);
       });
       sourceLeasesRef.current.clear();
       objectUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
@@ -139,6 +138,7 @@ export default function CapturePage() {
       void removeOcrSource(clientItemId, user?.id, source?.leaseToken).catch(
         (error) => console.warn("Could not remove cancelled OCR source", error),
       );
+      clearOcrSourceLease(clientItemId);
       sourceLeasesRef.current.delete(clientItemId);
       releaseObjectUrl(clientItemId);
       if (mountedRef.current) {
@@ -161,7 +161,12 @@ export default function CapturePage() {
 
   const processCapturedFile = useCallback(
     async (clientItemId: string, file: File) => {
-      if (!user?.id || cancelledItemsRef.current.has(clientItemId)) return;
+      if (
+        !mountedRef.current ||
+        !user?.id ||
+        cancelledItemsRef.current.has(clientItemId)
+      )
+        return;
       if (scanControllersRef.current.has(clientItemId)) return;
       if (!navigator.onLine) {
         updateItem(clientItemId, { status: "queued" });
@@ -170,7 +175,12 @@ export default function CapturePage() {
 
       let claimed: PendingOcrSource | null;
       try {
-        claimed = await claimOcrSource(clientItemId, user.id);
+        claimed = await claimOcrSource(
+          clientItemId,
+          user.id,
+          Date.now(),
+          getStoredOcrSourceLease(clientItemId),
+        );
       } catch {
         updateItem(clientItemId, { status: "queued" });
         return;
@@ -182,14 +192,39 @@ export default function CapturePage() {
         );
         return;
       }
+      if (!mountedRef.current) {
+        storeOcrSourceLease(clientItemId, claimed.leaseToken);
+        try {
+          await releaseOcrSource(claimed);
+          clearOcrSourceLease(clientItemId);
+        } catch {
+          // Keep the session lease token so a reload can reclaim this source.
+        }
+        return;
+      }
 
       const controller = new AbortController();
       scanControllersRef.current.set(clientItemId, controller);
       sourceLeasesRef.current.set(clientItemId, claimed);
+      storeOcrSourceLease(clientItemId, claimed.leaseToken);
       updateItem(clientItemId, { status: "uploading" });
 
+      let stopLeaseHeartbeat = () => {};
       try {
-        const capture = await captureReceipt(file, {
+        const sourceForJob = claimed;
+        let leaseLost = false;
+        stopLeaseHeartbeat = startOcrSourceLeaseHeartbeat(
+          sourceForJob,
+          (renewed) => {
+            claimed = renewed;
+            sourceLeasesRef.current.set(clientItemId, renewed);
+          },
+          () => {
+            leaseLost = true;
+            controller.abort();
+          },
+        );
+        const scanOptions = {
           signal: controller.signal,
           onProgress: (p: ScanProgress) => {
             updateItem(clientItemId, {
@@ -198,11 +233,35 @@ export default function CapturePage() {
               progressSeconds: p.elapsedSeconds,
             });
           },
-        });
+          cancelRemoteJobOnAbort: () => mountedRef.current && !leaseLost,
+        };
+        const capture =
+          sourceForJob.remoteJobId != null
+            ? await resumeReceiptCapture(
+                sourceForJob.remoteJobId,
+                sourceForJob.statusUrl,
+                scanOptions,
+              )
+            : await captureReceipt(file, {
+                ...scanOptions,
+                onJobCreated: async ({ jobId, statusUrl }) => {
+                  const updated = await setOcrSourceJob(
+                    sourceForJob,
+                    jobId,
+                    statusUrl,
+                  );
+                  if (updated) {
+                    claimed = updated;
+                    sourceLeasesRef.current.set(clientItemId, updated);
+                  }
+                },
+              });
         if (cancelledItemsRef.current.has(clientItemId)) return;
 
         await removeOcrSource(clientItemId, user.id, claimed.leaseToken);
+        clearOcrSourceLease(clientItemId);
         sourceLeasesRef.current.delete(clientItemId);
+        if (!mountedRef.current) return;
 
         const scanned = capture.result;
         qc.invalidateQueries({ queryKey: expenseKeys.all });
@@ -213,7 +272,9 @@ export default function CapturePage() {
           expenseId: capture.expenseId,
           merchant: scanned.merchant,
           amountEur: scanned.amount,
-          errorMessage: scanned.error_code ?? undefined,
+          errorMessage: capture.needsDetails
+            ? tc("draft_needs_details_toast")
+            : undefined,
         });
         toast[capture.needsDetails ? "warning" : "success"](
           tc(
@@ -222,8 +283,8 @@ export default function CapturePage() {
               : "draft_saved_toast",
           ),
         );
-      } catch (err: any) {
-        if (isReceiptCaptureCancelled(err)) {
+      } catch (error: unknown) {
+        if (isReceiptCaptureCancelled(error)) {
           if (cancelledItemsRef.current.has(clientItemId)) {
             void removeOcrSource(
               clientItemId,
@@ -231,40 +292,47 @@ export default function CapturePage() {
               claimed.leaseToken,
             ).catch(() => undefined);
           } else {
-            void releaseOcrSource(claimed).catch(() => undefined);
+            void releaseOcrSource(claimed)
+              .then(() => clearOcrSourceLease(clientItemId))
+              .catch(() => undefined);
           }
           return;
         }
 
-        if (isRetryableCaptureError(err)) {
-          await releaseOcrSource(claimed).catch(() => undefined);
-          updateItem(clientItemId, { status: "queued" });
+        if (isRetryableCaptureError(error)) {
+          try {
+            await releaseOcrSource(claimed);
+            clearOcrSourceLease(clientItemId);
+          } catch {
+            // Keep the session lease token so a reload can reclaim this source.
+          }
+          updateItem(clientItemId, {
+            status: "queued",
+            errorMessage:
+              error instanceof ScanTimeoutError
+                ? t("error_ocr_timeout")
+                : undefined,
+          });
           return;
         }
 
-        await removeOcrSource(clientItemId, user.id, claimed.leaseToken).catch(
-          () => undefined,
-        );
-        const message =
-          err instanceof ScanTimeoutError
-            ? t("error_ocr_timeout")
-            : err instanceof ScanJobError
-              ? (err.detail ?? t("error_ocr_job"))
-              : (err?.response?.data?.detail ??
-                err?.message ??
-                t("error_save"));
-        if (
-          !(err instanceof ScanTimeoutError) &&
-          !(err instanceof ScanJobError)
-        ) {
-          console.warn("OCR background scan warning", err);
+        try {
+          await removeOcrSource(clientItemId, user.id, claimed.leaseToken);
+          clearOcrSourceLease(clientItemId);
+        } catch {
+          // Keep the source for a later cleanup attempt.
         }
+        const message =
+          error instanceof ScanJobError
+            ? t("error_ocr_job")
+            : t("error_ocr_scan");
+        console.warn("OCR background scan warning", error);
         updateItem(clientItemId, {
           status: "failed",
           errorMessage: message,
         });
-        toast.error(message);
       } finally {
+        stopLeaseHeartbeat();
         scanControllersRef.current.delete(clientItemId);
         sourceLeasesRef.current.delete(clientItemId);
       }
@@ -349,6 +417,7 @@ export default function CapturePage() {
       await enqueueOcrSource({
         id: clientItemId,
         userId: user.id,
+        context: "batch",
         name: file.name,
         type: file.type,
         data: await file.arrayBuffer(),
@@ -357,6 +426,7 @@ export default function CapturePage() {
         await removeOcrSource(clientItemId, user.id);
         return;
       }
+      if (!mountedRef.current) return;
       if (navigator.onLine) {
         void processCapturedFile(clientItemId, file);
       } else {
@@ -369,7 +439,8 @@ export default function CapturePage() {
           prev.filter((item) => item.id !== clientItemId),
         );
       }
-      toast.error(error instanceof Error ? error.message : t("error_save"));
+      console.warn("Could not persist OCR source", error);
+      if (mountedRef.current) toast.error(t("error_ocr_queue"));
     }
   };
 
@@ -586,6 +657,15 @@ export default function CapturePage() {
                         </span>
                       )}
                     </div>
+                    {item.errorMessage && (
+                      <p
+                        data-capture-error
+                        role="status"
+                        className="mt-1 text-xs text-rose-600 dark:text-rose-400"
+                      >
+                        {item.errorMessage}
+                      </p>
+                    )}
                   </div>
 
                   {(item.status === "saving" ||

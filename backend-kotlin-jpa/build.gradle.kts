@@ -89,7 +89,14 @@ kotlin {
 }
 
 tasks.withType<Test> {
-    useJUnitPlatform()
+    useJUnitPlatform {
+        val isIntegrationAllowed = providers.environmentVariable("CI").orNull == "true" ||
+            providers.environmentVariable("XPENSES_ENABLE_TESTCONTAINERS").orNull == "true"
+        if (!isIntegrationAllowed) {
+            excludeTags("integration")
+        }
+    }
+    maxParallelForks = 1
     // Testcontainers 1.21 on Docker 29+ requires API negotiation >= 1.40.
     // docker-java (shaded inside Testcontainers) reads this property as its API version override.
     systemProperty("api.version", "1.45")

@@ -65,4 +65,22 @@ export interface OCRScanResult {
   expense_id?: number | null;
   receipt_id?: number | null;
   error_code?: string | null;
+  fallback?: string | null;
+  fallback_reason?: string | null;
+  provider_error?: string | null;
+}
+
+/** Photo-only OCR drafts need human review before submission. */
+export function isExpenseNeedingReview(
+  expense: Pick<
+    Expense,
+    "status" | "amount_original" | "currency_original" | "merchant"
+  >,
+): boolean {
+  return (
+    expense.status === "draft" &&
+    (expense.amount_original <= 0 ||
+      !expense.currency_original ||
+      !expense.merchant?.trim())
+  );
 }

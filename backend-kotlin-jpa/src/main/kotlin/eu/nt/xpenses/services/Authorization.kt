@@ -1,6 +1,7 @@
 package eu.nt.xpenses.services
 
 import eu.nt.xpenses.model.User
+import eu.nt.xpenses.models.auth.AuthenticatedActor
 import org.springframework.stereotype.Component
 
 /**
@@ -30,82 +31,73 @@ class Authorization {
     }
 
     /**
-     * Check if the current user can view a resource owned by ownerId.
+     * Check if the authenticated actor can view a resource owned by ownerId.
      * Privileged users (chef_finance, mod, manager) can view anyone's resources.
      * Non-privileged users can only view their own resources.
-     *
-     * @param currentUser The user requesting access
-     * @param ownerId The owner of the resource (null for global resources)
-     * @return true if access is granted
      */
-    fun canView(currentUser: User, ownerId: Int?): Boolean {
-        // Privileged users can view anyone's resources
-        if (currentUser.role in PRIVILEGED_ROLES) return true
-
-        // Non-privileged users can only view their own resources
-        return currentUser.id == ownerId
+    fun canView(actor: AuthenticatedActor, ownerId: Int?): Boolean {
+        if (actor.role in PRIVILEGED_ROLES) return true
+        return actor.userId == ownerId
     }
 
-    /**
-     * Check if the current user can view all resources (not just their own).
-     * Only privileged users (chef_finance, mod, manager) can view all.
-     *
-     * @param currentUser The user requesting access
-     * @return true if the user can view all resources
-     */
-    fun canViewAll(currentUser: User): Boolean {
-        return currentUser.role in PRIVILEGED_ROLES
-    }
+    fun canView(currentUser: User, ownerId: Int?): Boolean =
+        canView(AuthenticatedActor.fromUser(currentUser), ownerId)
 
     /**
-     * Check if the current user can manage (approve/reject) resources.
+     * Check if the authenticated actor can view all resources (not just their own).
+     */
+    fun canViewAll(actor: AuthenticatedActor): Boolean {
+        return actor.role in PRIVILEGED_ROLES
+    }
+
+    fun canViewAll(currentUser: User): Boolean =
+        canViewAll(AuthenticatedActor.fromUser(currentUser))
+
+    /**
+     * Check if the authenticated actor can manage (approve/reject) resources.
      * Only manager and chef_finance can manage.
-     * NOTE: mod does NOT have manage permission (fix for previous bug).
-     *
-     * @param currentUser The user requesting access
-     * @return true if the user can manage
      */
-    fun canManage(currentUser: User): Boolean {
-        return currentUser.role in MANAGE_ROLES
+    fun canManage(actor: AuthenticatedActor): Boolean {
+        return actor.role in MANAGE_ROLES
     }
 
+    fun canManage(currentUser: User): Boolean =
+        canManage(AuthenticatedActor.fromUser(currentUser))
+
     /**
-     * Check if the current user can pay (process payments) for resources.
+     * Check if the authenticated actor can pay (process payments) for resources.
      * Only chef_finance can pay.
-     * NOTE: mod does NOT have pay permission (fix for previous bug).
-     *
-     * @param currentUser The user requesting access
-     * @return true if the user can pay
      */
-    fun canPay(currentUser: User): Boolean {
-        return currentUser.role in PAY_ROLES
+    fun canPay(actor: AuthenticatedActor): Boolean {
+        return actor.role in PAY_ROLES
     }
+
+    fun canPay(currentUser: User): Boolean =
+        canPay(AuthenticatedActor.fromUser(currentUser))
 
     /**
      * Resolve the effective user ID for list filtering.
      * Privileged users with all=true get null (meaning all users).
      * Non-privileged users always get their own ID.
-     *
-     * @param currentUser The user making the request
-     * @param all Whether to request all resources
-     * @return The effective user ID (null for all, non-null for specific user)
      */
-    fun effectiveUserId(currentUser: User, all: Boolean): Int? {
-        if (all && currentUser.role in PRIVILEGED_ROLES) {
+    fun effectiveUserId(actor: AuthenticatedActor, all: Boolean): Int? {
+        if (all && actor.role in PRIVILEGED_ROLES) {
             return null
         }
-        return currentUser.id
+        return actor.userId
     }
 
+    fun effectiveUserId(currentUser: User, all: Boolean): Int? =
+        effectiveUserId(AuthenticatedActor.fromUser(currentUser), all)
+
     /**
-     * Check if the current user can mutate (edit, delete, duplicate, upload receipts for) a resource owned by ownerId.
+     * Check if the authenticated actor can mutate (edit, delete, duplicate, upload receipts for) a resource owned by ownerId.
      * Only the owner can mutate resources.
-     *
-     * @param currentUser The user requesting access
-     * @param ownerId The owner of the resource
-     * @return true if the user is the owner
      */
-    fun canMutate(currentUser: User, ownerId: Int?): Boolean {
-        return currentUser.id == ownerId
+    fun canMutate(actor: AuthenticatedActor, ownerId: Int?): Boolean {
+        return actor.userId == ownerId
     }
+
+    fun canMutate(currentUser: User, ownerId: Int?): Boolean =
+        canMutate(AuthenticatedActor.fromUser(currentUser), ownerId)
 }

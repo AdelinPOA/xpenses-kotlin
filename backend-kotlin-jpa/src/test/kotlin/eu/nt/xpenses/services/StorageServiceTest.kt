@@ -123,4 +123,80 @@ class StorageServiceTest {
         }
         assertEquals(HttpStatus.BAD_REQUEST, ex.statusCode)
     }
+
+    @Test
+    fun `ReceiptArchive append and open roundtrip calculates SHA-256 and verifies content`() {
+        val archive: eu.nt.xpenses.services.storage.ReceiptArchive = storageService
+        val content = java.io.ByteArrayInputStream(pngBytes)
+        val stored = archive.append(101, content, "image/png", "receipt.png")
+
+        assertEquals("image/png", stored.contentType)
+        assertEquals("receipt.png", stored.filename)
+        assertTrue(stored.relativePath.endsWith("101_receipt.png"))
+        assertEquals(pngBytes.size.toLong(), stored.sizeBytes)
+        assertTrue(stored.sha256.isNotBlank())
+
+        archive.open(stored.relativePath).use { stream ->
+            assertArrayEquals(pngBytes, stream.readAllBytes())
+        }
+
+        val verified = archive.verify(stored.relativePath)
+        assertEquals("101_receipt.png", verified.filename)
+        assertEquals(stored.sha256, verified.sha256)
+        assertEquals(stored.sizeBytes, verified.sizeBytes)
+    }
+
+    @Test
+    fun `ReceiptArchive append rejects invalid format or disallowed extension`() {
+        val archive: eu.nt.xpenses.services.storage.ReceiptArchive = storageService
+        assertThrows<IllegalArgumentException> {
+            archive.append(101, java.io.ByteArrayInputStream("test".toByteArray()), "text/plain", "receipt.txt")
+        }
+
+        assertThrows<ResponseStatusException> {
+            archive.append(101, java.io.ByteArrayInputStream(byteArrayOf(0, 1, 2, 3)), "image/png", "receipt.png")
+        }
+    }
+
+    @Test
+    fun `TransientStorage stage, open and release lifecycle`() {
+        val transient: eu.nt.xpenses.services.storage.TransientStorage = storageService
+        val now = java.time.Instant.now()
+        val expiresAt = now.plus(1, java.time.temporal.ChronoUnit.HOURS)
+
+        val staged = transient.stage(202, java.io.ByteArrayInputStream(pngBytes), "image/png", "scan.png", expiresAt)
+        assertEquals(202, staged.sourceId)
+        assertEquals("ocr-sources/202_scan.png", staged.relativePath)
+        assertEquals(pngBytes.size.toLong(), staged.sizeBytes)
+        assertTrue(staged.sha256.isNotBlank())
+        assertEquals(expiresAt, staged.expiresAt)
+
+        transient.open(staged.relativePath).use { stream ->
+            assertArrayEquals(pngBytes, stream.readAllBytes())
+        }
+
+        transient.release(staged.relativePath, "test cleanup")
+        assertThrows<java.nio.file.NoSuchFileException> {
+            transient.open(staged.relativePath)
+        }
+    }
+
+    @Test
+    fun `TransientStorage reapExpired removes only files older than cutoff`() {
+        val transient: eu.nt.xpenses.services.storage.TransientStorage = storageService
+        val now = java.time.Instant.now()
+
+        val stagedOld = transient.stage(301, java.io.ByteArrayInputStream(pngBytes), "image/png", "f1.png", now)
+        val fileOld = java.io.File(tempDir.toFile(), stagedOld.relativePath)
+        fileOld.setLastModified(now.minus(2, java.time.temporal.ChronoUnit.DAYS).toEpochMilli())
+
+        val stagedNew = transient.stage(302, java.io.ByteArrayInputStream(pngBytes), "image/png", "f2.png", now)
+        val fileNew = java.io.File(tempDir.toFile(), stagedNew.relativePath)
+        fileNew.setLastModified(now.plus(1, java.time.temporal.ChronoUnit.DAYS).toEpochMilli())
+
+        val reaped = transient.reapExpired(now.minus(1, java.time.temporal.ChronoUnit.DAYS))
+        assertEquals(1, reaped)
+        assertFalse(fileOld.exists())
+        assertTrue(fileNew.exists())
+    }
 }

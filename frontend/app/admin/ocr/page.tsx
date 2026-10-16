@@ -1,85 +1,50 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
-import api, { Category, OcrConfig, getOcrConfig, updateOcrConfig, testOcrConfig, getOcrComparisons } from "@/lib/api";
+import { useQuery } from "@tanstack/react-query";
+import api, {
+  Category,
+  OcrConfig,
+  getOcrConfig,
+  getOcrComparisons,
+} from "@/lib/api";
 import { ocrKeys, categoryKeys } from "@/lib/queryKeys";
 import AppShell from "@/components/layout/AppShell";
 import { useAuth } from "@/components/AuthProvider";
-import { useToast } from "@/components/ToastProvider";
-import { Cpu, Sparkles, CheckCircle, AlertCircle } from "lucide-react";
+import { Cpu, Sparkles } from "lucide-react";
 import { useTranslations } from "next-intl";
+import OcrModelSettings from "@/components/admin/OcrModelSettings";
 
-type FormState = OcrConfig;
-
-const DEFAULT_FORM: FormState = {
-  ocr_enabled: true,
-  provider: "gemini-3.1-flash-lite",
-  gemini_api_key: "",
-};
-
-const ocrConfigSchema = z.object({
-  ocr_enabled: z.boolean(),
-  provider: z.string(),
-  gemini_api_key: z.string(),
-  password_set: z.boolean().optional(),
-}).refine(
-  (data) => {
-    if (data.ocr_enabled && (data.provider === "gemini" || data.provider?.startsWith("gemini-"))) {
-      return data.password_set || data.gemini_api_key.trim().length > 0;
-    }
-    return true;
-  },
-  {
-    message: "Gemini API key is required when a Gemini provider is selected",
-    path: ["gemini_api_key"],
-  }
-);
-
-const getStatusColor = (ocrVal: string | number | null | undefined, finalVal: string | number | null | undefined) => {
-  if (ocrVal === null || ocrVal === undefined || ocrVal === "" || ocrVal === "None") {
+const getStatusColor = (
+  ocrVal: string | number | null | undefined,
+  finalVal: string | number | null | undefined,
+) => {
+  if (
+    ocrVal === null ||
+    ocrVal === undefined ||
+    ocrVal === "" ||
+    ocrVal === "None"
+  ) {
     return "text-slate-400 bg-slate-100/50 dark:bg-slate-800/30 border-border";
   }
-  
+
   let match = false;
   if (typeof ocrVal === "string" && typeof finalVal === "string") {
     match = ocrVal.trim().toLowerCase() === finalVal.trim().toLowerCase();
   } else {
     match = ocrVal === finalVal;
   }
-  
+
   return match
     ? "text-emerald-700 bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/50"
     : "text-rose-700 bg-rose-50 dark:bg-rose-950/30 border-rose-200 dark:border-rose-900/50";
 };
 
-
 export default function OcrAdminPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const qc = useQueryClient();
-  const toast = useToast();
   const t = useTranslations("admin");
-
-  const [pwChanged, setPwChanged] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-
-  // Gemini test states
-  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
-  const [testing, setTesting] = useState(false);
-
-  const { register, handleSubmit, reset, watch, setValue, formState: { errors, isDirty } } = useForm<FormState>({
-    resolver: zodResolver(ocrConfigSchema) as any,
-    defaultValues: DEFAULT_FORM,
-  });
-
-  const ocrEnabled = watch("ocr_enabled");
-  const provider = watch("provider");
-  const passwordSet = watch("gemini_api_key") === "••••••••";
 
   const { data, isLoading } = useQuery({
     queryKey: ocrKeys.config(),
@@ -104,66 +69,8 @@ export default function OcrAdminPage() {
   });
 
   useEffect(() => {
-    if (data) {
-      reset({
-        ocr_enabled: data.ocr_enabled,
-        provider: data.provider,
-        gemini_api_key: data.gemini_api_key ? "••••••••" : "",
-      });
-      setPwChanged(false);
-    }
-  }, [data, reset]);
-
-  const saveMutation = useMutation({
-    mutationFn: (payload: Partial<OcrConfig>) => updateOcrConfig(payload),
-    onSuccess: () => {
-      toast.success(t("config_saved"));
-      setSaveError(null);
-      setPwChanged(false);
-      qc.invalidateQueries({ queryKey: ocrKeys.all });
-    },
-    onError: (e: unknown) => {
-      const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? t("failed_save");
-      setSaveError(msg);
-      toast.error(`${t("failed_save")}: ${msg}`);
-    },
-  });
-
-  const onSubmit = (formData: FormState) => {
-    setSaveError(null);
-      const isGeminiProvider = formData.provider === "gemini" || (formData.provider?.startsWith("gemini-") ?? false);
-      const payload: Partial<OcrConfig> = {
-        ocr_enabled: formData.ocr_enabled,
-        provider: formData.provider,
-        // Always send the masked placeholder — backend keeps the stored key intact.
-        // This way switching providers never wipes the Gemini key.
-        gemini_api_key: isGeminiProvider && pwChanged
-          ? formData.gemini_api_key
-          : "••••••••",
-      };
-    saveMutation.mutate(payload);
-  };
-
-  async function handleTest() {
-    setTesting(true);
-    setTestResult(null);
-    const enteredKey = watch("gemini_api_key");
-    const payloadKey = (enteredKey === "••••••••" || enteredKey === "") ? null : enteredKey;
-    try {
-      const res = await testOcrConfig({ gemini_api_key: payloadKey, provider: watch("provider") });
-      setTestResult(res);
-      if (res.success) toast.success(t("connection_verified"));
-      else toast.error(`${t("connection_failed")}: ${res.message}`);
-    } catch {
-      setTestResult({ success: false, message: "Test request failed" });
-      toast.error(t("connection_failed"));
-    } finally {
-      setTesting(false);
-    }
-  }
-
-  useEffect(() => {
-    if (!loading && (!user || user.role !== "mod")) router.replace("/dashboard");
+    if (!loading && (!user || user.role !== "mod"))
+      router.replace("/dashboard");
   }, [user, loading, router]);
 
   if (loading) {
@@ -190,115 +97,7 @@ export default function OcrAdminPage() {
         </div>
       ) : (
         <div className="px-4 py-8 space-y-6">
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 max-w-2xl mx-auto">
-            <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">{t("ocr_heading")}</h1>
-
-            {saveError && (
-              <div className="bg-rose-50 border-l-4 border-rose-500 text-rose-700 dark:bg-rose-950/20 dark:text-rose-300 rounded-r-lg p-4 text-sm flex items-start gap-2 shadow-sm transition-all duration-200 animate-fadeIn">
-                <div className="flex-1">{saveError}</div>
-              </div>
-            )}
-
-            {isDirty && (
-              <div className="bg-amber-50 border-l-4 border-amber-500 text-amber-800 dark:bg-amber-950/20 dark:text-amber-300 rounded-r-lg p-4 text-sm flex items-start gap-2 shadow-sm transition-all duration-200">
-                <div className="flex-1">You have unsaved changes.</div>
-              </div>
-            )}
-
-            <section className="bg-card border border-border rounded-xl p-6 shadow-sm space-y-4">
-              <h2 className="text-sm font-semibold uppercase tracking-wider text-muted">Core Configuration</h2>
-
-              <label className="flex items-center gap-3 text-sm cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  className="h-4 w-4 rounded border-input-border text-blue-600 focus:ring-primary/20 focus:ring-2 focus:ring-offset-0 transition-all duration-200"
-                  {...register("ocr_enabled")}
-                />
-                <span className="text-slate-700 dark:text-slate-300 font-medium">{t("enable_ocr")}</span>
-              </label>
-
-              {ocrEnabled && (
-                <div>
-                  <label className="block text-xs font-semibold text-muted mb-1.5">{t("ocr_engine")}</label>
-                  <div className="relative">
-                    <select
-                      className="w-full border rounded-lg px-3 py-2 text-base sm:text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
-                      {...register("provider")}
-                    >
-                      <option value="gemini-3.1-flash-lite">Google Gemini 3.1 Flash-Lite (Cloud API - Default)</option>
-                      <option value="gemini">Google Gemini 2.5 Flash (Cloud API)</option>
-                      <option value="gemini-3-flash">Google Gemini 3 Flash (Cloud API - Preview)</option>
-                      <option value="gemini-3.5-flash">Google Gemini 3.5 Flash (Cloud API - Latest)</option>
-                      <option value="ollama" disabled>Ollama Local Vision LLM (Coming Soon)</option>
-                      <option value="hybrid" disabled>Hybrid OCR + Text LLM (Coming Soon)</option>
-                    </select>
-                  </div>
-                </div>
-              )}
-            </section>
-
-            {ocrEnabled && (provider === "gemini" || provider?.startsWith("gemini-")) && (
-              <section className="bg-card border border-border rounded-xl p-6 shadow-sm space-y-4 animate-fadeIn">
-                <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 mb-1">
-                  <Sparkles className="w-5 h-5" />
-                  <h2 className="text-sm font-semibold uppercase tracking-wider">Gemini API Credentials</h2>
-                </div>
-                
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-muted mb-1.5">Google AI Studio API key</label>
-                    <div className="flex gap-2 flex-wrap">
-                      <input
-                        type="password"
-                        className={`min-w-0 flex-1 border rounded-lg px-3 py-2 text-base sm:text-sm bg-input dark:text-slate-100 focus:outline-none transition-all duration-200 ${errors.gemini_api_key ? "border-rose-500 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500" : "border-border focus:ring-2 focus:ring-primary/20 focus:border-blue-500"}`}
-                        {...register("gemini_api_key")}
-                        placeholder={passwordSet ? "••••••••" : "AI Studio API Key"}
-                        onChange={(e) => {
-                          setValue("gemini_api_key", e.target.value, { shouldDirty: true });
-                          setPwChanged(true);
-                        }}
-                      />
-                      <button
-                        type="button"
-                        onClick={handleTest}
-                        disabled={testing}
-                        className="shrink-0 px-4 py-2 border border-border text-xs font-semibold text-slate-700 dark:text-slate-300 rounded-lg hover:bg-card-hover focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all duration-200 disabled:opacity-50"
-                      >
-                        {testing ? t("testing") : t("test_connection")}
-                      </button>
-                    </div>
-                    {errors.gemini_api_key && (
-                      <span className="text-[10px] text-rose-500 block mt-1.5 font-medium">{errors.gemini_api_key.message as string}</span>
-                    )}
-                    {passwordSet && !pwChanged && (
-                      <span className="text-[10px] text-slate-400 block font-medium mt-1.5">(currently set in settings)</span>
-                    )}
-                  </div>
-
-                  {testResult && (
-                    <div className={`p-4 rounded-lg text-sm flex items-start gap-2 animate-fadeIn border ${testResult.success ? "bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-950/20 dark:border-emerald-900/50 dark:text-emerald-300" : "bg-rose-50 border-rose-200 text-rose-800 dark:bg-rose-950/20 dark:border-rose-900/50 dark:text-rose-300"}`}>
-                      {testResult.success ? (
-                        <CheckCircle className="w-5 h-5 flex-shrink-0 text-emerald-600 dark:text-emerald-400" />
-                      ) : (
-                        <AlertCircle className="w-5 h-5 flex-shrink-0 text-rose-600 dark:text-rose-400" />
-                      )}
-                      <div className="flex-1 font-medium">{testResult.message}</div>
-                    </div>
-                  )}
-                </div>
-              </section>
-            )}
-
-            <div className="flex justify-end gap-3 pt-2">
-              <button
-                type="submit"
-                disabled={!isDirty || saveMutation.isPending}
-                className="px-5 py-2.5 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-primary/20 shadow-sm transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {saveMutation.isPending ? t("saving") : t("save")}
-              </button>
-            </div>
-          </form>
+          {data && <OcrModelSettings initialConfig={data} />}
 
           {/* OCR Engine Accuracy Comparison Section */}
           {compData && (
@@ -315,36 +114,57 @@ export default function OcrAdminPage() {
                   <div className="mx-auto w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800/50 flex items-center justify-center text-muted">
                     <Cpu className="w-5 h-5" />
                   </div>
-                  <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300">No comparison data available</h3>
+                  <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    No comparison data available
+                  </h3>
                   <p className="text-xs text-muted max-w-sm mx-auto">
-                    No OCR scans recorded yet. Create an expense and upload a receipt to begin tracking accuracy.
+                    No OCR scans recorded yet. Create an expense and upload a
+                    receipt to begin tracking accuracy.
                   </p>
                 </div>
               ) : (
                 <>
                   <div className="grid grid-cols-1 gap-4">
-                    {/* Google Gemini Card */}
+                    {/* Model-chain accuracy */}
                     <div className="border border-border rounded-lg p-4 bg-background/40">
                       <h3 className="text-xs font-semibold text-muted uppercase tracking-wider mb-3 flex items-center justify-between">
-                        <span>Google Gemini (Cloud)</span>
-                        <span className="text-indigo-600 dark:text-indigo-400 font-bold">Accuracy</span>
+                        <span>{t("ocr_configured_ai_models")}</span>
+                        <span className="text-indigo-600 dark:text-indigo-400 font-bold">
+                          Accuracy
+                        </span>
                       </h3>
                       <div className="space-y-2.5">
                         <div className="flex justify-between text-sm">
-                          <span className="text-slate-600 dark:text-slate-400">Amount extraction:</span>
-                          <span className="font-semibold text-foreground">{compData.stats.gemini_amount_accuracy}%</span>
+                          <span className="text-slate-600 dark:text-slate-400">
+                            Amount extraction:
+                          </span>
+                          <span className="font-semibold text-foreground">
+                            {compData.stats.gemini_amount_accuracy}%
+                          </span>
                         </div>
                         <div className="flex justify-between text-sm">
-                          <span className="text-slate-600 dark:text-slate-400">Date extraction:</span>
-                          <span className="font-semibold text-foreground">{compData.stats.gemini_date_accuracy}%</span>
+                          <span className="text-slate-600 dark:text-slate-400">
+                            Date extraction:
+                          </span>
+                          <span className="font-semibold text-foreground">
+                            {compData.stats.gemini_date_accuracy}%
+                          </span>
                         </div>
                         <div className="flex justify-between text-sm">
-                          <span className="text-slate-600 dark:text-slate-400">Merchant name:</span>
-                          <span className="font-semibold text-foreground">{compData.stats.gemini_merchant_accuracy}%</span>
+                          <span className="text-slate-600 dark:text-slate-400">
+                            Merchant name:
+                          </span>
+                          <span className="font-semibold text-foreground">
+                            {compData.stats.gemini_merchant_accuracy}%
+                          </span>
                         </div>
                         <div className="flex justify-between text-sm">
-                          <span className="text-slate-600 dark:text-slate-400">Category classification:</span>
-                          <span className="font-semibold text-foreground">{compData.stats.gemini_category_accuracy}%</span>
+                          <span className="text-slate-600 dark:text-slate-400">
+                            Category classification:
+                          </span>
+                          <span className="font-semibold text-foreground">
+                            {compData.stats.gemini_category_accuracy}%
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -353,42 +173,62 @@ export default function OcrAdminPage() {
                   {/* History list */}
                   <div className="space-y-3">
                     <h3 className="text-xs font-semibold text-muted uppercase tracking-wider">
-                      Scan History & Comparisons (Last {compData.history.length})
+                      Scan History & Comparisons (Last {compData.history.length}
+                      )
                     </h3>
                     {/* Mobile: stacked cards */}
                     <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-800 border border-border rounded-lg">
                       {compData.history.map((row) => {
                         const formatCat = (id: number | null) => {
                           if (!id) return null;
-                          const cat = categories?.find((c: Category) => c.id === id);
+                          const cat = categories?.find(
+                            (c: Category) => c.id === id,
+                          );
                           return cat ? cat.name : `ID: ${id}`;
                         };
 
-                        const isLinked = row.final_amount !== null || row.final_date !== null || row.final_merchant !== null;
+                        const isLinked =
+                          row.final_amount !== null ||
+                          row.final_date !== null ||
+                          row.final_merchant !== null;
 
-                        const isFailed = row.gemini_error || (row.gemini_amount === null && row.gemini_merchant === null);
-                        const errorMsg: string | null = isFailed ? row.gemini_error : null;
+                        const isFailed =
+                          row.gemini_error ||
+                          (row.gemini_amount === null &&
+                            row.gemini_merchant === null);
+                        const errorMsg: string | null = isFailed
+                          ? row.gemini_error
+                          : null;
 
                         const fields = [
                           {
                             name: "Amount",
-                            gem: row.gemini_amount !== null ? `${row.gemini_amount}` : null,
-                            final: isLinked ? (row.final_amount !== null ? `${row.final_amount}` : "—") : null,
+                            gem:
+                              row.gemini_amount !== null
+                                ? `${row.gemini_amount}`
+                                : null,
+                            final: isLinked
+                              ? row.final_amount !== null
+                                ? `${row.final_amount}`
+                                : "—"
+                              : null,
                           },
                           {
                             name: "Merchant",
                             gem: row.gemini_merchant || null,
-                            final: isLinked ? (row.final_merchant || "—") : null,
+                            final: isLinked ? row.final_merchant || "—" : null,
                           },
                           {
                             name: "Date",
                             gem: row.gemini_date || null,
-                            final: isLinked ? (row.final_date || "—") : null,
+                            final: isLinked ? row.final_date || "—" : null,
                           },
                           {
                             name: "Category",
                             gem: formatCat(row.gemini_category_id),
-                            final: isLinked ? (formatCat(row.final_category_id) ?? "—") : null,
+                            final: isLinked
+                              ? (formatCat(row.final_category_id) ?? "—")
+                              : null,
                           },
                         ];
 
@@ -396,12 +236,21 @@ export default function OcrAdminPage() {
                           <div key={row.id} className="p-3">
                             <div className="flex items-start justify-between gap-2">
                               <div>
-                                <div className="font-semibold text-sm text-slate-700 dark:text-slate-300 truncate max-w-[200px]" title={row.receipt_filename ?? ""}>
+                                <div
+                                  className="font-semibold text-sm text-slate-700 dark:text-slate-300 truncate max-w-[200px]"
+                                  title={row.receipt_filename ?? ""}
+                                >
                                   {row.receipt_filename ?? "receipt.jpg"}
                                 </div>
                                 <div className="text-[10px] text-slate-400 mt-1 flex items-center gap-1.5">
-                                  <span>{new Date(row.created_at).toLocaleDateString()}</span>
-                                  <span className={`px-1.5 py-0.5 rounded text-[9px] font-semibold font-mono uppercase tracking-wider ${isFailed ? "bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400 line-through opacity-70" : "bg-slate-100 dark:bg-slate-800 text-muted"}`}>
+                                  <span>
+                                    {new Date(
+                                      row.created_at,
+                                    ).toLocaleDateString()}
+                                  </span>
+                                  <span
+                                    className={`px-1.5 py-0.5 rounded text-[9px] font-semibold font-mono uppercase tracking-wider ${isFailed ? "bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400 line-through opacity-70" : "bg-slate-100 dark:bg-slate-800 text-muted"}`}
+                                  >
                                     {row.provider || "gemini"}
                                   </span>
                                 </div>
@@ -414,7 +263,9 @@ export default function OcrAdminPage() {
                             </div>
                             {isFailed && (
                               <div className="flex flex-col gap-0.5 mt-1.5">
-                                <span className="text-[9px] text-rose-500 font-semibold uppercase tracking-wider">Failed</span>
+                                <span className="text-[9px] text-rose-500 font-semibold uppercase tracking-wider">
+                                  Failed
+                                </span>
                                 {errorMsg && (
                                   <div className="text-[8px] text-rose-400 dark:text-rose-300 mt-1 leading-tight border-l-2 border-rose-400 dark:border-rose-800 pl-1">
                                     {errorMsg}
@@ -424,18 +275,31 @@ export default function OcrAdminPage() {
                             )}
                             <div className="mt-2 space-y-1.5">
                               {fields.map((f) => (
-                                <div key={f.name} className="flex items-center justify-between text-[11px] gap-2">
-                                  <span className="font-medium text-muted shrink-0 w-16">{f.name}</span>
+                                <div
+                                  key={f.name}
+                                  className="flex items-center justify-between text-[11px] gap-2"
+                                >
+                                  <span className="font-medium text-muted shrink-0 w-16">
+                                    {f.name}
+                                  </span>
                                   <div className="flex items-center gap-1.5 flex-wrap justify-end">
                                     {f.gem !== null ? (
-                                      <span className={`px-2 py-0.5 rounded border text-[11px] font-medium ${isLinked ? getStatusColor(f.gem, f.final) : "text-slate-600 bg-slate-100/50 dark:bg-slate-800/30 border-border"}`}>
+                                      <span
+                                        className={`px-2 py-0.5 rounded border text-[11px] font-medium ${isLinked ? getStatusColor(f.gem, f.final) : "text-slate-600 bg-slate-100/50 dark:bg-slate-800/30 border-border"}`}
+                                      >
                                         {f.gem}
                                       </span>
                                     ) : (
                                       <span className="text-slate-400">—</span>
                                     )}
                                     <span className="px-2 py-0.5 rounded bg-blue-50/30 dark:bg-blue-950/10 font-semibold text-foreground text-[11px]">
-                                      {f.final !== null ? f.final : <span className="text-[10px] text-amber-600 dark:text-amber-400 italic">Pending…</span>}
+                                      {f.final !== null ? (
+                                        f.final
+                                      ) : (
+                                        <span className="text-[10px] text-amber-600 dark:text-amber-400 italic">
+                                          Pending…
+                                        </span>
+                                      )}
                                     </span>
                                   </div>
                                 </div>
@@ -451,66 +315,110 @@ export default function OcrAdminPage() {
                       <table className="w-full text-left border-collapse text-xs">
                         <thead>
                           <tr className="bg-slate-50 dark:bg-slate-900 border-b border-border text-muted font-semibold">
-                            <th className="p-3 border-r border-border">Receipt / Date</th>
+                            <th className="p-3 border-r border-border">
+                              Receipt / Date
+                            </th>
                             <th className="p-3">Field</th>
-                            <th className="p-3 font-semibold text-indigo-600 dark:text-indigo-400">Gemini (Cloud)</th>
-                            <th className="p-3 bg-blue-50/50 dark:bg-blue-950/20 font-bold text-blue-800 dark:text-blue-300">Final (Ground Truth)</th>
+                            <th className="p-3 font-semibold text-indigo-600 dark:text-indigo-400">
+                              {t("ocr_ai_model")}
+                            </th>
+                            <th className="p-3 bg-blue-50/50 dark:bg-blue-950/20 font-bold text-blue-800 dark:text-blue-300">
+                              Final (Ground Truth)
+                            </th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                           {compData.history.map((row) => {
                             const formatCat = (id: number | null) => {
                               if (!id) return null;
-                              const cat = categories?.find((c: Category) => c.id === id);
+                              const cat = categories?.find(
+                                (c: Category) => c.id === id,
+                              );
                               return cat ? cat.name : `ID: ${id}`;
                             };
 
                             // null final_* means this scan hasn't been linked to a saved expense yet
-                            const isLinked = row.final_amount !== null || row.final_date !== null || row.final_merchant !== null;
+                            const isLinked =
+                              row.final_amount !== null ||
+                              row.final_date !== null ||
+                              row.final_merchant !== null;
 
-                            const isFailed = row.gemini_error || (row.gemini_amount === null && row.gemini_merchant === null);
-                            const errorMsg: string | null = isFailed ? row.gemini_error : null;
+                            const isFailed =
+                              row.gemini_error ||
+                              (row.gemini_amount === null &&
+                                row.gemini_merchant === null);
+                            const errorMsg: string | null = isFailed
+                              ? row.gemini_error
+                              : null;
 
                             const fields = [
                               {
                                 name: "Amount",
-                                gem: row.gemini_amount !== null ? `${row.gemini_amount}` : null,
-                                final: isLinked ? (row.final_amount !== null ? `${row.final_amount}` : "—") : null,
+                                gem:
+                                  row.gemini_amount !== null
+                                    ? `${row.gemini_amount}`
+                                    : null,
+                                final: isLinked
+                                  ? row.final_amount !== null
+                                    ? `${row.final_amount}`
+                                    : "—"
+                                  : null,
                               },
                               {
                                 name: "Merchant",
                                 gem: row.gemini_merchant || null,
-                                final: isLinked ? (row.final_merchant || "—") : null,
+                                final: isLinked
+                                  ? row.final_merchant || "—"
+                                  : null,
                               },
                               {
                                 name: "Date",
                                 gem: row.gemini_date || null,
-                                final: isLinked ? (row.final_date || "—") : null,
+                                final: isLinked ? row.final_date || "—" : null,
                               },
                               {
                                 name: "Category",
                                 gem: formatCat(row.gemini_category_id),
-                                final: isLinked ? (formatCat(row.final_category_id) ?? "—") : null,
+                                final: isLinked
+                                  ? (formatCat(row.final_category_id) ?? "—")
+                                  : null,
                               },
                             ];
 
                             return fields.map((f, index) => (
-                              <tr key={`${row.id}-${f.name}`} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20">
+                              <tr
+                                key={`${row.id}-${f.name}`}
+                                className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20"
+                              >
                                 {index === 0 && (
-                                  <td rowSpan={4} className="p-3 font-medium text-slate-700 dark:text-slate-300 align-top border-r border-border">
-                                    <div className="font-semibold truncate max-w-[150px]" title={row.receipt_filename ?? ""}>
+                                  <td
+                                    rowSpan={4}
+                                    className="p-3 font-medium text-slate-700 dark:text-slate-300 align-top border-r border-border"
+                                  >
+                                    <div
+                                      className="font-semibold truncate max-w-[150px]"
+                                      title={row.receipt_filename ?? ""}
+                                    >
                                       {row.receipt_filename ?? "receipt.jpg"}
                                     </div>
                                     <div className="text-[10px] text-slate-400 mt-1 flex flex-col gap-1">
                                       <div className="flex items-center gap-1.5">
-                                        <span>{new Date(row.created_at).toLocaleDateString()}</span>
-                                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-semibold font-mono uppercase tracking-wider ${isFailed ? "bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400 line-through opacity-70" : "bg-slate-100 dark:bg-slate-800 text-muted"}`}>
+                                        <span>
+                                          {new Date(
+                                            row.created_at,
+                                          ).toLocaleDateString()}
+                                        </span>
+                                        <span
+                                          className={`px-1.5 py-0.5 rounded text-[9px] font-semibold font-mono uppercase tracking-wider ${isFailed ? "bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400 line-through opacity-70" : "bg-slate-100 dark:bg-slate-800 text-muted"}`}
+                                        >
                                           {row.provider || "gemini"}
                                         </span>
                                       </div>
                                       {isFailed && (
                                         <div className="flex flex-col gap-0.5 mt-0.5">
-                                          <span className="text-[9px] text-rose-500 font-semibold uppercase tracking-wider">Failed</span>
+                                          <span className="text-[9px] text-rose-500 font-semibold uppercase tracking-wider">
+                                            Failed
+                                          </span>
                                           {errorMsg && (
                                             <div className="text-[8px] text-rose-400 dark:text-rose-300 mt-1 leading-tight border-l-2 border-rose-400 dark:border-rose-800 pl-1">
                                               {errorMsg}
@@ -526,10 +434,14 @@ export default function OcrAdminPage() {
                                     )}
                                   </td>
                                 )}
-                                <td className="p-3 font-medium text-muted">{f.name}</td>
+                                <td className="p-3 font-medium text-muted">
+                                  {f.name}
+                                </td>
                                 <td className="p-3">
                                   {f.gem !== null ? (
-                                    <span className={`px-2 py-0.5 rounded border text-[11px] font-medium ${isLinked ? getStatusColor(f.gem, f.final) : "text-slate-600 bg-slate-100/50 dark:bg-slate-800/30 border-border"}`}>
+                                    <span
+                                      className={`px-2 py-0.5 rounded border text-[11px] font-medium ${isLinked ? getStatusColor(f.gem, f.final) : "text-slate-600 bg-slate-100/50 dark:bg-slate-800/30 border-border"}`}
+                                    >
                                       {f.gem}
                                     </span>
                                   ) : (
@@ -540,7 +452,9 @@ export default function OcrAdminPage() {
                                   {f.final !== null ? (
                                     f.final
                                   ) : (
-                                    <span className="text-[10px] text-amber-600 dark:text-amber-400 italic">Pending save…</span>
+                                    <span className="text-[10px] text-amber-600 dark:text-amber-400 italic">
+                                      Pending save…
+                                    </span>
                                   )}
                                 </td>
                               </tr>

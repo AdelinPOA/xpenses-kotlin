@@ -1,6 +1,5 @@
 package eu.nt.xpenses.services
 
-import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 import eu.nt.xpenses.ingestion.DelegationDraft
@@ -10,14 +9,8 @@ import eu.nt.xpenses.model.ExpenseReport
 import eu.nt.xpenses.repositories.ExpenseReportRepository
 import eu.nt.xpenses.repositories.UserRepository
 import org.slf4j.LoggerFactory
-import org.springframework.http.MediaType
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-import org.springframework.web.client.RestClient
-import org.springframework.web.client.body
-import org.springframework.http.client.JdkClientHttpRequestFactory
-import java.net.http.HttpClient
-import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -29,15 +22,9 @@ class EmailImportService(
     private val expenseReportRepository: ExpenseReportRepository,
     private val ocrService: OcrService,
     private val objectMapper: ObjectMapper,
-    private val imapIngestionLedger: ImapIngestionLedger
+    private val imapIngestionLedger: ImapIngestionLedger,
 ) {
     private val log = LoggerFactory.getLogger(EmailImportService::class.java)
-    private val restClient = RestClient.builder()
-        .requestFactory(JdkClientHttpRequestFactory(HttpClient.newBuilder()
-            .connectTimeout(Duration.ofSeconds(10))
-            .build()
-        ).also { it.setReadTimeout(Duration.ofSeconds(60)) })
-        .build()
 
     fun parseDateFlexible(dtStr: String): String? {
         val formats = listOf("dd.MM.yyyy", "dd/MM/yyyy", "yyyy-MM-dd", "dd-MM-yyyy", "yyyy.MM.dd")
@@ -55,13 +42,14 @@ class EmailImportService(
     }
 
     fun parseDelegationEmailLocal(text: String): Map<String, String>? {
-        val datePatterns = listOf(
-            Pattern.compile("\\b\\d{2}\\.\\d{2}\\.\\d{4}\\b"),
-            Pattern.compile("\\b\\d{4}-\\d{2}-\\d{2}\\b"),
-            Pattern.compile("\\b\\d{2}/\\d{2}/\\d{4}\\b"),
-            Pattern.compile("\\b\\d{2}-\\d{2}-\\d{4}\\b"),
-            Pattern.compile("\\b\\d{4}\\.\\d{2}\\.\\d{2}\\b")
-        )
+        val datePatterns =
+            listOf(
+                Pattern.compile("\\b\\d{2}\\.\\d{2}\\.\\d{4}\\b"),
+                Pattern.compile("\\b\\d{4}-\\d{2}-\\d{2}\\b"),
+                Pattern.compile("\\b\\d{2}/\\d{2}/\\d{4}\\b"),
+                Pattern.compile("\\b\\d{2}-\\d{2}-\\d{4}\\b"),
+                Pattern.compile("\\b\\d{4}\\.\\d{2}\\.\\d{2}\\b"),
+            )
         val allDatesFound = mutableListOf<String>()
         for (pat in datePatterns) {
             val m = pat.matcher(text)
@@ -115,7 +103,10 @@ class EmailImportService(
         }
 
         // Helper: extract value after keyword on the same line
-        fun extractAfterKeyword(lines: List<String>, keywords: List<String>): String? {
+        fun extractAfterKeyword(
+            lines: List<String>,
+            keywords: List<String>,
+        ): String? {
             val wordPat = Pattern.compile("^(\\S+)")
             for (kw in keywords) {
                 val pattern = Pattern.compile("\\b${Pattern.quote(kw)}\\b", Pattern.CASE_INSENSITIVE)
@@ -128,7 +119,26 @@ class EmailImportService(
                             val wordMatch = wordPat.matcher(valPart)
                             if (wordMatch.find()) {
                                 val word = wordMatch.group(1)
-                                if (word.lowercase() !in setOf("for", "the", "a", "of", "to", "in", "on", "job", "work", "is", "are", "with", "und", "der", "die", "das")) {
+                                if (word.lowercase() !in
+                                    setOf(
+                                        "for",
+                                        "the",
+                                        "a",
+                                        "of",
+                                        "to",
+                                        "in",
+                                        "on",
+                                        "job",
+                                        "work",
+                                        "is",
+                                        "are",
+                                        "with",
+                                        "und",
+                                        "der",
+                                        "die",
+                                        "das",
+                                    )
+                                ) {
                                     return valPart.replace(Regex("\\s+"), " ").trim()
                                 }
                             }
@@ -139,7 +149,10 @@ class EmailImportService(
             return null
         }
 
-        fun extractMultiTokenAfterKeyword(lines: List<String>, keywords: List<String>): String? {
+        fun extractMultiTokenAfterKeyword(
+            lines: List<String>,
+            keywords: List<String>,
+        ): String? {
             val stopWords = setOf("for", "the", "a", "of", "to", "in", "on", "job", "work", "is", "are", "with", "und", "der", "die", "das")
             for (kw in keywords) {
                 val pattern = Pattern.compile("\\b${Pattern.quote(kw)}\\b", Pattern.CASE_INSENSITIVE)
@@ -166,14 +179,45 @@ class EmailImportService(
         // Extract multi-line address after Adresse keyword
         fun extractAddress(lines: List<String>): String? {
             val addrKws = listOf("adresse", "address", "adresă")
-            val knownKwLines = setOf(
-                "kundenauftrag", "auftragsart", "positionstyp", "starttermin", "endtermin",
-                "vorgang", "arbeitsplatz", "techniker", "technplatz", "kunde", "adresse",
-                "address", "adresă", "start date", "end date", "start", "end", "from", "to",
-                "customer", "client", "order", "location", "locatie", "site", "santier", "ort",
-                "task", "activitate", "work", "project", "projekt", "comanda",
-                "kundenauftrag", "auftrag", "kunde"
-            )
+            val knownKwLines =
+                setOf(
+                    "kundenauftrag",
+                    "auftragsart",
+                    "positionstyp",
+                    "starttermin",
+                    "endtermin",
+                    "vorgang",
+                    "arbeitsplatz",
+                    "techniker",
+                    "technplatz",
+                    "kunde",
+                    "adresse",
+                    "address",
+                    "adresă",
+                    "start date",
+                    "end date",
+                    "start",
+                    "end",
+                    "from",
+                    "to",
+                    "customer",
+                    "client",
+                    "order",
+                    "location",
+                    "locatie",
+                    "site",
+                    "santier",
+                    "ort",
+                    "task",
+                    "activitate",
+                    "work",
+                    "project",
+                    "projekt",
+                    "comanda",
+                    "kundenauftrag",
+                    "auftrag",
+                    "kunde",
+                )
             for (kw in addrKws) {
                 val pattern = Pattern.compile("\\b${Pattern.quote(kw)}\\b", Pattern.CASE_INSENSITIVE)
                 for ((i, line) in lines.withIndex()) {
@@ -274,107 +318,48 @@ class EmailImportService(
             "adresse" to (adresse ?: ""),
             "vorgang" to (vorgang ?: ""),
             "arbeitsplatz" to (arbeitsplatz ?: ""),
-            "techniker" to (techniker ?: "")
+            "techniker" to (techniker ?: ""),
         )
     }
 
-    fun parseDelegationEmailGemini(text: String, apiKey: String, provider: String = "gemini"): Map<String, String>? {
-        val modelName = ocrService.geminiModelName(provider)
-        val url = "https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent"
-        val payload = mapOf(
-            "contents" to listOf(
-                mapOf(
-                    "parts" to listOf(
-                        mapOf(
-                            "text" to (
-                                "Analyze this email body and extract structured details about a professional delegation or business trip. " +
-                                "Extract the following fields and return them in the requested JSON structure: " +
-                                "title (a concise summary like 'Delegation: [Customer] ([Location])', max 200 characters), " +
-                                "date_from (start date in YYYY-MM-DD format), " +
-                                "date_to (end date in YYYY-MM-DD format), " +
-                                "description (a brief, human-friendly summary of key details), " +
-                                "kundenauftrag (customer order number, e.g. '0007038319'), " +
-                                "auftragsart (order type code, e.g. 'KR20'), " +
-                                "positionstyp (task/position type, e.g. 'Mechanical full installation'), " +
-                                "technplatz_raw (full TechnPlatz value from the email), " +
-                                "technplatz_line (boolean: true if technplatz_raw starts with 'C' followed by 6+ digits), " +
-                                "kunde_code (numeric customer code, e.g. '0022265695'), " +
-                                "kunde_name (customer name without the code), " +
-                                "adresse (full address), " +
-                                "vorgang (process number), " +
-                                "arbeitsplatz (workplace info), " +
-                                "techniker (technician name)."
-                            )
-                        ),
-                        mapOf(
-                            "text" to text
-                        )
-                    )
-                )
-            ),
-            "generationConfig" to mapOf(
-                "responseMimeType" to "application/json",
-                "responseSchema" to mapOf(
-                    "type" to "OBJECT",
-                    "properties" to mapOf(
-                        "title" to mapOf("type" to "STRING"),
-                        "date_from" to mapOf("type" to "STRING"),
-                        "date_to" to mapOf("type" to "STRING"),
-                        "description" to mapOf("type" to "STRING"),
-                        "kundenauftrag" to mapOf("type" to "STRING"),
-                        "auftragsart" to mapOf("type" to "STRING"),
-                        "positionstyp" to mapOf("type" to "STRING"),
-                        "technplatz_raw" to mapOf("type" to "STRING"),
-                        "technplatz_line" to mapOf("type" to "BOOLEAN"),
-                        "kunde_code" to mapOf("type" to "STRING"),
-                        "kunde_name" to mapOf("type" to "STRING"),
-                        "adresse" to mapOf("type" to "STRING"),
-                        "vorgang" to mapOf("type" to "STRING"),
-                        "arbeitsplatz" to mapOf("type" to "STRING"),
-                        "techniker" to mapOf("type" to "STRING")
-                    ),
-                    "required" to listOf("title", "date_from", "date_to", "description")
-                )
-            )
-        )
+    fun parseDelegationEmailWithModels(
+        text: String,
+        config: OCRConfig,
+    ): Map<String, String>? {
+        val systemPrompt =
+            """
+            Analyze this email and extract structured details about a professional delegation or business trip.
+            Return a JSON object with title, date_from, date_to, description, kundenauftrag, auftragsart,
+            positionstyp, technplatz_raw, technplatz_line, kunde_code, kunde_name, adresse, vorgang,
+            arbeitsplatz, and techniker. Use YYYY-MM-DD for both dates and include all keys, using empty
+            strings for unavailable optional values. Title, date_from, date_to, and description are required.
+            """.trimIndent()
+        val json =
+            ocrService.runModelChain(config, config.delegationModelChain, systemPrompt, text) { response ->
+                parseDelegationModelResponse(response) != null
+            } ?: return null
+        return parseDelegationModelResponse(json)
+    }
 
-        return try {
-            val response = restClient.post()
-                .uri(url)
-                .contentType(MediaType.APPLICATION_JSON)
-                .header("x-goog-api-key", apiKey)
-                .body(payload)
-                .retrieve()
-                .body<Map<String, Any>>() ?: throw Exception("Empty response from Gemini")
-
-            val candidates = response["candidates"] as? List<*> ?: emptyList<Any>()
-            val candidate = candidates.firstOrNull() as? Map<*, *>
-            val content = candidate?.get("content") as? Map<*, *>
-            val parts = content?.get("parts") as? List<*>
-            val firstPart = parts?.firstOrNull() as? Map<*, *>
-            val textResponse = firstPart?.get("text")?.toString() ?: "{}"
-
-            val result: Map<String, Any?> = objectMapper.readValue(textResponse)
-            
-            var dateFrom = result["date_from"] as? String
-            var dateTo = result["date_to"] as? String
-
-            if (dateFrom != null && !Pattern.matches("^\\d{4}-\\d{2}-\\d{2}$", dateFrom)) {
-                dateFrom = null
-            }
-            if (dateTo != null && !Pattern.matches("^\\d{4}-\\d{2}-\\d{2}$", dateTo)) {
-                dateTo = null
-            }
-
-            if (dateFrom == null || dateTo == null) {
+    private fun parseDelegationModelResponse(response: String): Map<String, String>? =
+        try {
+            val result: Map<String, Any?> = objectMapper.readValue(response)
+            val title = (result["title"] as? String)?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+            val description = result["description"] as? String ?: return null
+            val dateFrom = result["date_from"] as? String
+            val dateTo = result["date_to"] as? String
+            if (dateFrom == null || dateTo == null ||
+                !Pattern.matches("^\\d{4}-\\d{2}-\\d{2}$", dateFrom) ||
+                !Pattern.matches("^\\d{4}-\\d{2}-\\d{2}$", dateTo)
+            ) {
                 return null
             }
-
+            if (LocalDate.parse(dateTo).isBefore(LocalDate.parse(dateFrom))) return null
             mapOf(
-                "title" to (result["title"]?.toString() ?: "Delegation Report").take(200),
+                "title" to title.take(200),
                 "date_from" to dateFrom,
                 "date_to" to dateTo,
-                "description" to (result["description"]?.toString() ?: "").trim(),
+                "description" to description.trim(),
                 "kundenauftrag" to (result["kundenauftrag"]?.toString() ?: ""),
                 "auftragsart" to (result["auftragsart"]?.toString() ?: ""),
                 "positionstyp" to (result["positionstyp"]?.toString() ?: ""),
@@ -385,25 +370,25 @@ class EmailImportService(
                 "adresse" to (result["adresse"]?.toString() ?: ""),
                 "vorgang" to (result["vorgang"]?.toString() ?: ""),
                 "arbeitsplatz" to (result["arbeitsplatz"]?.toString() ?: ""),
-                "techniker" to (result["techniker"]?.toString() ?: "")
+                "techniker" to (result["techniker"]?.toString() ?: ""),
             )
-        } catch (e: Exception) {
-            log.warn("Gemini email parsing failed: {}", e.message)
+        } catch (_: Exception) {
             null
         }
-    }
 
     fun parseDelegationEmailAsync(text: String): Map<String, String>? {
-        val ocrCfg = ocrService.getOcrConfig()
-        if (ocrCfg.ocrEnabled && (ocrCfg.provider == "gemini" || ocrCfg.provider.startsWith("gemini-")) && ocrCfg.geminiApiKey.isNotEmpty()) {
-            val parsed = parseDelegationEmailGemini(text, ocrCfg.geminiApiKey, ocrCfg.provider)
-            if (parsed != null) return parsed
+        val config = ocrService.getOcrConfig()
+        if (config.ocrEnabled) {
+            parseDelegationEmailWithModels(text, config)?.let { return it }
         }
         return parseDelegationEmailLocal(text)
     }
 
     @Transactional
-    fun processIncomingEmail(fromAddress: String, bodyText: String): Boolean {
+    fun processIncomingEmail(
+        fromAddress: String,
+        bodyText: String,
+    ): Boolean {
         var emailClean = fromAddress.trim()
         if (emailClean.contains("<") && emailClean.contains(">")) {
             emailClean = emailClean.substringAfter("<").substringBefore(">").trim()
@@ -428,7 +413,7 @@ class EmailImportService(
     fun createReportAndComplete(
         claim: ProcessingClaim,
         fromAddress: String,
-        delegation: DelegationDraft
+        delegation: DelegationDraft,
     ): Int? {
         val report = createReport(fromAddress, delegation) ?: return null
         val reportId = requireNotNull(report.id)
@@ -438,30 +423,34 @@ class EmailImportService(
 
     fun hasActiveSender(fromAddress: String): Boolean = findActiveSender(fromAddress) != null
 
-    fun createReport(fromAddress: String, delegation: DelegationDraft): ExpenseReport? {
+    fun createReport(
+        fromAddress: String,
+        delegation: DelegationDraft,
+    ): ExpenseReport? {
         val user = findActiveSender(fromAddress) ?: return null
 
-        val report = ExpenseReport(
-            title = delegation.title,
-            description = delegation.description,
-            dateFrom = delegation.dateFrom,
-            dateTo = delegation.dateTo,
-            status = "draft",
-            user = user,
-            kundenauftrag = delegation.kundenauftrag,
-            auftragsart = delegation.auftragsart,
-            positionstyp = delegation.positionstyp,
-            technplatzRaw = delegation.technplatzRaw,
-            technplatzLine = delegation.technplatzLine,
-            kundeCode = delegation.kundeCode,
-            kundeName = delegation.kundeName,
-            adresse = delegation.adresse,
-            vorgang = delegation.vorgang,
-            arbeitsplatz = delegation.arbeitsplatz,
-            techniker = delegation.techniker,
-            createdAt = Instant.now(),
-            updatedAt = Instant.now()
-        )
+        val report =
+            ExpenseReport(
+                title = delegation.title,
+                description = delegation.description,
+                dateFrom = delegation.dateFrom,
+                dateTo = delegation.dateTo,
+                status = "draft",
+                user = user,
+                kundenauftrag = delegation.kundenauftrag,
+                auftragsart = delegation.auftragsart,
+                positionstyp = delegation.positionstyp,
+                technplatzRaw = delegation.technplatzRaw,
+                technplatzLine = delegation.technplatzLine,
+                kundeCode = delegation.kundeCode,
+                kundeName = delegation.kundeName,
+                adresse = delegation.adresse,
+                vorgang = delegation.vorgang,
+                arbeitsplatz = delegation.arbeitsplatz,
+                techniker = delegation.techniker,
+                createdAt = Instant.now(),
+                updatedAt = Instant.now(),
+            )
         return expenseReportRepository.save(report)
     }
 
@@ -483,7 +472,11 @@ class EmailImportService(
     }
 
     @Transactional
-    fun simulateIncomingEmail(fromAddress: String, bodyText: String, requestedParser: String? = null): Map<String, Any?> {
+    fun simulateIncomingEmail(
+        fromAddress: String,
+        bodyText: String,
+        requestedParser: String? = null,
+    ): Map<String, Any?> {
         var emailClean = fromAddress.trim()
         if (emailClean.contains("<") && emailClean.contains(">")) {
             emailClean = emailClean.substringAfter("<").substringBefore(">").trim()
@@ -494,42 +487,33 @@ class EmailImportService(
             return mapOf(
                 "success" to false,
                 "error" to "No user found with email '$emailClean'",
-                "parsed" to null
+                "parsed" to null,
             )
         }
         if (!user.isActive) {
             return mapOf(
                 "success" to false,
                 "error" to "User '${user.displayName}' ($emailClean) is inactive",
-                "parsed" to null
+                "parsed" to null,
             )
         }
 
         val localParsed = parseDelegationEmailLocal(bodyText)
-        
-        var geminiParsed: Map<String, String>? = null
-        var geminiError: String? = null
-        try {
-            val ocrCfg = ocrService.getOcrConfig()
-            if (ocrCfg.ocrEnabled && ocrCfg.geminiApiKey.isNotEmpty()) {
-                geminiParsed = parseDelegationEmailGemini(bodyText, ocrCfg.geminiApiKey, ocrCfg.provider)
+        val config = ocrService.getOcrConfig()
+        val modelParsed =
+            if (config.ocrEnabled) {
+                parseDelegationEmailWithModels(bodyText, config)
             } else {
-                geminiError = "Gemini key not configured or OCR disabled in settings"
+                null
             }
-        } catch (e: Exception) {
-            geminiError = e.message ?: e.toString()
-        }
-
-        val ocrCfg = ocrService.getOcrConfig()
-        val isGeminiProvider = ocrCfg.provider == "gemini" || ocrCfg.provider.startsWith("gemini-")
-        
-        val useGemini = if (requestedParser != null) {
-            requestedParser == "gemini" && geminiParsed != null
-        } else {
-            ocrCfg.ocrEnabled && isGeminiProvider && geminiParsed != null
-        }
-        
-        val finalParsed = if (useGemini) geminiParsed else localParsed
+        val modelError = if (modelParsed == null) "No configured AI model returned a valid delegation result" else null
+        val useAi =
+            if (requestedParser != null) {
+                requestedParser in setOf("ai", "gemini") && modelParsed != null
+            } else {
+                config.ocrEnabled && modelParsed != null
+            }
+        val finalParsed = if (useAi) modelParsed else localParsed
 
         if (finalParsed == null) {
             return mapOf(
@@ -537,33 +521,36 @@ class EmailImportService(
                 "error" to "Could not parse delegation patterns in email body with active provider",
                 "parsed" to null,
                 "local_parsed" to localParsed,
-                "gemini_parsed" to geminiParsed,
-                "gemini_error" to geminiError,
-                "active_parser" to if (useGemini) "gemini" else "local"
+                "ai_parsed" to modelParsed,
+                "ai_error" to modelError,
+                "gemini_parsed" to modelParsed,
+                "gemini_error" to modelError,
+                "active_parser" to if (useAi) "ai" else "local",
             )
         }
 
-        val report = ExpenseReport(
-            title = finalParsed["title"]!!,
-            description = finalParsed["description"],
-            dateFrom = finalParsed["date_from"],
-            dateTo = finalParsed["date_to"],
-            status = "draft",
-            user = user,
-            kundenauftrag = finalParsed["kundenauftrag"]?.ifEmpty { null },
-            auftragsart = finalParsed["auftragsart"]?.ifEmpty { null },
-            positionstyp = finalParsed["positionstyp"]?.ifEmpty { null },
-            technplatzRaw = finalParsed["technplatz_raw"]?.ifEmpty { null },
-            technplatzLine = finalParsed["technplatz_line"]?.toBoolean() ?: false,
-            kundeCode = finalParsed["kunde_code"]?.ifEmpty { null },
-            kundeName = finalParsed["kunde_name"]?.ifEmpty { null },
-            adresse = finalParsed["adresse"]?.ifEmpty { null },
-            vorgang = finalParsed["vorgang"]?.ifEmpty { null },
-            arbeitsplatz = finalParsed["arbeitsplatz"]?.ifEmpty { null },
-            techniker = finalParsed["techniker"]?.ifEmpty { null },
-            createdAt = Instant.now(),
-            updatedAt = Instant.now()
-        )
+        val report =
+            ExpenseReport(
+                title = finalParsed["title"]!!,
+                description = finalParsed["description"],
+                dateFrom = finalParsed["date_from"],
+                dateTo = finalParsed["date_to"],
+                status = "draft",
+                user = user,
+                kundenauftrag = finalParsed["kundenauftrag"]?.ifEmpty { null },
+                auftragsart = finalParsed["auftragsart"]?.ifEmpty { null },
+                positionstyp = finalParsed["positionstyp"]?.ifEmpty { null },
+                technplatzRaw = finalParsed["technplatz_raw"]?.ifEmpty { null },
+                technplatzLine = finalParsed["technplatz_line"]?.toBoolean() ?: false,
+                kundeCode = finalParsed["kunde_code"]?.ifEmpty { null },
+                kundeName = finalParsed["kunde_name"]?.ifEmpty { null },
+                adresse = finalParsed["adresse"]?.ifEmpty { null },
+                vorgang = finalParsed["vorgang"]?.ifEmpty { null },
+                arbeitsplatz = finalParsed["arbeitsplatz"]?.ifEmpty { null },
+                techniker = finalParsed["techniker"]?.ifEmpty { null },
+                createdAt = Instant.now(),
+                updatedAt = Instant.now(),
+            )
         val savedReport = expenseReportRepository.save(report)
 
         return mapOf(
@@ -571,13 +558,12 @@ class EmailImportService(
             "report_id" to savedReport.id,
             "parsed" to finalParsed,
             "local_parsed" to localParsed,
-            "gemini_parsed" to geminiParsed,
-            "gemini_error" to geminiError,
-            "active_parser" to if (useGemini) "gemini" else "local",
-            "user_display_name" to user.displayName
+            "ai_parsed" to modelParsed,
+            "ai_error" to modelError,
+            "gemini_parsed" to modelParsed,
+            "gemini_error" to modelError,
+            "active_parser" to if (useAi) "ai" else "local",
+            "user_display_name" to user.displayName,
         )
     }
-
-
-
 }

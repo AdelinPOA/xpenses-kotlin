@@ -46,7 +46,7 @@ The repository is a modular monolith with a Kotlin/Spring backend, a Next.js fro
 - Role-based application behavior for technicians, managers, finance, and administrators.
 - Expense and receipt CRUD operations.
 - Single and bulk receipt upload.
-- OCR with a primary provider and fallback processing.
+- GUI-managed AI providers/models and independent ordered fallback chains for receipt OCR and delegation-email parsing.
 - Expense reports with draft, submitted, approved, rejected, and payment-related states.
 - Advance payments and mileage records.
 - Currency conversion and EUR-based calculations.
@@ -67,7 +67,7 @@ The repository is a modular monolith with a Kotlin/Spring backend, a Next.js fro
 | Migrations | Flyway SQL migrations |
 | Runtime state | Redis 7.4; Caffeine/JCache for local caching where appropriate |
 | Authentication | JWT access/refresh tokens, secure production cookies |
-| OCR | Configurable OCR providers with fallback behavior and caching/comparison records |
+| OCR | Moderator-managed compatible AI providers, tested models, per-workflow fallback chains, and cache/comparison records |
 | File storage | Local storage and S3-compatible storage |
 | Deployment | Docker Compose with backend, frontend, PostgreSQL, and Redis |
 | Backend build | Gradle wrapper in `backend-kotlin-jpa/` |
@@ -520,7 +520,13 @@ Storage changes must preserve:
 
 ### OCR
 
-OCR can involve external provider calls, fallback processing, caching, and comparison records. Keep external calls outside database transactions and make failures recoverable where the user can manually complete the expense.
+Moderators (the same `mod` role as admins) manage a shared AI provider/model catalog at `/admin/ocr`. Each workflow has its own ordered model chain: receipt OCR and delegation-email parsing. Add a provider and inactive model, save, run the synthetic receipt test, activate, then add the model to a chain. The first eligible model is primary; every failure advances to the next model until a usable result is returned.
+
+Providers must support the OpenAI-compatible multimodal Chat Completions format through a public HTTPS endpoint. API keys are encrypted and write-only; private/metadata destinations, unsafe DNS answers, and redirects are blocked. Other API formats need a backend integration. Prompts and extraction contracts remain app-controlled.
+
+See the [administrator guide and settings API](docs/ocr-model-management.md), [ADR-0006](docs/adr/0006-gui-managed-ai-provider-model-chains.md), and [verification/deployment record](docs/releases/2026-10-16-ocr-model-management.md) for setup, migration, limits, test commands, and rollback considerations.
+
+External provider calls stay outside database transactions; receipt failures remain recoverable through the existing draft/manual-completion workflow. The global Enable OCR toggle also controls delegation AI parsing, which falls back to the local parser when disabled or unsuccessful.
 
 When modifying OCR:
 

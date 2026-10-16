@@ -88,7 +88,22 @@ _Avoid_: storage bucket, file category
 The service responsible for optical character recognition on receipt uploads. OCR rate-limiting, queuing, and provider concurrency control live internally within this service.
 _Avoid_: scanner service
 
+**AI provider**:
+An external or self-hosted service that makes AI models available for receipt OCR or delegation-email parsing.
+_Avoid_: engine
+
+**AI model**:
+A model made available by an AI provider and configured for a specific application workflow, such as receipt OCR or delegation-email parsing.
+_Avoid_: engine, provider
+
+**Model chain**:
+The ordered AI models configured for one workflow: the first is primary, and later models are tried as fallbacks until one returns a valid result.
+_Avoid_: model list
+
+**Moderator**:
+A user with the `mod` role, also labeled “admin” in some parts of the interface. These labels refer to the same role.
+_Avoid_: administrator (when referring to a separate role)
+
 **PDF report reimbursement**:
 The net settlement amount displayed in the generated Expense Report PDF summary (`totalReimbursable`). By explicit Accounting policy, mileage is excluded from this PDF reimbursement total (`totalEur + allowance - totalAdv`). Mileage is tracked and listed separately in the report, but is not included in the PDF reimbursement settlement.
 _Avoid_: reporting mileage exclusion as a bug
-

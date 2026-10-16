@@ -19,13 +19,14 @@ interface OcrComparisonRepository : JpaRepository<OcrComparison, Int> {
 
     @Modifying
     @Transactional
-    @Query("UPDATE OcrComparison o SET o.geminiAmount = :amount, o.geminiDate = :date, o.geminiMerchant = :merchant, o.geminiCategoryId = :categoryId, o.geminiError = :error WHERE o.id = :id")
+    @Query("UPDATE OcrComparison o SET o.geminiAmount = :amount, o.geminiDate = :date, o.geminiMerchant = :merchant, o.geminiCategoryId = :categoryId, o.geminiError = :error, o.provider = COALESCE(:provider, o.provider) WHERE o.id = :id")
     fun updateGeminiResult(
         @Param("id") id: Int,
         @Param("amount") amount: BigDecimal?,
         @Param("date") date: String?,
         @Param("merchant") merchant: String?,
         @Param("categoryId") categoryId: Int?,
-        @Param("error") error: String?
+        @Param("error") error: String?,
+        @Param("provider") provider: String?
     )
 }

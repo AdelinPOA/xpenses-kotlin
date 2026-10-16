@@ -135,6 +135,8 @@ export interface EmailSimulationOut {
   report_id?: number | null;
   parsed?: EmailSimulationParsed | null;
   local_parsed?: EmailSimulationParsed | null;
+  ai_parsed?: EmailSimulationParsed | null;
+  ai_error?: string | null;
   gemini_parsed?: EmailSimulationParsed | null;
   gemini_error?: string | null;
   active_parser?: string | null;
@@ -144,5 +146,5 @@ export interface EmailSimulationOut {
 export interface EmailSimulationIn {
   from_address: string;
   body_text: string;
-  parser?: "local" | "gemini" | null;
+  parser?: "local" | "ai" | "gemini" | null;
 }

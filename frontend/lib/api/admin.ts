@@ -1,4 +1,4 @@
-import type { OcrConfig, OCRComparisonHistoryResponse, StorageConfig, StorageMigrationStatus, FxProvidersConfig, FxTestResult, ImapIngestionRecovery } from "@/lib/types/admin";
+import type { OcrConfig, OcrConfigUpdate, OCRComparisonHistoryResponse, StorageConfig, StorageMigrationStatus, FxProvidersConfig, FxTestResult, ImapIngestionRecovery } from "@/lib/types/admin";
 import api from "@/lib/api";
 
 export async function getFxProviders(): Promise<FxProvidersConfig> {
@@ -21,13 +21,13 @@ export async function getOcrConfig(): Promise<OcrConfig> {
   return data;
 }
 
-export async function updateOcrConfig(config: Partial<OcrConfig>): Promise<OcrConfig> {
+export async function updateOcrConfig(config: OcrConfigUpdate): Promise<OcrConfig> {
   const { data } = await api.patch("/settings/ocr", config);
   return data;
 }
 
-export async function testOcrConfig(payload: { gemini_api_key?: string | null; provider?: string }): Promise<{ success: boolean; message: string }> {
-  const { data } = await api.post("/settings/ocr/test", payload);
+export async function testOcrModel(modelId: string): Promise<{ success: boolean; message: string }> {
+  const { data } = await api.post("/settings/ocr/models/test", { model_id: modelId });
   return data;
 }
 

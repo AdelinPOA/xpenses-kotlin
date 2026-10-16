@@ -57,43 +57,46 @@ const DEFAULT_FORM: FormState = {
   password_set: false,
 };
 
-const imapConfigSchema = z.object({
-  enabled: z.boolean(),
-  imap_host: z.string(),
-  imap_port: z.string().refine(
-    (val) => {
-      const p = parseInt(val, 10);
-      return !isNaN(p) && p >= 1 && p <= 65535;
+const imapConfigSchema = z
+  .object({
+    enabled: z.boolean(),
+    imap_host: z.string(),
+    imap_port: z.string().refine(
+      (val) => {
+        const p = parseInt(val, 10);
+        return !isNaN(p) && p >= 1 && p <= 65535;
+      },
+      { message: "Port must be between 1 and 65535" },
+    ),
+    imap_user: z.string(),
+    imap_pass: z.string(),
+    imap_folder: z.string().min(1, "Folder is required"),
+    password_set: z.boolean(),
+  })
+  .refine(
+    (data) => {
+      if (data.enabled) {
+        return data.imap_host.trim().length > 0;
+      }
+      return true;
     },
-    { message: "Port must be between 1 and 65535" }
-  ),
-  imap_user: z.string(),
-  imap_pass: z.string(),
-  imap_folder: z.string().min(1, "Folder is required"),
-  password_set: z.boolean(),
-}).refine(
-  (data) => {
-    if (data.enabled) {
-      return data.imap_host.trim().length > 0;
-    }
-    return true;
-  },
-  {
-    message: "IMAP Host is required when ingestion is enabled",
-    path: ["imap_host"],
-  }
-).refine(
-  (data) => {
-    if (data.enabled) {
-      return data.imap_user.trim().length > 0;
-    }
-    return true;
-  },
-  {
-    message: "IMAP Username is required when ingestion is enabled",
-    path: ["imap_user"],
-  }
-);
+    {
+      message: "IMAP Host is required when ingestion is enabled",
+      path: ["imap_host"],
+    },
+  )
+  .refine(
+    (data) => {
+      if (data.enabled) {
+        return data.imap_user.trim().length > 0;
+      }
+      return true;
+    },
+    {
+      message: "IMAP Username is required when ingestion is enabled",
+      path: ["imap_user"],
+    },
+  );
 
 export default function ImapAdminPage() {
   const { user, loading } = useAuth();
@@ -112,21 +115,30 @@ export default function ImapAdminPage() {
 
   // Simulation states
   const [simulating, setSimulating] = useState(false);
-  const [simulationResult, setSimulationResult] = useState<EmailSimulationOut | null>(null);
+  const [simulationResult, setSimulationResult] =
+    useState<EmailSimulationOut | null>(null);
   const [selectedSenderEmail, setSelectedSenderEmail] = useState<string>("");
   const [customSenderEmail, setCustomSenderEmail] = useState<string>("");
-  const [simulationBody, setSimulationBody] = useState<string>(MOCK_DELEGATION_EMAIL);
-  const [selectedParser, setSelectedParser] = useState<"local" | "gemini">("local");
+  const [simulationBody, setSimulationBody] = useState<string>(
+    MOCK_DELEGATION_EMAIL,
+  );
+  const [selectedParser, setSelectedParser] = useState<"local" | "ai">("local");
+  const aiParsed =
+    simulationResult?.ai_parsed ?? simulationResult?.gemini_parsed;
+  const aiError = simulationResult?.ai_error ?? simulationResult?.gemini_error;
 
-  const { data: ingestionRecovery = [], isLoading: recoveryLoading } = useQuery({
-    queryKey: ["imap-ingestion-recovery"],
-    queryFn: getImapIngestionRecovery,
-    enabled: user?.role === "mod",
-    staleTime: 15_000,
-  });
+  const { data: ingestionRecovery = [], isLoading: recoveryLoading } = useQuery(
+    {
+      queryKey: ["imap-ingestion-recovery"],
+      queryFn: getImapIngestionRecovery,
+      enabled: user?.role === "mod",
+      staleTime: 15_000,
+    },
+  );
 
   const actionableRecovery = ingestionRecovery.filter(
-    (item) => item.status !== "PROCESSED" || item.acknowledgement_status === "PENDING"
+    (item) =>
+      item.status !== "PROCESSED" || item.acknowledgement_status === "PENDING",
   );
 
   const retryIngestionMutation = useMutation({
@@ -147,7 +159,15 @@ export default function ImapAdminPage() {
     gcTime: 300_000,
   });
 
-  const { register, handleSubmit, reset, watch, setValue, getValues, formState: { errors, isDirty } } = useForm<FormState>({
+  const {
+    register,
+    handleSubmit,
+    reset,
+    watch,
+    setValue,
+    getValues,
+    formState: { errors, isDirty },
+  } = useForm<FormState>({
     resolver: zodResolver(imapConfigSchema) as any,
     defaultValues: DEFAULT_FORM,
   });
@@ -157,7 +177,8 @@ export default function ImapAdminPage() {
   const imapPass = watch("imap_pass");
 
   useEffect(() => {
-    if (!loading && (!user || user.role !== "mod")) router.replace("/dashboard");
+    if (!loading && (!user || user.role !== "mod"))
+      router.replace("/dashboard");
   }, [user, loading, router]);
 
   const { data } = useQuery({
@@ -184,7 +205,9 @@ export default function ImapAdminPage() {
       qc.invalidateQueries({ queryKey: imapKeys.all });
     },
     onError: (e: unknown) => {
-      const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? t("failed_save");
+      const msg =
+        (e as { response?: { data?: { detail?: string } } })?.response?.data
+          ?.detail ?? t("failed_save");
       setSaveError(msg);
       toast.error(`${t("failed_save")}: ${msg}`);
     },
@@ -224,7 +247,10 @@ export default function ImapAdminPage() {
         imap_port: parseInt(formData.imap_port, 10),
         imap_pass: pwChanged ? formData.imap_pass : "",
       };
-      const res = await api.post<ImapTestResult>("/settings/imap/test", payload);
+      const res = await api.post<ImapTestResult>(
+        "/settings/imap/test",
+        payload,
+      );
       setTestResult(res.data);
       if (res.data.success) {
         toast.success(t("imap_test_successful"));
@@ -232,7 +258,10 @@ export default function ImapAdminPage() {
         toast.error(`${t("connection_failed")}: ${res.data.message}`);
       }
     } catch {
-      setTestResult({ success: false, message: "Test connection request failed." });
+      setTestResult({
+        success: false,
+        message: "Test connection request failed.",
+      });
       toast.error(t("connection_failed"));
     } finally {
       setTesting(false);
@@ -240,7 +269,10 @@ export default function ImapAdminPage() {
   }
 
   async function handleSimulate() {
-    const sender = selectedSenderEmail === "custom" ? customSenderEmail : selectedSenderEmail;
+    const sender =
+      selectedSenderEmail === "custom"
+        ? customSenderEmail
+        : selectedSenderEmail;
     if (!sender || sender.trim() === "") {
       toast.error("Please select or input a sender email address.");
       return;
@@ -289,7 +321,10 @@ export default function ImapAdminPage() {
                 <p>
                   Email ingestion is currently using the{" "}
                   <strong className="font-bold">
-                    {data.active_parser === "gemini" ? "Gemini Parser (Cloud)" : "Local Parser (Offline)"}
+                    {data.active_parser === "ai" ||
+                    data.active_parser === "gemini"
+                      ? t("ocr_ai_chain")
+                      : "Local Parser (Offline)"}
                   </strong>{" "}
                   to parse report timeframes and details.
                 </p>
@@ -333,18 +368,24 @@ export default function ImapAdminPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-muted mb-1.5">{t("imap_host_label")}</label>
+                <label className="block text-xs font-semibold text-muted mb-1.5">
+                  {t("imap_host_label")}
+                </label>
                 <input
                   className="w-full border rounded-lg px-3 py-2 text-base sm:text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
                   {...register("imap_host")}
                   placeholder="imap.company.com"
                 />
                 {errors.imap_host && (
-                  <span className="text-[10px] text-rose-500 block mt-1.5 font-medium">{errors.imap_host.message}</span>
+                  <span className="text-[10px] text-rose-500 block mt-1.5 font-medium">
+                    {errors.imap_host.message}
+                  </span>
                 )}
               </div>
               <div>
-                <label className="block text-xs font-semibold text-muted mb-1.5">{t("imap_port")}</label>
+                <label className="block text-xs font-semibold text-muted mb-1.5">
+                  {t("imap_port")}
+                </label>
                 <input
                   type="text"
                   inputMode="numeric"
@@ -357,20 +398,26 @@ export default function ImapAdminPage() {
                   {...register("imap_port")}
                 />
                 {errors.imap_port && (
-                  <span className="text-[10px] text-rose-500 block mt-1.5 font-medium">{errors.imap_port.message}</span>
+                  <span className="text-[10px] text-rose-500 block mt-1.5 font-medium">
+                    {errors.imap_port.message}
+                  </span>
                 )}
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-muted mb-1.5">{t("imap_folder")}</label>
+              <label className="block text-xs font-semibold text-muted mb-1.5">
+                {t("imap_folder")}
+              </label>
               <input
                 className="w-full border rounded-lg px-3 py-2 text-base sm:text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
                 {...register("imap_folder")}
                 placeholder="INBOX"
               />
               {errors.imap_folder && (
-                <span className="text-[10px] text-rose-500 block mt-1.5 font-medium">{errors.imap_folder.message}</span>
+                <span className="text-[10px] text-rose-500 block mt-1.5 font-medium">
+                  {errors.imap_folder.message}
+                </span>
               )}
             </div>
           </section>
@@ -380,31 +427,41 @@ export default function ImapAdminPage() {
               Credentials
             </h2>
             <div>
-              <label className="block text-xs font-semibold text-muted mb-1.5">{t("imap_username")}</label>
+              <label className="block text-xs font-semibold text-muted mb-1.5">
+                {t("imap_username")}
+              </label>
               <input
                 className="w-full border rounded-lg px-3 py-2 text-base sm:text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
                 {...register("imap_user")}
                 placeholder="import-reports@company.com"
               />
               {errors.imap_user && (
-                <span className="text-[10px] text-rose-500 block mt-1.5 font-medium">{errors.imap_user.message}</span>
+                <span className="text-[10px] text-rose-500 block mt-1.5 font-medium">
+                  {errors.imap_user.message}
+                </span>
               )}
             </div>
             <div>
-              <label className="block text-xs font-semibold text-muted mb-1.5">{t("imap_password")}</label>
+              <label className="block text-xs font-semibold text-muted mb-1.5">
+                {t("imap_password")}
+              </label>
               <div className="space-y-1.5">
                 <input
                   type="password"
                   className="w-full border rounded-lg px-3 py-2 text-base sm:text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-blue-500 transition-all duration-200"
                   {...register("imap_pass")}
                   onChange={(e) => {
-                    setValue("imap_pass", e.target.value, { shouldDirty: true });
+                    setValue("imap_pass", e.target.value, {
+                      shouldDirty: true,
+                    });
                     setPwChanged(true);
                   }}
                   placeholder={passwordSet ? "••••••••" : t("imap_password")}
                 />
                 {passwordSet && !pwChanged && (
-                  <span className="text-[10px] text-slate-400 block font-medium">(currently set)</span>
+                  <span className="text-[10px] text-slate-400 block font-medium">
+                    (currently set)
+                  </span>
                 )}
               </div>
             </div>
@@ -450,12 +507,21 @@ export default function ImapAdminPage() {
         <section className="bg-card border border-border rounded-xl p-6 shadow-sm space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 tracking-tight">Ingestion recovery</h2>
-              <p className="text-xs text-muted mt-1">Review failed or rejected mailbox messages and retry them explicitly.</p>
+              <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 tracking-tight">
+                Ingestion recovery
+              </h2>
+              <p className="text-xs text-muted mt-1">
+                Review failed or rejected mailbox messages and retry them
+                explicitly.
+              </p>
             </div>
             <button
               type="button"
-              onClick={() => void qc.invalidateQueries({ queryKey: ["imap-ingestion-recovery"] })}
+              onClick={() =>
+                void qc.invalidateQueries({
+                  queryKey: ["imap-ingestion-recovery"],
+                })
+              }
               className="px-3 py-2 border border-border rounded-lg text-xs font-semibold hover:bg-muted/10 transition-colors"
             >
               Refresh
@@ -465,27 +531,63 @@ export default function ImapAdminPage() {
           {recoveryLoading ? (
             <p className="text-sm text-muted">Loading recovery records…</p>
           ) : actionableRecovery.length === 0 ? (
-            <p className="text-sm text-muted">No recoverable ingestion records.</p>
+            <p className="text-sm text-muted">
+              No recoverable ingestion records.
+            </p>
           ) : (
             <div className="space-y-2">
               {actionableRecovery.map((item) => {
-                const retryable = item.status === "FAILED" || item.status === "REJECTED" || item.acknowledgement_status === "PENDING";
+                const retryable =
+                  item.status === "FAILED" ||
+                  item.status === "REJECTED" ||
+                  item.acknowledgement_status === "PENDING";
                 return (
-                  <div key={item.message_key} className="border border-border rounded-lg p-3 flex flex-col md:flex-row md:items-center gap-3 justify-between">
+                  <div
+                    key={item.message_key}
+                    className="border border-border rounded-lg p-3 flex flex-col md:flex-row md:items-center gap-3 justify-between"
+                  >
                     <div className="min-w-0 text-xs space-y-1">
-                      <p className="font-mono truncate" title={item.message_key}>{item.message_key}</p>
+                      <p
+                        className="font-mono truncate"
+                        title={item.message_key}
+                      >
+                        {item.message_key}
+                      </p>
                       <p className="text-muted">
-                        {item.status} · acknowledgement {item.acknowledgement_status} · attempts {item.attempts}
-                        {item.expense_report_id ? <> · <Link className="text-primary hover:underline" href={`/reports/${item.expense_report_id}`}>report #{item.expense_report_id}</Link></> : null}
+                        {item.status} · acknowledgement{" "}
+                        {item.acknowledgement_status} · attempts {item.attempts}
+                        {item.expense_report_id ? (
+                          <>
+                            {" "}
+                            ·{" "}
+                            <Link
+                              className="text-primary hover:underline"
+                              href={`/reports/${item.expense_report_id}`}
+                            >
+                              report #{item.expense_report_id}
+                            </Link>
+                          </>
+                        ) : null}
                       </p>
                       {item.rejection_reason || item.last_error ? (
-                        <p className="text-rose-600 dark:text-rose-300 truncate" title={item.rejection_reason || item.last_error || undefined}>{item.rejection_reason || item.last_error}</p>
+                        <p
+                          className="text-rose-600 dark:text-rose-300 truncate"
+                          title={
+                            item.rejection_reason ||
+                            item.last_error ||
+                            undefined
+                          }
+                        >
+                          {item.rejection_reason || item.last_error}
+                        </p>
                       ) : null}
                     </div>
                     {retryable ? (
                       <button
                         type="button"
-                        onClick={() => retryIngestionMutation.mutate(item.message_key)}
+                        onClick={() =>
+                          retryIngestionMutation.mutate(item.message_key)
+                        }
                         disabled={retryIngestionMutation.isPending}
                         className="shrink-0 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-semibold disabled:opacity-50"
                       >
@@ -504,15 +606,15 @@ export default function ImapAdminPage() {
         {/* Email Forward Simulator (Local Testing) */}
         <section className="bg-card border border-border rounded-xl p-6 shadow-sm space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300 delay-150">
           <div>
-              <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 tracking-tight flex items-center gap-2">
-                <span className="p-1 rounded bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400">
-                  ✉
-                </span>
-                {t("email_simulation")}
-              </h2>
-              <p className="text-xs text-muted mt-1">
-                {t("email_simulation_description")}
-              </p>
+            <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 tracking-tight flex items-center gap-2">
+              <span className="p-1 rounded bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400">
+                ✉
+              </span>
+              {t("email_simulation")}
+            </h2>
+            <p className="text-xs text-muted mt-1">
+              {t("email_simulation_description")}
+            </p>
           </div>
 
           <div className="space-y-4">
@@ -532,11 +634,13 @@ export default function ImapAdminPage() {
                 className="w-full border rounded-lg px-3 py-2 text-base sm:text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all duration-200 cursor-pointer"
               >
                 <option value="">Select an active user...</option>
-                {usersData?.filter(u => u.is_active && u.email).map((u) => (
-                  <option key={u.id} value={u.email || ""}>
-                    {u.display_name} ({u.email}) [{u.role}]
-                  </option>
-                ))}
+                {usersData
+                  ?.filter((u) => u.is_active && u.email)
+                  .map((u) => (
+                    <option key={u.id} value={u.email || ""}>
+                      {u.display_name} ({u.email}) [{u.role}]
+                    </option>
+                  ))}
                 <option value="custom">Custom email address...</option>
               </select>
 
@@ -563,11 +667,13 @@ export default function ImapAdminPage() {
               </label>
               <select
                 value={selectedParser}
-                onChange={(e) => setSelectedParser(e.target.value as "local" | "gemini")}
+                onChange={(e) =>
+                  setSelectedParser(e.target.value as "local" | "ai")
+                }
                 className="w-full border rounded-lg px-3 py-2 text-base sm:text-sm bg-input border-border dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all duration-200 cursor-pointer"
               >
                 <option value="local">Local Parser (Keyword Extraction)</option>
-                <option value="gemini">Gemini Parser (Cloud LLM Extraction)</option>
+                <option value="ai">{t("ocr_configured_ai_chain")}</option>
               </select>
             </div>
 
@@ -602,9 +708,24 @@ export default function ImapAdminPage() {
               >
                 {simulating ? (
                   <>
-                    <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    <svg
+                      className="animate-spin h-4 w-4 text-white"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      />
                     </svg>
                     {t("simulating")}
                   </>
@@ -626,7 +747,18 @@ export default function ImapAdminPage() {
                       Draft Report Successfully Created
                     </h4>
                     <p className="text-xs mt-0.5">
-                      Matched sender: <strong className="font-semibold">{simulationResult.user_display_name}</strong>. Created report using <strong className="font-bold">{simulationResult.active_parser === "gemini" ? "Gemini Parser" : "Local Parser"}</strong>.
+                      Matched sender:{" "}
+                      <strong className="font-semibold">
+                        {simulationResult.user_display_name}
+                      </strong>
+                      . Created report using{" "}
+                      <strong className="font-bold">
+                        {simulationResult.active_parser === "ai" ||
+                        simulationResult.active_parser === "gemini"
+                          ? t("ocr_ai_chain")
+                          : "Local Parser"}
+                      </strong>
+                      .
                     </p>
                   </div>
                 </div>
@@ -661,17 +793,29 @@ export default function ImapAdminPage() {
                   {simulationResult.local_parsed ? (
                     <div className="space-y-3 text-xs">
                       <div>
-                        <span className="block font-semibold text-muted">Report Title</span>
-                        <span className="text-foreground font-medium">{simulationResult.local_parsed.title}</span>
+                        <span className="block font-semibold text-muted">
+                          Report Title
+                        </span>
+                        <span className="text-foreground font-medium">
+                          {simulationResult.local_parsed.title}
+                        </span>
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <span className="block font-semibold text-muted">Start Date</span>
-                          <span className="text-foreground font-medium">{simulationResult.local_parsed.date_from}</span>
+                          <span className="block font-semibold text-muted">
+                            Start Date
+                          </span>
+                          <span className="text-foreground font-medium">
+                            {simulationResult.local_parsed.date_from}
+                          </span>
                         </div>
                         <div>
-                          <span className="block font-semibold text-muted">End Date</span>
-                          <span className="text-foreground font-medium">{simulationResult.local_parsed.date_to}</span>
+                          <span className="block font-semibold text-muted">
+                            End Date
+                          </span>
+                          <span className="text-foreground font-medium">
+                            {simulationResult.local_parsed.date_to}
+                          </span>
                         </div>
                       </div>
                       <div>
@@ -682,7 +826,9 @@ export default function ImapAdminPage() {
                           {simulationResult.local_parsed.description}
                         </pre>
                       </div>
-                      <DelegationFields parsed={simulationResult.local_parsed} />
+                      <DelegationFields
+                        parsed={simulationResult.local_parsed}
+                      />
                     </div>
                   ) : (
                     <div className="text-xs text-muted-foreground italic py-6 text-center">
@@ -691,32 +837,44 @@ export default function ImapAdminPage() {
                   )}
                 </div>
 
-                {/* 2. Gemini Parser Card */}
+                {/* 2. AI Model Chain Card */}
                 <div className="bg-slate-50 dark:bg-slate-900/50 border border-border rounded-xl p-5 space-y-4">
                   <div className="flex items-center justify-between">
                     <h4 className="text-sm font-bold text-slate-700 dark:text-slate-200 flex items-center gap-2">
                       <span className="h-2.5 w-2.5 rounded-full bg-violet-500 animate-pulse" />
-                      Gemini Parser (Cloud AI)
+                      {t("ocr_configured_ai_chain")}
                     </h4>
                     <span className="text-[10px] bg-violet-50 text-violet-700 dark:bg-violet-950/30 dark:text-violet-300 px-2 py-0.5 rounded-full font-medium">
                       Generative LLM
                     </span>
                   </div>
 
-                  {simulationResult.gemini_parsed ? (
+                  {aiParsed ? (
                     <div className="space-y-3 text-xs">
                       <div>
-                        <span className="block font-semibold text-muted">Report Title</span>
-                        <span className="text-foreground font-medium">{simulationResult.gemini_parsed.title}</span>
+                        <span className="block font-semibold text-muted">
+                          Report Title
+                        </span>
+                        <span className="text-foreground font-medium">
+                          {aiParsed.title}
+                        </span>
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <span className="block font-semibold text-muted">Start Date</span>
-                          <span className="text-foreground font-medium">{simulationResult.gemini_parsed.date_from}</span>
+                          <span className="block font-semibold text-muted">
+                            Start Date
+                          </span>
+                          <span className="text-foreground font-medium">
+                            {aiParsed.date_from}
+                          </span>
                         </div>
                         <div>
-                          <span className="block font-semibold text-muted">End Date</span>
-                          <span className="text-foreground font-medium">{simulationResult.gemini_parsed.date_to}</span>
+                          <span className="block font-semibold text-muted">
+                            End Date
+                          </span>
+                          <span className="text-foreground font-medium">
+                            {aiParsed.date_to}
+                          </span>
                         </div>
                       </div>
                       <div>
@@ -724,16 +882,18 @@ export default function ImapAdminPage() {
                           Description
                         </span>
                         <pre className="text-[10px] font-mono bg-card border border-border p-2.5 rounded-lg text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-normal">
-                          {simulationResult.gemini_parsed.description}
+                          {aiParsed.description}
                         </pre>
                       </div>
-                      <DelegationFields parsed={simulationResult.gemini_parsed} />
+                      <DelegationFields parsed={aiParsed} />
                     </div>
                   ) : (
                     <div className="bg-amber-50/50 border border-amber-200 dark:bg-amber-950/10 dark:border-amber-900/30 rounded-lg p-4 text-xs text-amber-800 dark:text-amber-300 space-y-1">
-                      <span className="font-bold block text-[10px] uppercase tracking-wider text-amber-600 dark:text-amber-500">Gemini Parsing Inactive / Failed</span>
+                      <span className="font-bold block text-[10px] uppercase tracking-wider text-amber-600 dark:text-amber-500">
+                        {t("ocr_ai_parsing_failed")}
+                      </span>
                       <p className="leading-relaxed">
-                        {simulationResult.gemini_error || "No response. Ensure Gemini credentials are valid."}
+                        {aiError || t("ocr_ai_no_response")}
                       </p>
                     </div>
                   )}
@@ -759,14 +919,26 @@ export default function ImapAdminPage() {
 }
 
 /** Renders structured delegation fields in a compact table grid */
-function DelegationFields({ parsed }: { parsed: EmailSimulationParsed | null | undefined }) {
+function DelegationFields({
+  parsed,
+}: {
+  parsed: EmailSimulationParsed | null | undefined;
+}) {
   if (!parsed) return null;
 
-  const fields: { label: string; value: string | boolean | undefined | null; badge?: boolean }[] = [
+  const fields: {
+    label: string;
+    value: string | boolean | undefined | null;
+    badge?: boolean;
+  }[] = [
     { label: "Kundenauftrag", value: parsed.kundenauftrag },
     { label: "Auftragsart", value: parsed.auftragsart },
     { label: "Positionstyp", value: parsed.positionstyp },
-    { label: "TechnPlatz", value: parsed.technplatz_raw, badge: parsed.technplatz_line === true },
+    {
+      label: "TechnPlatz",
+      value: parsed.technplatz_raw,
+      badge: parsed.technplatz_line === true,
+    },
     { label: "Kunden-Nr.", value: parsed.kunde_code },
     { label: "Kundenname", value: parsed.kunde_name },
     { label: "Adresse", value: parsed.adresse },
@@ -792,7 +964,9 @@ function DelegationFields({ parsed }: { parsed: EmailSimulationParsed | null | u
                 {f.label}
               </span>
               <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-                <span className="text-foreground break-words">{String(f.value)}</span>
+                <span className="text-foreground break-words">
+                  {String(f.value)}
+                </span>
                 {f.badge && (
                   <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
                     Production Line

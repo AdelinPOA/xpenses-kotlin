@@ -7,19 +7,19 @@ import jakarta.validation.constraints.NotEmpty
 import java.math.BigDecimal
 
 data class DailyAllowanceOut(
-    @JsonProperty("daily_allowance_rate") val dailyAllowanceRate: BigDecimal
+    @JsonProperty("daily_allowance_rate") val dailyAllowanceRate: BigDecimal,
 )
 
 data class DailyAllowanceUpdate(
-    @JsonProperty("daily_allowance_rate") val dailyAllowanceRate: BigDecimal
+    @JsonProperty("daily_allowance_rate") val dailyAllowanceRate: BigDecimal,
 )
 
 data class MobileUiConfigOut(
-    @JsonProperty("mobile_quick_add_fab_enabled") val mobileQuickAddFabEnabled: Boolean
+    @JsonProperty("mobile_quick_add_fab_enabled") val mobileQuickAddFabEnabled: Boolean,
 )
 
 data class MobileUiConfigUpdate(
-    @JsonProperty("mobile_quick_add_fab_enabled") val mobileQuickAddFabEnabled: Boolean
+    @JsonProperty("mobile_quick_add_fab_enabled") val mobileQuickAddFabEnabled: Boolean,
 )
 
 data class MileageRatesOut(
@@ -30,7 +30,7 @@ data class MileageRatesOut(
     @JsonProperty("pension_rate") val pensionRate: BigDecimal,
     @JsonProperty("health_rate") val healthRate: BigDecimal,
     @JsonProperty("income_tax_rate") val incomeTaxRate: BigDecimal,
-    @JsonProperty("tax_deduction_eur") val taxDeductionEur: BigDecimal
+    @JsonProperty("tax_deduction_eur") val taxDeductionEur: BigDecimal,
 )
 
 data class MileageRatesUpdate(
@@ -41,35 +41,69 @@ data class MileageRatesUpdate(
     @JsonProperty("pension_rate") val pensionRate: BigDecimal? = null,
     @JsonProperty("health_rate") val healthRate: BigDecimal? = null,
     @JsonProperty("income_tax_rate") val incomeTaxRate: BigDecimal? = null,
-    @JsonProperty("tax_deduction_eur") val taxDeductionEur: BigDecimal? = null
+    @JsonProperty("tax_deduction_eur") val taxDeductionEur: BigDecimal? = null,
 )
 
 data class FxMarginsOut(
     val margins: Map<String, BigDecimal>,
     @JsonProperty("default_margin") val defaultMargin: BigDecimal,
-    val currencies: List<String>
+    val currencies: List<String>,
 )
 
 data class FxMarginsUpdate(
     val margins: Map<String, BigDecimal>? = null,
-    @JsonProperty("default_margin") val defaultMargin: BigDecimal? = null
+    @JsonProperty("default_margin") val defaultMargin: BigDecimal? = null,
+)
+
+data class OCRProviderOut(
+    val id: String,
+    val name: String,
+    @JsonProperty("base_url") val baseUrl: String,
+    @JsonProperty("api_key_set") val apiKeySet: Boolean,
+)
+
+data class OCRProviderUpdate(
+    val id: String,
+    val name: String,
+    @JsonProperty("base_url") val baseUrl: String,
+    @JsonProperty("api_key") val apiKey: String? = null,
+)
+
+data class OCRModelOut(
+    val id: String,
+    @JsonProperty("provider_id") val providerId: String,
+    @JsonProperty("model_id") val modelId: String,
+    @JsonProperty("display_name") val displayName: String,
+    val active: Boolean,
+    val tested: Boolean,
+)
+
+data class OCRModelUpdate(
+    val id: String,
+    @JsonProperty("provider_id") val providerId: String,
+    @JsonProperty("model_id") val modelId: String,
+    @JsonProperty("display_name") val displayName: String,
+    val active: Boolean,
 )
 
 data class OCRConfigOut(
-    val provider: String,
     @JsonProperty("ocr_enabled") val ocrEnabled: Boolean,
-    @JsonProperty("gemini_api_key") val geminiApiKey: String? = null
+    val providers: List<OCRProviderOut>,
+    val models: List<OCRModelOut>,
+    @JsonProperty("receipt_model_chain") val receiptModelChain: List<String>,
+    @JsonProperty("delegation_model_chain") val delegationModelChain: List<String>,
 )
 
 data class OCRConfigUpdate(
-    val provider: String? = null,
     @JsonProperty("ocr_enabled") val ocrEnabled: Boolean? = null,
-    @JsonProperty("gemini_api_key") val geminiApiKey: String? = null
+    val providers: List<OCRProviderUpdate>? = null,
+    val models: List<OCRModelUpdate>? = null,
+    @JsonProperty("receipt_model_chain") val receiptModelChain: List<String>? = null,
+    @JsonProperty("delegation_model_chain") val delegationModelChain: List<String>? = null,
 )
 
-data class OCRTestRequest(
-    @JsonProperty("gemini_api_key") val geminiApiKey: String? = null,
-    @JsonProperty("provider") val provider: String? = null
+data class OCRModelTestRequest(
+    @JsonProperty("model_id") @field:NotBlank val modelId: String,
 )
 
 data class EmailConfigOut(
@@ -78,7 +112,7 @@ data class EmailConfigOut(
     @JsonProperty("smtp_port") val smtpPort: Int,
     @JsonProperty("smtp_user") val smtpUser: String,
     @JsonProperty("smtp_from") val smtpFrom: String,
-    @JsonProperty("password_set") val passwordSet: Boolean
+    @JsonProperty("password_set") val passwordSet: Boolean,
 )
 
 data class EmailConfigIn(
@@ -87,11 +121,11 @@ data class EmailConfigIn(
     @JsonProperty("smtp_port") @field:Min(1) val smtpPort: Int,
     @JsonProperty("smtp_user") val smtpUser: String,
     @JsonProperty("smtp_pass") val smtpPass: String,
-    @JsonProperty("smtp_from") val smtpFrom: String
+    @JsonProperty("smtp_from") val smtpFrom: String,
 )
 
 data class TestEmailIn(
-    @field:NotBlank val to: String
+    @field:NotBlank val to: String,
 )
 
 data class ImapConfigOut(
@@ -101,7 +135,7 @@ data class ImapConfigOut(
     @JsonProperty("imap_user") val imapUser: String,
     @JsonProperty("imap_folder") val imapFolder: String,
     @JsonProperty("password_set") val passwordSet: Boolean,
-    @JsonProperty("active_parser") val activeParser: String
+    @JsonProperty("active_parser") val activeParser: String,
 )
 
 data class ImapConfigIn(
@@ -110,27 +144,27 @@ data class ImapConfigIn(
     @JsonProperty("imap_port") @field:Min(1) val imapPort: Int,
     @JsonProperty("imap_user") val imapUser: String,
     @JsonProperty("imap_pass") var imapPass: String = "",
-    @JsonProperty("imap_folder") var imapFolder: String = "INBOX"
+    @JsonProperty("imap_folder") var imapFolder: String = "INBOX",
 )
 
 data class EmailSimulationIn(
     @JsonProperty("from_address") @field:NotBlank val fromAddress: String,
     @JsonProperty("body_text") @field:NotBlank val bodyText: String,
-    @JsonProperty("parser") val parser: String? = null
+    @JsonProperty("parser") val parser: String? = null,
 )
 
 data class FxProvidersOut(
     val providers: List<String>,
-    @JsonProperty("available_providers") val availableProviders: List<String>
+    @JsonProperty("available_providers") val availableProviders: List<String>,
 )
 
 data class FxProvidersUpdate(
-    @field:NotEmpty val providers: List<String>
+    @field:NotEmpty val providers: List<String>,
 )
 
 data class FxTestRequest(
     val currency: String,
-    val date: String? = null
+    val date: String? = null,
 )
 
 data class FxTestResponse(
@@ -138,5 +172,5 @@ data class FxTestResponse(
     val message: String,
     val rate: BigDecimal? = null,
     val source: String? = null,
-    @JsonProperty("source_date") val sourceDate: String? = null
+    @JsonProperty("source_date") val sourceDate: String? = null,
 )

@@ -76,10 +76,46 @@ export interface ImapIngestionRecovery {
   claimed_at: string | null;
 }
 
+export interface OcrProvider {
+  id: string;
+  name: string;
+  base_url: string;
+  api_key_set: boolean;
+}
+
+export interface OcrProviderUpdate {
+  id: string;
+  name: string;
+  base_url: string;
+  /** New key only; leave empty to retain a previously saved key. */
+  api_key?: string;
+}
+
+export interface OcrModel {
+  id: string;
+  provider_id: string;
+  model_id: string;
+  display_name: string;
+  active: boolean;
+  tested: boolean;
+}
+
 export interface OcrConfig {
-  provider: string;
   ocr_enabled: boolean;
-  gemini_api_key?: string | null;
+  providers: OcrProvider[];
+  models: OcrModel[];
+  receipt_model_chain: string[];
+  delegation_model_chain: string[];
+}
+
+export type OcrModelUpdate = Omit<OcrModel, "tested">;
+
+export interface OcrConfigUpdate {
+  ocr_enabled: boolean;
+  providers: OcrProviderUpdate[];
+  models: OcrModelUpdate[];
+  receipt_model_chain: string[];
+  delegation_model_chain: string[];
 }
 
 export interface MobileUiConfig {

@@ -170,15 +170,18 @@ Backend paths below are relative to:
 
 This limitation is explicitly accepted by ADR 0002; it remains a material risk, not an accidental exactly-once implementation failure.
 
-## P1.3 — PDF reimbursement excludes mileage
+## P1.3 — PDF reimbursement excludes mileage (Intentional Accounting Policy)
+
+> [!NOTE]
+> **Resolution / Domain Rule:** This is **not a bug**. Accounting explicitly requested and confirmed that mileage is excluded from the PDF reimbursement settlement summary (`totalReimbursable`). Mileage is tracked and itemized separately. See `CONTEXT.md`.
 
 **Files/classes:** `services/PdfService.kt:558–562`; `services/mapper/ReportMapper.kt:107–111`; `src/test/kotlin/eu/nt/xpenses/services/PdfServiceTest.kt`.
 
 - **Current behavior:** PDF computes mileage but excludes it from reimbursement. The API includes it.
 - **Problem:** Accounting documents and application totals disagree.
 - **Scenario:** €100 expenses + €50 allowance + €30 mileage − €20 advances produces **€160 in the API, €130 in the PDF**.
-- **Recommended fix:** Correct PDF arithmetic immediately and centralize settlement calculation. Test nonzero mileage and PDF/API parity.
-- **Complexity:** small immediately; medium for consolidation. **Confidence:** high.
+- **Accounting policy:** Accounting intentionally specified that mileage is handled separately and must not be folded into the PDF net reimbursable total.
+- **Complexity:** None needed (intentional behavior). **Confidence:** high.
 
 ## P1.4 — Historical settlement and signature evidence are mutable
 

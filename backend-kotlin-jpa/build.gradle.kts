@@ -58,6 +58,9 @@ dependencies {
     // S3 Storage
     implementation("software.amazon.awssdk:s3:2.30.0")
 
+    // Email HTML normalization (local parsing only, no remote resources).
+    implementation("org.jsoup:jsoup:1.23.2")
+
     // Kotlin Support
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
@@ -104,13 +107,13 @@ graalvmNative {
         named("main") {
             imageName = "backend-microservice"
             mainClass = "eu.nt.xpenses.XpensesApplication"
-            
+
             buildArgs.addAll(
                 "--no-fallback",
                 "--enable-http",
                 "--enable-https",
                 "--initialize-at-build-time=org.slf4j,ch.qos.logback,org.apache.commons.logging,org.apache.logging.log4j,org.apache.logging.slf4j,org.springframework.core.SpringProperties",
-                "-H:+ReportExceptionStackTraces"
+                "-H:+ReportExceptionStackTraces",
             )
         }
     }

@@ -9,9 +9,9 @@ import org.apache.pdfbox.Loader
 import org.apache.pdfbox.io.IOUtils
 import org.apache.pdfbox.io.RandomAccessReadBuffer
 import org.apache.pdfbox.multipdf.PDFMergerUtility
+import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
-import org.slf4j.LoggerFactory
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.math.BigDecimal
@@ -27,7 +27,7 @@ import java.util.Locale
 class PdfService(
     private val storageService: StorageService,
     private val appSettingRepository: AppSettingRepository,
-    @Value("\${company.name:Newtech Automation}") private val companyName: String
+    @Value("\${company.name:Newtech Automation}") private val companyName: String,
 ) {
     private val log = LoggerFactory.getLogger(PdfService::class.java)
     private val decimalFormat = ThreadLocal.withInitial { DecimalFormat("###,##0.00") }
@@ -39,7 +39,7 @@ class PdfService(
         expenses: List<Expense>,
         advances: List<AdvancePayment>,
         mileage: List<MileageRecord>,
-        signer: User?
+        signer: User?,
     ): ByteArray {
         val mainPdfBytes = buildMainPdf(report, expenses, advances, mileage, signer)
 
@@ -70,7 +70,7 @@ class PdfService(
         expenses: List<Expense>,
         advances: List<AdvancePayment>,
         mileage: List<MileageRecord>,
-        signer: User?
+        signer: User?,
     ): ByteArray {
         val outputStream = ByteArrayOutputStream()
         val document = Document(PageSize.A4, 36f, 36f, 36f, 36f)
@@ -92,10 +92,10 @@ class PdfService(
         // Left side: Company Name
         val leftCell = PdfPCell()
         leftCell.border = Rectangle.NO_BORDER
-        
+
         leftCell.addElement(Paragraph(companyName, Font(Font.HELVETICA, 12f, Font.BOLD, java.awt.Color(30, 41, 59))))
         leftCell.addElement(Paragraph(" ", fontSmall))
-        
+
         // Try to draw logo from classpath resource
         val logoStream = this::class.java.getResourceAsStream("/company_logo.png")
         if (logoStream != null) {
@@ -116,7 +116,7 @@ class PdfService(
         val rightCell = PdfPCell()
         rightCell.border = Rectangle.NO_BORDER
         rightCell.horizontalAlignment = Element.ALIGN_RIGHT
-        
+
         val pTitle = Paragraph("Expense Report", fontTitle)
         pTitle.alignment = Element.ALIGN_RIGHT
         rightCell.addElement(pTitle)
@@ -166,6 +166,10 @@ class PdfService(
         if (hasDelegationDetails) {
             metaLeft.addElement(Paragraph(" ", fontSmall))
             metaLeft.addElement(Paragraph("Delegation Details", fontCaption))
+            if (!report.kundenauftrag.isNullOrEmpty()) {
+                val artSuffix = if (!report.auftragsart.isNullOrEmpty()) " (${report.auftragsart})" else ""
+                metaLeft.addElement(Paragraph("Order nr: ${report.kundenauftrag}$artSuffix", fontSmall))
+            }
             if (!report.kundeName.isNullOrEmpty()) {
                 val codeSuffix = if (!report.kundeCode.isNullOrEmpty()) " (${report.kundeCode})" else ""
                 metaLeft.addElement(Paragraph("Customer: ${report.kundeName}$codeSuffix", fontSmall))
@@ -173,15 +177,11 @@ class PdfService(
             if (!report.adresse.isNullOrEmpty()) {
                 metaLeft.addElement(Paragraph("Address: ${report.adresse}", fontSmall))
             }
-            if (!report.kundenauftrag.isNullOrEmpty()) {
-                val artSuffix = if (!report.auftragsart.isNullOrEmpty()) " (${report.auftragsart})" else ""
-                metaLeft.addElement(Paragraph("Order (Kundenauftrag): ${report.kundenauftrag}$artSuffix", fontSmall))
-            }
             if (!report.vorgang.isNullOrEmpty()) {
-                metaLeft.addElement(Paragraph("Operation (Vorgang): ${report.vorgang}", fontSmall))
+                metaLeft.addElement(Paragraph("Operation: ${report.vorgang}", fontSmall))
             }
             if (!report.arbeitsplatz.isNullOrEmpty()) {
-                metaLeft.addElement(Paragraph("Work Center (Arbeitsplatz): ${report.arbeitsplatz}", fontSmall))
+                metaLeft.addElement(Paragraph("Work Center: ${report.arbeitsplatz}", fontSmall))
             }
             if (!report.technplatzRaw.isNullOrEmpty()) {
                 metaLeft.addElement(Paragraph("Technical Location: ${report.technplatzRaw}", fontSmall))
@@ -236,15 +236,16 @@ class PdfService(
             cellNo.setPadding(5f)
             expTable.addCell(cellNo)
 
-            val detailsText = buildString {
-                append(e.date)
-                if (!e.merchant.isNullOrEmpty()) {
-                    append("\nMerchant: ${e.merchant}")
+            val detailsText =
+                buildString {
+                    append(e.date)
+                    if (!e.merchant.isNullOrEmpty()) {
+                        append("\nMerchant: ${e.merchant}")
+                    }
+                    if (!e.description.isNullOrEmpty()) {
+                        append("\nDescription: ${e.description}")
+                    }
                 }
-                if (!e.description.isNullOrEmpty()) {
-                    append("\nDescription: ${e.description}")
-                }
-            }
             val cellDetails = PdfPCell(Phrase(detailsText, fontBody))
             cellDetails.setPadding(5f)
             expTable.addCell(cellDetails)
@@ -254,10 +255,13 @@ class PdfService(
             expTable.addCell(cellCat)
 
             val amtText = "${formatCurrencySymbol(e.currencyOriginal)}${formatBigDecimal(e.amountOriginal)}"
-            val fxRateText = if (e.currencyOriginal != "EUR" && e.fxRate != BigDecimal.ONE) {
-                val manualSuffix = if (e.fxRateManual) " (manual)" else ""
-                "\n1 ${e.currencyOriginal} = ${e.fxRate} EUR$manualSuffix"
-            } else ""
+            val fxRateText =
+                if (e.currencyOriginal != "EUR" && e.fxRate != BigDecimal.ONE) {
+                    val manualSuffix = if (e.fxRateManual) " (manual)" else ""
+                    "\n1 ${e.currencyOriginal} = ${e.fxRate} EUR$manualSuffix"
+                } else {
+                    ""
+                }
             val cellAmt = PdfPCell(Phrase("$amtText$fxRateText", fontSmall))
             cellAmt.setPadding(5f)
             cellAmt.horizontalAlignment = Element.ALIGN_RIGHT
@@ -389,7 +393,8 @@ class PdfService(
                 val cell = PdfPCell(Phrase(h, fontHeader))
                 cell.backgroundColor = java.awt.Color(30, 41, 59)
                 cell.setPadding(4f)
-                cell.horizontalAlignment = if (h in listOf("km", "Rate BT", "Gross (€)", "Rate AT", "Net (€)")) Element.ALIGN_RIGHT else Element.ALIGN_LEFT
+                cell.horizontalAlignment =
+                    if (h in listOf("km", "Rate BT", "Gross (€)", "Rate AT", "Net (€)")) Element.ALIGN_RIGHT else Element.ALIGN_LEFT
                 milTable.addCell(cell)
             }
 
@@ -562,11 +567,12 @@ class PdfService(
         // Note: Accounting policy explicitly requires mileage (totalMil) to be excluded from totalReimbursable in the PDF summary.
         val totalReimbursable = totalEur.add(allowance).subtract(totalAdv)
 
-        val reimbursableStr = if (totalReimbursable < BigDecimal.ZERO) {
-            "-€${formatBigDecimal(totalReimbursable.abs())}"
-        } else {
-            "€${formatBigDecimal(totalReimbursable)}"
-        }
+        val reimbursableStr =
+            if (totalReimbursable < BigDecimal.ZERO) {
+                "-€${formatBigDecimal(totalReimbursable.abs())}"
+            } else {
+                "€${formatBigDecimal(totalReimbursable)}"
+            }
 
         val summaryTable = PdfPTable(7)
         summaryTable.widthPercentage = 100f
@@ -579,12 +585,13 @@ class PdfService(
         sumTitleCell.paddingBottom = 8f
         summaryTable.addCell(sumTitleCell)
 
-        val sumCells = listOf(
-            Pair("Total Expense", "€${formatBigDecimal(totalEur)}"),
-            Pair("Daily Allowance", "€${formatBigDecimal(allowance)}"),
-            Pair("Total Advances", "€${formatBigDecimal(totalAdv)}"),
-            Pair("Reimbursable", reimbursableStr)
-        )
+        val sumCells =
+            listOf(
+                Pair("Total Expense", "€${formatBigDecimal(totalEur)}"),
+                Pair("Daily Allowance", "€${formatBigDecimal(allowance)}"),
+                Pair("Total Advances", "€${formatBigDecimal(totalAdv)}"),
+                Pair("Reimbursable", reimbursableStr),
+            )
 
         for ((idx, p) in sumCells.withIndex()) {
             val cellLabel = PdfPCell()
@@ -595,11 +602,12 @@ class PdfService(
             summaryTable.addCell(cellLabel)
 
             if (idx < sumCells.size - 1) {
-                val op = when(idx) {
-                    0 -> "+"
-                    1 -> "-"
-                    else -> "="
-                }
+                val op =
+                    when (idx) {
+                        0 -> "+"
+                        1 -> "-"
+                        else -> "="
+                    }
                 val cellOp = PdfPCell()
                 cellOp.border = Rectangle.NO_BORDER
                 cellOp.horizontalAlignment = Element.ALIGN_CENTER
@@ -614,7 +622,7 @@ class PdfService(
         // --- Signature ---
         document.add(Paragraph(" ", fontBody))
         document.add(Paragraph("Submitted By", fontBold))
-        
+
         if (signer != null && !signer.signaturePath.isNullOrEmpty() && File(signer.signaturePath!!).exists()) {
             try {
                 val sigImg = Image.getInstance(signer.signaturePath)
@@ -624,9 +632,12 @@ class PdfService(
                 log.warn("Failed to load signature image: {} - {}", signer.signaturePath, e.message)
                 document.add(Paragraph(" ", fontBody))
             }
-            val signedAtText = if (report.signedAt != null) {
-                " — signed ${dateTimeFormatter.format(report.signedAt)}"
-            } else ""
+            val signedAtText =
+                if (report.signedAt != null) {
+                    " — signed ${dateTimeFormatter.format(report.signedAt)}"
+                } else {
+                    ""
+                }
             document.add(Paragraph("${signer.displayName}$signedAtText", fontBody))
         } else {
             document.add(Paragraph(" ", fontBody))
@@ -666,7 +677,7 @@ class PdfService(
                     if (file.exists()) {
                         val img = Image.getInstance(file.absolutePath)
                         img.scaleToFit(240f, 320f)
-                        
+
                         val cell = PdfPCell()
                         cell.border = Rectangle.BOX
                         cell.borderColor = java.awt.Color(226, 232, 240)
@@ -674,7 +685,7 @@ class PdfService(
                         cell.horizontalAlignment = Element.ALIGN_CENTER
                         cell.verticalAlignment = Element.ALIGN_MIDDLE
                         cell.addElement(img)
-                        
+
                         // Add short caption
                         cell.addElement(Paragraph(file.name, fontSmall))
                         imgTable.addCell(cell)
@@ -700,7 +711,10 @@ class PdfService(
         return outputStream.toByteArray()
     }
 
-    private fun mergePdfFiles(mainPdfBytes: ByteArray, pdfFiles: List<ByteArray>): ByteArray {
+    private fun mergePdfFiles(
+        mainPdfBytes: ByteArray,
+        pdfFiles: List<ByteArray>,
+    ): ByteArray {
         val merger = PDFMergerUtility()
         merger.addSource(RandomAccessReadBuffer(mainPdfBytes))
         for (pdfBytes in pdfFiles) {
@@ -717,26 +731,32 @@ class PdfService(
         return outStream.toByteArray()
     }
 
-    private fun formatBigDecimal(amount: BigDecimal): String {
-        return decimalFormat.get().format(amount.setScale(2, RoundingMode.HALF_UP))
-    }
+    private fun formatBigDecimal(amount: BigDecimal): String = decimalFormat.get().format(amount.setScale(2, RoundingMode.HALF_UP))
 
-    private fun formatAmount(amount: Double): String {
-        return decimalFormat.get().format(amount)
-    }
+    private fun formatAmount(amount: Double): String = decimalFormat.get().format(amount)
 
     /**
      * Add a table to the document, ensuring it doesn't get split across pages
      * unless it's too large to fit on a single page.
      * Calculates the table's rendered height and compares with remaining page space.
      */
-    private fun addTableKeepTogether(document: Document, writer: PdfWriter, table: PdfPTable) {
+    private fun addTableKeepTogether(
+        document: Document,
+        writer: PdfWriter,
+        table: PdfPTable,
+    ) {
         // Calculate the table's actual rendered height
         table.totalWidth = document.right() - document.left()
         val tableHeight = table.calculateHeights(true)
         val remainingSpace = writer.getVerticalPosition(true) - document.bottomMargin()
         val fullPageHeight = document.top() - document.bottom()
-        log.info("PDF Table Layout Check - Height: {}, Remaining: {}, Y-Pos: {}, FullPage: {}", tableHeight, remainingSpace, writer.getVerticalPosition(true), fullPageHeight)
+        log.info(
+            "PDF Table Layout Check - Height: {}, Remaining: {}, Y-Pos: {}, FullPage: {}",
+            tableHeight,
+            remainingSpace,
+            writer.getVerticalPosition(true),
+            fullPageHeight,
+        )
 
         if (tableHeight > remainingSpace && tableHeight <= fullPageHeight) {
             log.info("PDF Table Layout Check - Table does not fit, forcing new page")
@@ -746,14 +766,13 @@ class PdfService(
         document.add(table)
     }
 
-    private fun formatCurrencySymbol(currency: String): String {
-        return when (currency.uppercase()) {
+    private fun formatCurrencySymbol(currency: String): String =
+        when (currency.uppercase()) {
             "EUR" -> "€"
             "USD" -> "$"
             "GBP" -> "£"
             else -> "$currency "
         }
-    }
 
     private fun formatDuration(duration: Duration): String {
         val mins = duration.toMinutes()
@@ -762,14 +781,22 @@ class PdfService(
         return "${h}h ${String.format("%02d", m)}m"
     }
 
-    private fun calculateDailyAllowance(dateFrom: String?, dateTo: String?): BigDecimal {
+    private fun calculateDailyAllowance(
+        dateFrom: String?,
+        dateTo: String?,
+    ): BigDecimal {
         if (dateFrom.isNullOrEmpty() || dateTo.isNullOrEmpty()) return BigDecimal.ZERO
         return try {
             val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
             val dFrom = java.time.LocalDate.parse(dateFrom.take(10), formatter)
             val dTo = java.time.LocalDate.parse(dateTo.take(10), formatter)
             val days = Duration.between(dFrom.atStartOfDay(), dTo.atStartOfDay()).toDays() + 1
-            val rate = appSettingRepository.findById("daily_allowance_rate").orElse(null)?.value?.let { BigDecimal(it) } ?: BigDecimal("50.00")
+            val rate =
+                appSettingRepository
+                    .findById("daily_allowance_rate")
+                    .orElse(null)
+                    ?.value
+                    ?.let { BigDecimal(it) } ?: BigDecimal("50.00")
             if (days > 0) rate.multiply(BigDecimal.valueOf(days)) else BigDecimal.ZERO
         } catch (e: Exception) {
             BigDecimal.ZERO

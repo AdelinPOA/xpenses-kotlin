@@ -23,6 +23,7 @@ class EmailImportService(
     private val ocrService: OcrService,
     private val objectMapper: ObjectMapper,
     private val imapIngestionLedger: ImapIngestionLedger,
+    private val parsingSettingsService: DelegationParsingSettingsService,
 ) {
     private val log = LoggerFactory.getLogger(EmailImportService::class.java)
 
@@ -41,7 +42,8 @@ class EmailImportService(
         return null
     }
 
-    fun parseDelegationEmailLocal(text: String): Map<String, String>? {
+    fun parseDelegationEmailLocal(source: String): Map<String, String>? {
+        val text = DelegationEmailText.normalize(source)
         val datePatterns =
             listOf(
                 Pattern.compile("\\b\\d{2}\\.\\d{2}\\.\\d{4}\\b"),
@@ -181,6 +183,14 @@ class EmailImportService(
             val addrKws = listOf("adresse", "address", "adresă")
             val knownKwLines =
                 setOf(
+                    "telefon",
+                    "telephone",
+                    "phone",
+                    "email",
+                    "equipment",
+                    "typbezeichnung",
+                    "tech.",
+                    "auftragsverantw",
                     "kundenauftrag",
                     "auftragsart",
                     "positionstyp",
@@ -235,7 +245,7 @@ class EmailImportService(
                             if (nextLine.isEmpty()) break
                             val lowerNext = nextLine.lowercase()
                             if (knownKwLines.any { lowerNext.startsWith(it) }) break
-                            addrLines.add(nextLine)
+                            addrLines.add(nextLine.replace(Regex("\\s+"), " "))
                         }
                         if (addrLines.isNotEmpty()) {
                             return addrLines.joinToString(", ")
@@ -255,7 +265,7 @@ class EmailImportService(
         val technplatzKws = listOf("technplatz", "location", "ort", "locatie", "place", "site", "santier")
         val customerKws = listOf("kunde", "customer", "client", "beneficiar")
 
-        val kundenauftrag = extractAfterKeyword(lines, orderKws)
+        val kundenauftrag = DelegationEmailText.orderNumber(text) ?: extractAfterKeyword(lines, orderKws)
         val auftragsart = extractAfterKeyword(lines, auftragsartKws)
         val positionstyp = extractMultiTokenAfterKeyword(lines, positionstypKws)
         val vorgang = extractAfterKeyword(lines, vorgangKws)
@@ -296,12 +306,12 @@ class EmailImportService(
 
         // Build a clean description from structured fields
         val descParts = mutableListOf<String>()
-        if (kundenauftrag != null) descParts.add("Order: $kundenauftrag")
-        if (auftragsart != null) descParts.add("Type: $auftragsart")
+        if (kundenauftrag != null) descParts.add("Order nr: $kundenauftrag")
+        if (auftragsart != null) descParts.add("Order type: $auftragsart")
         if (positionstyp != null) descParts.add("Task: $positionstyp")
-        if (vorgang != null) descParts.add("Process: $vorgang")
-        if (technplatzRaw != null) descParts.add("Location: $technplatzRaw")
-        val description = descParts.joinToString("; ")
+        if (vorgang != null) descParts.add("Operation: $vorgang")
+        if (technplatzRaw != null) descParts.add("Technical location: $technplatzRaw")
+        val description = descParts.joinToString("\n")
 
         return mapOf(
             "title" to title,
@@ -325,20 +335,26 @@ class EmailImportService(
     fun parseDelegationEmailWithModels(
         text: String,
         config: OCRConfig,
+        settings: DelegationParsingConfig = parsingSettingsService.getConfig(),
     ): Map<String, String>? {
-        val systemPrompt =
-            """
-            Analyze this email and extract structured details about a professional delegation or business trip.
-            Return a JSON object with title, date_from, date_to, description, kundenauftrag, auftragsart,
-            positionstyp, technplatz_raw, technplatz_line, kunde_code, kunde_name, adresse, vorgang,
-            arbeitsplatz, and techniker. Use YYYY-MM-DD for both dates and include all keys, using empty
-            strings for unavailable optional values. Title, date_from, date_to, and description are required.
-            """.trimIndent()
+        settings.validate()
+        val normalizedText = DelegationEmailText.normalize(text)
         val json =
-            ocrService.runModelChain(config, config.delegationModelChain, systemPrompt, text) { response ->
+            ocrService.runModelChain(config, config.delegationModelChain, settings.systemPrompt(), normalizedText) { response ->
                 parseDelegationModelResponse(response) != null
             } ?: return null
-        return parseDelegationModelResponse(json)
+        val parsed = parseDelegationModelResponse(json) ?: return null
+        val orderNumber = DelegationEmailText.orderNumber(normalizedText) ?: parsed["kundenauftrag"].orEmpty()
+        if (orderNumber.isBlank()) return parsed
+        val description = parsed.getValue("description")
+        val orderPrefix =
+            Regex("(?i)^(?:Order(?: nr\\.?| number| no\\.?)?|Kundenauftrag|Auftrag)\\s*:\\s*${Regex.escape(orderNumber)}[ \\t]*[;\\n]?\\s*")
+        val details = description.replaceFirst(orderPrefix, "")
+        return parsed +
+            mapOf(
+                "kundenauftrag" to orderNumber,
+                "description" to listOf("Order nr: $orderNumber", details).filter { it.isNotBlank() }.joinToString("\n"),
+            )
     }
 
     private fun parseDelegationModelResponse(response: String): Map<String, String>? =

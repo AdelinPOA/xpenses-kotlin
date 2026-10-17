@@ -41,6 +41,7 @@ Adresse                  Kleparivska Str., 18
                          79007          Lviv
                          Ukraine`;
 import AppShell from "@/components/layout/AppShell";
+import DelegationParsingSettings from "@/components/admin/DelegationParsingSettings";
 import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/ToastProvider";
 import { useTranslations } from "next-intl";
@@ -104,6 +105,7 @@ export default function ImapAdminPage() {
   const qc = useQueryClient();
   const toast = useToast();
   const t = useTranslations("admin");
+  const tp = useTranslations("delegationParsing");
   const tc = useTranslations("common");
 
   const [pwChanged, setPwChanged] = useState(false);
@@ -309,11 +311,11 @@ export default function ImapAdminPage() {
   return (
     <AppShell>
       <div className="max-w-2xl mx-auto px-4 py-8 space-y-10">
+        <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">
+          {t("imap_heading")}
+        </h1>
+        <DelegationParsingSettings />
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-          <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">
-            {t("imap_heading")}
-          </h1>
-
           {data && (
             <div className="bg-indigo-50/50 border border-indigo-100 dark:bg-indigo-950/10 dark:border-indigo-900/30 rounded-xl p-4 text-xs text-indigo-800 dark:text-indigo-300 flex items-center justify-between gap-3 animate-in fade-in duration-300 shadow-sm">
               <div className="flex items-center gap-2">
@@ -610,10 +612,10 @@ export default function ImapAdminPage() {
               <span className="p-1 rounded bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400">
                 ✉
               </span>
-              {t("email_simulation")}
+              {tp("create_draft_heading")}
             </h2>
-            <p className="text-xs text-muted mt-1">
-              {t("email_simulation_description")}
+            <p className="text-xs text-amber-800 dark:text-amber-300 mt-1">
+              {tp("create_draft_warning")}
             </p>
           </div>
 
@@ -924,6 +926,7 @@ function DelegationFields({
 }: {
   parsed: EmailSimulationParsed | null | undefined;
 }) {
+  const t = useTranslations("reports");
   if (!parsed) return null;
 
   const fields: {
@@ -931,20 +934,20 @@ function DelegationFields({
     value: string | boolean | undefined | null;
     badge?: boolean;
   }[] = [
-    { label: "Kundenauftrag", value: parsed.kundenauftrag },
-    { label: "Auftragsart", value: parsed.auftragsart },
-    { label: "Positionstyp", value: parsed.positionstyp },
+    { label: t("delegation_order_nr"), value: parsed.kundenauftrag },
+    { label: t("delegation_order_type"), value: parsed.auftragsart },
+    { label: t("delegation_task"), value: parsed.positionstyp },
     {
-      label: "TechnPlatz",
+      label: t("delegation_location"),
       value: parsed.technplatz_raw,
       badge: parsed.technplatz_line === true,
     },
-    { label: "Kunden-Nr.", value: parsed.kunde_code },
-    { label: "Kundenname", value: parsed.kunde_name },
-    { label: "Adresse", value: parsed.adresse },
-    { label: "Vorgang", value: parsed.vorgang },
-    { label: "Arbeitsplatz", value: parsed.arbeitsplatz },
-    { label: "Techniker", value: parsed.techniker },
+    { label: t("delegation_customer_nr"), value: parsed.kunde_code },
+    { label: t("delegation_customer"), value: parsed.kunde_name },
+    { label: t("delegation_address"), value: parsed.adresse },
+    { label: t("delegation_operation"), value: parsed.vorgang },
+    { label: t("delegation_workplace"), value: parsed.arbeitsplatz },
+    { label: t("delegation_technician"), value: parsed.techniker },
   ];
 
   const hasAny = fields.some((f) => f.value && String(f.value).length > 0);
@@ -953,7 +956,7 @@ function DelegationFields({
   return (
     <div>
       <span className="block font-semibold text-muted mb-2 text-xs uppercase tracking-wider">
-        Delegation Details
+        {t("detail_delegation_heading")}
       </span>
       <div className="grid grid-cols-1 gap-y-1.5 text-[11px]">
         {fields
@@ -969,7 +972,7 @@ function DelegationFields({
                 </span>
                 {f.badge && (
                   <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
-                    Production Line
+                    {t("delegation_production_line")}
                   </span>
                 )}
               </div>

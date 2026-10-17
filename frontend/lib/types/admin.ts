@@ -110,12 +110,13 @@ export interface OcrConfig {
 
 export type OcrModelUpdate = Omit<OcrModel, "tested">;
 
+/** PATCH fields are independent; omitted workflows and catalog entries stay unchanged. */
 export interface OcrConfigUpdate {
-  ocr_enabled: boolean;
-  providers: OcrProviderUpdate[];
-  models: OcrModelUpdate[];
-  receipt_model_chain: string[];
-  delegation_model_chain: string[];
+  ocr_enabled?: boolean;
+  providers?: OcrProviderUpdate[];
+  models?: OcrModelUpdate[];
+  receipt_model_chain?: string[];
+  delegation_model_chain?: string[];
 }
 
 export interface MobileUiConfig {

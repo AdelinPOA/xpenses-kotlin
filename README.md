@@ -60,7 +60,7 @@ The repository is a modular monolith with a Kotlin/Spring backend, a Next.js fro
 ## Repository facts
 
 | Area | Technology / rule |
-|---|---|
+| --- | --- |
 | Backend | Kotlin, Java 21, Spring Boot 3.4, Spring MVC, Spring Security, Spring Data JPA |
 | Frontend | Next.js 16, React 19, TypeScript, Tailwind CSS, TanStack Query |
 | Database | PostgreSQL 16 |
@@ -291,7 +291,7 @@ The frontend normally runs on `http://localhost:3000` when started directly. Kee
 A `Makefile` wraps the most common operations:
 
 | Command | Purpose |
-|---|---|
+| --- | --- |
 | `make up` | Build and start the full Docker Compose stack |
 | `make down` | Stop the stack |
 | `make rebuild` | Rebuild and restart only the backend service |
@@ -330,7 +330,7 @@ The backend reads configuration from `application.yml` and environment variables
 ### Required or production-critical variables
 
 | Variable | Purpose | Production guidance |
-|---|---|---|
+| --- | --- | --- |
 | `JWT_SECRET` | Signs authentication tokens | Required; use a strong unique secret; never use an empty/default value |
 | `ENCRYPTION_SECRET` | Encrypts protected application data | Required; preserve it across deployments |
 | `CORS_ALLOWED_ORIGINS` | Allowed browser origins | Set only trusted frontend origins |
@@ -344,7 +344,7 @@ The backend reads configuration from `application.yml` and environment variables
 ### Optional operational variables
 
 | Variable | Purpose |
-|---|---|
+| --- | --- |
 | `SEED_DEMO_USERS` | Enables demo-user seeding; keep disabled for normal production operation |
 | `RATE_LIMITING_ENABLED` | Enables request rate limiting |
 | `RATE_LIMITING_STORE` | Selects memory or Redis-backed rate-limit state |
@@ -576,7 +576,7 @@ For UI work, run the relevant Playwright projects. For Docker or configuration w
 ### Change-impact checklist
 
 | Change | Also inspect |
-|---|---|
+| --- | --- |
 | New backend field | Entity, migration, DTO, mapper, service, controller, exports, frontend type, translations, tests |
 | New expense/report state | Transition rules, authorization, filters, labels, exports, mobile UI, API tests, E2E tests |
 | Receipt/storage change | Storage context rules, local/S3 providers, path safety, MIME/magic-byte checks, migration behavior |

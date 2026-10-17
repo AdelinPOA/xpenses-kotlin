@@ -230,21 +230,21 @@ export default function EditReportPage({ params }: { params: Promise<{ id: strin
               {t("edit_section_delegation")}
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Field id="field-kundenauftrag" label="Kundenauftrag" value={kundenauftrag} onChange={setKundenauftrag} />
-              <Field id="field-auftragsart" label="Auftragsart" value={auftragsart} onChange={setAuftragsart} />
+              <Field id="field-kundenauftrag" label={t("delegation_order_nr")} value={kundenauftrag} onChange={setKundenauftrag} />
+              <Field id="field-auftragsart" label={t("delegation_order_type")} value={auftragsart} onChange={setAuftragsart} />
             </div>
-            <Field id="field-positionstyp" label="Positionstyp" value={positionstyp} onChange={setPositionstyp} />
-            <Field id="field-technplatz" label="Techn. Platz" value={technplatzRaw} onChange={setTechnplatzRaw} />
+            <Field id="field-positionstyp" label={t("delegation_task")} value={positionstyp} onChange={setPositionstyp} />
+            <Field id="field-technplatz" label={t("delegation_location")} value={technplatzRaw} onChange={setTechnplatzRaw} />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Field id="field-kunde-code" label="Kunden-Nr." value={kundeCode} onChange={setKundeCode} />
-              <Field id="field-kunde-name" label="Kundenname" value={kundeName} onChange={setKundeName} />
+              <Field id="field-kunde-code" label={t("delegation_customer_nr")} value={kundeCode} onChange={setKundeCode} />
+              <Field id="field-kunde-name" label={t("delegation_customer")} value={kundeName} onChange={setKundeName} />
             </div>
-            <Field id="field-adresse" label="Adresse" value={adresse} onChange={setAdresse} />
+            <Field id="field-adresse" label={t("delegation_address")} value={adresse} onChange={setAdresse} />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Field id="field-vorgang" label="Vorgang" value={vorgang} onChange={setVorgang} />
-              <Field id="field-techniker" label="Techniker" value={techniker} onChange={setTechniker} />
+              <Field id="field-vorgang" label={t("delegation_operation")} value={vorgang} onChange={setVorgang} />
+              <Field id="field-techniker" label={t("delegation_technician")} value={techniker} onChange={setTechniker} />
             </div>
-            <Field id="field-arbeitsplatz" label="Arbeitsplatz" value={arbeitsplatz} onChange={setArbeitsplatz} />
+            <Field id="field-arbeitsplatz" label={t("delegation_workplace")} value={arbeitsplatz} onChange={setArbeitsplatz} />
           </div>
         )}
 

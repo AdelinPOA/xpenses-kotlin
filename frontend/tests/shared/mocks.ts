@@ -1,4 +1,6 @@
 import type { Page } from "@playwright/test";
+import type { OcrConfigUpdate, OcrProviderUpdate } from "../../lib/types/admin";
+import type { DelegationParsingConfig } from "../../lib/types/delegationParsing";
 
 export const APP_ORIGIN =
   process.env.PLAYWRIGHT_ORIGIN ??
@@ -483,6 +485,12 @@ export const IMAP_SETTINGS = {
   imap_folder: "INBOX",
 };
 
+export const DELEGATION_PARSING_SETTINGS: DelegationParsingConfig = {
+  instructions: "Extract delegation details in English. Preserve names and order numbers.",
+  examples: "Auftrag 905652178 → Order nr: 905652178",
+  output_instructions: "Start the description with Order nr, then use one English field per line.",
+};
+
 export const LDAP_SETTINGS = {
   enabled: true,
   host: "ldap.example.com",
@@ -639,6 +647,28 @@ export async function setupAdminMocks(
       json: { success: true, message: "IMAP connection successful" },
     }),
   );
+  let delegationParsingSettings = { ...DELEGATION_PARSING_SETTINGS };
+  await page.route("**/api/settings/imap/parsing", async (route, req) => {
+    if (req.method() === "PATCH") {
+      const payload: DelegationParsingConfig = req.postDataJSON();
+      delegationParsingSettings = { ...payload };
+    }
+    await route.fulfill({ json: delegationParsingSettings });
+  });
+  await page.route("**/api/settings/imap/preview", (route) => route.fulfill({
+    json: {
+      success: true,
+      parsed: {
+        title: "Delegation: Example Brewery",
+        description: "Order nr: 905652178\nTask: Cooling tower maintenance",
+        date_from: "2026-10-18",
+        date_to: "2026-10-19",
+        kundenauftrag: "905652178",
+      },
+      active_parser: "ai",
+      warnings: [],
+    },
+  }));
   await page.route("**/api/settings/imap/simulate", (route) =>
     route.fulfill({
       json: {
@@ -676,26 +706,11 @@ export async function setupAdminMocks(
       await route.fulfill({ json: ocrSettings });
       return;
     }
-    const payload = req.postDataJSON() as {
-      ocr_enabled: boolean;
-      providers: Array<{
-        id: string;
-        name: string;
-        base_url: string;
-        api_key?: string;
-      }>;
-      models: Array<{
-        id: string;
-        provider_id: string;
-        model_id: string;
-        display_name: string;
-        active: boolean;
-      }>;
-      receipt_model_chain: string[];
-      delegation_model_chain: string[];
-    };
+    const payload: OcrConfigUpdate = req.postDataJSON();
+    const providers: OcrProviderUpdate[] = payload.providers ?? ocrSettings.providers;
+    const models = payload.models ?? ocrSettings.models;
     const changedProviderIds = new Set(
-      payload.providers
+      providers
         .filter((provider) => {
           const saved = ocrSettings.providers.find(
             (item) => item.id === provider.id,
@@ -708,8 +723,9 @@ export async function setupAdminMocks(
         .map((provider) => provider.id),
     );
     ocrSettings = {
+      ...ocrSettings,
       ...payload,
-      models: payload.models.map((model) => {
+      models: models.map((model) => {
         const saved = ocrSettings.models.find((item) => item.id === model.id);
         const sameDefinition =
           saved?.provider_id === model.provider_id &&
@@ -724,7 +740,7 @@ export async function setupAdminMocks(
           active: model.active && Boolean(tested),
         };
       }),
-      providers: payload.providers.map((provider) => ({
+      providers: providers.map((provider) => ({
         id: provider.id,
         name: provider.name,
         base_url: provider.base_url,

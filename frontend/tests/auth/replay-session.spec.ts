@@ -177,7 +177,7 @@ async function readBrowserQueueSummary(page: Page) {
 }
 
 async function startDelayedBrowserReplay(page: Page) {
-  let serverUser = USERS.user;
+  let serverUser: (typeof USERS)[keyof typeof USERS] | null = USERS.user;
   let releaseResponse!: () => void;
   const createResponseGate = new Promise<void>((resolve) => {
     releaseResponse = resolve;
@@ -189,7 +189,9 @@ async function startDelayedBrowserReplay(page: Page) {
   await setupCommonMocks(page, { role: "user" });
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.route("**/api/auth/me", (route) =>
-    route.fulfill({ json: serverUser }),
+    serverUser
+      ? route.fulfill({ status: 200, json: serverUser })
+      : route.fulfill({ status: 401, json: { detail: "Unauthorized" } }),
   );
   await page.route("**/api/expenses", async (route, request) => {
     if (request.method() !== "POST") return route.fallback();
@@ -217,17 +219,24 @@ async function startDelayedBrowserReplay(page: Page) {
     .toBe(OWNER_ID);
 
   await seedBrowserQueue(page);
-  await page.evaluate(() => {
+  // Repeated online events re-verify auth; stop once replay has started so they
+  // cannot abort the in-flight create request this test is holding.
+  const replayTrigger = await page.evaluate(() => {
     const timer = window.setInterval(
       () => window.dispatchEvent(new Event("online")),
       100,
     );
-    window.setTimeout(() => window.clearInterval(timer), 10_000);
+    const timeout = window.setTimeout(() => window.clearInterval(timer), 10_000);
+    return { timer, timeout };
   });
   await expect.poll(() => createStarted, { timeout: 10_000 }).toBe(true);
+  await page.evaluate(({ timer, timeout }) => {
+    window.clearInterval(timer);
+    window.clearTimeout(timeout);
+  }, replayTrigger);
 
   return {
-    setServerUser: (nextUser: typeof USERS[keyof typeof USERS]) => {
+    setServerUser: (nextUser: (typeof USERS)[keyof typeof USERS] | null) => {
       serverUser = nextUser;
     },
     releaseResponse: () => releaseResponse(),
@@ -401,7 +410,76 @@ test("two real tabs stop A replay when the second tab verifies login as B", asyn
       receiptBytes: 24,
       leaseToken: null,
     });
+  // A's receipt remains queued and unuploaded after B takes ownership.
   expect(replay.receiptUploads).toBe(0);
+});
+
+test("logout clears a freshly refreshed same-owner marker", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await setupCommonMocks(page, { role: "user" });
+  let serverUser: (typeof USERS)[keyof typeof USERS] | null = USERS.user;
+  let unauthorizedMeResponses = 0;
+  await page.route("**/api/auth/me", (route) => {
+    if (serverUser) return route.fulfill({ status: 200, json: serverUser });
+    unauthorizedMeResponses++;
+    return route.fulfill({ status: 401, json: { detail: "Unauthorized" } });
+  });
+  let logoutRequests = 0;
+  await page.route("**/api/auth/logout", (route) => {
+    logoutRequests++;
+    serverUser = null;
+    return route.fulfill({ status: 200, json: {} });
+  });
+  await page.goto("/dashboard");
+  const signOut = page.getByRole("button", { name: /sign out/i });
+  await expect(signOut).toBeVisible();
+
+  await page.evaluate(() => {
+    const profile = JSON.parse(localStorage.getItem("xpenses_user_profile") ?? "null");
+    profile.__xpenses_auth_marker = "fresh-same-owner-marker";
+    localStorage.setItem("xpenses_user_profile", JSON.stringify(profile));
+  });
+  await signOut.click();
+
+  await expect
+    .poll(() => page.evaluate(() => localStorage.getItem("xpenses_user_profile")))
+    .toBeNull();
+  await expect(page).toHaveURL(/\/login/);
+  expect(logoutRequests).toBe(1);
+
+  await page.goto("/dashboard");
+  await expect(page).toHaveURL(/\/login/);
+  expect(unauthorizedMeResponses).toBeGreaterThan(0);
+});
+
+test("a stale A tab neither logs out nor clears the current B profile", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await setupCommonMocks(page, { role: "user" });
+  let logoutRequests = 0;
+  await page.route("**/api/auth/logout", (route) => {
+    logoutRequests++;
+    return route.fulfill({ status: 200, json: {} });
+  });
+  await page.goto("/dashboard");
+  const signOut = page.getByRole("button", { name: /sign out/i });
+  await expect(signOut).toBeVisible();
+
+  await page.evaluate((profile) => {
+    localStorage.setItem("xpenses_user_profile", JSON.stringify({
+      ...profile,
+      __xpenses_auth_marker: "session-b",
+    }));
+  }, USERS.manager);
+  await signOut.click();
+
+  await expect(page).toHaveURL(/\/login/);
+  await expect
+    .poll(() => page.evaluate(() => JSON.parse(localStorage.getItem("xpenses_user_profile") ?? "null")))
+    .toMatchObject({
+      id: USERS.manager.id,
+      __xpenses_auth_marker: "session-b",
+    });
+  expect(logoutRequests).toBe(0);
 });
 
 test("two real tabs retain A's queued receipt when the second tab logs out", async ({
@@ -411,12 +489,38 @@ test("two real tabs retain A's queued receipt when the second tab logs out", asy
   const replay = await startDelayedBrowserReplay(page);
   const secondTab = await context.newPage();
   await setupCommonMocks(secondTab, { role: "user" });
-  await secondTab.route("**/api/auth/logout", (route) =>
-    route.fulfill({ status: 200, json: {} }),
+  // Both tabs share this cookie-backed server session; logout invalidates /me.
+  let serverUser: (typeof USERS)[keyof typeof USERS] | null = USERS.user;
+  let logoutRequestFinished = false;
+  await secondTab.route("**/api/auth/me", (route) =>
+    serverUser
+      ? route.fulfill({ status: 200, json: serverUser })
+      : route.fulfill({ status: 401, json: { detail: "Unauthorized" } }),
   );
+  let logoutInitiated = false;
+  let secondTabReceiptUploadsAfterLogout = 0;
+  await secondTab.route("**/api/expenses", (route, request) => {
+    if (request.method() !== "POST") return route.fallback();
+    return serverUser
+      ? route.fulfill({ status: 201, json: expense })
+      : route.fulfill({ status: 401, json: { detail: "Unauthorized" } });
+  });
+  await secondTab.route("**/api/expenses/*/receipts", (route) => {
+    if (logoutInitiated) secondTabReceiptUploadsAfterLogout++;
+    return serverUser
+      ? route.fulfill({ status: 201, json: [] })
+      : route.fulfill({ status: 401, json: { detail: "Unauthorized" } });
+  });
+  await secondTab.route("**/api/auth/logout", (route) => {
+    serverUser = null;
+    replay.setServerUser(null);
+    logoutRequestFinished = true;
+    return route.fulfill({ status: 200, json: {} });
+  });
   await secondTab.setViewportSize({ width: 1280, height: 800 });
   await secondTab.goto("/dashboard");
   await expect(secondTab.getByRole("button", { name: /sign out/i })).toBeVisible();
+  logoutInitiated = true;
   await secondTab.getByRole("button", { name: /sign out/i }).click();
 
   await expect
@@ -424,10 +528,13 @@ test("two real tabs retain A's queued receipt when the second tab logs out", asy
       secondTab.evaluate(() => localStorage.getItem("xpenses_user_profile")),
     )
     .toBeNull();
+  await expect(secondTab).toHaveURL(/\/login/);
   await expect(page).toHaveURL(/\/login/);
+  await expect.poll(() => logoutRequestFinished).toBe(true);
 
   replay.releaseResponse();
   await expect.poll(() => replay.createRouteFinished).toBe(true);
+  expect(replay.receiptUploads).toBe(0);
   await expect
     .poll(() => readBrowserQueueSummary(page))
     .toMatchObject({
@@ -437,4 +544,5 @@ test("two real tabs retain A's queued receipt when the second tab logs out", asy
       leaseToken: null,
     });
   expect(replay.receiptUploads).toBe(0);
+  expect(secondTabReceiptUploadsAfterLogout).toBe(0);
 });

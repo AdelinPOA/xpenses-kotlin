@@ -73,6 +73,9 @@ jobs:
       - name: Run real Service Worker Chromium regression
         run: npm run test:service-worker:browser --prefix frontend
 
+      - name: Run auth, offline app, replay and PWA cold-start regressions serially
+        run: npm run test:offline-regressions --prefix frontend
+
       - name: Check types
         run: |
           cd frontend

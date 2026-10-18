@@ -84,6 +84,8 @@ export interface ExpenseSavingDependencies {
   store?: PendingExpenseStore;
   now?: () => number;
   signal?: AbortSignal;
+  /** Prevents replay after the verified server identity becomes stale. */
+  isSessionCurrent?: () => boolean;
 }
 
 interface ResolvedExpenseSavingDependencies {
@@ -91,6 +93,7 @@ interface ResolvedExpenseSavingDependencies {
   store: PendingExpenseStore;
   now: () => number;
   signal?: AbortSignal;
+  isSessionCurrent?: () => boolean;
 }
 
 export type NewExpenseSaveResult =
@@ -221,11 +224,28 @@ function dependenciesFor(
     store: overrides.store ?? productionStore,
     now: overrides.now ?? Date.now,
     signal: overrides.signal,
+    isSessionCurrent: overrides.isSessionCurrent,
   };
+}
+
+class ReplaySessionChangedError extends Error {
+  constructor() {
+    super("Verified session changed during Expense replay");
+    this.name = "ReplaySessionChangedError";
+  }
 }
 
 function throwIfAborted(signal?: AbortSignal): void {
   if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+}
+
+function assertReplayCurrent(
+  dependencies: ResolvedExpenseSavingDependencies,
+): void {
+  throwIfAborted(dependencies.signal);
+  if (dependencies.isSessionCurrent && !dependencies.isSessionCurrent()) {
+    throw new ReplaySessionChangedError();
+  }
 }
 
 async function withLeaseHeartbeat<T>(
@@ -234,7 +254,14 @@ async function withLeaseHeartbeat<T>(
   operation: () => Promise<T>,
 ): Promise<T> {
   const heartbeat = setInterval(() => {
-    void dependencies.store.renew(item, dependencies.now());
+    if (
+      dependencies.signal?.aborted ||
+      (dependencies.isSessionCurrent && !dependencies.isSessionCurrent())
+    )
+      return;
+    void dependencies.store
+      .renew(item, dependencies.now())
+      .catch(() => undefined);
   }, 10_000);
   try {
     return await operation();
@@ -347,15 +374,29 @@ export async function syncPendingExpenses(
   const dependencies = dependenciesFor(overrides);
   if (!isBrowserOnline())
     return { synced: 0, stoppedForNetwork: true, stoppedForAuth: false };
-  throwIfAborted(dependencies.signal);
+  try {
+    assertReplayCurrent(dependencies);
+  } catch {
+    return { synced: 0, stoppedForNetwork: false, stoppedForAuth: true };
+  }
 
   let synced = 0;
   let stoppedForNetwork = false;
   let stoppedForAuth = false;
   const items = await dependencies.store.list(userId);
+  if (
+    dependencies.signal?.aborted ||
+    (dependencies.isSessionCurrent && !dependencies.isSessionCurrent())
+  ) {
+    return { synced: 0, stoppedForNetwork: false, stoppedForAuth: true };
+  }
 
   for (const listed of items) {
     if (dependencies.signal?.aborted) break;
+    if (dependencies.isSessionCurrent && !dependencies.isSessionCurrent()) {
+      stoppedForAuth = true;
+      break;
+    }
     if (listed.error || listed.nextAttemptAt > dependencies.now()) continue;
     const item = await dependencies.store.claim(
       listed.id,
@@ -366,14 +407,16 @@ export async function syncPendingExpenses(
 
     let current = item;
     try {
+      assertReplayCurrent(dependencies);
       if (current.stage === "creation_pending") {
         const expense = await withLeaseHeartbeat(current, dependencies, () => {
-          throwIfAborted(dependencies.signal);
+          assertReplayCurrent(dependencies);
           return dependencies.transport.createExpense(
             current.payload,
             dependencies.signal,
           );
         });
+        assertReplayCurrent(dependencies);
         current = {
           ...current,
           expenseId: expense.id,
@@ -383,31 +426,43 @@ export async function syncPendingExpenses(
           errorKind: undefined,
           nextAttemptAt: 0,
         };
-        throwIfAborted(dependencies.signal);
+        assertReplayCurrent(dependencies);
         await dependencies.store.update(current, item.leaseToken);
       }
 
       if (current.expenseId === undefined || current.receipts.length === 0) {
-        throwIfAborted(dependencies.signal);
+        assertReplayCurrent(dependencies);
         await dependencies.store.remove(current.id, userId, item.leaseToken);
         synced += 1;
         continue;
       }
 
       await withLeaseHeartbeat(current, dependencies, () => {
-        throwIfAborted(dependencies.signal);
+        assertReplayCurrent(dependencies);
         return dependencies.transport.uploadReceipts(
           current.expenseId!,
           current.receipts,
           dependencies.signal,
         );
       });
-      throwIfAborted(dependencies.signal);
+      assertReplayCurrent(dependencies);
       await dependencies.store.remove(current.id, userId, item.leaseToken);
       synced += 1;
     } catch (error) {
-      if (dependencies.signal?.aborted) {
+      if (
+        dependencies.signal?.aborted ||
+        error instanceof ReplaySessionChangedError ||
+        (dependencies.isSessionCurrent && !dependencies.isSessionCurrent())
+      ) {
         await dependencies.store.release(current).catch(() => undefined);
+        stoppedForAuth = !dependencies.signal?.aborted;
+        break;
+      }
+      try {
+        assertReplayCurrent(dependencies);
+      } catch {
+        await dependencies.store.release(current).catch(() => undefined);
+        stoppedForAuth = true;
         break;
       }
       const recorded = await recordFailure(current, error, dependencies);

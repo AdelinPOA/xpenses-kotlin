@@ -13,7 +13,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { expenseKeys, dashboardKeys, reportKeys } from "@/lib/queryKeys";
 import { useToast } from "@/components/ToastProvider";
-import { useAuth } from "@/components/AuthProvider";
+import { useAuth, type VerifiedSession } from "@/components/AuthProvider";
+import { USER_STORAGE_KEY } from "@/lib/authSession";
 import {
   discardQueuedExpense,
   retryQueuedExpense,
@@ -54,16 +55,33 @@ export function useOfflineSync() {
  * synchronization runs on online, tab focus, and mount. The saving module
  * owns the state machine; this module owns app invalidation and feedback.
  */
-export default function OfflineSyncProvider({ children }: { children: React.ReactNode }) {
+export default function OfflineSyncProvider({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const t = useTranslations("offline");
   const qc = useQueryClient();
   const toast = useToast();
-  const { user } = useAuth();
+  const { user, sessionVerified, verifySession, isSessionCurrent } = useAuth();
   const [items, setItems] = useState<PendingExpense[]>([]);
   const syncingRef = useRef(false);
   const syncAbortRef = useRef<AbortController | null>(null);
+  const activeSessionRef = useRef<VerifiedSession | null>(null);
   const currentUserIdRef = useRef<number | null>(user?.id ?? null);
-  currentUserIdRef.current = user?.id ?? null;
+
+  useLayoutEffect(() => {
+    const nextUserId = user?.id ?? null;
+    if (currentUserIdRef.current !== nextUserId) {
+      currentUserIdRef.current = nextUserId;
+      activeSessionRef.current = null;
+      syncAbortRef.current?.abort();
+    }
+    if (!sessionVerified) {
+      activeSessionRef.current = null;
+      syncAbortRef.current?.abort();
+    }
+  }, [sessionVerified, user?.id]);
 
   const refreshCount = useCallback(async () => {
     if (!user?.id) {
@@ -79,13 +97,37 @@ export default function OfflineSyncProvider({ children }: { children: React.Reac
   }, [user?.id]);
 
   const syncOnce = useCallback(async () => {
-    if (syncingRef.current || !user?.id) return;
+    if (syncingRef.current || !user?.id || !navigator.onLine) return;
     syncingRef.current = true;
     const syncUserId = user.id;
-    const controller = new AbortController();
-    syncAbortRef.current = controller;
+    let controller: AbortController | null = null;
+    let verifiedSession: Awaited<ReturnType<typeof verifySession>> = null;
     try {
-      const result = await syncPendingExpenses(syncUserId, { signal: controller.signal });
+      // Cached identity selects the local queue only. Every replay attempt gets
+      // a fresh server identity check, and must still match that queue owner.
+      const verified = await verifySession();
+      verifiedSession = verified;
+      if (
+        !verified ||
+        verified.user.id !== syncUserId ||
+        currentUserIdRef.current !== syncUserId ||
+        !isSessionCurrent(verified)
+      )
+        return;
+
+      activeSessionRef.current = verified;
+      controller = new AbortController();
+      syncAbortRef.current = controller;
+      const replaySignal = controller.signal;
+      const isCurrent = () =>
+        !replaySignal.aborted &&
+        currentUserIdRef.current === syncUserId &&
+        isSessionCurrent(verified);
+      const result = await syncPendingExpenses(syncUserId, {
+        signal: replaySignal,
+        isSessionCurrent: isCurrent,
+      });
+      if (!isCurrent()) return;
       if (result.stoppedForNetwork && !navigator.onLine) {
         toast.info(t("still_offline"));
       }
@@ -97,24 +139,36 @@ export default function OfflineSyncProvider({ children }: { children: React.Reac
       }
     } finally {
       syncingRef.current = false;
-      if (syncAbortRef.current === controller) syncAbortRef.current = null;
-      if (currentUserIdRef.current === syncUserId && !controller.signal.aborted) {
+      if (controller && syncAbortRef.current === controller)
+        syncAbortRef.current = null;
+      if (
+        verifiedSession?.user.id === syncUserId &&
+        currentUserIdRef.current === syncUserId &&
+        isSessionCurrent(verifiedSession) &&
+        (!controller || !controller.signal.aborted)
+      ) {
         await refreshCount();
       }
     }
-  }, [qc, refreshCount, t, toast, user?.id]);
+  }, [isSessionCurrent, qc, refreshCount, t, toast, user?.id, verifySession]);
 
-  const retryItem = useCallback(async (id: string) => {
-    if (!user?.id) return;
-    await retryQueuedExpense(id, user.id);
-    await syncOnce();
-  }, [syncOnce, user?.id]);
+  const retryItem = useCallback(
+    async (id: string) => {
+      if (!user?.id) return;
+      await retryQueuedExpense(id, user.id);
+      await syncOnce();
+    },
+    [syncOnce, user?.id],
+  );
 
-  const discardItem = useCallback(async (id: string) => {
-    if (!user?.id) return;
-    await discardQueuedExpense(id, user.id);
-    await refreshCount();
-  }, [refreshCount, user?.id]);
+  const discardItem = useCallback(
+    async (id: string) => {
+      if (!user?.id) return;
+      await discardQueuedExpense(id, user.id);
+      await refreshCount();
+    },
+    [refreshCount, user?.id],
+  );
 
   useEffect(() => {
     void refreshCount();
@@ -123,18 +177,25 @@ export default function OfflineSyncProvider({ children }: { children: React.Reac
     const onVisible = () => {
       if (document.visibilityState === "visible") void syncOnce();
     };
+    const onOwnerStorage = (event: StorageEvent) => {
+      if (event.key !== USER_STORAGE_KEY) return;
+      const activeSession = activeSessionRef.current;
+      if (!activeSession || !isSessionCurrent(activeSession))
+        syncAbortRef.current?.abort();
+    };
 
     window.addEventListener("online", onOnline);
+    window.addEventListener("storage", onOwnerStorage);
     document.addEventListener("visibilitychange", onVisible);
     void syncOnce();
 
     return () => {
       window.removeEventListener("online", onOnline);
+      window.removeEventListener("storage", onOwnerStorage);
       document.removeEventListener("visibilitychange", onVisible);
-      syncingRef.current = false;
       syncAbortRef.current?.abort();
     };
-  }, [refreshCount, syncOnce]);
+  }, [isSessionCurrent, refreshCount, syncOnce]);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -151,7 +212,16 @@ export default function OfflineSyncProvider({ children }: { children: React.Reac
   const pendingCount = items.length;
 
   return (
-    <OfflineSyncContext.Provider value={{ pendingCount, failedCount, items, refreshCount, retryItem, discardItem }}>
+    <OfflineSyncContext.Provider
+      value={{
+        pendingCount,
+        failedCount,
+        items,
+        refreshCount,
+        retryItem,
+        discardItem,
+      }}
+    >
       {children}
       <ConnectionBanner />
     </OfflineSyncContext.Provider>
@@ -185,7 +255,10 @@ function ConnectionBanner() {
     const root = document.documentElement;
     const updateOffsets = () => {
       // Include safe-area padding and wrapped text in the shared measured height.
-      root.style.setProperty("--app-banner-height", `${banner.getBoundingClientRect().height}px`);
+      root.style.setProperty(
+        "--app-banner-height",
+        `${banner.getBoundingClientRect().height}px`,
+      );
       // The banner already includes the top safe area, so the header must not add it twice.
       root.style.setProperty("--app-header-safe-inset", "0px");
     };

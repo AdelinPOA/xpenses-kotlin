@@ -1,8 +1,19 @@
 import axios from "axios";
+import {
+  classifyAuthEndpointFailure,
+  isAuthLoginRequest,
+  isAuthMeRequest,
+  isAuthRefreshRequest,
+  markAuthFailure,
+  TERMINAL_AUTH_FAILURE_EVENT,
+} from "./authSession";
 
-export const API_BASE_URL = typeof window !== "undefined"
-  ? "/api"
-  : (process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api");
+export const API_BASE_URL =
+  typeof window !== "undefined"
+    ? "/api"
+    : process.env.INTERNAL_API_URL ||
+      process.env.NEXT_PUBLIC_API_URL ||
+      "http://localhost:8080/api";
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -10,7 +21,24 @@ const api = axios.create({
 });
 
 let isRefreshing = false;
-let failedQueue: Array<{ resolve: (token: string) => void; reject: (error: unknown) => void }> = [];
+// Once the refresh endpoint definitively rejects the session, later resource
+// 401s from requests already in flight must not start another refresh cycle.
+let refreshRejected = false;
+let failedQueue: Array<{
+  resolve: (token: string) => void;
+  reject: (error: unknown) => void;
+}> = [];
+
+function notifyTerminalAuthFailure(): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event(TERMINAL_AUTH_FAILURE_EVENT));
+  const { pathname, search } = window.location;
+  if (pathname !== "/login") {
+    window.location.assign(
+      `/login?next=${encodeURIComponent(pathname + search)}`,
+    );
+  }
+}
 
 const processQueue = (error: unknown, token: string | null = null) => {
   failedQueue.forEach((prom) => {
@@ -24,21 +52,51 @@ const processQueue = (error: unknown, token: string | null = null) => {
 };
 
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // A verified auth response means this module may belong to a new session
+    // (e.g. login in place or another tab); ordinary resource success does not.
+    const requestUrl = response.config.url;
+    if (
+      isAuthLoginRequest(requestUrl) ||
+      isAuthMeRequest(requestUrl) ||
+      isAuthRefreshRequest(requestUrl)
+    ) {
+      refreshRejected = false;
+    }
+    return response;
+  },
   async (error) => {
     const originalRequest = error.config;
+    const requestUrl = originalRequest?.url;
+    const endpointFailure = classifyAuthEndpointFailure(
+      requestUrl,
+      error.response?.status,
+    );
+    if (endpointFailure) markAuthFailure(error, endpointFailure);
+    if (
+      endpointFailure === "terminal" &&
+      (isAuthRefreshRequest(requestUrl) ||
+        (isAuthMeRequest(requestUrl) && originalRequest?._retry))
+    ) {
+      notifyTerminalAuthFailure();
+    }
+
     if (error.response?.data) {
       const data = error.response.data;
       if (data.detail === undefined || data.detail === null) {
         data.detail = data.message ?? data.error;
       }
     }
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      if (originalRequest.url === "/auth/refresh" || originalRequest.url === "/auth/login") {
-        return Promise.reject(error);
-      }
-
+    if (
+      error.response?.status === 401 &&
+      originalRequest &&
+      !originalRequest._retry &&
+      !isAuthRefreshRequest(requestUrl) &&
+      !isAuthLoginRequest(requestUrl)
+    ) {
+      if (refreshRejected) return Promise.reject(error);
       if (isRefreshing) {
+        originalRequest._retry = true;
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
         })
@@ -51,23 +109,26 @@ api.interceptors.response.use(
 
       try {
         await api.post("/auth/refresh");
+        refreshRejected = false;
         processQueue(null, "refreshed");
         return api(originalRequest);
       } catch (refreshError) {
+        const refreshStatus = (
+          refreshError as { response?: { status?: number } }
+        )?.response?.status;
+        const failureKind =
+          classifyAuthEndpointFailure("/auth/refresh", refreshStatus) ??
+          "transient";
+        markAuthFailure(refreshError, failureKind);
+        if (failureKind === "terminal") refreshRejected = true;
         processQueue(refreshError, null);
-        if (typeof window !== "undefined") {
-          const { pathname, search } = window.location;
-          if (pathname !== "/login") {
-            window.location.assign(`/login?next=${encodeURIComponent(pathname + search)}`);
-          }
-        }
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;
       }
     }
     return Promise.reject(error);
-  }
+  },
 );
 
 export default api;
@@ -78,13 +139,58 @@ export default api;
 
 export type { PagedResponse, Currency } from "./types/common";
 export { CURRENCIES, isPagedResponse } from "./types/common";
-export type { Receipt, Expense, BulkUploadError, BulkUploadResult, OCRScanResult } from "./types/expense";
-export type { AdvancePayment, PendingAdvance, MileageRecord, MileageRates, Report, EmailSimulationIn, EmailSimulationOut, EmailSimulationParsed } from "./types/report";
+export type {
+  Receipt,
+  Expense,
+  BulkUploadError,
+  BulkUploadResult,
+  OCRScanResult,
+} from "./types/expense";
+export type {
+  AdvancePayment,
+  PendingAdvance,
+  MileageRecord,
+  MileageRates,
+  Report,
+  EmailSimulationIn,
+  EmailSimulationOut,
+  EmailSimulationParsed,
+} from "./types/report";
 export type { ReviewQueueItem } from "./types/reviewQueue";
 export type { BulkStatusResult } from "./api/reviewQueue";
 export type { User } from "./types/user";
-export type { DashboardStats, ManagerKpis, PendingReportSummary, PendingAdvanceSummary, ActivityFeedItem, ManagerDashboardStats } from "./types/dashboard";
-export type { LdapConfig, LdapSyncResult, LdapTestResult, SmtpConfig, SmtpTestResult, ImapConfig, ImapTestResult, ImapIngestionRecovery, OcrConfig, OcrProvider, OcrProviderUpdate, OcrModel, OcrModelUpdate, OcrConfigUpdate, StorageConfig, StorageMigrationStatus, OCRComparisonStats, OCRComparisonRow, OCRComparisonHistoryResponse, FxMargins, FxProvidersConfig, FxTestResult } from "./types/admin";
+export type {
+  DashboardStats,
+  ManagerKpis,
+  PendingReportSummary,
+  PendingAdvanceSummary,
+  ActivityFeedItem,
+  ManagerDashboardStats,
+} from "./types/dashboard";
+export type {
+  LdapConfig,
+  LdapSyncResult,
+  LdapTestResult,
+  SmtpConfig,
+  SmtpTestResult,
+  ImapConfig,
+  ImapTestResult,
+  ImapIngestionRecovery,
+  OcrConfig,
+  OcrProvider,
+  OcrProviderUpdate,
+  OcrModel,
+  OcrModelUpdate,
+  OcrConfigUpdate,
+  StorageConfig,
+  StorageMigrationStatus,
+  OCRComparisonStats,
+  OCRComparisonRow,
+  OCRComparisonHistoryResponse,
+  FxMargins,
+  FxProvidersConfig,
+  FxTestResult,
+} from "./types/admin";
 
 export interface ApiValidationError {
   detail?: string;
@@ -95,10 +201,26 @@ export type { InsuranceFile } from "./types/insurance";
 export type { SearchResult } from "./types/search";
 export { bulkUploadExpenses, duplicateExpense } from "./api/expenses";
 export { getReviewQueue, bulkReportStatus } from "./api/reviewQueue";
-export { getOcrConfig, updateOcrConfig, testOcrModel, getOcrComparisons, getStorageConfig, updateStorageConfig, testStorageConfig, getStorageMigrationStatus, simulateEmailIngestion, getImapIngestionRecovery, retryImapIngestion, getFxProviders, updateFxProviders, testFxProvider } from "./api/admin";
+export {
+  getOcrConfig,
+  updateOcrConfig,
+  testOcrModel,
+  getOcrComparisons,
+  getStorageConfig,
+  updateStorageConfig,
+  testStorageConfig,
+  getStorageMigrationStatus,
+  simulateEmailIngestion,
+  getImapIngestionRecovery,
+  retryImapIngestion,
+  getFxProviders,
+  updateFxProviders,
+  testFxProvider,
+} from "./api/admin";
 
 function isStandalonePwa(): boolean {
-  if (typeof navigator === "undefined" || typeof window === "undefined") return false;
+  if (typeof navigator === "undefined" || typeof window === "undefined")
+    return false;
   return (
     window.matchMedia?.("(display-mode: standalone)").matches === true ||
     (navigator as { standalone?: boolean }).standalone === true
@@ -108,14 +230,20 @@ function isStandalonePwa(): boolean {
 export async function downloadBlob(
   url: string,
   params: Record<string, unknown>,
-  filename: string
+  filename: string,
 ): Promise<void> {
   const response = await api.get(url, { params, responseType: "blob" });
   const blob: Blob = response.data;
 
-  if (isStandalonePwa() && typeof navigator.share === "function" && typeof navigator.canShare === "function") {
+  if (
+    isStandalonePwa() &&
+    typeof navigator.share === "function" &&
+    typeof navigator.canShare === "function"
+  ) {
     try {
-      const file = new File([blob], filename, { type: blob.type || "application/octet-stream" });
+      const file = new File([blob], filename, {
+        type: blob.type || "application/octet-stream",
+      });
       if (navigator.canShare({ files: [file] })) {
         await navigator.share({ files: [file], title: filename });
         return;

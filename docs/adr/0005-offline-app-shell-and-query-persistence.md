@@ -1,23 +1,26 @@
-# Offline App Shell and Query Persistence for Mobile Clients
-
-The service worker and client caching architecture is updated to support offline cold-starts and persisted reference data for Technicians operating in low- or no-connectivity environments.
+# Offline Workspace and Query Persistence for Mobile Clients
 
 ## Context
 
-Technicians often operate in field locations with no cellular signal (substations, basements, rural sites). Previously:
-1. `public/sw.js` bypassed all navigation requests (`if (request.mode === "navigate") return;`), causing the browser to render a native "No Internet" page if the app was launched without network.
-2. Icons specified in `sw.js` precache did not match disk filenames (`icon-192.png` vs `icon-192x192.png`), breaking offline icon availability.
-3. Reference queries (such as expense categories and recent expenses) existed only in in-memory React Query cache and were lost if the browser tab was closed or evicted by mobile OS memory management.
+Technicians work in locations with unreliable or unavailable connectivity. Query results are persisted in IndexedDB so that recently viewed reference data can survive reloads, while offline expense work is held in an owner-tagged queue. Navigation documents may contain authenticated HTML, React Server Component payloads, or other private data; caching them as an offline application shell would create a cross-session disclosure risk.
+
+The installed PWA must still support a cold offline launch after the app has previously been prepared. The offline experience is a device-local workspace, not an authenticated server session. Browser storage is not encrypted or protected from another person with access to the same browser profile.
 
 ## Decision
 
-1. **Service Worker App Shell Fallback**: `sw.js` implements a Network-First with Cache Fallback strategy for navigation requests. If the network request fails due to offline status, the service worker serves the cached application shell.
-2. **Precache Parity**: Correct asset filenames in `sw.js` to match `/public/icons/` (`icon-192x192.png`, `icon-512x512.png`, `apple-touch-icon-180x180.png`).
-3. **Persisted Reference Queries**: TanStack Query is configured with an IndexedDB persister for critical read queries (Categories, Profile, Recent Expenses). Cached data is served immediately on launch while background revalidation occurs once network connectivity resumes.
-4. **Ambient Offline Indicator**: The application shell provides a non-intrusive status banner indicating offline operation and the count of staged items awaiting synchronization.
+1. **Dedicated generic offline workspace:** `public/sw.js` may serve only the exact, versioned static document at `public/offline/index.v9.html` after an offline transport failure or resolved HTTP 5xx navigation response. The document is identical for all users and contains no profile, query, expense, receipt, or queue data. A real 401/403 or other non-5xx response is returned unchanged; the worker must not disguise an authentication or authorization response as offline content.
+2. **Narrow public cache allowlist:** the worker caches the generic document and its exact versioned JS, CSS, and EN/RO message dependencies, plus fixed public icons/manifest. It never caches route documents, API responses, RSC/action payloads, arbitrary public paths, or general Next chunks. Shell assets are validated for status, MIME type, redirect/cookie/cache headers, and version marker before use. A cached shell is revalidated before it is served.
+3. **Safe worker upgrades:** installation fails unless every required shell dependency and the document have been fetched, validated, and committed. The failed version is discarded without `skipWaiting()`; activation checks the completed shell before purging prior `xpenses-*` worker caches or claiming clients. A failed update must leave the previous active shell usable. Unrelated origin caches are not removed by worker cleanup.
+4. **Owner-scoped local workspace:** the shell reads private local data only when the current local profile owner matches the persisted query-cache record's owner. It filters queue reads to that exact owner; missing, mismatched, malformed, or future-dated ownership state yields neutral guidance. Cached query data older than 24 hours is hidden as stale, while owner-matching queue drafts remain local. Local profile/query state is only a namespace hint, never server authorization.
+5. **Manual expense capture:** a technician may save a validated manual expense and optional compressed receipt photo in the existing `xpenses-offline` version-2 `pending_expenses` IndexedDB store, using the production store's `id` key path and record shape. The write atomically enforces the existing 20-item and 100 MiB queue limits. If an old incompatible store is empty, it can be recreated; an incompatible store with records is left untouched and capture is disabled rather than deleting or relabeling data. Owner identity is snapshotted before asynchronous work, checked against local profile and persisted owner snapshot before the write, and rechecked inside its transaction. A cross-tab owner/logout change clears the form/photo and aborts pending writes. A committed draft is described as device-local; browser storage can be evicted.
+6. **Server verification and replay boundary:** the static shell never writes to expense endpoints and never replays queue entries. On reconnect it asks the user to open the real Xpenses app. `AuthProvider` must freshly verify the cookie-backed identity and `OfflineSyncProvider` must verify the same queue owner before replay. A transient failure does not destroy local bytes. A definitive auth rejection asks the user to sign in and retains queued bytes. Logout/account change hides private local reads; same-owner drafts remain owner-tagged for later verified recovery.
+7. **Offline limits:** offline use is limited to cached reads, manual local capture, and retained receipt photos. OCR, report submission, approval, payment, and server mutations require a verified online session. The workspace explains that browser storage is device-local, may be evicted, and is not encrypted here.
 
 ## Consequences
 
-- Technicians can launch the PWA from home screen or browser and capture expenses even with no network connection.
-- Cache invalidation must be handled carefully across version upgrades (handled by `CACHE_NAME` bumping and `clients.claim()`).
-- Sensitive data is prevented from leaking into public caches by strictly excluding authenticated API endpoints from the service worker HTTP cache and keeping persistence inside user-scoped client stores.
+- A prepared installed PWA can cold-start into a functional workspace without cookies or server navigation access; no personalized HTML/RSC is used as the shell.
+- The shell is deliberately separate from Next providers and chunks so its cold-start dependencies can be enumerated and validated.
+- Cache policy and shell changes require a new cache/asset version and real service-worker regression coverage. App-level tests must exercise the actual Next app with service workers enabled and an isolated unreachable loopback API endpoint.
+- The owner-tagged IndexedDB queue remains the durable source for pending expenses. Its contents are private to the browser profile, not cryptographically confidential; shared-device and browser-profile access remain at-rest risks.
+- Query persistence is owner-scoped and expires after 24 hours. Expired cached expense views are hidden, while queued drafts are not discarded because of age or auth failure.
+- Chromium automation is not equivalent to an installed iPhone PWA. Physical-device cold-start, camera capture, and reconnect acceptance remains a separate release gate.

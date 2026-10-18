@@ -3,20 +3,50 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import vm from "node:vm";
 
-const workerSource = readFileSync(
-  new URL("../../public/sw.js", import.meta.url),
-  "utf8",
-);
+const workerSource = readFileSync(new URL("../../public/sw.js", import.meta.url), "utf8");
 const origin = "https://fixture.xpenses.test";
+const cacheName = "xpenses-v9";
+const shellPath = "/offline/index.v9.html";
+const offlineAssets = [
+  shellPath,
+  "/offline/workspace.v9.js",
+  "/offline/workspace.v9.css",
+  "/offline/messages.v9.json",
+];
 
-function createCacheStorage(fetchImplementation) {
-  const stores = new Map();
-
-  function keyFor(request) {
-    return typeof request === "string"
-      ? new URL(request, origin).href
-      : request.url;
+function responseFor(url) {
+  const requestUrl = typeof url === "string" ? url : url.url;
+  const pathname = new URL(requestUrl, origin).pathname;
+  const assetPath = new URL(`../../public${pathname}`, import.meta.url);
+  const contentTypes = {
+    [shellPath]: "text/html; charset=utf-8",
+    "/offline/workspace.v9.js": "text/javascript; charset=utf-8",
+    "/offline/workspace.v9.css": "text/css; charset=utf-8",
+    "/offline/messages.v9.json": "application/json; charset=utf-8",
+  };
+  if (contentTypes[pathname]) {
+    return new Response(readFileSync(assetPath), {
+      status: 200,
+      headers: {
+        "Content-Type": contentTypes[pathname],
+        "Cache-Control": "public, max-age=0",
+      },
+    });
   }
+  if (pathname === "/manifest.json") {
+    return new Response("{}", {
+      headers: { "Content-Type": "application/manifest+json", "Cache-Control": "public, max-age=0" },
+    });
+  }
+  return new Response(new Uint8Array([137, 80, 78, 71]), {
+    headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=0" },
+  });
+}
+
+function createCacheStorage(shouldFailPut = () => false) {
+  const stores = new Map();
+  const keyFor = (request) =>
+    typeof request === "string" ? new URL(request, origin).href : request.url;
 
   return {
     stores,
@@ -25,18 +55,15 @@ function createCacheStorage(fetchImplementation) {
         const entries = new Map();
         stores.set(name, {
           entries,
-          async add(request) {
-            const key = keyFor(request);
-            const response = await fetchImplementation(key);
-            if (!response.ok)
-              throw new TypeError("Cannot add a failed response");
-            entries.set(key, response.clone());
-          },
           async match(request) {
             return entries.get(keyFor(request))?.clone();
           },
           async put(request, response) {
+            if (shouldFailPut(name, request)) throw new Error("fixture cache quota exceeded");
             entries.set(keyFor(request), response.clone());
+          },
+          async delete(request) {
+            return entries.delete(keyFor(request));
           },
         });
       }
@@ -48,51 +75,47 @@ function createCacheStorage(fetchImplementation) {
     async delete(name) {
       return stores.delete(name);
     },
-    async match(request) {
-      for (const cache of stores.values()) {
-        const response = await cache.match(request);
-        if (response) return response;
-      }
-      return undefined;
-    },
   };
 }
 
-function loadWorker(fetchImplementation) {
+function loadWorker(
+  fetchImplementation = async (url) => responseFor(url),
+  source = workerSource,
+  cacheStorage = createCacheStorage(),
+) {
   const listeners = new Map();
-  const cacheStorage = createCacheStorage(fetchImplementation);
+  let skipWaitingCalls = 0;
   const self = {
     location: { origin },
     clients: { claim: async () => {} },
-    skipWaiting: async () => {},
+    skipWaiting: async () => { skipWaitingCalls++; },
     addEventListener(type, listener) {
       listeners.set(type, listener);
     },
   };
-
-  vm.runInNewContext(workerSource, {
+  vm.runInNewContext(source, {
     URL,
     Response,
     caches: cacheStorage,
     fetch: fetchImplementation,
     self,
   });
-
-  return { listeners, cacheStorage };
+  return {
+    listeners,
+    cacheStorage,
+    get skipWaitingCalls() { return skipWaitingCalls; },
+  };
 }
 
-function request(path, { mode = "cors", destination = "", headers = {} } = {}) {
+function request(path, { mode = "cors", method = "GET", headers = {} } = {}) {
   const normalizedHeaders = new Map(
     Object.entries(headers).map(([key, value]) => [key.toLowerCase(), value]),
   );
   return {
     url: new URL(path, origin).href,
-    method: "GET",
+    method,
     mode,
-    destination,
-    headers: {
-      get: (name) => normalizedHeaders.get(name.toLowerCase()) ?? null,
-    },
+    headers: { get: (name) => normalizedHeaders.get(name.toLowerCase()) ?? null },
   };
 }
 
@@ -104,20 +127,51 @@ async function dispatchFetch(worker, fetchRequest) {
       responsePromise = promise;
     },
   });
-
-  if (!responsePromise) return undefined;
-  return responsePromise;
+  return responsePromise ? responsePromise : undefined;
 }
 
-test("never serves account-specific navigation HTML from a prior route while offline", async () => {
+async function install(worker) {
+  let installation = Promise.resolve();
+  worker.listeners.get("install")({ waitUntil(promise) { installation = promise; } });
+  await installation;
+}
+
+async function activate(worker) {
+  let activation = Promise.resolve();
+  worker.listeners.get("activate")({ waitUntil(promise) { activation = promise; } });
+  await activation;
+}
+
+function cachedPaths(worker, name = cacheName) {
+  const cache = worker.cacheStorage.stores.get(name);
+  return [...(cache?.entries.keys() ?? [])].map((url) => new URL(url).pathname).sort();
+}
+
+test("prepares only versioned public offline shell assets and fixed public icons", async () => {
+  const worker = loadWorker();
+  await install(worker);
+
+  const paths = cachedPaths(worker);
+  for (const asset of offlineAssets) assert.ok(paths.includes(asset), `${asset} was not prepared`);
+  assert.ok(paths.includes("/manifest.json"));
+  assert.ok(paths.includes("/icons/icon-192x192.png"));
+  assert.equal(paths.some((path) => path.startsWith("/_next/")), false);
+  assert.equal(worker.skipWaitingCalls, 1);
+});
+
+test("never stores account-specific navigation HTML and serves the generic functional shell offline", async () => {
   let online = true;
-  const worker = loadWorker(async () => {
+  const worker = loadWorker(async (url) => {
+    const pathname = new URL(typeof url === "string" ? url : url.url, origin).pathname;
     if (!online) throw new TypeError("fixture network unavailable");
-    return new Response("<h1>Private account A expense details</h1>", {
-      status: 200,
-      headers: { "Content-Type": "text/html" },
-    });
+    if (pathname === "/dashboard") {
+      return new Response("<h1>Private account A expense details</h1>", {
+        headers: { "Content-Type": "text/html" },
+      });
+    }
+    return responseFor(url);
   });
+  await install(worker);
 
   const onlineResponse = await dispatchFetch(
     worker,
@@ -130,174 +184,224 @@ test("never serves account-specific navigation HTML from a prior route while off
     worker,
     request("/expenses", { mode: "navigate" }),
   );
-  const offlineHtml = await offlineResponse.text();
-  assert.match(offlineHtml, /You are offline/);
-  assert.doesNotMatch(offlineHtml, /Private account A/);
-
-  for (const cache of worker.cacheStorage.stores.values()) {
-    assert.equal(
-      cache.entries.size,
-      0,
-      "navigation HTML must never be persisted",
-    );
-  }
+  assert.equal(offlineResponse.status, 200);
+  assert.equal(offlineResponse.headers.get("Cache-Control"), "no-store");
+  const html = await offlineResponse.text();
+  assert.match(html, /xpenses-offline-shell/);
+  assert.match(html, /workspace\.v9\.js/);
+  assert.doesNotMatch(html, /Private account A/);
+  assert.equal(cachedPaths(worker).includes("/dashboard"), false);
+  assert.equal(cachedPaths(worker).includes("/offline-shell"), false);
 });
 
-test("does not precache HTML sign-in or error pages from static asset URLs", async () => {
-  const worker = loadWorker(
-    async (url) =>
-      new Response(`<h1>Sign in at ${url}</h1>`, {
-        headers: { "Content-Type": "text/html; charset=utf-8" },
-      }),
-  );
-
-  let installation = Promise.resolve();
-  worker.listeners.get("install")({
-    waitUntil(promise) {
-      installation = promise;
-    },
+test("resolved server errors fall back to the shell, but auth responses remain visible", async () => {
+  const worker = loadWorker(async (url) => {
+    const pathname = new URL(typeof url === "string" ? url : url.url, origin).pathname;
+    if (pathname === "/dashboard") {
+      return new Response("private upstream error body", {
+        status: 503,
+        headers: { "Content-Type": "text/html" },
+      });
+    }
+    if (pathname === "/forbidden") {
+      return new Response("real authorization rejection", {
+        status: 403,
+        headers: { "Content-Type": "text/html" },
+      });
+    }
+    return responseFor(url);
   });
-  await installation;
+  await install(worker);
 
-  const cache = await worker.cacheStorage.open("xpenses-v7");
-  assert.equal(cache.entries.size, 0);
+  const fallback = await dispatchFetch(worker, request("/dashboard", { mode: "navigate" }));
+  assert.equal(fallback.status, 200);
+  const fallbackHtml = await fallback.text();
+  assert.match(fallbackHtml, /xpenses-offline-shell/);
+  assert.doesNotMatch(fallbackHtml, /private upstream error body/);
+
+  const forbidden = await dispatchFetch(worker, request("/forbidden", { mode: "navigate" }));
+  assert.equal(forbidden.status, 403);
+  assert.equal(await forbidden.text(), "real authorization rejection");
 });
 
-test("activation deletes the prior worker's unsafe navigation cache", async () => {
-  const worker = loadWorker(async () => new Response("fixture"));
-  const oldCache = await worker.cacheStorage.open("xpenses-v6");
-  await oldCache.put("/dashboard", new Response("Private account A"));
-  await oldCache.put("/offline-shell", new Response("Private account A"));
-
-  let activation = Promise.resolve();
-  worker.listeners.get("activate")({
-    waitUntil(promise) {
-      activation = promise;
-    },
+test("an unprepared, invalid, or poisoned shell gets neutral guidance, never an account document", async () => {
+  let offline = false;
+  const poisoned = loadWorker(async (url) => {
+    const pathname = new URL(typeof url === "string" ? url : url.url, origin).pathname;
+    if (offline && pathname === "/dashboard") throw new TypeError("offline");
+    if (pathname === shellPath) {
+      return new Response("<h1>Sign in as private account A</h1>", {
+        headers: { "Content-Type": "text/html", "Cache-Control": "public, max-age=0" },
+      });
+    }
+    return responseFor(url);
   });
-  await activation;
+  await assert.rejects(install(poisoned));
+  offline = true;
+  const poisonedResponse = await dispatchFetch(
+    poisoned,
+    request("/dashboard", { mode: "navigate" }),
+  );
+  assert.equal(poisonedResponse.status, 503);
+  const poisonedHtml = await poisonedResponse.text();
+  assert.match(poisonedHtml, /Offline workspace is not ready/);
+  assert.doesNotMatch(poisonedHtml, /Sign in as private account A/);
 
-  assert.deepEqual(await worker.cacheStorage.keys(), []);
+  const unprepared = loadWorker(async () => { throw new TypeError("fixture offline"); });
+  const fallback = await dispatchFetch(
+    unprepared,
+    request("/dashboard", { mode: "navigate", headers: { "Accept-Language": "ro-RO,ro;q=0.9" } }),
+  );
+  assert.equal(fallback.status, 503);
+  assert.match(await fallback.text(), /Spațiul offline nu este pregătit/);
+
+  const corrupted = loadWorker(async (url) => {
+    if (new URL(typeof url === "string" ? url : url.url, origin).pathname === "/dashboard") {
+      throw new TypeError("fixture offline");
+    }
+    return responseFor(url);
+  });
+  await install(corrupted);
+  const cache = await corrupted.cacheStorage.open(cacheName);
+  await cache.put(shellPath, new Response("<h1>Unverified cached account HTML</h1>", {
+    headers: { "Content-Type": "text/html" },
+  }));
+  const safeFallback = await dispatchFetch(
+    corrupted,
+    request("/dashboard", { mode: "navigate", headers: { "Accept-Language": "en" } }),
+  );
+  assert.equal(safeFallback.status, 503);
+  assert.doesNotMatch(await safeFallback.text(), /Unverified cached account HTML/);
 });
 
-test("does not persist private responses reached through navigation", async () => {
-  const worker = loadWorker(
-    async () => new Response("Private API response", { status: 200 }),
-  );
+test("a failed update is discarded and does not promote or remove the previous working shell", async () => {
+  const sharedCaches = createCacheStorage();
+  let oldWorkerOnline = true;
+  const oldWorker = loadWorker(async (url) => {
+    const pathname = new URL(typeof url === "string" ? url : url.url, origin).pathname;
+    if (!oldWorkerOnline && pathname === "/dashboard") throw new TypeError("fixture offline");
+    return responseFor(url);
+  }, workerSource, sharedCaches);
+  await install(oldWorker);
+  await activate(oldWorker);
 
-  await dispatchFetch(worker, request("/api/private", { mode: "navigate" }));
-  await dispatchFetch(
-    worker,
-    request("/_next/data/build/private.json", { mode: "navigate" }),
-  );
+  const failedSource = workerSource.replaceAll("v9", "v10");
+  const failedUpdate = loadWorker(async (url) => {
+    const pathname = new URL(typeof url === "string" ? url : url.url, origin).pathname;
+    if (pathname === "/offline/workspace.v10.js") {
+      return new Response("Not found", {
+        status: 404,
+        headers: { "Content-Type": "text/html" },
+      });
+    }
+    const mapped = pathname.replace("v10", "v9");
+    const response = responseFor(new URL(mapped, origin).href);
+    if (pathname.startsWith("/offline/")) {
+      const body = (await response.text()).replaceAll("v9", "v10").replace('"shellVersion": 9', '"shellVersion": 10');
+      return new Response(body, {
+        status: response.status,
+        headers: response.headers,
+      });
+    }
+    return response;
+  }, failedSource, sharedCaches);
 
-  for (const cache of worker.cacheStorage.stores.values()) {
-    assert.equal(
-      cache.entries.size,
-      0,
-      "private navigation responses must not be cached",
-    );
-  }
+  await assert.rejects(install(failedUpdate));
+  assert.equal(failedUpdate.skipWaitingCalls, 0);
+  assert.deepEqual(await sharedCaches.keys(), [cacheName]);
+
+  oldWorkerOnline = false;
+  const offlineResponse = await dispatchFetch(
+    oldWorker,
+    request("/dashboard", { mode: "navigate" }),
+  );
+  assert.equal(offlineResponse.status, 200);
+  assert.match(await offlineResponse.text(), /workspace\.v9\.js/);
 });
 
-test("does not cache HTML responses even at static-looking asset URLs", async () => {
-  const worker = loadWorker(
-    async () =>
-      new Response("<h1>Private rendered page</h1>", {
-        headers: {
-          "Content-Type": "text/html; charset=utf-8",
-          "Cache-Control": "private",
-        },
-      }),
+test("cache quota failure rejects installation and removes only the incomplete new cache", async () => {
+  const caches = createCacheStorage((_name, request) =>
+    String(typeof request === "string" ? request : request.url).includes("workspace.v9.js"),
   );
-
-  const response = await dispatchFetch(
-    worker,
-    request("/_next/static/chunks/app.js", {
-      destination: "script",
-    }),
-  );
-  assert.match(await response.text(), /Private rendered page/);
-
-  const cache = await worker.cacheStorage.open("xpenses-v7");
-  assert.equal(cache.entries.size, 0);
+  const worker = loadWorker(undefined, workerSource, caches);
+  await assert.rejects(install(worker));
+  assert.equal(worker.skipWaitingCalls, 0);
+  assert.deepEqual(await caches.keys(), []);
 });
 
-test("does not intercept ordinary API or React Server Component requests", async () => {
-  const worker = loadWorker(async () => new Response("Private payload"));
-
-  const apiResponse = await dispatchFetch(worker, request("/api/private"));
-  const rscResponse = await dispatchFetch(
-    worker,
-    request("/expenses", {
-      headers: { RSC: "1", "Next-Router-State-Tree": "fixture" },
-    }),
-  );
-
-  assert.equal(apiResponse, undefined);
-  assert.equal(rscResponse, undefined);
-  assert.equal(worker.cacheStorage.stores.size, 0);
-});
-
-test("does not intercept arbitrary same-origin style or font destinations", async () => {
+test("does not intercept API, RSC, Server Actions, arbitrary assets, or Next chunks", async () => {
   let fetchCalls = 0;
   const worker = loadWorker(async () => {
     fetchCalls += 1;
-    return new Response("Private theme asset");
+    return new Response("private payload");
   });
 
-  const styleResponse = await dispatchFetch(
-    worker,
-    request("/account/theme.css", { destination: "style" }),
+  assert.equal(await dispatchFetch(worker, request("/api/private")), undefined);
+  assert.equal(
+    await dispatchFetch(worker, request("/expenses", { headers: { RSC: "1" } })),
+    undefined,
   );
-  const fontResponse = await dispatchFetch(
-    worker,
-    request("/account/font.woff2", { destination: "font" }),
+  assert.equal(
+    await dispatchFetch(worker, request("/expenses", { headers: { "Next-Action": "action" } })),
+    undefined,
   );
-
-  assert.equal(styleResponse, undefined);
-  assert.equal(fontResponse, undefined);
+  assert.equal(
+    await dispatchFetch(worker, request("/_next/static/chunks/app.js")),
+    undefined,
+  );
+  assert.equal(await dispatchFetch(worker, request("/account/theme.css")), undefined);
   assert.equal(fetchCalls, 0);
   assert.equal(worker.cacheStorage.stores.size, 0);
 });
 
-test("continues to cache static assets for offline use", async () => {
-  let online = true;
-  const worker = loadWorker(async () => {
-    if (!online) throw new TypeError("fixture network unavailable");
-    return new Response("static fixture asset", {
-      headers: { "Content-Type": "text/javascript; charset=utf-8" },
-    });
+test("only a known versioned dependency can be loaded from the public cache", async () => {
+  let javascriptFetches = 0;
+  const jsWorker = loadWorker(async (url) => {
+    const pathname = new URL(typeof url === "string" ? url : url.url, origin).pathname;
+    if (pathname === "/offline/workspace.v9.js") javascriptFetches += 1;
+    return responseFor(url);
   });
-  const assetRequest = request("/_next/static/chunks/app.js", {
-    destination: "script",
-  });
-
-  const onlineResponse = await dispatchFetch(worker, assetRequest);
-  assert.equal(await onlineResponse.text(), "static fixture asset");
-  online = false;
-
-  const offlineResponse = await dispatchFetch(worker, assetRequest);
-  assert.equal(await offlineResponse.text(), "static fixture asset");
+  await install(jsWorker);
+  const offlineAsset = await dispatchFetch(
+    jsWorker,
+    request("/offline/workspace.v9.js"),
+  );
+  assert.match(await offlineAsset.text(), /xpenses-offline-asset:v9/);
+  assert.equal(javascriptFetches, 1, "installation fetches the known asset once; fetch uses its cached copy");
+  assert.equal(
+    await dispatchFetch(jsWorker, request("/offline/attacker.js")),
+    undefined,
+  );
 });
 
-test("continues to cache styles and fonts from Next static paths", async () => {
-  const worker = loadWorker(async (request) => {
-    const url = typeof request === "string" ? request : request.url;
-    return new Response(`static fixture asset: ${new URL(url).pathname}`);
+test("activation and logout preserve only the generic app cache, not unrelated origin caches", async () => {
+  const worker = loadWorker();
+  await worker.cacheStorage.open("xpenses-v8");
+  await worker.cacheStorage.open("xpenses-private-old");
+  const unrelated = await worker.cacheStorage.open("other-origin-app");
+  await unrelated.put("/private", new Response("Unrelated application cache"));
+  await install(worker);
+  await activate(worker);
+  assert.deepEqual((await worker.cacheStorage.keys()).sort(), ["other-origin-app", cacheName]);
+
+  let clearing = Promise.resolve();
+  worker.listeners.get("message")({
+    data: { type: "CLEAR_CACHE" },
+    waitUntil(promise) { clearing = promise; },
   });
+  await clearing;
+  assert.deepEqual((await worker.cacheStorage.keys()).sort(), ["other-origin-app", cacheName]);
+  let shell = await (await worker.cacheStorage.open(cacheName)).match(shellPath);
+  assert.match(await shell.text(), /xpenses-offline-shell/);
 
-  const stylesResponse = await dispatchFetch(
-    worker,
-    request("/_next/static/css/app.css", { destination: "style" }),
-  );
-  const fontsResponse = await dispatchFetch(
-    worker,
-    request("/_next/static/media/app.woff2", { destination: "font" }),
-  );
-
-  assert.match(await stylesResponse.text(), /static fixture asset/);
-  assert.match(await fontsResponse.text(), /static fixture asset/);
-  const cache = await worker.cacheStorage.open("xpenses-v7");
-  assert.equal(cache.entries.size, 2);
+  // AuthProvider may purge the current cache before posting CLEAR_CACHE.
+  await worker.cacheStorage.delete(cacheName);
+  let restoring = Promise.resolve();
+  worker.listeners.get("message")({
+    data: { type: "CLEAR_CACHE" },
+    waitUntil(promise) { restoring = promise; },
+  });
+  await restoring;
+  shell = await (await worker.cacheStorage.open(cacheName)).match(shellPath);
+  assert.match(await shell.text(), /xpenses-offline-shell/);
 });

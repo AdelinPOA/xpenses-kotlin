@@ -11,6 +11,7 @@ import SpendChart from "@/components/dashboard/SpendChart";
 import ExpenseStatusOverview from "@/components/dashboard/ExpenseStatusOverview";
 import Badge from "@/components/ui/Badge";
 import EmptyState from "@/components/ui/EmptyState";
+import QueryErrorNotice from "@/components/ui/QueryErrorNotice";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
@@ -86,7 +87,13 @@ export default function DashboardClient() {
   });
 
   // Fetch standard dashboard stats
-  const { data, isLoading } = useQuery<DashboardStats>({
+  const {
+    data,
+    isLoading,
+    isError: dashboardError,
+    isFetching: dashboardFetching,
+    refetch: refetchDashboard,
+  } = useQuery<DashboardStats>({
     queryKey: [...dashboardKeys.all, user?.id, "all", showAll],
     queryFn: () => api.get("/dashboard", { params: { all: showAll } }).then((r) => r.data),
     enabled: !!user,
@@ -95,7 +102,12 @@ export default function DashboardClient() {
   });
 
   // Fetch reports list to compute accurate status EUR totals for technician summary
-  const { data: userReports } = useQuery<Report[]>({
+  const {
+    data: userReports,
+    isError: userReportsError,
+    isFetching: userReportsFetching,
+    refetch: refetchUserReports,
+  } = useQuery<Report[]>({
     queryKey: reportKeys.list(),
     queryFn: () => api.get("/reports").then((r) => r.data),
     enabled: !!user && !isManagerRole,
@@ -103,7 +115,12 @@ export default function DashboardClient() {
   });
 
   // Fetch manager workflow data when manager role
-  const { data: managerStats, refetch: refetchManagerStats } = useQuery<ManagerDashboardStats>({
+  const {
+    data: managerStats,
+    isError: managerStatsError,
+    isFetching: managerStatsFetching,
+    refetch: refetchManagerStats,
+  } = useQuery<ManagerDashboardStats>({
     queryKey: dashboardKeys.manager(),
     queryFn: () => api.get("/dashboard/manager").then((r) => r.data),
     enabled: !!user && isManagerRole,
@@ -336,8 +353,25 @@ export default function DashboardClient() {
     );
   }
 
+  if (!data && dashboardError) {
+    return (
+      <AppShell>
+        <QueryErrorNotice isFetching={dashboardFetching} onRetry={() => { void refetchDashboard(); }} />
+      </AppShell>
+    );
+  }
+
   return (
     <AppShell>
+      {dashboardError && (
+        <QueryErrorNotice isFetching={dashboardFetching} onRetry={() => { void refetchDashboard(); }} />
+      )}
+      {!isManagerRole && userReportsError && (
+        <QueryErrorNotice isFetching={userReportsFetching} onRetry={() => { void refetchUserReports(); }} />
+      )}
+      {isManagerRole && managerStatsError && (
+        <QueryErrorNotice isFetching={managerStatsFetching} onRetry={() => { void refetchManagerStats(); }} />
+      )}
       {/* ── 1. TOP GLOBAL HEADER (DESKTOP) ────────────────────────────────────────── */}
       <div className="hidden lg:flex items-center justify-between border-b border-border pb-4 mb-6">
         <SearchDropdown className="w-80" />
@@ -416,23 +450,27 @@ export default function DashboardClient() {
           {/* Manager Pending Queues */}
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
             <div className="xl:col-span-2">
-              <PendingReportsTable
-                reports={canManageReviews && managerStats ? managerStats.pending_reports : []}
-                onApprove={handleApproveReport}
-                onReject={handleRejectReport}
-                actionPending={reviewActions.approve.isPending || reviewActions.reject.isPending}
-                onBulkApprove={handleBulkApproveReports}
-                onBulkReject={handleBulkRejectReports}
-                bulkPending={reviewActions.bulkApprove.isPending || reviewActions.bulkReject.isPending}
-              />
+              {managerStatsError && !managerStats ? null : (
+                <PendingReportsTable
+                  reports={canManageReviews && managerStats ? managerStats.pending_reports : []}
+                  onApprove={handleApproveReport}
+                  onReject={handleRejectReport}
+                  actionPending={reviewActions.approve.isPending || reviewActions.reject.isPending}
+                  onBulkApprove={handleBulkApproveReports}
+                  onBulkReject={handleBulkRejectReports}
+                  bulkPending={reviewActions.bulkApprove.isPending || reviewActions.bulkReject.isPending}
+                />
+              )}
             </div>
 
             <div className="xl:col-span-1">
-              <PendingAdvancesList
-                advances={managerStats?.pending_advances ?? []}
-                onPay={handlePayAdvance}
-                onReject={handleRejectAdvance}
-              />
+              {managerStatsError && !managerStats ? null : (
+                <PendingAdvancesList
+                  advances={managerStats?.pending_advances ?? []}
+                  onPay={handlePayAdvance}
+                  onReject={handleRejectAdvance}
+                />
+              )}
             </div>
           </div>
 
@@ -692,7 +730,7 @@ export default function DashboardClient() {
                 </div>
                 <div className="mt-2">
                   <p className="text-base font-bold text-foreground leading-none tabular-nums">{reportStatusTotals.draftCount}</p>
-                  <p className="text-[11px] font-semibold text-muted-foreground mt-1 tabular-nums tracking-tight">{formatEur(reportStatusTotals.draftEur)}</p>
+                  <p className="text-[11px] font-semibold text-muted-foreground mt-1 tabular-nums tracking-tight">{userReportsError && !userReports ? "—" : formatEur(reportStatusTotals.draftEur)}</p>
                 </div>
               </Link>
 
@@ -707,7 +745,7 @@ export default function DashboardClient() {
                 </div>
                 <div className="mt-2">
                   <p className="text-base font-bold text-amber-700 dark:text-amber-400 leading-none tabular-nums">{reportStatusTotals.submittedCount}</p>
-                  <p className="text-[11px] font-semibold text-amber-700 dark:text-amber-400 mt-1 tabular-nums tracking-tight">{formatEur(reportStatusTotals.submittedEur)}</p>
+                  <p className="text-[11px] font-semibold text-amber-700 dark:text-amber-400 mt-1 tabular-nums tracking-tight">{userReportsError && !userReports ? "—" : formatEur(reportStatusTotals.submittedEur)}</p>
                 </div>
               </Link>
 
@@ -722,7 +760,7 @@ export default function DashboardClient() {
                 </div>
                 <div className="mt-2">
                   <p className="text-base font-bold text-emerald-700 dark:text-emerald-400 leading-none tabular-nums">{reportStatusTotals.paidCount}</p>
-                  <p className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 mt-1 tabular-nums tracking-tight">{formatEur(reportStatusTotals.paidEur)}</p>
+                  <p className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 mt-1 tabular-nums tracking-tight">{userReportsError && !userReports ? "—" : formatEur(reportStatusTotals.paidEur)}</p>
                 </div>
               </Link>
             </div>

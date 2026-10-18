@@ -8,6 +8,7 @@ import { reportKeys, dashboardKeys } from "@/lib/queryKeys";
 import AppShell from "@/components/layout/AppShell";
 import Badge from "@/components/ui/Badge";
 import EmptyState from "@/components/ui/EmptyState";
+import QueryErrorNotice from "@/components/ui/QueryErrorNotice";
 import { Plus, Trash2, Eye, Send, ChevronUp, ChevronDown, Search, Download, SlidersHorizontal, X } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/ToastProvider";
@@ -69,7 +70,7 @@ function ReportsPageContent() {
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [search]);
 
-  const { data: reports, isLoading } = useQuery<Report[]>({
+  const { data: reports, isLoading, isError, isFetching, refetch } = useQuery<Report[]>({
     queryKey: [...reportKeys.all, "list", statusFilter, showAll],
     queryFn: () =>
       api.get("/reports", { params: {
@@ -334,6 +335,10 @@ function ReportsPageContent() {
           </div>
         )}
 
+        {isError && (
+          <QueryErrorNotice isFetching={isFetching} onRetry={() => { void refetch(); }} />
+        )}
+
         {isLoading ? (
           <div role="status" aria-live="polite" className="animate-pulse p-4 space-y-3">
             {[...Array(5)].map((_, i) => (
@@ -344,7 +349,7 @@ function ReportsPageContent() {
               </div>
             ))}
           </div>
-        ) : !sorted.length ? (
+        ) : !sorted.length ? isError ? null : (
           <EmptyState
             message={
               debouncedSearch ? t("empty_no_match") :

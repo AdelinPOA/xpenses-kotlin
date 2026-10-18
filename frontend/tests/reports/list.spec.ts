@@ -21,6 +21,49 @@ test.describe("Reports list page", () => {
     }
   });
 
+  test("shows a retryable load error instead of the empty state", async ({ page }) => {
+    await setupAuthMocks(page, "user");
+    let requests = 0;
+    await page.route("**/api/reports**", (route) => {
+      requests += 1;
+      return requests <= 2
+        ? route.fulfill({ status: 503, json: { message: "Unavailable" } })
+        : route.fulfill({ json: REPORTS });
+    });
+
+    await page.goto("/reports", { waitUntil: "load" });
+    await expect(page.locator("#main-content").getByRole("alert").filter({ hasText: "Couldn't load data." })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText("No reports found")).not.toBeVisible();
+    await page.locator("#main-content").getByRole("button", { name: "Try again" }).click();
+    await expect(page.getByText("July Business Trip").first()).toBeVisible({ timeout: 15000 });
+  });
+
+  test("keeps cached report rows visible with a persistent notice after refresh fails", async ({ page }) => {
+    await setupAuthMocks(page, "user");
+    let listRequests = 0;
+    let refetchFinished!: () => void;
+    const refetchRequest = new Promise<void>((resolve) => { refetchFinished = resolve; });
+    await page.route("**/api/reports**", async (route, request) => {
+      const url = new URL(request.url());
+      if (request.method() === "POST" && url.pathname.endsWith("/submit")) {
+        return route.fulfill({ json: {} });
+      }
+
+      listRequests += 1;
+      if (listRequests === 1) return route.fulfill({ json: REPORTS });
+      await route.fulfill({ status: 503, json: { message: "Unavailable" } });
+      if (listRequests === 3) refetchFinished();
+    });
+
+    await page.goto("/reports", { waitUntil: "load" });
+    await expect(page.getByText("July Business Trip").first()).toBeVisible({ timeout: 15000 });
+    await page.getByRole("button", { name: "Submit report Office Supplies June" }).click();
+    await refetchRequest;
+    await expect(page.locator("#main-content").getByRole("alert").filter({ hasText: "Couldn't load data." })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText("July Business Trip").first()).toBeVisible();
+    await expect(page.getByText("No reports found")).not.toBeVisible();
+  });
+
   test("status filter pills visible on desktop", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
     await setupAuthMocks(page, "user");

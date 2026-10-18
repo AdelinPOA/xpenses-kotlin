@@ -9,6 +9,7 @@ import { expenseKeys, dashboardKeys, categoryKeys } from "@/lib/queryKeys";
 import AppShell from "@/components/layout/AppShell";
 import Badge from "@/components/ui/Badge";
 import EmptyState from "@/components/ui/EmptyState";
+import QueryErrorNotice from "@/components/ui/QueryErrorNotice";
 import { useToast } from "@/components/ToastProvider";
 import { useOfflineSync } from "@/components/OfflineSyncProvider";
 import OfflineQueuePanel from "@/components/expenses/OfflineQueuePanel";
@@ -185,7 +186,13 @@ function ExpensesPageContent() {
     size: PAGE_SIZE,
   };
 
-  const { data: expensesPayload, isLoading } = useQuery<Expense[] | PagedResponse<Expense>>({
+  const {
+    data: expensesPayload,
+    isLoading,
+    isError: expensesError,
+    isFetching: expensesFetching,
+    refetch: refetchExpenses,
+  } = useQuery<Expense[] | PagedResponse<Expense>>({
     queryKey: [...expenseKeys.all, "list", paramsForRequest],
     queryFn: () => api.get("/expenses", { params: paramsForRequest }).then((r) => r.data),
   });
@@ -206,8 +213,13 @@ function ExpensesPageContent() {
 
   // When filters yield nothing, check once whether there's any data at all,
   // so we can show "No results + Clear filters" instead of the cold empty state.
-  const shouldProbeAnyData = !isLoading && expenses.length === 0 && hasActiveFilters;
-  const { data: anyDataExists } = useQuery<boolean>({
+  const shouldProbeAnyData = !isLoading && !expensesError && expensesPayload !== undefined && expenses.length === 0 && hasActiveFilters;
+  const {
+    data: anyDataExists,
+    isError: anyDataError,
+    isFetching: anyDataFetching,
+    refetch: refetchAnyData,
+  } = useQuery<boolean>({
     queryKey: [...expenseKeys.all, "any-check"],
     enabled: shouldProbeAnyData,
     staleTime: 30_000,
@@ -218,6 +230,8 @@ function ExpensesPageContent() {
         return isPagedResponse(p) ? p.total_elements > 0 : p.length > 0;
       }),
   });
+  const activeAnyDataError = shouldProbeAnyData && anyDataError;
+  const activeAnyDataFetching = shouldProbeAnyData && anyDataFetching;
 
   const { data: categories } = useQuery<Category[]>({
     queryKey: categoryKeys.list(),
@@ -485,9 +499,16 @@ function ExpensesPageContent() {
           )}
         </div>
 
+        {(expensesError || activeAnyDataError) && (
+          <QueryErrorNotice
+            isFetching={expensesFetching || activeAnyDataFetching}
+            onRetry={() => { void (expensesError ? refetchExpenses() : refetchAnyData()); }}
+          />
+        )}
+
         {isLoading ? (
           <div role="status" aria-live="polite" className="p-8 text-center text-muted-foreground text-sm">{tc("loading")}</div>
-        ) : !expenses.length ? (
+        ) : !expenses.length ? expensesError || activeAnyDataError ? null : (
           hasActiveFilters && anyDataExists ? (
             <EmptyState
               message={t("no_results_filtered")}

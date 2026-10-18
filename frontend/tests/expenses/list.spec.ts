@@ -80,6 +80,51 @@ test.describe("Expenses list", () => {
     expect(log.at(-1)?.params.get("page")).toBe("0");
   });
 
+  test("shows a retryable load error instead of the empty state", async ({ page }) => {
+    let requests = 0;
+    await page.route("**/api/expenses**", (route, req) => {
+      if (new URL(req.url()).pathname.endsWith("/export")) {
+        return route.fulfill({ body: "csv", contentType: "text/csv" });
+      }
+      requests += 1;
+      if (requests <= 2) return route.fulfill({ status: 503, json: { message: "Unavailable" } });
+      return route.fulfill({
+        json: { data: EXPENSES, total_elements: EXPENSES.length, total_pages: 1, page: 0, size: 20 },
+      });
+    });
+    await page.route("**/api/categories**", (route) => route.fulfill({ json: CATEGORIES }));
+
+    await page.goto("/expenses", { waitUntil: "load" });
+    await expect(page.locator("#main-content").getByRole("alert").filter({ hasText: "Couldn't load data." })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText("No expenses found")).not.toBeVisible();
+    await page.locator("#main-content").getByRole("button", { name: "Try again" }).click();
+    await expect(page.getByText("Lidl").first()).toBeVisible({ timeout: 15000 });
+  });
+
+  test("clearing filters drops an old any-expense probe error", async ({ page }) => {
+    let probeRequests = 0;
+    await page.route("**/api/expenses**", (route, req) => {
+      const url = new URL(req.url());
+      if (url.searchParams.get("size") === "1") {
+        probeRequests += 1;
+        return route.fulfill({ status: 503, json: { message: "Unavailable" } });
+      }
+      return route.fulfill({
+        json: { data: [], total_elements: 0, total_pages: 0, page: 0, size: 20 },
+      });
+    });
+    await page.route("**/api/categories**", (route) => route.fulfill({ json: CATEGORIES }));
+
+    await page.goto("/expenses?status=rejected", { waitUntil: "load" });
+    await expect(page.locator("#main-content").getByRole("alert").filter({ hasText: "Couldn't load data." })).toBeVisible({ timeout: 15000 });
+    expect(probeRequests).toBeGreaterThanOrEqual(2);
+
+    await page.getByRole("region", { name: "Filters" }).getByRole("button", { name: /clear filters/i }).click();
+    await expect(page).toHaveURL(/\/expenses$/);
+    await expect(page.getByText("No expenses found")).toBeVisible({ timeout: 15000 });
+    await expect(page.locator("#main-content").getByRole("alert").filter({ hasText: "Couldn't load data." })).not.toBeVisible();
+  });
+
   test("search box debounces into the q param", async ({ page }) => {
     const log = await mockExpensesApi(page);
     await page.goto("/expenses", { waitUntil: "load" });

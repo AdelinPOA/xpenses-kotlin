@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "./ToastProvider";
 import { useTranslations } from "next-intl";
@@ -14,24 +14,33 @@ const TOAST_INTERVAL_MS = 15_000;
  */
 export default function QueryErrorBridge() {
   const queryClient = useQueryClient();
-  const toast = useToast();
+  const { error } = useToast();
   const t = useTranslations("common");
+  const lastToastAtRef = useRef(0);
+  const seenErrorsRef = useRef(new Map<string, number>());
 
   useEffect(() => {
     const cache = queryClient.getQueryCache();
-    let lastToastAt = 0;
 
     const unsubscribe = cache.subscribe((event) => {
+      if (event.type === "removed") {
+        seenErrorsRef.current.delete(event.query.queryHash);
+        return;
+      }
       if (event.type !== "updated") return;
+      if (event.action.type !== "error") return;
       const query = event.query;
       if (query.state.status !== "error" || query.getObserversCount() === 0) return;
 
       const errorAt = query.state.errorUpdatedAt;
-      if (!errorAt || Date.now() - errorAt > 2_000) return;
-      if (Date.now() - lastToastAt < TOAST_INTERVAL_MS) return;
-      lastToastAt = Date.now();
+      if (!errorAt || seenErrorsRef.current.get(query.queryHash) === errorAt) return;
+      seenErrorsRef.current.set(query.queryHash, errorAt);
 
-      toast.error(t("load_failed"), {
+      const now = Date.now();
+      if (now - lastToastAtRef.current < TOAST_INTERVAL_MS) return;
+      lastToastAtRef.current = now;
+
+      error(t("load_failed"), {
         label: t("try_again"),
         onClick: () => {
           void queryClient.refetchQueries({ queryKey: query.queryKey });
@@ -40,7 +49,7 @@ export default function QueryErrorBridge() {
     });
 
     return unsubscribe;
-  }, [queryClient, toast, t]);
+  }, [queryClient, error, t]);
 
   return null;
 }

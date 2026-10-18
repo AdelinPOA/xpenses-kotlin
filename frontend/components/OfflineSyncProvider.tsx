@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
 } from "react";
@@ -161,6 +162,7 @@ function ConnectionBanner() {
   const t = useTranslations("offline");
   const { pendingCount, failedCount } = useOfflineSync();
   const [online, setOnline] = useState(true);
+  const bannerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setOnline(navigator.onLine);
@@ -176,16 +178,25 @@ function ConnectionBanner() {
 
   const active = !(online && pendingCount === 0);
 
-  useEffect(() => {
-    // Reserve layout space for toasts and other floating UI while the banner is visible.
+  useLayoutEffect(() => {
+    const banner = bannerRef.current;
+    if (!active || !banner) return;
+
     const root = document.documentElement;
-    if (active) {
-      root.style.setProperty("--app-banner-offset", "1.75rem");
-    } else {
-      root.style.removeProperty("--app-banner-offset");
-    }
+    const updateOffsets = () => {
+      // Include safe-area padding and wrapped text in the shared measured height.
+      root.style.setProperty("--app-banner-height", `${banner.getBoundingClientRect().height}px`);
+      // The banner already includes the top safe area, so the header must not add it twice.
+      root.style.setProperty("--app-header-safe-inset", "0px");
+    };
+    updateOffsets();
+    const observer = new ResizeObserver(updateOffsets);
+    observer.observe(banner);
+
     return () => {
-      root.style.removeProperty("--app-banner-offset");
+      observer.disconnect();
+      root.style.removeProperty("--app-banner-height");
+      root.style.removeProperty("--app-header-safe-inset");
     };
   }, [active]);
 
@@ -194,8 +205,10 @@ function ConnectionBanner() {
   const needsAttention = online && failedCount > 0;
   return (
     <div
+      id="connection-banner"
+      ref={bannerRef}
       role="status"
-      className="fixed top-0 left-0 right-0 z-[60] bg-amber-500 text-amber-950 text-xs font-semibold text-center py-1.5 px-4 shadow-sm"
+      className="fixed top-0 left-0 right-0 z-[60] bg-amber-500 text-amber-950 text-xs font-semibold text-center pt-[calc(0.375rem_+_env(safe-area-inset-top,0px))] pb-1.5 px-4 shadow-sm"
     >
       {needsAttention
         ? t("banner_needs_attention", { count: failedCount })

@@ -29,6 +29,56 @@ test.describe("Dashboard", () => {
     await expect(page.getByText("Lidl").filter({ visible: true }).first()).toBeVisible({ timeout: 15000 });
   });
 
+  test("shows a retryable dashboard error instead of an empty activity state", async ({ page }) => {
+    await setupAuthMocks(page, "user");
+    let requests = 0;
+    await page.route("**/api/dashboard**", (route) => {
+      requests += 1;
+      return requests <= 2
+        ? route.fulfill({ status: 503, json: { message: "Unavailable" } })
+        : route.fulfill({ json: DASHBOARD_DATA });
+    });
+    await page.route("**/api/reports**", (route) => route.fulfill({ json: REPORTS }));
+    await page.route("**/api/settings/ui**", (route) => route.fulfill({ json: { mobile_quick_add_fab_enabled: true } }));
+
+    await page.goto("/dashboard", { waitUntil: "load" });
+    await expect(page.locator("#main-content").getByRole("alert").filter({ hasText: "Couldn't load data." })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText("No expenses yet")).not.toBeVisible();
+    await page.locator("#main-content").getByRole("button", { name: "Try again" }).click();
+    await expect(page.getByText("Lidl").filter({ visible: true }).first()).toBeVisible({ timeout: 15000 });
+  });
+
+  test("keeps the query error toast throttle across provider rerenders", async ({ page }) => {
+    await setupAuthMocks(page, "user");
+    await page.route("**/api/dashboard**", (route) =>
+      route.fulfill({ status: 503, json: { message: "Unavailable" } })
+    );
+    await page.route("**/api/settings/ui**", (route) => route.fulfill({ json: { mobile_quick_add_fab_enabled: true } }));
+
+    let releaseReports!: () => void;
+    const reportsGate = new Promise<void>((resolve) => { releaseReports = resolve; });
+    let finishReportsFailure!: () => void;
+    const reportsFailure = new Promise<void>((resolve) => { finishReportsFailure = resolve; });
+    let reportRequests = 0;
+    await page.route("**/api/reports**", async (route) => {
+      await reportsGate;
+      reportRequests += 1;
+      await route.fulfill({ status: 503, json: { message: "Unavailable" } });
+      if (reportRequests === 2) finishReportsFailure();
+    });
+
+    await page.goto("/dashboard", { waitUntil: "load" });
+    const toastAlerts = page.getByTestId("toast-container").getByRole("alert");
+    await expect(toastAlerts).toHaveCount(1, { timeout: 15000 });
+
+    // The first toast updates ToastProvider state. A second, separately failed
+    // active query must share the same 15-second rate limit after that render.
+    releaseReports();
+    await reportsFailure;
+    await page.waitForTimeout(150);
+    await expect(toastAlerts).toHaveCount(1);
+  });
+
   test("company overview toggle is not visible for technician role", async ({ page }) => {
     await setupAuthMocks(page, "user");
     await page.route("**/api/dashboard**", (route) => route.fulfill({ json: DASHBOARD_DATA }));

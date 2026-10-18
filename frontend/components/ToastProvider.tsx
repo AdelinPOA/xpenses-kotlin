@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from "react";
+import React, { createContext, useContext, useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { X, CheckCircle, AlertCircle, Info, AlertTriangle } from "lucide-react";
 
 export type ToastType = "success" | "error" | "info" | "warning";
@@ -71,12 +71,13 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const error = useCallback((msg: string, action?: ToastAction) => addToast(msg, "error", action), [addToast]);
   const info = useCallback((msg: string, action?: ToastAction) => addToast(msg, "info", action), [addToast]);
   const warning = useCallback((msg: string, action?: ToastAction) => addToast(msg, "warning", action), [addToast]);
+  const toastActions = useMemo(() => ({ success, error, info, warning }), [success, error, info, warning]);
 
   return (
-    <ToastContext.Provider value={{ success, error, info, warning }}>
+    <ToastContext.Provider value={toastActions}>
       {children}
       {/* Toast container overlay */}
-      <div className="fixed top-[calc(4.25rem+env(safe-area-inset-top,0px))] lg:top-[calc(1rem+var(--app-banner-offset,0px))] left-4 right-4 sm:left-auto sm:right-4 z-[9999] flex flex-col gap-3 sm:w-full sm:max-w-sm pointer-events-none">
+      <div data-testid="toast-container" className="fixed top-[calc(4.25rem_+_var(--app-header-safe-inset,env(safe-area-inset-top,0px))_+_var(--app-banner-height,0px))] lg:top-[calc(1rem_+_var(--app-banner-height,0px))] left-4 right-4 sm:left-auto sm:right-4 z-[9999] flex flex-col gap-3 sm:w-full sm:max-w-sm pointer-events-none">
         {toasts.map((t) => (
           <div
             key={t.id}

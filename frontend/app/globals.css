@@ -173,7 +173,7 @@
 /* A sticky action bar would cover the first fields in short landscape viewports. */
 @media (orientation: landscape) and (max-height: 500px) {
   .app-main {
-    padding-top: 64px !important;
+    padding-top: calc(64px + var(--app-banner-height, 0px)) !important;
   }
 
   .receipt-capture {

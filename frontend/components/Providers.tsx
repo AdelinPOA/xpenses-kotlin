@@ -9,7 +9,7 @@ import OfflineSyncProvider from "./OfflineSyncProvider";
 import { NavigationGuardProvider } from "@/lib/navigationGuard";
 import LocaleProvider from "@/i18n/LocaleProvider";
 import QueryErrorBridge from "./QueryErrorBridge";
-import { initQueryPersistence } from "@/lib/queryPersister";
+import { createQueryPersistence } from "@/lib/queryPersister";
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -20,16 +20,16 @@ export default function Providers({ children }: { children: React.ReactNode }) {
         },
       })
   );
+  const [persistence] = useState(() => createQueryPersistence(queryClient));
 
   useEffect(() => {
-    const cleanup = initQueryPersistence(queryClient);
-    return cleanup;
-  }, [queryClient]);
+    return persistence.start();
+  }, [persistence]);
 
   return (
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
-        <AuthProvider>
+        <AuthProvider persistence={persistence}>
           <LocaleProvider>
             <ToastProvider>
               <QueryErrorBridge />

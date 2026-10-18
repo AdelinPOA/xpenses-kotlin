@@ -74,7 +74,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen min-h-dvh bg-background text-foreground flex flex-col">
-      <header id="app-header" className="lg:hidden fixed top-0 left-0 right-0 z-30 bg-card border-b border-border shadow-sm pt-safe">
+      <header id="app-header" className="lg:hidden fixed top-[var(--app-banner-height,0px)] left-0 right-0 z-30 bg-card border-b border-border shadow-sm [padding-top:var(--app-header-safe-inset,env(safe-area-inset-top,0px))]">
         <div className="h-14 px-4 flex items-center justify-between relative">
           <button
             ref={menuButtonRef}
@@ -144,7 +144,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
       <main
         id="main-content"
-        className="app-main flex-1 lg:ml-[220px] pt-[calc(3.5rem+env(safe-area-inset-top,0px)+1rem)] sm:pt-[calc(3.5rem+env(safe-area-inset-top,0px)+1.5rem)] lg:pt-6 pb-[calc(4rem+env(safe-area-inset-bottom,0px)+1rem)] lg:pb-0 p-4 sm:p-6 lg:p-8"
+        className="app-main flex-1 lg:ml-[220px] pt-[calc(3.5rem_+_var(--app-header-safe-inset,env(safe-area-inset-top,0px))_+_var(--app-banner-height,0px)_+_1rem)] sm:pt-[calc(3.5rem_+_var(--app-header-safe-inset,env(safe-area-inset-top,0px))_+_var(--app-banner-height,0px)_+_1.5rem)] lg:pt-[calc(1.5rem_+_var(--app-banner-height,0px))] pb-[calc(4rem_+_env(safe-area-inset-bottom,0px)_+_1rem)] lg:pb-0 p-4 sm:p-6 lg:p-8"
       >
         {children}
       </main>

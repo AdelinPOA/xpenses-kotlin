@@ -174,7 +174,22 @@ function ConnectionBanner() {
     };
   }, []);
 
-  if (online && pendingCount === 0) return null;
+  const active = !(online && pendingCount === 0);
+
+  useEffect(() => {
+    // Reserve layout space for toasts and other floating UI while the banner is visible.
+    const root = document.documentElement;
+    if (active) {
+      root.style.setProperty("--app-banner-offset", "1.75rem");
+    } else {
+      root.style.removeProperty("--app-banner-offset");
+    }
+    return () => {
+      root.style.removeProperty("--app-banner-offset");
+    };
+  }, [active]);
+
+  if (!active) return null;
 
   const needsAttention = online && failedCount > 0;
   return (

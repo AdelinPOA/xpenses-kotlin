@@ -48,7 +48,7 @@ function LoginForm() {
     <div className="min-h-screen min-h-dvh flex items-center justify-center bg-background px-4">
       <div className="bg-card p-8 rounded-xl shadow-lg border border-border w-full max-w-sm">
         <div className="flex flex-col items-center mb-6">
-          <Image src="/logo.png" alt="Newtech Automation" width={56} height={56} className="rounded-full mb-3" />
+          <Image src="/logo.png" alt="Newtech Automation" width={56} height={56} className="rounded-full mb-3" loading="eager" />
           <h1 className="text-xl font-bold text-foreground">{t("app_name")}</h1>
           <p className="text-sm text-muted mt-1">{t("subtitle")}</p>
         </div>

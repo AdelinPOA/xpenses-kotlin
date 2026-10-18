@@ -81,6 +81,7 @@ export default function LocaleProvider({ children }: { children: React.ReactNode
       <NextIntlClientProvider
         locale={locale}
         messages={messages[locale] as Messages}
+        timeZone="Europe/Bucharest"
         onError={onError}
         getMessageFallback={getMessageFallback}
       >

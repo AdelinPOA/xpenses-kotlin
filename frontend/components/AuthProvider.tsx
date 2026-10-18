@@ -6,7 +6,7 @@ import { User } from "@/lib/api";
 import { getMe, logout as apiLogout, refreshTokens } from "@/lib/auth";
 import { writeLangCookie } from "@/i18n/LocaleProvider";
 import { useQueryClient } from "@tanstack/react-query";
-import { clearPersistedQueryCache } from "@/lib/queryPersister";
+import { clearPersistedQueryCache, getPersistedOwnerId, setPersistenceOwner } from "@/lib/queryPersister";
 
 const USER_STORAGE_KEY = "xpenses_user_profile";
 
@@ -82,6 +82,13 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
       getMe()
         .then((u) => {
           if (!mounted) return;
+          // A different account's persisted cache must never be shown to this user.
+          const persistedOwner = getPersistedOwnerId();
+          if (persistedOwner !== null && persistedOwner !== u.id) {
+            queryClient.clear();
+            void clearPersistedQueryCache();
+          }
+          setPersistenceOwner(u.id);
           setUser(u);
           try {
             localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(u));
@@ -104,6 +111,10 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
           try {
             localStorage.removeItem(USER_STORAGE_KEY);
           } catch {}
+          // Session is no longer valid — purge cached data at rest and in memory.
+          setPersistenceOwner(null);
+          queryClient.clear();
+          void clearPersistedQueryCache();
           setUser(null);
           clearProactiveRefresh();
           if (window.location.pathname !== "/login") {
@@ -137,10 +148,11 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
       clearProactiveRefresh();
       document.removeEventListener("visibilitychange", handleVisibility);
     };
-  }, [router, scheduleProactiveRefresh, clearProactiveRefresh]);
+  }, [router, scheduleProactiveRefresh, clearProactiveRefresh, queryClient]);
 
   const logout = useCallback(async () => {
     clearProactiveRefresh();
+    setPersistenceOwner(null);
     try {
       localStorage.removeItem(USER_STORAGE_KEY);
     } catch {}

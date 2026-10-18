@@ -9,6 +9,7 @@ const scriptSrc = process.env.NODE_ENV === "production"
 const nextConfig: NextConfig = {
   output: "standalone",
   reactStrictMode: true,
+  poweredByHeader: false,
   async rewrites() {
     return [
       {
@@ -36,7 +37,26 @@ const nextConfig: NextConfig = {
               "form-action 'self'",
             ].join("; "),
           },
+          { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          {
+            key: "Permissions-Policy",
+            value: "camera=(self), microphone=(), geolocation=(), payment=()",
+          },
         ],
+      },
+      {
+        source: "/sw.js",
+        headers: [{ key: "Cache-Control", value: "no-cache, no-store, must-revalidate" }],
+      },
+      {
+        source: "/manifest.json",
+        headers: [{ key: "Cache-Control", value: "no-cache" }],
+      },
+      {
+        source: "/icons/:path*",
+        headers: [{ key: "Cache-Control", value: "public, max-age=604800" }],
       },
     ];
   },

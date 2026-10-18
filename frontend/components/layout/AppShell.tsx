@@ -5,7 +5,9 @@ import Sidebar from "./Sidebar";
 import { Menu, LayoutDashboard, ReceiptText, FolderKanban, User, CheckSquare, Camera, WifiOff, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import IosInstallHint from "@/components/IosInstallHint";
+import { navLabelKeyFor } from "./nav";
 import { useAuth } from "@/components/AuthProvider";
 import { useOfflineSync } from "@/components/OfflineSyncProvider";
 import { useAllowNavigation } from "@/lib/navigationGuard";
@@ -22,6 +24,23 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const tNav = useTranslations("nav");
   const tOffline = useTranslations("offline");
   const allowNavigation = useAllowNavigation();
+  const router = useRouter();
+
+  useEffect(() => {
+    const key = navLabelKeyFor(pathname);
+    document.title = key ? `${tNav(key)} · xpenses` : "xpenses";
+  }, [pathname, tNav]);
+
+  useEffect(() => {
+    const handleShortcut = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        if (allowNavigation()) router.push("/search");
+      }
+    };
+    window.addEventListener("keydown", handleShortcut);
+    return () => window.removeEventListener("keydown", handleShortcut);
+  }, [router, allowNavigation]);
 
   useEffect(() => {
     setIsOnline(navigator.onLine);
@@ -189,6 +208,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           );
         })}
       </nav>
+
+      <IosInstallHint />
     </div>
   );
 }

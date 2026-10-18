@@ -11,6 +11,7 @@
     "approve": "Approve",
     "reject": "Reject",
     "loading": "Loading...",
+    "load_failed": "Couldn't load data. Check your connection and try again.",
     "saving": "Saving...",
     "no_items_found": "No items found",
     "try_again": "Try again",
@@ -69,7 +70,15 @@
     "role_administrator": "Administrator",
     "open_sidebar": "Open sidebar",
     "mobile_navigation": "Primary mobile navigation",
-    "capture": "Capture"
+    "capture": "Capture",
+    "search": "Search",
+    "app_navigation": "Application navigation",
+    "close_navigation": "Close navigation",
+    "theme": "Theme",
+    "theme_light": "Light",
+    "theme_dark": "Dark",
+    "theme_system": "System",
+    "theme_aria": "Current theme: {theme}. Click to cycle."
   },
   "auth": {
     "login": {
@@ -392,6 +401,12 @@
     "bundle_select_all": "Select all drafts",
     "bundle_checkbox_aria": "Select expense {name}",
     "bundle_toolbar_aria": "Expense bundling toolbar"
+  },
+  "pwa": {
+    "update_available": "A new version is available.",
+    "update_now": "Reload",
+    "ios_install_hint": "Install the app: tap Share, then \"Add to Home Screen\".",
+    "ios_install_dismiss": "Dismiss"
   },
   "reports": {
     "company_reports": "Company Reports",

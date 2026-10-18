@@ -44,8 +44,6 @@ export default function BulkUploadZone({ isDragging, onFilesDropped }: BulkUploa
     e.target.value = "";
   }
 
-  const count = isDragging ? null : null; // count shown inside overlay via dataTransfer (read-only before drop)
-
   return (
     <>
       {/* Hidden file input — triggered by the "Upload receipts" button */}

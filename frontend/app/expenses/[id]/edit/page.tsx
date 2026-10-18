@@ -7,6 +7,8 @@ import api, { Expense } from "@/lib/api";
 import { expenseKeys } from "@/lib/queryKeys";
 import dynamic from "next/dynamic";
 import AppShell from "@/components/layout/AppShell";
+import EmptyState from "@/components/ui/EmptyState";
+import { useTranslations } from "next-intl";
 
 const ExpenseForm = dynamic(() => import("@/components/expenses/ExpenseForm"), {
   loading: () => <div className="animate-pulse bg-card h-96 rounded-xl" />,
@@ -16,6 +18,7 @@ export default function EditExpensePage({ params }: { params: Promise<{ id: stri
   const { id } = use(params);
   const searchParams = useSearchParams();
   const uploadFailed = searchParams.get("upload_failed") === "1";
+  const t = useTranslations("expenses");
 
   const { data: expense, isLoading } = useQuery<Expense>({
     queryKey: expenseKeys.detail(parseInt(id)),
@@ -25,14 +28,14 @@ export default function EditExpensePage({ params }: { params: Promise<{ id: stri
   return (
     <AppShell>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground">Edit Expense</h1>
+        <h1 className="text-2xl font-bold text-foreground">{t("edit_expense")}</h1>
       </div>
       {isLoading ? (
-        <p className="text-muted-foreground text-sm">Loading...</p>
+        <div className="animate-pulse bg-card h-96 rounded-xl" />
       ) : expense ? (
         <ExpenseForm expense={expense} highlightReceipts={uploadFailed} />
       ) : (
-        <p className="text-red-500 text-sm">Expense not found</p>
+        <EmptyState message={t("not_found")} />
       )}
     </AppShell>
   );

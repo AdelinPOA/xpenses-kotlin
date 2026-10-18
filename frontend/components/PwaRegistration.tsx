@@ -2,9 +2,11 @@
 
 import { useEffect } from "react";
 import { useToast } from "./ToastProvider";
+import { useTranslations } from "next-intl";
 
 export default function PwaRegistration() {
   const { info } = useToast();
+  const t = useTranslations("pwa");
 
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
@@ -20,7 +22,10 @@ export default function PwaRegistration() {
 
         installing.addEventListener("statechange", () => {
           if (installing.state === "installed" && navigator.serviceWorker.controller) {
-            info("A new version is available. Refresh to update.");
+            info(t("update_available"), {
+              label: t("update_now"),
+              onClick: () => window.location.reload(),
+            });
           }
         });
       });
@@ -31,7 +36,7 @@ export default function PwaRegistration() {
     return () => {
       cancelled = true;
     };
-  }, [info]);
+  }, [info, t]);
 
   return null;
 }

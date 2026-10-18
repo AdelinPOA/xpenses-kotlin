@@ -76,7 +76,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     <ToastContext.Provider value={{ success, error, info, warning }}>
       {children}
       {/* Toast container overlay */}
-      <div className="fixed top-[calc(1rem+env(safe-area-inset-top,0px))] left-4 right-4 sm:left-auto sm:right-4 z-[9999] flex flex-col gap-3 sm:w-full sm:max-w-sm pointer-events-none">
+      <div className="fixed top-[calc(4.25rem+env(safe-area-inset-top,0px))] lg:top-[calc(1rem+var(--app-banner-offset,0px))] left-4 right-4 sm:left-auto sm:right-4 z-[9999] flex flex-col gap-3 sm:w-full sm:max-w-sm pointer-events-none">
         {toasts.map((t) => (
           <div
             key={t.id}

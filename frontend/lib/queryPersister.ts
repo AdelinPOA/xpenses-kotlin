@@ -11,6 +11,21 @@ const MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
 interface PersistedPayload {
   timestamp: number;
   state: DehydratedState;
+  /** Owner of the persisted data — used to prevent cross-user cache leaks. */
+  userId?: number;
+}
+
+/** Currently authenticated user; null while unknown or signed out. */
+let ownerId: number | null = null;
+/** Owner recorded on the payload that was last loaded from storage. */
+let loadedOwnerId: number | null = null;
+
+export function setPersistenceOwner(id: number | null): void {
+  ownerId = id;
+}
+
+export function getPersistedOwnerId(): number | null {
+  return loadedOwnerId;
 }
 
 function openCacheDb(): Promise<IDBDatabase> {
@@ -49,6 +64,14 @@ async function loadPersistedState(): Promise<DehydratedState | null> {
           resolve(null);
           return;
         }
+        const payloadOwner = payload.userId ?? null;
+        loadedOwnerId = payloadOwner;
+        if (payloadOwner != null && ownerId != null && payloadOwner !== ownerId) {
+          // Persisted data belongs to a different account — never hydrate it.
+          void clearPersistedQueryCache();
+          resolve(null);
+          return;
+        }
         resolve(payload.state);
       };
       request.onerror = () => {
@@ -70,6 +93,7 @@ async function writePersistedState(state: DehydratedState): Promise<void> {
       const payload: PersistedPayload = {
         timestamp: Date.now(),
         state,
+        userId: ownerId ?? undefined,
       };
       const request = store.put(payload, CACHE_RECORD_KEY);
       request.onsuccess = () => {

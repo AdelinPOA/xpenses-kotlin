@@ -8,6 +8,7 @@ import { ToastProvider } from "./ToastProvider";
 import OfflineSyncProvider from "./OfflineSyncProvider";
 import { NavigationGuardProvider } from "@/lib/navigationGuard";
 import LocaleProvider from "@/i18n/LocaleProvider";
+import QueryErrorBridge from "./QueryErrorBridge";
 import { initQueryPersistence } from "@/lib/queryPersister";
 
 export default function Providers({ children }: { children: React.ReactNode }) {
@@ -31,6 +32,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
         <AuthProvider>
           <LocaleProvider>
             <ToastProvider>
+              <QueryErrorBridge />
               <OfflineSyncProvider>
                 <NavigationGuardProvider>{children}</NavigationGuardProvider>
               </OfflineSyncProvider>

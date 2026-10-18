@@ -11,6 +11,7 @@
     "approve": "Aprobare",
     "reject": "Respingere",
     "loading": "Se încarcă...",
+    "load_failed": "Datele nu au putut fi încărcate. Verificați conexiunea și încercați din nou.",
     "saving": "Se salvează...",
     "no_items_found": "Nu s-au găsit elemente",
     "try_again": "Încearcă din nou",
@@ -69,7 +70,15 @@
     "role_administrator": "Administrator",
     "open_sidebar": "Deschide bara laterală",
     "mobile_navigation": "Navigare mobilă principală",
-    "capture": "Captură"
+    "capture": "Captură",
+    "search": "Căutare",
+    "app_navigation": "Navigare aplicație",
+    "close_navigation": "Închide navigarea",
+    "theme": "Temă",
+    "theme_light": "Luminos",
+    "theme_dark": "Întunecat",
+    "theme_system": "Sistem",
+    "theme_aria": "Tema curentă: {theme}. Apasă pentru a schimba."
   },
   "auth": {
     "login": {
@@ -392,6 +401,12 @@
     "bundle_select_all": "Selectează toate ciornele",
     "bundle_checkbox_aria": "Selectează cheltuiala {name}",
     "bundle_toolbar_aria": "Bara de acțiuni pentru gruparea cheltuielilor"
+  },
+  "pwa": {
+    "update_available": "O versiune nouă este disponibilă.",
+    "update_now": "Reîncarcă",
+    "ios_install_hint": "Instalează aplicația: apasă Partajare, apoi „Adaugă la ecranul principal”.",
+    "ios_install_dismiss": "Închide"
   },
   "reports": {
     "company_reports": "Raporturi Companie",

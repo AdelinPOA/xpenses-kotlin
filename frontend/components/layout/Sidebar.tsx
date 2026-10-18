@@ -4,33 +4,14 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Receipt, FolderKanban, Tag, Users, CheckSquare, Banknote, Wallet, Settings, PenLine, LogOut, Sun, Moon, Monitor, X, Server, Mail, Inbox, Trash2, Sparkles, Database, Shield } from "lucide-react";
+import { LogOut, Sun, Moon, Monitor, X } from "lucide-react";
+import { NAV, ADMIN_NAV } from "./nav";
 import clsx from "clsx";
 import { useAuth } from "@/components/AuthProvider";
 import { useTheme } from "@/components/ThemeProvider";
 import { useBodyScrollLock } from "@/lib/useBodyScrollLock";
 import { useAllowNavigation } from "@/lib/navigationGuard";
 import { useTranslations } from "next-intl";
-
-interface NavItem {
-  href: string;
-  labelKey: string;
-  icon: typeof LayoutDashboard;
-  roles: string[];
-}
-
-const NAV: NavItem[] = [
-  { href: "/dashboard", labelKey: "dashboard", icon: LayoutDashboard, roles: ["technician", "manager", "chef_finance", "mod"] },
-  { href: "/expenses", labelKey: "expenses", icon: Receipt, roles: ["technician", "manager", "chef_finance", "mod"] },
-  { href: "/insurance", labelKey: "insurance", icon: Shield, roles: ["technician", "manager", "chef_finance", "mod"] },
-  { href: "/reports", labelKey: "reports", icon: FolderKanban, roles: ["technician", "manager", "chef_finance", "mod"] },
-  { href: "/approvals", labelKey: "review_reports", icon: CheckSquare, roles: ["manager", "chef_finance"] },
-  { href: "/advances", labelKey: "advances", icon: Wallet, roles: ["manager", "chef_finance", "mod"] },
-  { href: "/payments", labelKey: "process_payments", icon: Banknote, roles: ["chef_finance"] },
-  { href: "/categories", labelKey: "expense_categories", icon: Tag, roles: ["mod"] },
-  { href: "/admin/settings", labelKey: "settings", icon: Settings, roles: ["chef_finance"] },
-  { href: "/profile/signature", labelKey: "signature", icon: PenLine, roles: ["technician", "manager", "chef_finance", "mod"] },
-];
 
 const ROLE_LABELS: Record<string, string> = {
   technician: "role_technician",
@@ -41,7 +22,11 @@ const ROLE_LABELS: Record<string, string> = {
 
 const THEME_CYCLE: Array<"light" | "dark" | "system"> = ["light", "dark", "system"];
 const THEME_ICONS = { light: Sun, dark: Moon, system: Monitor };
-const THEME_LABELS = { light: "Light", dark: "Dark", system: "System" };
+const THEME_LABEL_KEYS: Record<(typeof THEME_CYCLE)[number], string> = {
+  light: "theme_light",
+  dark: "theme_dark",
+  system: "theme_system",
+};
 
 interface SidebarProps {
   open: boolean;
@@ -153,7 +138,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
         id="app-sidebar"
         ref={sidebarRef}
         tabIndex={-1}
-        aria-label="Application navigation"
+        aria-label={tNav("app_navigation")}
         aria-hidden={isMobileClosed ? "true" : undefined}
         inert={isMobileClosed ? true : undefined}
         className={clsx(
@@ -184,7 +169,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
             />
             <span className="text-lg font-bold text-white tracking-tight">xpenses</span>
           </Link>
-          <button onClick={onClose} aria-label="Close navigation" className="lg:hidden min-w-11 min-h-11 -m-2 text-slate-400 hover:text-white rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+          <button onClick={onClose} aria-label={tNav("close_navigation")} className="lg:hidden min-w-11 min-h-11 -m-2 text-slate-400 hover:text-white rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
             <X className="w-5 h-5" aria-hidden="true" />
           </button>
         </div>
@@ -217,15 +202,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
               <p className="px-3 py-1 text-xs font-semibold text-slate-500 uppercase tracking-wider">
                 {user.role === "mod" ? tNav("admin_section") : tNav("directory_section")}
               </p>
-              {[
-                { href: "/admin/users", labelKey: "users", icon: Users, roles: ["mod", "manager", "chef_finance"] },
-                { href: "/admin/ldap", labelKey: "ldap_ad", icon: Server, roles: ["mod"] },
-                { href: "/admin/email", labelKey: "email_smtp", icon: Mail, roles: ["mod"] },
-                { href: "/admin/imap", labelKey: "email_imap", icon: Inbox, roles: ["mod"] },
-                { href: "/admin/ocr", labelKey: "ocr_scanner", icon: Sparkles, roles: ["mod"] },
-                { href: "/admin/receipts", labelKey: "receipts_cleanup", icon: Trash2, roles: ["mod"] },
-                { href: "/admin/storage", labelKey: "storage_settings", icon: Database, roles: ["mod"] },
-              ].filter(({ roles }) => roles.includes(user.role)).map(({ href, labelKey, icon: Icon }) => {
+              {ADMIN_NAV.filter(({ roles }) => roles.includes(user.role)).map(({ href, labelKey, icon: Icon }) => {
                 const active = pathname.startsWith(href);
                 return (
                   <Link
@@ -288,14 +265,14 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
           {/* Theme Switcher */}
           <button
             onClick={cycleTheme}
-            aria-label={`Current theme: ${THEME_LABELS[theme]}. Click to cycle.`}
+            aria-label={tNav("theme_aria", { theme: tNav(THEME_LABEL_KEYS[theme]) })}
             className="w-full min-h-[44px] flex items-center justify-between px-3 py-2 rounded-lg text-xs text-slate-300 hover:text-white bg-sidebar-border/40 hover:bg-sidebar-border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary cursor-pointer"
           >
             <span className="flex items-center gap-2 text-slate-400">
               <ThemeIcon className="w-4 h-4 text-primary" aria-hidden="true" />
-              <span className="text-xs font-medium text-slate-300">Theme</span>
+              <span className="text-xs font-medium text-slate-300">{tNav("theme")}</span>
             </span>
-            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">{THEME_LABELS[theme]}</span>
+            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">{tNav(THEME_LABEL_KEYS[theme])}</span>
           </button>
 
           {/* Sign Out Button */}

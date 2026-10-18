@@ -8,12 +8,12 @@ import eu.nt.xpenses.repositories.AppSettingRepository
 import eu.nt.xpenses.services.storage.LocalStorageProvider
 import eu.nt.xpenses.services.storage.S3StorageProvider
 import eu.nt.xpenses.services.storage.StorageMigrationEngine
-import eu.nt.xpenses.services.storage.StorageProvider
 import eu.nt.xpenses.services.storage.StoragePathResolver
+import eu.nt.xpenses.services.storage.StorageProvider
 import jakarta.annotation.PostConstruct
 import org.slf4j.LoggerFactory
-import org.springframework.beans.factory.annotation.Value
 import org.springframework.beans.factory.annotation.Qualifier
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.cache.annotation.CacheEvict
 import org.springframework.cache.annotation.Cacheable
 import org.springframework.http.HttpStatus
@@ -27,14 +27,14 @@ import java.util.concurrent.Executor
 enum class StorageContext(
     val allowedExtensions: Set<String>,
     val maxSizeInBytes: Long,
-    val pathBuilder: (entityId: Int, filename: String) -> String
+    val pathBuilder: (entityId: Int, filename: String) -> String,
 ) {
     OCR_SOURCE(
         allowedExtensions = setOf("jpg", "jpeg", "png", "pdf", "webp"),
         maxSizeInBytes = 10L * 1024 * 1024,
         pathBuilder = { entityId, filename ->
             "ocr-sources/${entityId}_$filename"
-        }
+        },
     ),
     RECEIPT(
         allowedExtensions = setOf("jpg", "jpeg", "png", "gif", "pdf", "webp"),
@@ -43,18 +43,22 @@ enum class StorageContext(
             val now = java.time.LocalDate.now()
             val year = now.year
             val month = String.format("%02d", now.monthValue)
-            "$year/$month/${entityId}_$filename"
-        }
+            "$year/$month/${entityId}_${java.util.UUID.randomUUID()}_$filename"
+        },
     ),
     SIGNATURE(
         allowedExtensions = setOf("png"),
         maxSizeInBytes = 2L * 1024 * 1024,
         pathBuilder = { entityId, filename ->
             "signatures/${entityId}_$filename"
-        }
-    );
+        },
+    ),
+    ;
 
-    fun buildPath(entityId: Int, filename: String): String = pathBuilder(entityId, filename)
+    fun buildPath(
+        entityId: Int,
+        filename: String,
+    ): String = pathBuilder(entityId, filename)
 }
 
 @Service
@@ -65,7 +69,7 @@ open class StorageService(
     @Qualifier("applicationTaskExecutor") private val executor: Executor,
     private val transactionTemplate: TransactionTemplate,
     private val migrationStateStore: eu.nt.xpenses.services.storage.StorageMigrationStateStore = eu.nt.xpenses.services.storage.NoopStorageMigrationStateStore,
-    @Value("\${storage.location:/app/data/receipts}") private val defaultReceiptsDir: String = "/app/data/receipts"
+    @Value("\${storage.location:/app/data/receipts}") private val defaultReceiptsDir: String = "/app/data/receipts",
 ) {
     companion object {
         private const val MAX_FILE_SIZE = 50 * 1024 * 1024
@@ -96,13 +100,14 @@ open class StorageService(
             "s3" -> {
                 val s3Config = config.s3
                 if (s3Config != null) {
-                    val s3Provider = S3StorageProvider(
-                        region = s3Config.region,
-                        bucket = s3Config.bucket,
-                        accessKeyId = s3Config.accessKeyId,
-                        secretAccessKey = s3Config.secretKey,
-                        endpointOverride = s3Config.endpoint
-                    )
+                    val s3Provider =
+                        S3StorageProvider(
+                            region = s3Config.region,
+                            bucket = s3Config.bucket,
+                            accessKeyId = s3Config.accessKeyId,
+                            secretAccessKey = s3Config.secretKey,
+                            endpointOverride = s3Config.endpoint,
+                        )
                     remoteProvider = s3Provider
                     activeProvider = s3Provider
                 } else {
@@ -110,6 +115,7 @@ open class StorageService(
                     activeProvider = localProvider
                 }
             }
+
             else -> {
                 remoteProvider = null
                 activeProvider = localProvider
@@ -117,7 +123,10 @@ open class StorageService(
         }
     }
 
-    private fun createProvider(providerType: String, config: StorageConfigDto): StorageProvider {
+    private fun createProvider(
+        providerType: String,
+        config: StorageConfigDto,
+    ): StorageProvider {
         val localDir = config.local?.path ?: defaultReceiptsDir
         return when (providerType) {
             "s3" -> {
@@ -128,29 +137,34 @@ open class StorageService(
                         bucket = s3Config.bucket,
                         accessKeyId = s3Config.accessKeyId,
                         secretAccessKey = s3Config.secretKey,
-                        endpointOverride = s3Config.endpoint
+                        endpointOverride = s3Config.endpoint,
                     )
                 } else {
                     LocalStorageProvider(localDir)
                 }
             }
-            else -> LocalStorageProvider(localDir)
+
+            else -> {
+                LocalStorageProvider(localDir)
+            }
         }
     }
 
     @Cacheable("storage-config-cache")
     fun getStorageConfig(): StorageConfigDto {
-        val setting = appSettingRepository.findById("storage_config").orElse(null)
-            ?: return StorageConfigDto(
-                providerType = "local",
-                local = LocalStorageConfig(path = defaultReceiptsDir)
-            )
+        val setting =
+            appSettingRepository.findById("storage_config").orElse(null)
+                ?: return StorageConfigDto(
+                    providerType = "local",
+                    local = LocalStorageConfig(path = defaultReceiptsDir),
+                )
 
-        val data: StorageConfigDto = try {
-            objectMapper.readValue(setting.value, StorageConfigDto::class.java)
-        } catch (e: Exception) {
-            StorageConfigDto()
-        }
+        val data: StorageConfigDto =
+            try {
+                objectMapper.readValue(setting.value, StorageConfigDto::class.java)
+            } catch (e: Exception) {
+                StorageConfigDto()
+            }
 
         // Decrypt sensitive fields
         data.smb?.password = decryptField(data.smb?.password)
@@ -168,21 +182,29 @@ open class StorageService(
     @CacheEvict("storage-config-cache", allEntries = true)
     fun saveStorageConfig(configData: StorageConfigDto) {
         val maskedPatterns = listOf("••••••••", "****", "········", "————")
+
         fun isMasked(value: String?): Boolean = value != null && value.isNotBlank() && value.trim() in maskedPatterns
 
         for (label in listOf("smb", "webdav", "sftp")) {
-            val nc = when (label) {
-                "smb" -> configData.smb
-                "webdav" -> configData.webdav
-                else -> configData.sftp
-            }
+            val nc =
+                when (label) {
+                    "smb" -> configData.smb
+                    "webdav" -> configData.webdav
+                    else -> configData.sftp
+                }
             if (nc?.password != null && isMasked(nc.password)) {
-                throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Storage config for '$label' contains a masked/placeholder password. Please enter the actual password.")
+                throw ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Storage config for '$label' contains a masked/placeholder password. Please enter the actual password.",
+                )
             }
         }
         val s3 = configData.s3
         if (s3?.secretKey != null && isMasked(s3.secretKey)) {
-            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "S3 secret key contains a masked/placeholder value. Please enter the actual key.")
+            throw ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                "S3 secret key contains a masked/placeholder value. Please enter the actual key.",
+            )
         }
 
         // Create deep copy for encryption
@@ -194,11 +216,12 @@ open class StorageService(
         data.sftp?.password = encryptField(data.sftp?.password, "sftp", "password")
         data.s3?.secretKey = encryptField(data.s3?.secretKey, "s3", "secret_key")
 
-        val setting = AppSetting(
-            key = "storage_config",
-            value = objectMapper.writeValueAsString(data),
-            updatedAt = Instant.now()
-        )
+        val setting =
+            AppSetting(
+                key = "storage_config",
+                value = objectMapper.writeValueAsString(data),
+                updatedAt = Instant.now(),
+            )
         appSettingRepository.save(setting)
 
         // Re-initialize provider with updated config
@@ -242,7 +265,10 @@ open class StorageService(
         return target.absolutePath
     }
 
-    fun validateMagicBytes(bytes: ByteArray, allowedTypes: Set<String> = setOf("image/jpeg", "image/png", "application/pdf", "image/webp", "image/gif")) {
+    fun validateMagicBytes(
+        bytes: ByteArray,
+        allowedTypes: Set<String> = setOf("image/jpeg", "image/png", "application/pdf", "image/webp", "image/gif"),
+    ) {
         if (bytes.size < 4) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "File payload is empty or too small")
         }
@@ -253,14 +279,15 @@ open class StorageService(
         val isWebp = headerHex.startsWith("52494646") && bytes.size >= 12 && String(bytes.sliceArray(8..11)).equals("WEBP")
         val isGif = headerHex.startsWith("47494638")
 
-        val matched = when {
-            isJpeg -> "image/jpeg"
-            isPng -> "image/png"
-            isPdf -> "application/pdf"
-            isWebp -> "image/webp"
-            isGif -> "image/gif"
-            else -> "unknown"
-        }
+        val matched =
+            when {
+                isJpeg -> "image/jpeg"
+                isPng -> "image/png"
+                isPdf -> "application/pdf"
+                isWebp -> "image/webp"
+                isGif -> "image/gif"
+                else -> "unknown"
+            }
 
         if (matched !in allowedTypes) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported or invalid file format detected via magic bytes")
@@ -270,7 +297,7 @@ open class StorageService(
     open fun storeFile(
         context: StorageContext,
         upload: eu.nt.xpenses.models.RawUpload,
-        entityId: Int
+        entityId: Int,
     ): String {
         if (upload.bytes.size > context.maxSizeInBytes) {
             throw ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, "File exceeds size limit")
@@ -282,14 +309,15 @@ open class StorageService(
             throw IllegalArgumentException("File type .$ext not allowed")
         }
 
-        val mapping = mapOf(
-            "jpg" to "image/jpeg",
-            "jpeg" to "image/jpeg",
-            "png" to "image/png",
-            "pdf" to "application/pdf",
-            "webp" to "image/webp",
-            "gif" to "image/gif"
-        )
+        val mapping =
+            mapOf(
+                "jpg" to "image/jpeg",
+                "jpeg" to "image/jpeg",
+                "png" to "image/png",
+                "pdf" to "application/pdf",
+                "webp" to "image/webp",
+                "gif" to "image/gif",
+            )
         val allowedMimeTypes = context.allowedExtensions.mapNotNull { mapping[it] }.toSet()
         validateMagicBytes(upload.bytes, allowedMimeTypes)
 
@@ -300,9 +328,12 @@ open class StorageService(
         return relativePath
     }
 
-    fun uploadFile(relativePath: String, content: ByteArray) {
+    fun uploadFile(
+        relativePath: String,
+        content: ByteArray,
+    ) {
         if (content.size > MAX_FILE_SIZE) throw ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, "File too large")
-        
+
         // Always write to local cache/storage first
         val config = getStorageConfig()
         val localDir = config.local?.path ?: defaultReceiptsDir
@@ -320,7 +351,8 @@ open class StorageService(
                 logger.error("Failed to upload $relativePath to remote storage: ${e.message}", e)
                 try {
                     localProvider.delete(relativePath)
-                } catch (_: Exception) {}
+                } catch (_: Exception) {
+                }
                 throw ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Remote storage upload failed: ${e.message}", e)
             }
         }
@@ -376,16 +408,21 @@ open class StorageService(
         }
     }
 
-    private fun encryptField(plain: String?, sectionKey: String, fieldKey: String): String? {
+    private fun encryptField(
+        plain: String?,
+        sectionKey: String,
+        fieldKey: String,
+    ): String? {
         if (plain == "••••••••") {
             val existing = getStorageConfig()
-            val existingPlain = when (sectionKey) {
-                "smb" -> existing.smb?.password
-                "webdav" -> existing.webdav?.password
-                "sftp" -> existing.sftp?.password
-                "s3" -> existing.s3?.secretKey
-                else -> ""
-            } ?: ""
+            val existingPlain =
+                when (sectionKey) {
+                    "smb" -> existing.smb?.password
+                    "webdav" -> existing.webdav?.password
+                    "sftp" -> existing.sftp?.password
+                    "s3" -> existing.s3?.secretKey
+                    else -> ""
+                } ?: ""
             return if (existingPlain.isNotEmpty()) {
                 cryptoService.encrypt(existingPlain, cryptoInfo)
             } else {
@@ -397,43 +434,62 @@ open class StorageService(
         return ""
     }
 
-    fun startMigration(oldConfig: StorageConfigDto, newConfig: StorageConfigDto, receipts: List<eu.nt.xpenses.model.Receipt>) {
+    fun startMigration(
+        oldConfig: StorageConfigDto,
+        newConfig: StorageConfigDto,
+        receipts: List<eu.nt.xpenses.model.Receipt>,
+    ) {
         val filePaths = receipts.map { it.filePath }.distinct()
-        val jobId = java.util.UUID.randomUUID().toString()
+        val jobId =
+            java.util.UUID
+                .randomUUID()
+                .toString()
         val oldProvider = createProvider(oldConfig.providerType, oldConfig)
         val newProvider = createProvider(newConfig.providerType, newConfig)
 
-        val statusSetting = AppSetting(
-            key = "storage_migration_status",
-            value = objectMapper.writeValueAsString(mapOf(
-                "job_id" to jobId,
-                "status" to "running",
-                "total_files" to filePaths.size,
-                "migrated_files" to 0,
-                "failed_files" to 0,
-                "errors" to emptyList<String>()
-            )),
-            updatedAt = Instant.now()
-        )
+        val statusSetting =
+            AppSetting(
+                key = "storage_migration_status",
+                value =
+                    objectMapper.writeValueAsString(
+                        mapOf(
+                            "job_id" to jobId,
+                            "status" to "running",
+                            "total_files" to filePaths.size,
+                            "migrated_files" to 0,
+                            "failed_files" to 0,
+                            "errors" to emptyList<String>(),
+                        ),
+                    ),
+                updatedAt = Instant.now(),
+            )
         appSettingRepository.save(statusSetting)
 
         migrationEngine.executeMigrationAsync(oldProvider, newProvider, filePaths, jobId = jobId) { result, isComplete ->
             transactionTemplate.execute {
-                val statusStr = if (isComplete) {
-                    if (result.failedFiles == 0) "completed" else "failed"
-                } else "running"
+                val statusStr =
+                    if (isComplete) {
+                        if (result.failedFiles == 0) "completed" else "failed"
+                    } else {
+                        "running"
+                    }
 
-                appSettingRepository.save(AppSetting(
-                    key = "storage_migration_status",
-                    value = objectMapper.writeValueAsString(mapOf(
-                        "status" to statusStr,
-                        "total_files" to result.totalFiles,
-                        "migrated_files" to result.migratedFiles,
-                        "failed_files" to result.failedFiles,
-                        "errors" to result.errors
-                    )),
-                    updatedAt = Instant.now()
-                ))
+                appSettingRepository.save(
+                    AppSetting(
+                        key = "storage_migration_status",
+                        value =
+                            objectMapper.writeValueAsString(
+                                mapOf(
+                                    "status" to statusStr,
+                                    "total_files" to result.totalFiles,
+                                    "migrated_files" to result.migratedFiles,
+                                    "failed_files" to result.failedFiles,
+                                    "errors" to result.errors,
+                                ),
+                            ),
+                        updatedAt = Instant.now(),
+                    ),
+                )
             }
         }
     }

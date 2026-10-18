@@ -8,19 +8,24 @@ import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 import org.springframework.stereotype.Repository
-
 import java.math.BigDecimal
 
 @Repository
 interface ExpenseRepository : JpaRepository<Expense, Int> {
     fun findAllByUserId(userId: Int): List<Expense>
+
     fun findAllByReportId(reportId: Int): List<Expense>
+
     fun countByUserId(userId: Int): Long
+
+    @Query("SELECT e.receiptPath FROM Expense e WHERE e.deleted = false AND e.receiptPath IS NOT NULL")
+    fun findAllLegacyReceiptPaths(): List<String>
 
     @Query("SELECT e FROM Expense e WHERE e.rawOcrText IS NOT NULL AND e.category IS NOT NULL")
     fun findAllWithOcrTrainingData(): List<Expense>
 
-    @Query("""
+    @Query(
+        """
         SELECT e FROM Expense e
         WHERE (:userId IS NULL OR e.user.id = :userId)
           AND (:status IS NULL OR e.status = :status)
@@ -31,7 +36,8 @@ interface ExpenseRepository : JpaRepository<Expense, Int> {
           AND (CAST(:q AS string) IS NULL OR LOWER(e.merchant) LIKE LOWER(CONCAT('%', CAST(:q AS string), '%'))
                OR LOWER(e.description) LIKE LOWER(CONCAT('%', CAST(:q AS string), '%')))
         ORDER BY e.date DESC, e.id DESC
-    """)
+    """,
+    )
     @EntityGraph(attributePaths = ["user", "category"])
     fun findAllWithFilters(
         @Param("userId") userId: Int?,
@@ -40,10 +46,11 @@ interface ExpenseRepository : JpaRepository<Expense, Int> {
         @Param("categoryId") categoryId: Int?,
         @Param("fromDate") fromDate: String?,
         @Param("toDate") toDate: String?,
-        @Param("q") q: String?
+        @Param("q") q: String?,
     ): List<Expense>
 
-    @Query("""
+    @Query(
+        """
         SELECT e FROM Expense e
         WHERE (:userId IS NULL OR e.user.id = :userId)
           AND (:status IS NULL OR e.status = :status)
@@ -54,7 +61,8 @@ interface ExpenseRepository : JpaRepository<Expense, Int> {
           AND (CAST(:q AS string) IS NULL OR LOWER(e.merchant) LIKE LOWER(CONCAT('%', CAST(:q AS string), '%'))
                OR LOWER(e.description) LIKE LOWER(CONCAT('%', CAST(:q AS string), '%')))
         ORDER BY e.date DESC, e.id DESC
-    """)
+    """,
+    )
     @EntityGraph(attributePaths = ["user", "category"])
     fun findAllWithFiltersPaged(
         @Param("userId") userId: Int?,
@@ -64,40 +72,62 @@ interface ExpenseRepository : JpaRepository<Expense, Int> {
         @Param("fromDate") fromDate: String?,
         @Param("toDate") toDate: String?,
         @Param("q") q: String?,
-        pageable: Pageable
+        pageable: Pageable,
     ): Page<Expense>
 
     @EntityGraph(attributePaths = ["user", "category"])
     @Query("SELECT e FROM Expense e WHERE e.report IS NULL AND e.user.id = :userId")
-    fun findUnattachedByUserId(@Param("userId") userId: Int): List<Expense>
+    fun findUnattachedByUserId(
+        @Param("userId") userId: Int,
+    ): List<Expense>
 
     @EntityGraph(attributePaths = ["user", "category"])
     @Query("SELECT e FROM Expense e WHERE e.user.id = :userId AND e.status = :status")
-    fun findAllByUserIdAndStatus(@Param("userId") userId: Int, @Param("status") status: String): List<Expense>
+    fun findAllByUserIdAndStatus(
+        @Param("userId") userId: Int,
+        @Param("status") status: String,
+    ): List<Expense>
 
     @EntityGraph(attributePaths = ["user", "category"])
     @Query("SELECT e FROM Expense e WHERE e.date >= :fromDate AND e.date <= :toDate")
-    fun findAllByDateBetween(@Param("fromDate") fromDate: String, @Param("toDate") toDate: String): List<Expense>
+    fun findAllByDateBetween(
+        @Param("fromDate") fromDate: String,
+        @Param("toDate") toDate: String,
+    ): List<Expense>
 
     @EntityGraph(attributePaths = ["user", "category"])
     @Query("SELECT e FROM Expense e WHERE e.user.id = :userId AND e.date >= :fromDate AND e.date <= :toDate")
-    fun findAllByUserIdAndDateBetween(@Param("userId") userId: Int, @Param("fromDate") fromDate: String, @Param("toDate") toDate: String): List<Expense>
+    fun findAllByUserIdAndDateBetween(
+        @Param("userId") userId: Int,
+        @Param("fromDate") fromDate: String,
+        @Param("toDate") toDate: String,
+    ): List<Expense>
 
     @Query("SELECT COALESCE(SUM(e.amountEur), 0) FROM Expense e WHERE e.date >= :fromDate")
-    fun sumAmountEurByDateFrom(@Param("fromDate") fromDate: String): BigDecimal
+    fun sumAmountEurByDateFrom(
+        @Param("fromDate") fromDate: String,
+    ): BigDecimal
 
-    @Query("""
+    @Query(
+        """
         SELECT c.id, c.name, SUM(e.amountEur), COUNT(e)
         FROM Expense e LEFT JOIN e.category c
         WHERE e.date >= :fromDate AND (:userId IS NULL OR e.user.id = :userId)
         GROUP BY c.id, c.name
         ORDER BY SUM(e.amountEur) DESC
-    """)
-    fun spendByCategorySince(@Param("fromDate") fromDate: String, @Param("userId") userId: Int?): List<Array<Any>>
+    """,
+    )
+    fun spendByCategorySince(
+        @Param("fromDate") fromDate: String,
+        @Param("userId") userId: Int?,
+    ): List<Array<Any>>
 
     @EntityGraph(attributePaths = ["user", "category"])
     @Query("SELECT e FROM Expense e WHERE e.user.id = :userId AND e.date <= :toDate")
-    fun findAllByUserIdAndDateTo(@Param("userId") userId: Int, @Param("toDate") toDate: String): List<Expense>
+    fun findAllByUserIdAndDateTo(
+        @Param("userId") userId: Int,
+        @Param("toDate") toDate: String,
+    ): List<Expense>
 
     @EntityGraph(attributePaths = ["user", "category"])
     @Query("SELECT e FROM Expense e ORDER BY e.createdAt DESC")
@@ -105,12 +135,16 @@ interface ExpenseRepository : JpaRepository<Expense, Int> {
 
     @EntityGraph(attributePaths = ["user", "category"])
     @Query("SELECT e FROM Expense e WHERE e.user.id = :userId ORDER BY e.createdAt DESC")
-    fun findRecentExpensesByUserId(@Param("userId") userId: Int, pageable: Pageable): List<Expense>
+    fun findRecentExpensesByUserId(
+        @Param("userId") userId: Int,
+        pageable: Pageable,
+    ): List<Expense>
 
     @Query(value = "SELECT * FROM expenses WHERE deleted = true", nativeQuery = true)
     fun findDeletedAudit(): List<Expense>
 
-    @Query("""
+    @Query(
+        """
         SELECT e FROM Expense e
         WHERE (:userId IS NULL OR e.user.id = :userId)
           AND (
@@ -118,10 +152,11 @@ interface ExpenseRepository : JpaRepository<Expense, Int> {
             OR LOWER(e.description) LIKE LOWER(CONCAT('%', :term, '%'))
           )
         ORDER BY e.date DESC, e.id DESC
-    """)
+    """,
+    )
     @EntityGraph(attributePaths = ["user", "category"])
     fun search(
         @Param("userId") userId: Int?,
-        @Param("term") term: String
+        @Param("term") term: String,
     ): List<Expense>
 }

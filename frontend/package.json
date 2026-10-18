@@ -9,6 +9,9 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "i18n:check": "node ../scripts/check-i18n-parity.mjs",
+    "test:service-worker:unit": "node --test tests/service-worker/sw-regression.test.mjs",
+    "test:service-worker:browser": "node --test tests/service-worker/sw-browser.test.mjs",
+    "test:service-worker": "npm run test:service-worker:unit && npm run test:service-worker:browser",
     "test:e2e": "playwright test",
     "test:e2e:mobile": "playwright test tests/mobile-ui.spec.ts --project=mobile-chromium --project=mobile-webkit"
   },

@@ -64,6 +64,15 @@ jobs:
           cd frontend
           npm ci
 
+      - name: Run Service Worker VM regressions
+        run: npm run test:service-worker:unit --prefix frontend
+
+      - name: Install Chromium for Service Worker browser regression
+        run: cd frontend && npx playwright install --with-deps chromium
+
+      - name: Run real Service Worker Chromium regression
+        run: npm run test:service-worker:browser --prefix frontend
+
       - name: Check types
         run: |
           cd frontend

@@ -11,6 +11,9 @@ import java.time.Instant
 
 @Repository
 interface OcrJobRepository : JpaRepository<OcrJob, Int> {
+    @Query("SELECT j.sourcePath FROM OcrJob j WHERE j.sourcePath IS NOT NULL")
+    fun findAllSourcePaths(): List<String>
+
     @Query(
         value = """
             SELECT id FROM ocr_jobs
@@ -19,11 +22,11 @@ interface OcrJobRepository : JpaRepository<OcrJob, Int> {
             ORDER BY id ASC
             LIMIT :batchSize
             """,
-        nativeQuery = true
+        nativeQuery = true,
     )
     fun findClaimableJobIds(
         @Param("now") now: Instant,
-        @Param("batchSize") batchSize: Int
+        @Param("batchSize") batchSize: Int,
     ): List<Int>
 
     @Query(
@@ -35,11 +38,11 @@ interface OcrJobRepository : JpaRepository<OcrJob, Int> {
             ORDER BY id ASC
             LIMIT :batchSize
             """,
-        nativeQuery = true
+        nativeQuery = true,
     )
     fun findExpiredJobIds(
         @Param("now") now: Instant,
-        @Param("batchSize") batchSize: Int
+        @Param("batchSize") batchSize: Int,
     ): List<Int>
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
@@ -60,14 +63,14 @@ interface OcrJobRepository : JpaRepository<OcrJob, Int> {
               AND lease_token = :leaseToken
               AND lease_until > :now
             """,
-        nativeQuery = true
+        nativeQuery = true,
     )
     fun completeOcrStage(
         @Param("jobId") jobId: Int,
         @Param("leaseToken") leaseToken: String,
         @Param("resultJson") resultJson: String,
         @Param("errorCode") errorCode: String?,
-        @Param("now") now: Instant
+        @Param("now") now: Instant,
     ): Int
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
@@ -88,14 +91,14 @@ interface OcrJobRepository : JpaRepository<OcrJob, Int> {
               AND lease_token = :leaseToken
               AND lease_until > :now
             """,
-        nativeQuery = true
+        nativeQuery = true,
     )
     fun completeExpenseStage(
         @Param("jobId") jobId: Int,
         @Param("leaseToken") leaseToken: String,
         @Param("expenseId") expenseId: Int,
         @Param("errorCode") errorCode: String?,
-        @Param("now") now: Instant
+        @Param("now") now: Instant,
     ): Int
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
@@ -115,13 +118,13 @@ interface OcrJobRepository : JpaRepository<OcrJob, Int> {
               AND lease_token = :leaseToken
               AND lease_until > :now
             """,
-        nativeQuery = true
+        nativeQuery = true,
     )
     fun completeReceiptStage(
         @Param("jobId") jobId: Int,
         @Param("leaseToken") leaseToken: String,
         @Param("receiptId") receiptId: Int,
-        @Param("now") now: Instant
+        @Param("now") now: Instant,
     ): Int
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
@@ -137,12 +140,12 @@ interface OcrJobRepository : JpaRepository<OcrJob, Int> {
               AND user_id = :userId
               AND status IN ('PENDING', 'RETRY_WAIT', 'PROCESSING')
             """,
-        nativeQuery = true
+        nativeQuery = true,
     )
     fun cancelClaimed(
         @Param("jobId") jobId: Int,
         @Param("userId") userId: Int,
-        @Param("now") now: Instant
+        @Param("now") now: Instant,
     ): Int
 
     /**
@@ -168,14 +171,14 @@ interface OcrJobRepository : JpaRepository<OcrJob, Int> {
                     OR (status = 'RETRY_WAIT' AND (next_attempt_at IS NULL OR next_attempt_at <= :now))
                   )
             """,
-        nativeQuery = true
+        nativeQuery = true,
     )
     fun claimEligible(
         @Param("jobId") jobId: Int,
         @Param("stage") stage: String,
         @Param("leaseToken") leaseToken: String,
         @Param("leaseUntil") leaseUntil: Instant,
-        @Param("now") now: Instant
+        @Param("now") now: Instant,
     ): Int
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
@@ -199,12 +202,12 @@ interface OcrJobRepository : JpaRepository<OcrJob, Int> {
               AND lease_token = :leaseToken
               AND lease_until > :now
             """,
-        nativeQuery = true
+        nativeQuery = true,
     )
     fun completeClaimedStage(
         @Param("jobId") jobId: Int,
         @Param("leaseToken") leaseToken: String,
-        @Param("now") now: Instant
+        @Param("now") now: Instant,
     ): Int
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
@@ -223,14 +226,14 @@ interface OcrJobRepository : JpaRepository<OcrJob, Int> {
               AND lease_token = :leaseToken
               AND lease_until > :now
             """,
-        nativeQuery = true
+        nativeQuery = true,
     )
     fun recordPermanentFailure(
         @Param("jobId") jobId: Int,
         @Param("leaseToken") leaseToken: String,
         @Param("errorCode") errorCode: String,
         @Param("errorMessage") errorMessage: String?,
-        @Param("now") now: Instant
+        @Param("now") now: Instant,
     ): Int
 
     /** Replaces an expired lease in one compare-and-set operation. */
@@ -250,14 +253,14 @@ interface OcrJobRepository : JpaRepository<OcrJob, Int> {
               AND lease_until IS NOT NULL
               AND lease_until <= :now
             """,
-        nativeQuery = true
+        nativeQuery = true,
     )
     fun reclaimExpired(
         @Param("jobId") jobId: Int,
         @Param("stage") stage: String,
         @Param("leaseToken") leaseToken: String,
         @Param("leaseUntil") leaseUntil: Instant,
-        @Param("now") now: Instant
+        @Param("now") now: Instant,
     ): Int
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
@@ -277,7 +280,7 @@ interface OcrJobRepository : JpaRepository<OcrJob, Int> {
               AND lease_token = :leaseToken
               AND lease_until > :now
             """,
-        nativeQuery = true
+        nativeQuery = true,
     )
     fun recordTransientFailure(
         @Param("jobId") jobId: Int,
@@ -285,6 +288,6 @@ interface OcrJobRepository : JpaRepository<OcrJob, Int> {
         @Param("nextAttemptAt") nextAttemptAt: Instant,
         @Param("errorCode") errorCode: String,
         @Param("errorMessage") errorMessage: String?,
-        @Param("now") now: Instant
+        @Param("now") now: Instant,
     ): Int
 }

@@ -11,12 +11,14 @@ import org.junit.jupiter.api.io.TempDir
 import org.mockito.Mockito.mock
 import org.springframework.http.HttpStatus
 import org.springframework.web.server.ResponseStatusException
+import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.attribute.FileTime
+import java.time.Instant
 import java.time.LocalDate
 import java.util.concurrent.Executors
 
 class StorageServiceTest {
-
     @TempDir
     lateinit var tempDir: Path
 
@@ -27,26 +29,38 @@ class StorageServiceTest {
     private lateinit var storageService: StorageService
 
     // Valid PNG magic bytes header (8 bytes)
-    private val pngBytes = byteArrayOf(
-        0x89.toByte(), 0x50.toByte(), 0x4E.toByte(), 0x47.toByte(),
-        0x0D.toByte(), 0x0A.toByte(), 0x1A.toByte(), 0x0A.toByte()
-    )
+    private val pngBytes =
+        byteArrayOf(
+            0x89.toByte(),
+            0x50.toByte(),
+            0x4E.toByte(),
+            0x47.toByte(),
+            0x0D.toByte(),
+            0x0A.toByte(),
+            0x1A.toByte(),
+            0x0A.toByte(),
+        )
 
     // Valid JPEG magic bytes header (4 bytes)
-    private val jpegBytes = byteArrayOf(
-        0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte(), 0xE0.toByte()
-    )
+    private val jpegBytes =
+        byteArrayOf(
+            0xFF.toByte(),
+            0xD8.toByte(),
+            0xFF.toByte(),
+            0xE0.toByte(),
+        )
 
     @BeforeEach
     fun setUp() {
-        storageService = StorageService(
-            appSettingRepository = appSettingRepository,
-            cryptoService = cryptoService,
-            objectMapper = objectMapper,
-            executor = Executors.newSingleThreadExecutor(),
-            transactionTemplate = mock(org.springframework.transaction.support.TransactionTemplate::class.java),
-            defaultReceiptsDir = tempDir.toString()
-        )
+        storageService =
+            StorageService(
+                appSettingRepository = appSettingRepository,
+                cryptoService = cryptoService,
+                objectMapper = objectMapper,
+                executor = Executors.newSingleThreadExecutor(),
+                transactionTemplate = mock(org.springframework.transaction.support.TransactionTemplate::class.java),
+                defaultReceiptsDir = tempDir.toString(),
+            )
     }
 
     @Test
@@ -55,8 +69,45 @@ class StorageServiceTest {
         val path = storageService.storeFile(StorageContext.RECEIPT, upload, entityId = 42)
 
         val now = LocalDate.now()
-        val expectedPrefix = "${now.year}/${String.format("%02d", now.monthValue)}/42_test_receipt.png"
-        assertEquals(expectedPrefix, path)
+        val expectedPrefix = "${now.year}/${String.format("%02d", now.monthValue)}/42_"
+        assertTrue(path.startsWith(expectedPrefix))
+        assertTrue(path.endsWith("_test_receipt.png"))
+        assertTrue(path.removePrefix(expectedPrefix).removeSuffix("_test_receipt.png").matches(Regex("[0-9a-f-]{36}")))
+    }
+
+    @Test
+    fun `same receipt filename does not overwrite bytes of an old orphan`() {
+        val originalBytes = pngBytes + byteArrayOf(1, 2, 3, 4)
+        val replacementBytes = pngBytes + byteArrayOf(5, 6, 7, 8)
+        val oldPath =
+            storageService.storeFile(
+                StorageContext.RECEIPT,
+                RawUpload(originalBytes, "same_name.png", "image/png"),
+                entityId = 42,
+            )
+        val oldFile = tempDir.resolve(oldPath)
+        Files.setLastModifiedTime(oldFile, FileTime.from(Instant.now().minusSeconds(172_800)))
+
+        val newPath =
+            storageService.storeFile(
+                StorageContext.RECEIPT,
+                RawUpload(replacementBytes, "same_name.png", "image/png"),
+                entityId = 42,
+            )
+
+        assertNotEquals(oldPath, newPath)
+        assertArrayEquals(originalBytes, storageService.downloadFile(oldPath))
+        assertArrayEquals(replacementBytes, storageService.downloadFile(newPath))
+    }
+
+    @Test
+    fun `downloadFile can still read an existing receipt path without a UUID`() {
+        val oldPath = "2001/02/42_existing_receipt.png"
+        val oldFile = tempDir.resolve(oldPath)
+        Files.createDirectories(oldFile.parent)
+        Files.write(oldFile, pngBytes)
+
+        assertArrayEquals(pngBytes, storageService.downloadFile(oldPath))
     }
 
     @Test
@@ -72,9 +123,10 @@ class StorageServiceTest {
     @Test
     fun `storeFile RECEIPT context rejects disallowed extension`() {
         val upload = RawUpload("some text file content".toByteArray(), "test.txt", "text/plain")
-        val ex = assertThrows<IllegalArgumentException> {
-            storageService.storeFile(StorageContext.RECEIPT, upload, entityId = 42)
-        }
+        val ex =
+            assertThrows<IllegalArgumentException> {
+                storageService.storeFile(StorageContext.RECEIPT, upload, entityId = 42)
+            }
         assertTrue(ex.message?.contains("File type .txt not allowed") == true)
     }
 
@@ -82,9 +134,10 @@ class StorageServiceTest {
     fun `storeFile RECEIPT context rejects payload larger than 10MB`() {
         val largeBytes = ByteArray(10 * 1024 * 1024 + 1)
         val upload = RawUpload(largeBytes, "large.png", "image/png")
-        val ex = assertThrows<ResponseStatusException> {
-            storageService.storeFile(StorageContext.RECEIPT, upload, entityId = 42)
-        }
+        val ex =
+            assertThrows<ResponseStatusException> {
+                storageService.storeFile(StorageContext.RECEIPT, upload, entityId = 42)
+            }
         assertEquals(HttpStatus.PAYLOAD_TOO_LARGE, ex.statusCode)
     }
 
@@ -99,9 +152,10 @@ class StorageServiceTest {
     @Test
     fun `storeFile SIGNATURE context rejects non-png file`() {
         val upload = RawUpload(jpegBytes, "sig.jpg", "image/jpeg")
-        val ex = assertThrows<IllegalArgumentException> {
-            storageService.storeFile(StorageContext.SIGNATURE, upload, entityId = 99)
-        }
+        val ex =
+            assertThrows<IllegalArgumentException> {
+                storageService.storeFile(StorageContext.SIGNATURE, upload, entityId = 99)
+            }
         assertTrue(ex.message?.contains("File type .jpg not allowed") == true)
     }
 
@@ -109,18 +163,20 @@ class StorageServiceTest {
     fun `storeFile SIGNATURE context rejects payload larger than 2MB`() {
         val largeBytes = ByteArray(2 * 1024 * 1024 + 1)
         val upload = RawUpload(largeBytes, "sig.png", "image/png")
-        val ex = assertThrows<ResponseStatusException> {
-            storageService.storeFile(StorageContext.SIGNATURE, upload, entityId = 99)
-        }
+        val ex =
+            assertThrows<ResponseStatusException> {
+                storageService.storeFile(StorageContext.SIGNATURE, upload, entityId = 99)
+            }
         assertEquals(HttpStatus.PAYLOAD_TOO_LARGE, ex.statusCode)
     }
 
     @Test
     fun `validateMagicBytes detects corrupted or invalid headers`() {
         val badBytes = byteArrayOf(0x00, 0x00, 0x00, 0x00)
-        val ex = assertThrows<ResponseStatusException> {
-            storageService.validateMagicBytes(badBytes, setOf("image/png"))
-        }
+        val ex =
+            assertThrows<ResponseStatusException> {
+                storageService.validateMagicBytes(badBytes, setOf("image/png"))
+            }
         assertEquals(HttpStatus.BAD_REQUEST, ex.statusCode)
     }
 }

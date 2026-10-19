@@ -29,3 +29,11 @@ Re-review found no remaining blocker in these fixes or the reviewed P2 implement
 OCR acceptance response loss still needs owner-scoped backend idempotency/lookup; unknown acceptance is retained and paused, not blindly uploaded again. Full verification/corrections/confirmation UX, owner retry/manual completion, service-worker cold-start/device acceptance and EN/RO light/dark screenshot evidence remain outside this release. Retention unit tests mock repository candidate SQL/locking; external OCR/S3 behavior is not established by this test run.
 
 Deploy from a clean committed archive, not the dirty checkout. Preserve exact prior image IDs for rollback and back up PostgreSQL plus uploaded files before enabling terminal-source deletion. V104 is additive and may remain if application images are rolled back; never restore a database over newer live writes merely to roll back application code.
+
+## Production rollout
+
+Application commit `2e9f8372a5be4577425103b654832ddf7aece2b0` was built from a clean archive and deployed sequentially, backend then frontend. Both production images carry this revision label. All four services are healthy; local/public health and login checks passed, unauthenticated Expenses returned 401, keyed CORS preflight passed, and V104 applied successfully. DB/Redis containers were not replaced. Live offline public assets match the committed archive, not unrelated dirty assets.
+
+PostgreSQL and `/app/data` backups were validated for archive readability, not restore-tested. Exact pre-release application images and deployment/rollback configuration are retained under `/root/xpenses-deployments/p2-2e9f8372a5be`.
+
+**OCR retention was not activated.** Four expired terminal records have valid unshared source paths, but no corresponding readable bytes exist in live local storage or the uploaded-file backup. Their metadata was preserved; zero sources were cleaned. Compose now requires explicit `OCR_SOURCE_CLEANUP_ENABLED=true` after source/backup investigation, preventing an ordinary redeploy from silently enabling deletion. This is an operational qualification, not a claim that production cleanup has been validated. Application-image rollback leaves additive V104 intact.

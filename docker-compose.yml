@@ -56,6 +56,8 @@ services:
       - SEED_DEMO_USERS=${SEED_DEMO_USERS:-false}
       - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-prod}
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      # Destructive source retention is opt-in after backup/source verification.
+      - OCR_SOURCE_CLEANUP_ENABLED=${OCR_SOURCE_CLEANUP_ENABLED:-false}
     depends_on:
       db:
         condition: service_healthy

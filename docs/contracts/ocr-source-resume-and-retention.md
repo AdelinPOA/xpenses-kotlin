@@ -29,7 +29,7 @@ Scope: a narrow correctness prerequisite for #46/#49, **not completion of either
 
 `OcrSourceCleanupService.cleanup` runs one bounded batch per interval, with these configuration defaults:
 
-- `ocr.source.cleanup-enabled=true` (operator kill switch)
+- `ocr.source.cleanup-enabled=true` in the standalone backend (operator kill switch); Compose overrides this with opt-in `OCR_SOURCE_CLEANUP_ENABLED=false` by default, pending source/backup verification
 - `ocr.source.cleanup-interval=3600000` milliseconds
 - `ocr.source.cleanup-batch-size=25` (clamped to 1–100)
 
@@ -43,4 +43,4 @@ No schema migration/backfill is needed: `remoteJobId` is an additive IndexedDB r
 
 - `cd frontend && node --test tests/expenses/receipt-capture.test.cjs tests/expenses/ocr-source-queue.test.cjs tests/expenses/capture-resume-state.test.cjs`: acceptance-before-polling, resume without upload, abort without DELETE, failed local acceptance then retry without another POST, retained upload uncertainty, rejected-source discard, owner isolation, lease fencing, immutable known job ID.
 - `OcrSourceCleanupServiceTest`: 12 tests passed in the targeted backend run, including expired failure cleanup, active/recoverable protection, shared paths, real local deletion failure, symlink protection and progress behind protected/erroring batches. Repository mocks do not prove production candidate SQL behavior or cross-process locks.
-- Full #46/#49 still require the durable verification/corrections contract, backend owner retry/manual completion/lookup APIs, interrupted acceptance coverage, authenticated isolated integration and browser/device acceptance. No deployment or production mutation is part of this prerequisite.
+- Full #46/#49 still require the durable verification/corrections contract, backend owner retry/manual completion/lookup APIs, interrupted acceptance coverage, authenticated isolated integration and browser/device acceptance. The P2 application was subsequently deployed; production retention remains disabled because initial expired source candidates lack readable local/backed-up bytes. See [P2 review and rollout](../reviews/p2-save-correctness.md).

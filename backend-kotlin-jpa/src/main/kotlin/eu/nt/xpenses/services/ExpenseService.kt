@@ -178,6 +178,10 @@ class ExpenseService(
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Only draft expenses can be edited")
         }
 
+        if (body.clearCategory && body.categoryId != null) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot select and clear category in the same update")
+        }
+
         val hasRateInputs = body.fxRate != null || body.amount != null || body.currency != null || body.date != null || body.taxAmount != null || body.taxRate != null
 
         if (hasRateInputs) {
@@ -215,7 +219,9 @@ class ExpenseService(
         if (body.merchant != null) expense.merchant = body.merchant
         if (body.rawOcrText != null) expense.rawOcrText = body.rawOcrText
 
-        if (body.categoryId != null) {
+        if (body.clearCategory) {
+            expense.category = null
+        } else if (body.categoryId != null) {
             val cat = categoryRepository.findById(body.categoryId).orElseThrow {
                 ResponseStatusException(HttpStatus.NOT_FOUND, "Category not found")
             }
@@ -329,8 +335,12 @@ class ExpenseService(
         }
     }
 
-    @Transactional
-    fun uploadReceipts(expenseId: Int, files: List<MultipartFile>, currentUser: User): List<Map<String, Any>> {
+    @Transactional(readOnly = true)
+    fun requireReceiptUploadAllowed(expenseId: Int, currentUser: User) {
+        receiptUploadExpense(expenseId, currentUser)
+    }
+
+    private fun receiptUploadExpense(expenseId: Int, currentUser: User): Expense {
         val expense = expenseRepository.findById(expenseId).orElseThrow {
             ResponseStatusException(HttpStatus.NOT_FOUND, "Expense not found")
         }
@@ -341,7 +351,12 @@ class ExpenseService(
         if (expense.status != "draft") {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Only draft expenses can have receipts uploaded")
         }
+        return expense
+    }
 
+    @Transactional
+    fun uploadReceipts(expenseId: Int, files: List<MultipartFile>, currentUser: User): List<Map<String, Any>> {
+        val expense = receiptUploadExpense(expenseId, currentUser)
         val now = Instant.now()
         val savedReceiptsList = mutableListOf<Map<String, Any>>()
         val stagedPaths = mutableListOf<String>()
@@ -383,6 +398,11 @@ class ExpenseService(
                 createdAt = now
             )
             val savedReceipt = receiptRepository.save(receipt)
+            // Keep both sides consistent for an already-initialized collection
+            // (notably the bulk response in an open request EntityManager).
+            if (expense.receipts.none { it.id == savedReceipt.id }) {
+                expense.receipts.add(savedReceipt)
+            }
             savedReceiptsList.add(mapOf(
                 "id" to savedReceipt.id!!,
                 "file_path" to relativePath,

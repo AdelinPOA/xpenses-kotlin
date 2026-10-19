@@ -161,7 +161,8 @@ class OcrController(
             // the recovery API will expose the canonical persisted vocabulary.
             "status" to when (job.status) {
                 OcrJobStatus.COMPLETED -> "completed"
-                OcrJobStatus.PERMANENT_FAILURE, OcrJobStatus.UNRECOVERABLE -> "failed"
+                OcrJobStatus.PERMANENT_FAILURE, OcrJobStatus.UNRECOVERABLE,
+                OcrJobStatus.CANCELLED, OcrJobStatus.EXPIRED -> "failed"
                 else -> job.status.lowercase()
             },
             "stage" to job.stage,
@@ -172,8 +173,11 @@ class OcrController(
 
         if (job.status == OcrJobStatus.COMPLETED && job.resultJson != null) {
             response["result"] = objectMapper.readValue(job.resultJson, Map::class.java)
-        } else if (job.status == OcrJobStatus.PERMANENT_FAILURE || job.status == OcrJobStatus.UNRECOVERABLE) {
-            response["error"] = job.errorMessage ?: job.unrecoverableReason
+        } else if (job.status in setOf(
+                OcrJobStatus.PERMANENT_FAILURE, OcrJobStatus.UNRECOVERABLE,
+                OcrJobStatus.CANCELLED, OcrJobStatus.EXPIRED
+            )) {
+            response["error"] = job.unrecoverableReason ?: job.errorMessage ?: job.status
         }
 
         return ResponseEntity.ok(response)

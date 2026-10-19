@@ -19,5 +19,7 @@ data class ExpenseUpdate(
     @JsonProperty("raw_ocr_text") val rawOcrText: String? = null,
     @JsonProperty("comparison_id") val comparisonId: Int? = null,
     @JsonProperty("fx_rate") @field:DecimalMin(value = "0.0", inclusive = false) val fxRate: BigDecimal? = null,
-    @JsonProperty("fx_rate_manual") val fxRateManual: Boolean? = null
+    @JsonProperty("fx_rate_manual") val fxRateManual: Boolean? = null,
+    // Null category_id retains legacy omission semantics; clearing is explicit.
+    @JsonProperty("clear_category") val clearCategory: Boolean = false
 )

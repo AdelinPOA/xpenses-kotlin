@@ -192,6 +192,107 @@ class AdvanceControllerTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `updating requested advance changes request values without realizing a payment`() {
+        val report = makeTechReport()
+        entityManager.flush()
+        entityManager.clear()
+        val cookie = authHelper.loginAs("tech1", "tech1")
+        val createResult = mockMvc.perform(
+            post("/api/reports/${report.id}/advances")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"type":"request","amount":200.00,"currency":"USD"}""")
+                .cookie(cookie)
+        ).andExpect(status().isCreated).andReturn()
+        val advanceId = com.fasterxml.jackson.module.kotlin.jacksonObjectMapper()
+            .readTree(createResult.response.contentAsString).get("id").asInt()
+        clearInvocations(fxService)
+
+        mockMvc.perform(
+            patch("/api/reports/${report.id}/advances/$advanceId")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"amount":350.00,"currency":"GBP","description":"Updated request"}""")
+                .cookie(cookie)
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.status").value("requested"))
+            .andExpect(jsonPath("$.requested_amount").value(350.0))
+            .andExpect(jsonPath("$.requested_currency").value("GBP"))
+            .andExpect(jsonPath("$.description").value("Updated request"))
+            .andExpect(jsonPath("$.amount_original").value(0))
+            .andExpect(jsonPath("$.amount_eur").value(0))
+            .andExpect(jsonPath("$.currency_original").value("USD"))
+            .andExpect(jsonPath("$.fx_rate").value(0))
+            .andExpect(jsonPath("$.date").value(""))
+            .andExpect(jsonPath("$.paid_by").doesNotExist())
+            .andExpect(jsonPath("$.paid_at").doesNotExist())
+
+        // Independently patch each field: omitted request fields must not fall back
+        // to the (zero-valued) actual payment fields.
+        mockMvc.perform(
+            patch("/api/reports/${report.id}/advances/$advanceId")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"amount":375.00}""")
+                .cookie(cookie)
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.requested_amount").value(375.0))
+            .andExpect(jsonPath("$.requested_currency").value("GBP"))
+        mockMvc.perform(
+            patch("/api/reports/${report.id}/advances/$advanceId")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"currency":"CHF"}""")
+                .cookie(cookie)
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.requested_amount").value(375.0))
+            .andExpect(jsonPath("$.requested_currency").value("CHF"))
+
+        entityManager.flush()
+        entityManager.clear()
+        mockMvc.perform(get("/api/reports/${report.id}/advances").cookie(cookie))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$[0].requested_amount").value(375.0))
+            .andExpect(jsonPath("$[0].requested_currency").value("CHF"))
+            .andExpect(jsonPath("$[0].amount_original").value(0))
+            .andExpect(jsonPath("$[0].amount_eur").value(0))
+            .andExpect(jsonPath("$[0].date").value(""))
+        verify(fxService, times(0)).getRate(anyString(), anyString())
+    }
+
+    @Test
+    fun `requested advance edit rejects payment date without changing request or payment`() {
+        val report = makeTechReport()
+        entityManager.flush()
+        entityManager.clear()
+        val cookie = authHelper.loginAs("tech1", "tech1")
+        val createResult = mockMvc.perform(
+            post("/api/reports/${report.id}/advances")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"type":"request","amount":200.00,"currency":"USD"}""")
+                .cookie(cookie)
+        ).andExpect(status().isCreated).andReturn()
+        val advanceId = com.fasterxml.jackson.module.kotlin.jacksonObjectMapper()
+            .readTree(createResult.response.contentAsString).get("id").asInt()
+        clearInvocations(fxService)
+
+        mockMvc.perform(
+            patch("/api/reports/${report.id}/advances/$advanceId")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"amount":300.00,"currency":"GBP","date":"2024-04-05"}""")
+                .cookie(cookie)
+        ).andExpect(status().isBadRequest)
+
+        mockMvc.perform(get("/api/reports/${report.id}/advances").cookie(cookie))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$[0].requested_amount").value(200.0))
+            .andExpect(jsonPath("$[0].requested_currency").value("USD"))
+            .andExpect(jsonPath("$[0].amount_original").value(0))
+            .andExpect(jsonPath("$[0].amount_eur").value(0))
+            .andExpect(jsonPath("$[0].date").value(""))
+        verify(fxService, times(0)).getRate(anyString(), anyString())
+    }
+
+    @Test
     fun `POST advance on paid report returns 400 Bad Request`() {
         val tech = userRepository.findByUsername("tech1")!!
         val report = expenseReportRepository.save(ExpenseReport(user = tech, title = "Paid Report", status = "paid"))

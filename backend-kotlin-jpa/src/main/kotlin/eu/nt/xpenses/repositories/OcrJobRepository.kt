@@ -1,7 +1,9 @@
 package eu.nt.xpenses.repositories
 
 import eu.nt.xpenses.model.OcrJob
+import jakarta.persistence.LockModeType
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Lock
 import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
@@ -11,6 +13,39 @@ import java.time.Instant
 
 @Repository
 interface OcrJobRepository : JpaRepository<OcrJob, Int> {
+    @Query(
+        value = """
+            SELECT id FROM ocr_jobs
+            WHERE source_path IS NOT NULL AND expires_at <= :now
+              AND status IN ('COMPLETED', 'CANCELLED', 'PERMANENT_FAILURE', 'UNRECOVERABLE', 'EXPIRED')
+              AND (lease_until IS NULL OR lease_until <= :now)
+              AND id > :afterId
+            ORDER BY id LIMIT :batchSize
+        """,
+        nativeQuery = true,
+    )
+    fun findSourceCleanupCandidates(
+        @Param("now") now: Instant,
+        @Param("batchSize") batchSize: Int,
+        @Param("afterId") afterId: Int,
+    ): List<Int>
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT j FROM OcrJob j WHERE j.id = :jobId")
+    fun lockForSourceCleanup(@Param("jobId") jobId: Int): OcrJob?
+
+    @Query(
+        value = """
+            SELECT EXISTS (
+                SELECT 1 FROM receipts WHERE file_path = :path
+                UNION ALL SELECT 1 FROM users WHERE signature_path = :path
+                UNION ALL SELECT 1 FROM ocr_jobs WHERE source_path = :path AND id <> :jobId
+            )
+        """,
+        nativeQuery = true,
+    )
+    fun isSourcePathShared(@Param("path") path: String, @Param("jobId") jobId: Int): Boolean
+
     @Query("SELECT j.sourcePath FROM OcrJob j WHERE j.sourcePath IS NOT NULL")
     fun findAllSourcePaths(): List<String>
 

@@ -12,14 +12,19 @@ import {
   isReceiptCaptureCancelled,
   ScanTimeoutError,
   ScanJobError,
+  ScanUploadError,
+  ScanAcceptancePersistenceError,
 } from "@/lib/receiptCapture";
 import type { ScanProgress } from "@/lib/receiptCapture";
 import {
+  acknowledgeOcrSource,
   claimOcrSource,
   enqueueOcrSource,
   listOcrSources,
+  markOcrSourceUpload,
   releaseOcrSource,
   removeOcrSource,
+  renewOcrSource,
   type PendingOcrSource,
 } from "@/lib/ocrSourceQueue";
 import { triggerHaptic } from "@/lib/haptics";
@@ -52,6 +57,8 @@ interface CapturedItem {
   progressPhase?: string;
   progressSeconds?: number;
   expenseId?: number;
+  remoteJobId?: number;
+  uploadState?: PendingOcrSource["uploadState"];
   merchant?: string | null;
   amountEur?: number | null;
   errorMessage?: string;
@@ -66,7 +73,7 @@ function fileFromOcrSource(source: PendingOcrSource): File {
 }
 
 function isRetryableCaptureError(error: unknown): boolean {
-  if (error instanceof ScanTimeoutError || error instanceof ScanJobError) {
+  if (error instanceof ScanTimeoutError || error instanceof ScanJobError || error instanceof ScanAcceptancePersistenceError) {
     return false;
   }
   if (!navigator.onLine) return true;
@@ -83,10 +90,18 @@ function isRetryableCaptureError(error: unknown): boolean {
 
 export default function CapturePage() {
   const { user } = useAuth();
+  // An account change must drop the old owner's thumbnails, callbacks and
+  // observation state even when the router keeps this page mounted.
+  return <CaptureSession key={user?.id ?? "signed-out"} />;
+}
+
+function CaptureSession() {
+  const { user } = useAuth();
   const qc = useQueryClient();
   const toast = useToast();
   const t = useTranslations("expenses");
   const tc = useTranslations("capture");
+  const to = useTranslations("offline");
 
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const scanInputRef = useRef<HTMLInputElement>(null);
@@ -95,6 +110,10 @@ export default function CapturePage() {
   const scanControllersRef = useRef<Map<string, AbortController>>(new Map());
   const sourceLeasesRef = useRef<Map<string, PendingOcrSource>>(new Map());
   const cancelledItemsRef = useRef<Set<string>>(new Set());
+  const failedSourcesRef = useRef<Set<string>>(new Set());
+  // Same-owner session fallback if the acceptance IndexedDB commit fails. Never
+  // overwrite this identity with an older local record that has no job ID.
+  const acceptedJobsRef = useRef<Map<string, number>>(new Map());
   const mountedRef = useRef(true);
   const [lightboxImage, setLightboxImage] = useState<{
     url: string;
@@ -107,9 +126,8 @@ export default function CapturePage() {
       mountedRef.current = false;
       scanControllersRef.current.forEach((controller) => controller.abort());
       scanControllersRef.current.clear();
-      sourceLeasesRef.current.forEach((source) => {
-        void releaseOcrSource(source).catch(() => undefined);
-      });
+      // The async operation releases its claim after its acceptance callback
+      // finishes. Releasing here can race the IndexedDB commit of the job ID.
       sourceLeasesRef.current.clear();
       objectUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
       objectUrlsRef.current.clear();
@@ -176,6 +194,10 @@ export default function CapturePage() {
         return;
       }
       if (!claimed) return;
+      if (!mountedRef.current) {
+        await releaseOcrSource(claimed).catch(() => undefined);
+        return;
+      }
       if (cancelledItemsRef.current.has(clientItemId)) {
         await removeOcrSource(clientItemId, user.id, claimed.leaseToken).catch(
           () => undefined,
@@ -183,14 +205,46 @@ export default function CapturePage() {
         return;
       }
 
+      claimed.remoteJobId ??= acceptedJobsRef.current.get(clientItemId);
+      if (!claimed.remoteJobId && (claimed.uploadState === "uploading" || claimed.uploadState === "uncertain")) {
+        failedSourcesRef.current.add(clientItemId);
+        await releaseOcrSource(claimed).catch(() => undefined);
+        updateItem(clientItemId, { status: "failed", uploadState: "uncertain", errorMessage: tc("upload_uncertain") });
+        return;
+      }
+      failedSourcesRef.current.delete(clientItemId);
       const controller = new AbortController();
       scanControllersRef.current.set(clientItemId, controller);
       sourceLeasesRef.current.set(clientItemId, claimed);
-      updateItem(clientItemId, { status: "uploading" });
+      updateItem(clientItemId, {
+        status: claimed.remoteJobId ? "reading" : "uploading",
+        remoteJobId: claimed.remoteJobId,
+        uploadState: claimed.uploadState,
+        errorMessage: undefined,
+      });
+      const heartbeat = setInterval(() => {
+        void renewOcrSource(claimed).catch(() => controller.abort());
+      }, 10_000);
 
       try {
         const capture = await captureReceipt(file, {
           signal: controller.signal,
+          resumeJobId: claimed.remoteJobId,
+          onUploading: async () => {
+            await markOcrSourceUpload(claimed, "uploading");
+            claimed.uploadState = "uploading";
+            updateItem(clientItemId, { uploadState: "uploading" });
+          },
+          onAccepted: async (jobId) => {
+            // Preserve the received identity BEFORE a fallible local write. A
+            // later claim can return an older record lacking this accepted ID.
+            acceptedJobsRef.current.set(clientItemId, jobId);
+            claimed.remoteJobId = jobId;
+            updateItem(clientItemId, { remoteJobId: jobId });
+            await acknowledgeOcrSource(claimed, jobId);
+            claimed.uploadState = undefined;
+            updateItem(clientItemId, { uploadState: undefined });
+          },
           onProgress: (p: ScanProgress) => {
             updateItem(clientItemId, {
               status: p.phase === "uploading" ? "uploading" : "reading",
@@ -203,6 +257,7 @@ export default function CapturePage() {
 
         await removeOcrSource(clientItemId, user.id, claimed.leaseToken);
         sourceLeasesRef.current.delete(clientItemId);
+        acceptedJobsRef.current.delete(clientItemId);
 
         const scanned = capture.result;
         qc.invalidateQueries({ queryKey: expenseKeys.all });
@@ -215,13 +270,15 @@ export default function CapturePage() {
           amountEur: scanned.amount,
           errorMessage: scanned.error_code ?? undefined,
         });
-        toast[capture.needsDetails ? "warning" : "success"](
-          tc(
-            capture.needsDetails
-              ? "draft_needs_details_toast"
-              : "draft_saved_toast",
-          ),
-        );
+        if (mountedRef.current) {
+          toast[capture.needsDetails ? "warning" : "success"](
+            tc(
+              capture.needsDetails
+                ? "draft_needs_details_toast"
+                : "draft_saved_toast",
+            ),
+          );
+        }
       } catch (err: any) {
         if (isReceiptCaptureCancelled(err)) {
           if (cancelledItemsRef.current.has(clientItemId)) {
@@ -232,39 +289,61 @@ export default function CapturePage() {
             ).catch(() => undefined);
           } else {
             void releaseOcrSource(claimed).catch(() => undefined);
+            const uncertain = !claimed.remoteJobId && Boolean(claimed.uploadState);
+            updateItem(clientItemId, {
+              status: uncertain ? "failed" : "queued",
+              remoteJobId: claimed.remoteJobId,
+              uploadState: uncertain ? "uncertain" : claimed.uploadState,
+              errorMessage: uncertain ? tc("upload_uncertain") : undefined,
+            });
           }
           return;
         }
 
-        if (isRetryableCaptureError(err)) {
+        if (err instanceof ScanUploadError) {
+          claimed.uploadState = err.definitelyRejected ? "rejected" : "uncertain";
+          // If this write fails, the already-committed uploading marker remains
+          // conservative on reload. Never turn an ambiguous POST into new work.
+          await markOcrSourceUpload(claimed, claimed.uploadState).catch(() => undefined);
+        }
+
+        if (claimed.remoteJobId && isRetryableCaptureError(err)) {
           await releaseOcrSource(claimed).catch(() => undefined);
           updateItem(clientItemId, { status: "queued" });
           return;
         }
 
-        await removeOcrSource(clientItemId, user.id, claimed.leaseToken).catch(
-          () => undefined,
-        );
+        // A timeout or permanent provider error is not acknowledgement of a
+        // completed Expense/Receipt. Keep the image and accepted job for resume.
+        await releaseOcrSource(claimed).catch(() => undefined);
         const message =
-          err instanceof ScanTimeoutError
-            ? t("error_ocr_timeout")
-            : err instanceof ScanJobError
-              ? (err.detail ?? t("error_ocr_job"))
-              : (err?.response?.data?.detail ??
-                err?.message ??
-                t("error_save"));
+          err instanceof ScanUploadError && !err.definitelyRejected
+            ? tc("upload_uncertain")
+            : err instanceof ScanAcceptancePersistenceError
+              ? tc("acceptance_not_persisted", { jobId: err.remoteJobId })
+              : err instanceof ScanUploadError
+                ? ((err.originalError as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? t("error_save"))
+                : err instanceof ScanTimeoutError
+                  ? t("error_ocr_timeout")
+                  : err instanceof ScanJobError
+                    ? (err.detail ?? t("error_ocr_job"))
+                    : (err?.response?.data?.detail ?? err?.message ?? t("error_save"));
         if (
           !(err instanceof ScanTimeoutError) &&
           !(err instanceof ScanJobError)
         ) {
           console.warn("OCR background scan warning", err);
         }
+        failedSourcesRef.current.add(clientItemId);
         updateItem(clientItemId, {
           status: "failed",
           errorMessage: message,
+          remoteJobId: claimed.remoteJobId,
+          uploadState: claimed.uploadState,
         });
-        toast.error(message);
+        if (mountedRef.current) toast.error(message);
       } finally {
+        clearInterval(heartbeat);
         scanControllersRef.current.delete(clientItemId);
         sourceLeasesRef.current.delete(clientItemId);
       }
@@ -294,7 +373,10 @@ export default function CapturePage() {
             id: source.id,
             file,
             previewUrl,
-            status: "queued" as const,
+            status: source.uploadState && !source.remoteJobId ? "failed" as const : "queued" as const,
+            remoteJobId: source.remoteJobId ?? acceptedJobsRef.current.get(source.id),
+            uploadState: source.uploadState,
+            errorMessage: source.uploadState && source.uploadState !== "rejected" && !source.remoteJobId ? tc("upload_uncertain") : undefined,
             createdAt: source.createdAt,
           };
         });
@@ -303,10 +385,12 @@ export default function CapturePage() {
 
     if (navigator.onLine) {
       sources.forEach((source) => {
-        void processCapturedFile(source.id, fileFromOcrSource(source));
+        if (!failedSourcesRef.current.has(source.id) && (source.remoteJobId || !source.uploadState)) {
+          void processCapturedFile(source.id, fileFromOcrSource(source));
+        }
       });
     }
-  }, [processCapturedFile, user?.id]);
+  }, [processCapturedFile, tc, user?.id]);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -314,7 +398,10 @@ export default function CapturePage() {
     void restorePendingSources();
     window.addEventListener("online", restore);
     document.addEventListener("visibilitychange", restore);
+    // Pick up claims released by another tab/unmount, not only network changes.
+    const resumeTimer = setInterval(restore, 15_000);
     return () => {
+      clearInterval(resumeTimer);
       window.removeEventListener("online", restore);
       document.removeEventListener("visibilitychange", restore);
     };
@@ -588,9 +675,29 @@ export default function CapturePage() {
                     </div>
                   </div>
 
-                  {(item.status === "saving" ||
-                    item.status === "uploading" ||
-                    item.status === "reading") && (
+                  {item.errorMessage && (
+                    <p role="alert" className="text-xs text-rose-600 dark:text-rose-400 break-words">
+                      {item.errorMessage}
+                    </p>
+                  )}
+
+                  {/* Once upload starts, leaving only stops observation. Do not
+                      offer a destructive local discard for accepted server work. */}
+                  {item.status === "failed" && (item.remoteJobId || !item.uploadState || item.uploadState === "rejected") && (
+                    <button
+                      type="button"
+                      onClick={() => void processCapturedFile(item.id, item.file)}
+                      className="min-h-11 px-3 text-xs font-bold text-primary rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                    >
+                      {to("retry")}
+                    </button>
+                  )}
+
+                  {item.status === "failed" && !item.remoteJobId && item.uploadState && item.uploadState !== "rejected" && (
+                    <Link href="/expenses" className="min-h-11 px-3 text-xs font-bold text-primary underline">{tc("view_all")}</Link>
+                  )}
+
+                  {(item.status === "saving" || ((item.status === "queued" || item.status === "failed") && !item.remoteJobId && (!item.uploadState || item.uploadState === "rejected"))) && (
                     <button
                       type="button"
                       onClick={() => cancelCapturedFile(item.id)}

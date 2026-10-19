@@ -76,6 +76,77 @@ class ExpenseControllerTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `PATCH expense explicitly clears text and category but omitted fields remain unchanged`() {
+        val expense = saveTechExpense()
+        expense.merchant = "Merchant to clear"
+        expense.description = "Description to clear"
+        expenseRepository.save(expense)
+        entityManager.flush()
+        entityManager.clear()
+        val cookie = authHelper.loginAs("tech1", "tech1")
+        val categoryId = expense.category!!.id
+
+        mockMvc.perform(
+            patch("/api/expenses/${expense.id}")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"amount":42}""")
+                .cookie(cookie)
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.category_id").value(categoryId))
+            .andExpect(jsonPath("$.merchant").value("Merchant to clear"))
+            .andExpect(jsonPath("$.description").value("Description to clear"))
+
+        // A legacy null remains an omitted value, not an implicit destructive clear.
+        mockMvc.perform(
+            patch("/api/expenses/${expense.id}")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"category_id":null}""")
+                .cookie(cookie)
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.category_id").value(categoryId))
+
+        mockMvc.perform(
+            patch("/api/expenses/${expense.id}")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"merchant":"","description":"","clear_category":true}""")
+                .cookie(cookie)
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.category_id").doesNotExist())
+            .andExpect(jsonPath("$.merchant").value(""))
+            .andExpect(jsonPath("$.description").value(""))
+            .andExpect(jsonPath("$.amount_original").value(42))
+
+        entityManager.flush()
+        entityManager.clear()
+        val persisted = expenseRepository.findById(expense.id!!).orElseThrow()
+        org.junit.jupiter.api.Assertions.assertNull(persisted.category)
+        org.junit.jupiter.api.Assertions.assertEquals("", persisted.merchant)
+        org.junit.jupiter.api.Assertions.assertEquals("", persisted.description)
+    }
+
+    @Test
+    fun `PATCH expense rejects contradictory category selection and clearing`() {
+        val expense = saveTechExpense()
+        entityManager.flush()
+        entityManager.clear()
+        val categoryId = expense.category!!.id
+        val cookie = authHelper.loginAs("tech1", "tech1")
+        mockMvc.perform(
+            patch("/api/expenses/${expense.id}")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"category_id":$categoryId,"clear_category":true}""")
+                .cookie(cookie)
+        )
+            .andExpect(status().isBadRequest)
+        entityManager.flush()
+        entityManager.clear()
+        org.junit.jupiter.api.Assertions.assertEquals(categoryId, expenseRepository.findById(expense.id!!).orElseThrow().category!!.id)
+    }
+
+    @Test
     fun `DELETE draft expense returns 204`() {
         val expense = saveTechExpense()
         entityManager.flush()

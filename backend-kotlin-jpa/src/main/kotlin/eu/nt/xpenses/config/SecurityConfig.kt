@@ -145,7 +145,7 @@ class SecurityConfig(
         val configuration = CorsConfiguration()
         configuration.allowedOrigins = allowedOrigins
         configuration.allowedMethods = listOf("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
-        configuration.allowedHeaders = listOf("Authorization", "Content-Type", "Cookie", "X-Requested-With", "Accept")
+        configuration.allowedHeaders = listOf("Authorization", "Content-Type", "Cookie", "X-Requested-With", "Accept", "Idempotency-Key")
         configuration.exposedHeaders = listOf("Set-Cookie")
         configuration.allowCredentials = true
         

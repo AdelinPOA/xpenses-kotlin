@@ -21,11 +21,13 @@ export interface ExpenseTransport {
   createExpense(
     payload: Record<string, unknown>,
     signal?: AbortSignal,
+    idempotencyKey?: string,
   ): Promise<Expense>;
   uploadReceipts(
     expenseId: number,
     receipts: PendingReceipt[],
     signal?: AbortSignal,
+    idempotencyKey?: string,
   ): Promise<void>;
 }
 
@@ -54,16 +56,22 @@ export interface PendingExpenseStore {
 }
 
 const productionTransport: ExpenseTransport = {
-  async createExpense(payload, signal) {
-    const response = await api.post<Expense>("/expenses", payload, { signal });
+  async createExpense(payload, signal, idempotencyKey) {
+    const response = await api.post<Expense>("/expenses", payload, {
+      signal,
+      headers: { "Idempotency-Key": idempotencyKey },
+    });
     return response.data;
   },
-  async uploadReceipts(expenseId, receipts, signal) {
+  async uploadReceipts(expenseId, receipts, signal, idempotencyKey) {
     const formData = new FormData();
     receipts.forEach((receipt) =>
       formData.append("files", receipt.blob, receipt.name),
     );
-    await api.post(`/expenses/${expenseId}/receipts`, formData, { signal });
+    await api.post(`/expenses/${expenseId}/receipts`, formData, {
+      signal,
+      headers: { "Idempotency-Key": idempotencyKey },
+    });
   },
 };
 
@@ -273,6 +281,8 @@ async function withLeaseHeartbeat<T>(
 /**
  * Save one new Expense and its Receipt batch. The queue is created first so
  * online partial failures and offline captures use the same recovery path.
+ * Stage keys derive from the committed queue ID, never from a lease or attempt.
+ * Replays must preserve the original payload and ordered Receipt bytes.
  */
 export async function saveNewExpense(
   payload: Record<string, unknown>,
@@ -302,6 +312,7 @@ export async function saveNewExpense(
       return dependencies.transport.createExpense(
         claimed.payload,
         dependencies.signal,
+        `${claimed.id}:expense`,
       );
     });
   } catch (error) {
@@ -352,6 +363,7 @@ export async function saveNewExpense(
         expense.id,
         receipts,
         dependencies.signal,
+        `${withExpenseId.id}:receipts`,
       );
     });
     throwIfAborted(dependencies.signal);
@@ -414,6 +426,7 @@ export async function syncPendingExpenses(
           return dependencies.transport.createExpense(
             current.payload,
             dependencies.signal,
+            `${current.id}:expense`,
           );
         });
         assertReplayCurrent(dependencies);
@@ -443,6 +456,7 @@ export async function syncPendingExpenses(
           current.expenseId!,
           current.receipts,
           dependencies.signal,
+          `${current.id}:receipts`,
         );
       });
       assertReplayCurrent(dependencies);

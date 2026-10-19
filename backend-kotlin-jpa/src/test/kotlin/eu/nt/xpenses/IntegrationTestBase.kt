@@ -36,6 +36,8 @@ import java.math.BigDecimal
 abstract class IntegrationTestBase {
 
     companion object {
+        private val storageDirectory = java.nio.file.Files.createTempDirectory("test-storage").toAbsolutePath().toString()
+
         @JvmStatic
         val postgres: PostgreSQLContainer<*> = PostgreSQLContainer("postgres:16-alpine")
             .also { it.start() }
@@ -53,7 +55,7 @@ abstract class IntegrationTestBase {
             registry.add("seed.demo.users") { "true" }
             // Use temp directories for file storage in tests
             registry.add("signatures.dir") { java.nio.file.Files.createTempDirectory("test-signatures").toAbsolutePath().toString() }
-            registry.add("storage.local.base-dir") { java.nio.file.Files.createTempDirectory("test-storage").toAbsolutePath().toString() }
+            registry.add("storage.location") { storageDirectory }
         }
     }
 

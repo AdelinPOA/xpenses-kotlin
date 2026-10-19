@@ -57,6 +57,44 @@ export class ScanJobError extends Error {
   }
 }
 
+/** Upload reached the transport but did not yield a usable acceptance identity. */
+export class ScanUploadError extends Error {
+  constructor(
+    public definitelyRejected: boolean,
+    public originalError?: unknown,
+  ) {
+    super(
+      definitelyRejected
+        ? "OCR upload rejected"
+        : "OCR upload acceptance could not be confirmed",
+    );
+  }
+}
+
+/** Keep a received identity available even if local acknowledgement fails. */
+export class ScanAcceptancePersistenceError extends Error {
+  constructor(
+    public remoteJobId: number,
+    public originalError: unknown,
+  ) {
+    super(
+      typeof (originalError as { message?: unknown } | null)?.message ===
+        "string"
+        ? (originalError as { message: string }).message
+        : "Could not persist OCR acceptance",
+    );
+  }
+}
+
+function isDefinitiveUploadRejection(error: unknown): boolean {
+  const status = (error as { response?: { status?: number } } | null)?.response
+    ?.status;
+  return (
+    status !== undefined &&
+    [400, 401, 403, 404, 405, 413, 415, 422, 429].includes(status)
+  );
+}
+
 const sleep = (ms: number, signal?: AbortSignal) =>
   new Promise<void>((resolve, reject) => {
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -83,6 +121,12 @@ export interface ScanOptions {
   signal?: AbortSignal;
   /** Total wait cap for the whole scan (default 5 minutes for provider fallbacks). */
   maxWaitMs?: number;
+  /** Resume an acknowledged job without uploading the source a second time. */
+  resumeJobId?: number;
+  /** Commit the possibly-sent marker before POST, so reload cannot blindly re-upload. */
+  onUploading?: () => Promise<void>;
+  /** Must commit the accepted ID locally before polling starts, including resume. */
+  onAccepted?: (jobId: number) => Promise<void>;
 }
 
 /** The durable pipeline outcome shared by all receipt-capture callers. */
@@ -169,7 +213,13 @@ export async function scanReceipt(
 ): Promise<OCRScanResult> {
   const { onProgress, signal, maxWaitMs = 5 * 60_000 } = opts;
   const startedAt = Date.now();
-  let remoteJobId: number | null = null;
+  const resumeJobId = opts.resumeJobId;
+  if (
+    resumeJobId !== undefined &&
+    (!Number.isSafeInteger(resumeJobId) || resumeJobId <= 0)
+  ) {
+    throw new ScanJobError("Invalid OCR job ID");
+  }
 
   // Elapsed-seconds ticker once we reach the polling phase.
   let ticker: ReturnType<typeof setInterval> | null = null;
@@ -180,21 +230,58 @@ export async function scanReceipt(
     }
   };
   if (onProgress) {
-    onProgress({ phase: "uploading", elapsedSeconds: 0 });
+    onProgress({
+      phase: resumeJobId ? "reading" : "uploading",
+      elapsedSeconds: 0,
+    });
   }
 
   try {
-    const compressedBlob = await compressImage(file);
     if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
-
-    const fd = new FormData();
-    fd.append("file", compressedBlob, file.name);
-    const res = await api.post("/ocr/scan", fd, { signal });
-
+    let statusUrl: string | undefined;
     let result: OCRScanResult | undefined;
-    if (res.status === 202 && res.data.status_url) {
-      remoteJobId =
-        typeof res.data.job_id === "number" ? res.data.job_id : null;
+    const acknowledge = async (jobId: number) => {
+      try {
+        await opts.onAccepted?.(jobId);
+      } catch (error) {
+        throw new ScanAcceptancePersistenceError(jobId, error);
+      }
+    };
+    if (resumeJobId !== undefined) {
+      await acknowledge(resumeJobId);
+      statusUrl = `/ocr/status/${resumeJobId}`;
+    } else {
+      const compressedBlob = await compressImage(file);
+      if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+      const fd = new FormData();
+      fd.append("file", compressedBlob, file.name);
+      await opts.onUploading?.();
+      if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+      let res;
+      try {
+        res = await api.post("/ocr/scan", fd, { signal });
+      } catch (error) {
+        if (isAbortLikeError(error)) throw error;
+        throw new ScanUploadError(isDefinitiveUploadRejection(error), error);
+      }
+      if (res.status === 202) {
+        const jobId: unknown = res.data.job_id;
+        if (
+          typeof jobId !== "number" ||
+          !Number.isSafeInteger(jobId) ||
+          jobId <= 0
+        ) {
+          throw new ScanUploadError(false);
+        }
+        // Use the owner-authorized status endpoint, not an arbitrary response URL.
+        statusUrl = `/ocr/status/${jobId}`;
+        await acknowledge(jobId);
+      } else {
+        result = res.data as OCRScanResult;
+      }
+    }
+
+    if (statusUrl) {
       onProgress?.({
         phase: "reading",
         elapsedSeconds: Math.round((Date.now() - startedAt) / 1000),
@@ -209,7 +296,7 @@ export async function scanReceipt(
       const deadline = startedAt + maxWaitMs;
       while (Date.now() < deadline) {
         await sleep(1500, signal);
-        const statusRes = await api.get(res.data.status_url, { signal });
+        const statusRes = await api.get(statusUrl, { signal });
         if (statusRes.data.status === "completed") {
           const promotedResult = {
             ...(statusRes.data.result ?? {}),
@@ -231,20 +318,19 @@ export async function scanReceipt(
         }
       }
       if (!result) throw new ScanTimeoutError();
-    } else {
-      result = res.data as OCRScanResult;
     }
 
     onProgress?.({
       phase: "reading",
       elapsedSeconds: Math.round((Date.now() - startedAt) / 1000),
     });
+    if (!result) throw new ScanJobError();
     return result;
   } catch (e: unknown) {
     if (isAbortLikeError(e)) {
-      if (remoteJobId !== null) {
-        void api.delete(`/ocr/jobs/${remoteJobId}`).catch(() => undefined);
-      }
+      // Abort stops browser observation only. The accepted durable pipeline must
+      // keep running across navigation, logout and lost network connections.
+      // Destructive cancellation requires a separate explicit owner action.
       throw new ScanCancelledError();
     }
     throw e;

@@ -1,0 +1,106 @@
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+const vm = require("node:vm");
+const test = require("node:test");
+const ts = require("typescript");
+const { randomUUID } = require("node:crypto");
+
+function harness() {
+  const records = new Map();
+  const db = {
+    close() {},
+    transaction() {
+      let pending = 0;
+      let aborted = false;
+      const tx = {
+        abort() { aborted = true; queueMicrotask(() => tx.onabort?.()); },
+        objectStore() {
+          const request = (action) => {
+            const req = {};
+            pending++;
+            queueMicrotask(() => {
+              if (aborted) return;
+              req.result = action();
+              req.onsuccess?.();
+              if (--pending === 0) queueMicrotask(() => { if (!aborted) tx.oncomplete?.(); });
+            });
+            return req;
+          };
+          return {
+            get: (key) => request(() => records.get(key)),
+            getAll: () => request(() => [...records.values()]),
+            put: (value) => request(() => records.set(value.id, value)),
+            delete: (id) => request(() => records.delete(id)),
+          };
+        },
+      };
+      return tx;
+    },
+  };
+  const indexedDB = {
+    open() {
+      const req = {};
+      queueMicrotask(() => { req.result = db; req.onsuccess?.(); });
+      return req;
+    },
+  };
+  const filename = path.resolve(__dirname, "../../lib/ocrSourceQueue.ts");
+  const compiled = ts.transpileModule(fs.readFileSync(filename, "utf8"), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  const exports = {};
+  vm.runInNewContext(compiled, { exports, indexedDB, Date, Promise, Error, crypto: { randomUUID } }, { filename });
+  return { queue: exports, records };
+}
+const source = () => ({ id: "source", userId: 7, name: "receipt.pdf", type: "application/pdf", data: new ArrayBuffer(8) });
+
+test("accepted job ID survives release and re-claim; another owner cannot see or mutate it", async () => {
+  const { queue: q } = harness();
+  await q.enqueueOcrSource(source());
+  const claimed = await q.claimOcrSource("source", 7);
+  await q.acknowledgeOcrSource(claimed, 91);
+  await q.releaseOcrSource(claimed);
+  const restored = await q.claimOcrSource("source", 7);
+  assert.equal(restored.remoteJobId, 91);
+  assert.equal((await q.listOcrSources(8)).length, 0);
+  assert.equal(await q.claimOcrSource("source", 8), null);
+  await assert.rejects(q.acknowledgeOcrSource({ ...restored, userId: 8 }, 92), /claim was lost/);
+});
+
+test("heartbeat fences out a second tab until claim expires", async () => {
+  const { queue: q } = harness();
+  await q.enqueueOcrSource(source());
+  const first = await q.claimOcrSource("source", 7);
+  await q.renewOcrSource(first);
+  assert.equal(await q.claimOcrSource("source", 7), null);
+  const replacement = await q.claimOcrSource("source", 7, Date.now() + 60_000);
+  assert.notEqual(replacement.leaseToken, first.leaseToken);
+  await assert.rejects(q.acknowledgeOcrSource(first, 91), /claim was lost/);
+});
+
+test("upload intent and uncertainty survive release, and acceptance clears them", async () => {
+  const { queue: q } = harness();
+  await q.enqueueOcrSource(source());
+  const claim = await q.claimOcrSource("source", 7);
+  await q.markOcrSourceUpload(claim, "uploading");
+  await q.renewOcrSource(claim);
+  await q.releaseOcrSource(claim);
+  const restored = await q.claimOcrSource("source", 7);
+  assert.equal(restored.uploadState, "uploading");
+  await q.markOcrSourceUpload(restored, "uncertain");
+  await assert.rejects(q.markOcrSourceUpload({ ...restored, userId: 8 }, "rejected"), /claim was lost/);
+  assert.equal((await q.listOcrSources(7))[0].uploadState, "uncertain");
+  await q.acknowledgeOcrSource(restored, 91);
+  assert.equal((await q.listOcrSources(7))[0].uploadState, undefined);
+  await assert.rejects(q.markOcrSourceUpload(restored, "uploading"), /must resume/);
+});
+
+test("acknowledged source cannot be redirected to a replacement job", async () => {
+  const { queue: q } = harness();
+  await q.enqueueOcrSource(source());
+  const claim = await q.claimOcrSource("source", 7);
+  await q.acknowledgeOcrSource(claim, 91);
+  await assert.rejects(q.acknowledgeOcrSource(claim, 92), /another job/);
+  assert.equal((await q.listOcrSources(7))[0].remoteJobId, 91);
+});

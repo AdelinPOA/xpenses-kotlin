@@ -14,6 +14,10 @@ export interface PendingOcrSource {
   updatedAt: number;
   leaseToken?: string;
   leaseUntil?: number;
+  /** Persisted as soon as upload acceptance is acknowledged. Never re-upload it. */
+  remoteJobId?: number;
+  /** A POST may already have reached the server. Only a known job ID permits resume. */
+  uploadState?: "uploading" | "uncertain" | "rejected";
 }
 
 export interface NewOcrSource {
@@ -243,6 +247,62 @@ export async function claimOcrSource(
         fail(request.error ?? new Error("Could not claim OCR source"));
     },
   );
+}
+
+/** Persist acceptance under the same fenced claim used for upload. */
+export async function acknowledgeOcrSource(
+  source: PendingOcrSource,
+  remoteJobId: number,
+): Promise<void> {
+  if (!Number.isSafeInteger(remoteJobId) || remoteJobId <= 0) {
+    throw new Error("Invalid OCR job ID");
+  }
+  await updateClaimedSource(source, { remoteJobId, uploadState: undefined });
+}
+
+/** Commit transport intent before POST; preserve uncertainty across reload/tab handoff. */
+export async function markOcrSourceUpload(
+  source: PendingOcrSource,
+  uploadState: NonNullable<PendingOcrSource["uploadState"]>,
+): Promise<void> {
+  await updateClaimedSource(source, { uploadState });
+}
+
+/** Keep the local upload/poll claim alive during long provider fallbacks. */
+export async function renewOcrSource(source: PendingOcrSource): Promise<void> {
+  await updateClaimedSource(source, {});
+}
+
+async function updateClaimedSource(
+  source: PendingOcrSource,
+  updates: Pick<PendingOcrSource, "remoteJobId" | "uploadState">,
+): Promise<void> {
+  if (!isValidUserId(source.userId) || !source.leaseToken) {
+    throw new Error("OCR source claim required");
+  }
+  await runTransaction<void>("readwrite", (store, _setResult, fail) => {
+    const request = store.get(source.id);
+    request.onsuccess = () => {
+      const current = request.result as PendingOcrSource | undefined;
+      if (!current || current.userId !== source.userId || current.leaseToken !== source.leaseToken) {
+        fail(new Error("OCR source claim was lost"));
+        return;
+      }
+      if (updates.uploadState && current.remoteJobId) {
+        fail(new Error("Accepted OCR source must resume its existing job"));
+        return;
+      }
+      if (updates.remoteJobId && current.remoteJobId && current.remoteJobId !== updates.remoteJobId) {
+        fail(new Error("OCR source already belongs to another job"));
+        return;
+      }
+      const put = store.put({
+        ...current, ...updates, updatedAt: now(), leaseUntil: now() + LEASE_DURATION_MS,
+      });
+      put.onerror = () => fail(put.error ?? new Error("Could not persist OCR acceptance"));
+    };
+    request.onerror = () => fail(request.error ?? new Error("Could not read OCR source"));
+  });
 }
 
 /** Release a claim after a transient network failure or page unmount. */

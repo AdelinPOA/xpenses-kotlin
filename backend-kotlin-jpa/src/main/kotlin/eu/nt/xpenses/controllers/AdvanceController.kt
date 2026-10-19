@@ -162,6 +162,19 @@ class AdvanceController(
             throw ResponseStatusException(HttpStatus.NOT_FOUND, "Advance payment not in this report")
         }
 
+        // A request has no payment amount/rate/date yet. Editing it must not
+        // realize money; only the explicit /pay transition fills those fields.
+        if (adv.status == "requested") {
+            if (body.date != null) {
+                throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Payment date can only be set when paying an advance")
+            }
+            if (body.amount != null) adv.requestedAmount = body.amount
+            if (body.currency != null) adv.requestedCurrency = body.currency.uppercase()
+            if (body.description != null) adv.description = body.description
+            adv.updatedAt = Instant.now()
+            return mapAdvanceToOut(advancePaymentRepository.save(adv))
+        }
+
         val needFxRecalc = body.amount != null || body.currency != null || body.date != null
         if (needFxRecalc) {
             val effAmount = body.amount ?: adv.amountOriginal

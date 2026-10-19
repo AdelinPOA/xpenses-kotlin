@@ -393,6 +393,25 @@ open class StorageService(
         }
     }
 
+    /** Retention retains its DB pointer when either remote or local deletion fails. */
+    fun deleteOcrSource(relativePath: String) {
+        require(Regex("""ocr-sources/[^/\\\\]+""").matches(relativePath) &&
+            relativePath.substringAfter('/') !in setOf(".", "..")) { "Not an OCR source path" }
+        val config = getStorageConfig()
+        val localDir = config.local?.path ?: defaultReceiptsDir
+        val base = File(localDir).canonicalFile
+        val target = StoragePathResolver.resolve(base, relativePath)
+        val sourceDir = File(base, "ocr-sources")
+        require(target.parentFile == sourceDir.canonicalFile &&
+            !java.nio.file.Files.isSymbolicLink(sourceDir.toPath()) &&
+            !java.nio.file.Files.isSymbolicLink(File(base, relativePath).toPath())) { "Not a direct OCR source file" }
+        // Delete remote first. Unlike general receipt deletion, errors must propagate.
+        remoteProvider?.delete(relativePath)
+        // File.delete() silently returns false on failure. Retention must not clear
+        // its final database pointer until local deletion actually succeeds.
+        java.nio.file.Files.deleteIfExists(target.toPath())
+    }
+
     fun testConnection(configData: StorageConfigDto): Map<String, Any?> {
         val provider = createProvider(configData.providerType, configData)
         return provider.testConnection()

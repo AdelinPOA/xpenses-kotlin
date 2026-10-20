@@ -47,6 +47,18 @@ class OcrJob(
     @Column(name = "source_sha256", length = 64)
     var sourceSha256: String? = null,
 
+    @Column(name = "acceptance_key", length = 256)
+    var acceptanceKey: String? = null,
+
+    @Column(name = "acceptance_fingerprint", length = 64)
+    var acceptanceFingerprint: String? = null,
+
+    @Column(name = "requested_report_id")
+    var requestedReportId: Int? = null,
+
+    @Column(name = "report_link_status", nullable = false, length = 24)
+    var reportLinkStatus: String = "NOT_REQUESTED",
+
     @Column(name = "result_json", columnDefinition = "TEXT")
     var resultJson: String? = null,
 

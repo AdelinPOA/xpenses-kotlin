@@ -80,6 +80,17 @@ class Expense(
     @Column(nullable = false)
     var version: Int = 0,
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "verification_state", nullable = false, length = 20)
+    var verificationState: ExpenseVerificationState = ExpenseVerificationState.NOT_REQUIRED,
+
+    @Column(name = "last_verified_at")
+    var lastVerifiedAt: Instant? = null,
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "last_verified_by_user_id")
+    var lastVerifiedBy: User? = null,
+
     @Column(nullable = false)
     var deleted: Boolean = false,
 

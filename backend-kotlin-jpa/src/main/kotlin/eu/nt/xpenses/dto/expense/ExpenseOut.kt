@@ -28,5 +28,9 @@ data class ExpenseOut(
     val status: String,
     @JsonProperty("raw_ocr_text") val rawOcrText: String?,
     @JsonProperty("created_at") val createdAt: Instant,
-    @JsonProperty("updated_at") val updatedAt: Instant
+    @JsonProperty("updated_at") val updatedAt: Instant,
+    val version: Int,
+    @JsonProperty("verification_state") val verificationState: String,
+    @JsonProperty("last_verified_at") val lastVerifiedAt: Instant?,
+    @JsonProperty("last_verified_by_user_id") val lastVerifiedByUserId: Int?
 )

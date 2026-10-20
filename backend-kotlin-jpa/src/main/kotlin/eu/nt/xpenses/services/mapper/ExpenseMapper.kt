@@ -46,7 +46,11 @@ class ExpenseMapper {
             status = expense.status,
             rawOcrText = expense.rawOcrText,
             createdAt = expense.createdAt,
-            updatedAt = expense.updatedAt
+            updatedAt = expense.updatedAt,
+            version = expense.version,
+            verificationState = expense.verificationState.name,
+            lastVerifiedAt = expense.lastVerifiedAt,
+            lastVerifiedByUserId = expense.lastVerifiedBy?.id
         )
     }
 }

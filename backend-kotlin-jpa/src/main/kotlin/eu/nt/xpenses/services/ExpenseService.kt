@@ -2,17 +2,21 @@ package eu.nt.xpenses.services
 
 import eu.nt.xpenses.dto.expense.ExpenseCreate
 import eu.nt.xpenses.dto.expense.ExpenseOut
+import eu.nt.xpenses.dto.expense.ExpenseReviewRequest
+import eu.nt.xpenses.dto.expense.ExpenseReviewValues
 import eu.nt.xpenses.dto.expense.ExpenseUpdate
 import eu.nt.xpenses.model.*
 import eu.nt.xpenses.models.PagedResponse
 import eu.nt.xpenses.repositories.CategoryRepository
 import eu.nt.xpenses.repositories.ExpenseReportRepository
 import eu.nt.xpenses.repositories.ExpenseRepository
+import eu.nt.xpenses.repositories.ExpenseReviewOperationRepository
 import eu.nt.xpenses.repositories.OcrComparisonRepository
 import eu.nt.xpenses.repositories.ReceiptRepository
 import eu.nt.xpenses.services.mapper.ExpenseMapper
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
+import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.transaction.support.TransactionSynchronization
@@ -36,7 +40,9 @@ class ExpenseService(
     private val storageService: StorageService,
     private val exportService: ExportService,
     private val expenseMapper: ExpenseMapper,
-    private val authorization: Authorization
+    private val authorization: Authorization,
+    private val expenseReviewOperationRepository: ExpenseReviewOperationRepository,
+    private val jdbcTemplate: JdbcTemplate
 ) {
     private val log = LoggerFactory.getLogger(ExpenseService::class.java)
 
@@ -51,14 +57,15 @@ class ExpenseService(
         all: Boolean,
         page: Int?,
         size: Int,
-        q: String?
+        q: String?,
+        verificationState: ExpenseVerificationState? = null
     ): Any {
         val uid = authorization.effectiveUserId(currentUser, all)
         val normalizedQuery = q?.trim()?.takeIf { it.isNotEmpty() }
 
         return if (page != null) {
             val pageable = org.springframework.data.domain.PageRequest.of(page, size)
-            val result = expenseRepository.findAllWithFiltersPaged(uid, status, reportId, categoryId, fromDate, toDate, normalizedQuery, pageable)
+            val result = expenseRepository.findAllWithFiltersPaged(uid, status, reportId, categoryId, fromDate, toDate, normalizedQuery, verificationState, pageable)
             PagedResponse(
                 data = result.content.map { expenseMapper.toExpenseOut(it) },
                 page = result.number,
@@ -67,7 +74,7 @@ class ExpenseService(
                 totalPages = result.totalPages
             )
         } else {
-            expenseRepository.findAllWithFilters(uid, status, reportId, categoryId, fromDate, toDate, normalizedQuery)
+            expenseRepository.findAllWithFilters(uid, status, reportId, categoryId, fromDate, toDate, normalizedQuery, verificationState)
                 .map { expenseMapper.toExpenseOut(it) }
         }
     }
@@ -177,6 +184,7 @@ class ExpenseService(
         if (expense.status != "draft") {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Only draft expenses can be edited")
         }
+        val reviewBefore = reviewableSnapshot(expense)
 
         if (body.clearCategory && body.categoryId != null) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot select and clear category in the same update")
@@ -244,6 +252,11 @@ class ExpenseService(
             expense.report = rep
         }
 
+        if (reviewableFieldsChanged(reviewBefore, reviewableSnapshot(expense)) &&
+            expense.verificationState == ExpenseVerificationState.VERIFIED
+        ) {
+            expense.verificationState = ExpenseVerificationState.PENDING
+        }
         expense.updatedAt = Instant.now()
         val saved = expenseRepository.save(expense)
 
@@ -256,6 +269,182 @@ class ExpenseService(
         }
 
         return expenseMapper.toExpenseOut(saved)
+    }
+
+    @Transactional
+    fun reviewExpense(
+        expenseId: Int,
+        body: ExpenseReviewRequest,
+        currentUser: User,
+        requestKey: String,
+        requestHash: String
+    ): ExpenseOut {
+        if (currentUser.role != Authorization.ROLE_TECHNICIAN) {
+            throw ResponseStatusException(HttpStatus.FORBIDDEN, "Only the owning Technician can verify an Expense")
+        }
+        val currentUserId = currentUser.id
+            ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
+        val expense = expenseRepository.findByIdForReview(expenseId)
+            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Expense not found")
+        if (expense.user?.id != currentUserId) {
+            throw ResponseStatusException(HttpStatus.FORBIDDEN, "Only the owner can verify this Expense")
+        }
+        // Serialize one owner's key across different Expenses before checking the ledger.
+        // The integer hash may cause harmless extra contention but never merges keys.
+        jdbcTemplate.execute("SELECT pg_advisory_xact_lock($currentUserId, ${requestKey.hashCode()})")
+
+        val priorOperation = expenseReviewOperationRepository.findByUser_IdAndRequestKey(currentUserId, requestKey)
+        if (priorOperation != null) {
+            if (priorOperation.expense.id != expenseId || priorOperation.requestHash != requestHash) {
+                throw ResponseStatusException(HttpStatus.CONFLICT, "Idempotency-Key was already used with different review data")
+            }
+            return expenseMapper.toExpenseOut(expense)
+        }
+
+        if (expense.version != body.expectedVersion) {
+            throw ExpenseVersionConflict(expenseMapper.toExpenseOut(expense))
+        }
+        if (body.confirm && expense.receipts.isEmpty()) {
+            throw ResponseStatusException(HttpStatus.CONFLICT, "A Receipt must be attached before the Expense can be verified")
+        }
+        if (body.values.clearCategory && body.values.categoryId != null) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot select and clear category in the same review")
+        }
+
+        val before = reviewableSnapshot(expense)
+        if (expense.status != "draft" && reviewValuesChange(expense, body.values)) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Only draft expenses can be edited")
+        }
+        if (body.values.hasCorrections()) applyReviewValues(expense, body.values)
+        val changed = reviewableFieldsChanged(before, reviewableSnapshot(expense))
+        val now = Instant.now()
+
+        if (changed && expense.verificationState == ExpenseVerificationState.VERIFIED) {
+            expense.verificationState = ExpenseVerificationState.PENDING
+        }
+        if (body.confirm) {
+            expense.verificationState = ExpenseVerificationState.VERIFIED
+            expense.lastVerifiedAt = now
+            expense.lastVerifiedBy = currentUser
+        }
+        if (changed || body.confirm) expense.updatedAt = now
+
+        val saved = expenseRepository.saveAndFlush(expense)
+        expenseReviewOperationRepository.saveAndFlush(
+            ExpenseReviewOperation(
+                user = currentUser,
+                expense = saved,
+                requestKey = requestKey,
+                requestHash = requestHash,
+                resultingVersion = saved.version,
+                createdAt = now
+            )
+        )
+        return expenseMapper.toExpenseOut(saved)
+    }
+
+    private data class ReviewableSnapshot(
+        val amount: BigDecimal,
+        val currency: String,
+        val date: String,
+        val merchant: String?,
+        val description: String?,
+        val categoryId: Int?,
+        val taxAmount: BigDecimal,
+        val taxRate: BigDecimal?,
+        val fxRate: BigDecimal,
+        val fxRateManual: Boolean
+    )
+
+    private fun reviewableSnapshot(expense: Expense) = ReviewableSnapshot(
+        amount = expense.amountOriginal,
+        currency = expense.currencyOriginal,
+        date = expense.date,
+        merchant = expense.merchant,
+        description = expense.description,
+        categoryId = expense.category?.id,
+        taxAmount = expense.taxAmount,
+        taxRate = expense.taxRate,
+        fxRate = expense.fxRate,
+        fxRateManual = expense.fxRateManual
+    )
+
+    private fun decimalChanged(before: BigDecimal?, after: BigDecimal?): Boolean =
+        if (before == null || after == null) before != after else before.compareTo(after) != 0
+
+    private fun reviewableFieldsChanged(before: ReviewableSnapshot, after: ReviewableSnapshot): Boolean =
+        decimalChanged(before.amount, after.amount) || before.currency != after.currency || before.date != after.date ||
+            before.merchant != after.merchant || before.description != after.description || before.categoryId != after.categoryId ||
+            decimalChanged(before.taxAmount, after.taxAmount) || decimalChanged(before.taxRate, after.taxRate) ||
+            decimalChanged(before.fxRate, after.fxRate) || before.fxRateManual != after.fxRateManual
+
+    private fun reviewValuesChange(expense: Expense, values: ExpenseReviewValues): Boolean =
+        (values.amount != null && decimalChanged(expense.amountOriginal, values.amount)) ||
+            (values.currency != null && expense.currencyOriginal != values.currency.uppercase()) ||
+            (values.date != null && expense.date != values.date) ||
+            (values.merchant != null && expense.merchant != values.merchant) ||
+            (values.description != null && expense.description != values.description) ||
+            (values.categoryId != null && expense.category?.id != values.categoryId) ||
+            (values.clearCategory && expense.category != null) ||
+            (values.taxAmount != null && decimalChanged(expense.taxAmount, values.taxAmount)) ||
+            (values.taxRate != null && decimalChanged(expense.taxRate, values.taxRate)) ||
+            (values.fxRate != null && decimalChanged(expense.fxRate, values.fxRate)) ||
+            (values.fxRateManual != null && expense.fxRateManual != values.fxRateManual)
+
+    private fun applyReviewValues(expense: Expense, values: ExpenseReviewValues) {
+        if (values.clearCategory) {
+            expense.category = null
+        } else if (values.categoryId != null && values.categoryId != expense.category?.id) {
+            val category = categoryRepository.findById(values.categoryId).orElseThrow {
+                ResponseStatusException(HttpStatus.NOT_FOUND, "Category not found")
+            }
+            if (!category.isActive) {
+                throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Category is deactivated")
+            }
+            expense.category = category
+        }
+
+        val effectiveAmount = values.amount ?: expense.amountOriginal
+        val effectiveCurrency = (values.currency ?: expense.currencyOriginal).uppercase()
+        val effectiveDate = values.date ?: expense.date
+        val effectiveTaxAmount = values.taxAmount ?: expense.taxAmount
+        val effectiveTaxRate = values.taxRate ?: expense.taxRate
+        val unchangedBasis = effectiveCurrency == expense.currencyOriginal && effectiveDate == expense.date
+        val hasFxInputs = values.fxRate != null || values.fxRateManual != null || values.amount != null ||
+            values.currency != null || values.date != null || values.taxAmount != null || values.taxRate != null
+
+        if (values.fxRate != null && values.fxRateManual == false) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "A supplied FX rate must be marked manual")
+        }
+        if (values.fxRateManual == true && !unchangedBasis && values.fxRate == null) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "A manual FX rate is required when the currency or date changes")
+        }
+
+        if (hasFxInputs) {
+            val (rate, manual) = when {
+                values.fxRate != null -> values.fxRate to true
+                values.fxRateManual == true -> expense.fxRate to true
+                values.fxRateManual == false || !unchangedBasis -> try {
+                    fxService.getRate(effectiveCurrency, effectiveDate) to false
+                } catch (exception: Exception) {
+                    throw ResponseStatusException(HttpStatus.BAD_GATEWAY, "Failed to fetch exchange rate: ${exception.message}")
+                }
+                else -> expense.fxRate to expense.fxRateManual
+            }
+            expense.amountOriginal = effectiveAmount
+            expense.currencyOriginal = effectiveCurrency
+            expense.date = effectiveDate
+            expense.fxRate = rate
+            expense.fxRateManual = manual
+            expense.amountEur = effectiveAmount.multiply(rate).setScale(2, RoundingMode.HALF_UP)
+            expense.taxAmount = effectiveTaxAmount
+            expense.taxRate = effectiveTaxRate
+            expense.taxAmountEur = effectiveTaxAmount.multiply(rate).setScale(2, RoundingMode.HALF_UP)
+        }
+
+        if (values.date != null) expense.date = values.date
+        if (values.description != null) expense.description = values.description
+        if (values.merchant != null) expense.merchant = values.merchant
     }
 
     @Transactional
@@ -409,6 +598,9 @@ class ExpenseService(
                 "original_name" to originalName
             ))
         }
+        if (savedReceiptsList.isNotEmpty() && expense.verificationState == ExpenseVerificationState.VERIFIED) {
+            expense.verificationState = ExpenseVerificationState.PENDING
+        }
         expense.updatedAt = now
         expenseRepository.save(expense)
         return savedReceiptsList
@@ -435,6 +627,9 @@ class ExpenseService(
 
         val filePath = receipt.filePath
         receiptRepository.delete(receipt)
+        if (expense.verificationState == ExpenseVerificationState.VERIFIED) {
+            expense.verificationState = ExpenseVerificationState.PENDING
+        }
         expense.updatedAt = Instant.now()
         expenseRepository.save(expense)
 
@@ -517,7 +712,7 @@ class ExpenseService(
         }
 
         val uid = authorization.effectiveUserId(currentUser, all)
-        val expenses = expenseRepository.findAllWithFilters(uid, status, reportId, categoryId, fromDate, toDate, q)
+        val expenses = expenseRepository.findAllWithFilters(uid, status, reportId, categoryId, fromDate, toDate, q, null)
 
         val includeUser = authorization.canViewAll(currentUser) && all
         val columns = listOfNotNull(

@@ -1,10 +1,13 @@
 package eu.nt.xpenses.repositories
 
 import eu.nt.xpenses.model.Expense
+import eu.nt.xpenses.model.ExpenseVerificationState
+import jakarta.persistence.LockModeType
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.EntityGraph
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Lock
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 import org.springframework.stereotype.Repository
@@ -33,6 +36,7 @@ interface ExpenseRepository : JpaRepository<Expense, Int> {
           AND (:categoryId IS NULL OR e.category.id = :categoryId)
           AND (:fromDate IS NULL OR e.date >= :fromDate)
           AND (:toDate IS NULL OR e.date <= :toDate)
+          AND (:verificationState IS NULL OR e.verificationState = :verificationState)
           AND (CAST(:q AS string) IS NULL OR LOWER(e.merchant) LIKE LOWER(CONCAT('%', CAST(:q AS string), '%'))
                OR LOWER(e.description) LIKE LOWER(CONCAT('%', CAST(:q AS string), '%')))
         ORDER BY e.date DESC, e.id DESC
@@ -47,6 +51,7 @@ interface ExpenseRepository : JpaRepository<Expense, Int> {
         @Param("fromDate") fromDate: String?,
         @Param("toDate") toDate: String?,
         @Param("q") q: String?,
+        @Param("verificationState") verificationState: ExpenseVerificationState?,
     ): List<Expense>
 
     @Query(
@@ -58,6 +63,7 @@ interface ExpenseRepository : JpaRepository<Expense, Int> {
           AND (:categoryId IS NULL OR e.category.id = :categoryId)
           AND (:fromDate IS NULL OR e.date >= :fromDate)
           AND (:toDate IS NULL OR e.date <= :toDate)
+          AND (:verificationState IS NULL OR e.verificationState = :verificationState)
           AND (CAST(:q AS string) IS NULL OR LOWER(e.merchant) LIKE LOWER(CONCAT('%', CAST(:q AS string), '%'))
                OR LOWER(e.description) LIKE LOWER(CONCAT('%', CAST(:q AS string), '%')))
         ORDER BY e.date DESC, e.id DESC
@@ -72,8 +78,13 @@ interface ExpenseRepository : JpaRepository<Expense, Int> {
         @Param("fromDate") fromDate: String?,
         @Param("toDate") toDate: String?,
         @Param("q") q: String?,
+        @Param("verificationState") verificationState: ExpenseVerificationState?,
         pageable: Pageable,
     ): Page<Expense>
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT e FROM Expense e WHERE e.id = :expenseId")
+    fun findByIdForReview(@Param("expenseId") expenseId: Int): Expense?
 
     @EntityGraph(attributePaths = ["user", "category"])
     @Query("SELECT e FROM Expense e WHERE e.report IS NULL AND e.user.id = :userId")

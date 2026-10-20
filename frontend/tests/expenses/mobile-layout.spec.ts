@@ -44,6 +44,22 @@ async function mockExpenses(page: Page) {
   );
 }
 
+async function dismissIosInstallHint(page: Page) {
+  const isIos = await page.evaluate(
+    () =>
+      /iPhone|iPad|iPod/.test(navigator.userAgent) ||
+      (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent)),
+  );
+  if (!isIos) return;
+
+  const hint = page
+    .getByRole("status")
+    .filter({ hasText: /Install the app|Instalează aplicația/ });
+  await expect(hint).toBeVisible();
+  await hint.getByRole("button", { name: /Dismiss|Închide/ }).click();
+  await expect(hint).toHaveCount(0);
+}
+
 async function expectNoHorizontalOverflow(page: Page) {
   const dimensions = await page.evaluate(() => ({
     scrollWidth: document.documentElement.scrollWidth,
@@ -117,6 +133,7 @@ test.describe("Mobile expense layout (#47)", () => {
     );
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/dashboard", { waitUntil: "load" });
+    await dismissIosInstallHint(page);
 
     await expect(
       page.locator('a[aria-label="Add New Expense"]'),
@@ -137,6 +154,7 @@ test.describe("Mobile expense layout (#47)", () => {
     );
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/dashboard", { waitUntil: "load" });
+    await dismissIosInstallHint(page);
 
     const fab = page.locator('a[aria-label="Add New Expense"]:visible');
     await expect(fab).toHaveCount(1);
@@ -884,6 +902,7 @@ test.describe("Mobile expense layout (#47)", () => {
     );
     await page.setViewportSize({ width: 375, height: 667 });
     await page.goto("/expenses/22/edit", { waitUntil: "load" });
+    await dismissIosInstallHint(page);
     const download = page.waitForEvent("download");
     await page.getByRole("button", { name: "receipt.jpg" }).click();
     await download;

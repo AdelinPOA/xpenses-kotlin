@@ -16,6 +16,10 @@ _Avoid_: OCR receipt, uploaded Receipt
 A logged claim of money spent by a technician, created from a receipt (or manually), carrying the original amount and currency.
 _Avoid_: entry, claim
 
+**Expense verification**:
+A Technician's explicit, server-acknowledged confirmation that an Expense's current reviewable values match its Receipt. It is independent of the Expense's financial status and is not financial approval.
+_Avoid_: Expense approval, verified status
+
 **Original currency**:
 The currency printed on the receipt, as detected by OCR or entered by the technician.
 

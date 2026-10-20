@@ -2,13 +2,17 @@ package eu.nt.xpenses.controllers
 
 import eu.nt.xpenses.dto.expense.ExpenseCreate
 import eu.nt.xpenses.dto.expense.ExpenseOut
+import eu.nt.xpenses.dto.expense.ExpenseReviewRequest
 import eu.nt.xpenses.dto.expense.ExpenseUpdate
+import eu.nt.xpenses.model.ExpenseVerificationState
 import eu.nt.xpenses.model.User
 import eu.nt.xpenses.services.ExpenseService
+import eu.nt.xpenses.services.ExpenseVersionConflict
 import eu.nt.xpenses.services.IdempotentExpenseSaving
 import eu.nt.xpenses.services.SaveIdempotencyService
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.validation.Valid
+import org.springframework.dao.OptimisticLockingFailureException
 import org.springframework.http.ContentDisposition
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
@@ -36,12 +40,13 @@ class ExpenseController(
         @RequestParam(value = "page", required = false) page: Int?,
         @RequestParam(value = "size", required = false, defaultValue = "20") size: Int,
         @RequestParam(value = "q", required = false) q: String?,
+        @RequestParam(value = "verification_state", required = false) verificationState: ExpenseVerificationState?,
         request: HttpServletRequest,
     ): Any {
         val currentUser =
             request.getAttribute("currentUser") as? User
                 ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
-        return expenseService.listExpenses(currentUser, reportId, categoryId, status, fromDate, toDate, all, page, size, q)
+        return expenseService.listExpenses(currentUser, reportId, categoryId, status, fromDate, toDate, all, page, size, q, verificationState)
     }
 
     @PostMapping
@@ -77,6 +82,31 @@ class ExpenseController(
             request.getAttribute("currentUser") as? User
                 ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
         return expenseService.updateExpense(expenseId, body, currentUser)
+    }
+
+    @PutMapping("/{expenseId}/review")
+    fun reviewExpense(
+        @PathVariable expenseId: Int,
+        @Valid @RequestBody body: ExpenseReviewRequest,
+        request: HttpServletRequest,
+    ): ResponseEntity<Any> {
+        val currentUser =
+            request.getAttribute("currentUser") as? User
+                ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
+        val requestKey = idempotency.validateKey(request.getHeader("Idempotency-Key"))
+            ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Idempotency-Key is required")
+
+        return try {
+            ResponseEntity.ok(expenseService.reviewExpense(expenseId, body, currentUser, requestKey, idempotency.hash(body)))
+        } catch (conflict: ExpenseVersionConflict) {
+            ResponseEntity.status(HttpStatus.CONFLICT).body(
+                mapOf("detail" to conflict.message, "current" to conflict.current)
+            )
+        } catch (conflict: OptimisticLockingFailureException) {
+            ResponseEntity.status(HttpStatus.CONFLICT).body(
+                mapOf("detail" to "Expense changed during review; reload before continuing", "current" to expenseService.getExpense(expenseId, currentUser))
+            )
+        }
     }
 
     @PostMapping("/{expenseId}/duplicate")

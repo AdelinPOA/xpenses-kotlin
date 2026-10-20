@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import api, { CURRENCIES } from "@/lib/api";
 import clsx from "clsx";
@@ -21,6 +21,8 @@ interface Props {
   initialRate?: number | null;
   /** True only when the stored rate was a manual override; seeds the debit-amount prefill. */
   initialManualRate?: number | null;
+  /** Recovered locally edited FX rate, if any. */
+  initialEditorRate?: number | null;
   onToggle: () => void;
   /** Reports the effective manual FX rate (raw or derived), or null when none is set. */
   onManualRateChange: (rate: number | null) => void;
@@ -33,6 +35,7 @@ export default function FxRateInput({
   date,
   initialRate,
   initialManualRate,
+  initialEditorRate,
   onToggle,
   onManualRateChange,
 }: Props) {
@@ -42,11 +45,17 @@ export default function FxRateInput({
   const [debitCurrency, setDebitCurrency] = useState("EUR");
   const [debitAmount, setDebitAmount] = useState("");
   const [debitTouched, setDebitTouched] = useState(false);
+  const wasActive = useRef(false);
 
-  // Seed the raw-rate field each time the editor opens.
+  // Seed the raw-rate field only when the editor opens, so parent updates from
+  // the effective rate callback do not overwrite a value while the user types.
   useEffect(() => {
-    if (active) setRateValue(initialRate != null ? initialRate.toString() : "");
-  }, [active, initialRate]);
+    if (active && !wasActive.current) {
+      const rate = initialEditorRate ?? initialRate;
+      setRateValue(rate != null ? rate.toString() : "");
+    }
+    wasActive.current = active;
+  }, [active, initialEditorRate, initialRate]);
 
   // Effective rate for the debit currency on the expense date (BNR × margin).
   const { data: quote, isError: quoteError } = useQuery<number>({

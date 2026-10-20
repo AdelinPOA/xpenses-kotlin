@@ -213,7 +213,7 @@ test("mobile expense date field stays inside its card at narrow widths", async (
   );
 
   await page.setViewportSize({ width: 375, height: 812 });
-  await page.goto("/expenses/new");
+  await page.goto("/expenses/new?mode=manual");
   const date = page.locator("#expense-date");
   await expect(date).toBeVisible();
 
@@ -303,7 +303,7 @@ test.describe("mobile authenticated UI", () => {
   });
 
   test("new expense fields are addressable by their labels", async ({ page }) => {
-    await page.goto("/expenses/new");
+    await page.goto("/expenses/new?mode=manual");
     for (const label of ["Amount", "Currency", "Date", "Merchant", "Category", "Receipts"]) {
       await expect(page.getByLabel(new RegExp(label, "i")).first()).toBeVisible();
     }
@@ -316,7 +316,7 @@ test.describe("mobile authenticated UI", () => {
   });
 
   test("Technician can create an Expense without a Receipt", async ({ page }) => {
-    await page.goto("/expenses/new");
+    await page.goto("/expenses/new?mode=manual");
     await page.locator("#expense-amount").fill("12.34");
     await page.getByLabel(/Merchant/i).fill("CI smoke test");
     await page.getByLabel(/Category/i).selectOption({ index: 1 });

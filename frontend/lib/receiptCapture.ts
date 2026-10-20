@@ -121,6 +121,10 @@ export interface ScanOptions {
   signal?: AbortSignal;
   /** Total wait cap for the whole scan (default 5 minutes for provider fallbacks). */
   maxWaitMs?: number;
+  /** Stable key for server-side acceptance deduplication across transport retries. */
+  idempotencyKey?: string;
+  /** Report context is bound into the same accepted capture as the source. */
+  reportId?: number;
   /** Resume an acknowledged job without uploading the source a second time. */
   resumeJobId?: number;
   /** Commit the possibly-sent marker before POST, so reload cannot blindly re-upload. */
@@ -255,11 +259,19 @@ export async function scanReceipt(
       if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
       const fd = new FormData();
       fd.append("file", compressedBlob, file.name);
+      if (opts.reportId !== undefined) {
+        fd.append("report_id", String(opts.reportId));
+      }
       await opts.onUploading?.();
       if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
       let res;
       try {
-        res = await api.post("/ocr/scan", fd, { signal });
+        res = await api.post("/ocr/scan", fd, {
+          signal,
+          headers: opts.idempotencyKey
+            ? { "Idempotency-Key": opts.idempotencyKey }
+            : undefined,
+        });
       } catch (error) {
         if (isAbortLikeError(error)) throw error;
         throw new ScanUploadError(isDefinitiveUploadRejection(error), error);

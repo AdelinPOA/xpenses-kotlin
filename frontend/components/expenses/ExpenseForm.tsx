@@ -9,23 +9,14 @@ import api, {
   CURRENCIES,
   API_BASE_URL,
   downloadBlob,
-  OCRScanResult,
 } from "@/lib/api";
 import { categoryKeys, expenseKeys, dashboardKeys } from "@/lib/queryKeys";
 import { useFormGuard } from "@/lib/useFormGuard";
-import {
-  captureReceipt,
-  isReceiptCaptureCancelled,
-  ScanTimeoutError,
-  ScanJobError,
-} from "@/lib/receiptCapture";
-import type { ScanProgress } from "@/lib/receiptCapture";
 import { saveNewExpense } from "@/lib/expenseSaving";
 import { useOfflineSync } from "@/components/OfflineSyncProvider";
 import { Trash2 } from "lucide-react";
 import clsx from "clsx";
 import { formatEur } from "@/lib/format";
-import ReceiptScanner from "./ReceiptScanner";
 import FxRateInput from "./FxRateInput";
 import ReceiptPreview from "./ReceiptPreview";
 import { useToast } from "@/components/ToastProvider";
@@ -84,8 +75,7 @@ export default function ExpenseForm({
   const { user } = useAuth();
   const { refreshCount: refreshOffline } = useOfflineSync();
 
-  const [ocrExpense, setOcrExpense] = useState<Expense | null>(null);
-  const currentExpense = expense ?? ocrExpense;
+  const currentExpense = expense;
   const isEdit = !!currentExpense;
 
   const [form, setForm] = useState<FormFields>({
@@ -110,12 +100,6 @@ export default function ExpenseForm({
   );
   const [error, setError] = useState("");
   const [savedExpense, setSavedExpense] = useState<Expense | null>(null);
-  const [isScanning, setIsScanning] = useState(false);
-  const [scanResult, setScanResult] = useState<OCRScanResult | null>(null);
-  // Staged OCR progress ("Uploading… / Reading receipt… (n)s") + cancel.
-  const [scanProgress, setScanProgress] = useState<ScanProgress | null>(null);
-  const scanAbortRef = useRef<AbortController | null>(null);
-  const scanInFlightRef = useRef(false);
   // Distinguishes the receipt-upload sub-phase of saving so slow uploads
   // don't look frozen on the submit button.
   const [isUploadingReceipts, setIsUploadingReceipts] = useState(false);
@@ -123,8 +107,6 @@ export default function ExpenseForm({
   // stays on the page and highlights the receipt section.
   const [receiptUploadFailedLocal, setReceiptUploadFailedLocal] =
     useState(false);
-  const scanInputRef = useRef<HTMLInputElement>(null);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const [activeReceiptKey, setActiveReceiptKey] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
@@ -134,7 +116,6 @@ export default function ExpenseForm({
   const [activeMobileTab, setActiveMobileTab] = useState<"details" | "receipt">(
     "details",
   );
-  const [isDragging, setIsDragging] = useState(false);
 
   // Unsaved-changes guard: any field drift from initial values, or receipt
   // additions/deletions, marks the form dirty.
@@ -186,8 +167,6 @@ export default function ExpenseForm({
 
   useEffect(() => {
     return () => {
-      scanAbortRef.current?.abort();
-      scanAbortRef.current = null;
       objectUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
       if (redirectTimeoutRef.current) clearTimeout(redirectTimeoutRef.current);
     };
@@ -251,7 +230,6 @@ export default function ExpenseForm({
         tax_amount: form.tax_amount ? parseFloat(form.tax_amount) : 0,
         tax_rate: form.tax_rate ? parseFloat(form.tax_rate) : null,
         raw_ocr_text: form.raw_ocr_text || null,
-        comparison_id: scanResult?.comparison_id || null,
         ...(manualRate !== null
           ? { fx_rate: manualRate, fx_rate_manual: true }
           : {}),
@@ -267,7 +245,6 @@ export default function ExpenseForm({
           result = await api
             .patch(`/expenses/${currentExpense.id}`, payload)
             .then((r) => r.data);
-          if (!expense) setOcrExpense(result);
         } catch (e: any) {
           throw new Error(e.response?.data?.detail ?? t("error_save"));
         }
@@ -431,87 +408,6 @@ export default function ExpenseForm({
   const markDeleteReceipt = (receiptId: number) =>
     setDeletedReceiptIds((prev) => new Set(prev).add(receiptId));
 
-  const cancelScan = () => scanAbortRef.current?.abort();
-
-  const processFileScan = async (file: File) => {
-    if (scanInFlightRef.current) return;
-    scanInFlightRef.current = true;
-    setIsScanning(true);
-    setScanResult(null);
-    setError("");
-    const ac = new AbortController();
-    scanAbortRef.current = ac;
-    try {
-      const capture = await captureReceipt(file, {
-        signal: ac.signal,
-        onProgress: setScanProgress,
-      });
-      const result = capture.result;
-      if (capture.kind === "promoted") {
-        const canonicalExpense = await api
-          .get<Expense>(`/expenses/${capture.expenseId}`)
-          .then((response) => response.data);
-        setOcrExpense(canonicalExpense);
-      }
-      setScanResult(result);
-      setForm((f) => ({
-        ...f,
-        amount: f.amount || (result.amount?.toString() ?? ""),
-        currency: result.currency && !f.amount ? result.currency : f.currency,
-        tax_amount:
-          f.tax_amount === "0" || !f.tax_amount
-            ? (result.tax_amount?.toString() ?? "0")
-            : f.tax_amount,
-        tax_rate: f.tax_rate || (result.tax_rate?.toString() ?? ""),
-        date:
-          f.date === new Date().toISOString().slice(0, 10) && result.date
-            ? result.date
-            : f.date,
-        merchant: f.merchant || result.merchant || "",
-        category_id: f.category_id || (result.category_id?.toString() ?? ""),
-        description: f.description || result.description || "",
-        raw_ocr_text: result.raw_text || "",
-      }));
-    } catch (e: any) {
-      if (isReceiptCaptureCancelled(e)) {
-        // Cancelled — pre-scan state is already intact (nothing was applied).
-        return;
-      }
-      if (e instanceof ScanTimeoutError) setError(t("error_ocr_timeout"));
-      else if (e instanceof ScanJobError)
-        setError(e.detail ?? t("error_ocr_job"));
-      else
-        setError(e.response?.data?.detail ?? e.message ?? t("error_ocr_scan"));
-    } finally {
-      scanAbortRef.current = null;
-      scanInFlightRef.current = false;
-      setScanProgress(null);
-      setIsScanning(false);
-    }
-  };
-
-  const handleScan = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    e.target.value = "";
-    await processFileScan(file);
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    if (!isScanning) setIsDragging(true);
-  };
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-  };
-  const handleDrop = async (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    if (isScanning) return;
-    const file = e.dataTransfer.files?.[0];
-    if (file) await processFileScan(file);
-  };
 
   return (
     <div className="flex flex-col gap-2 max-w-6xl w-full items-start">
@@ -561,7 +457,6 @@ export default function ExpenseForm({
           aria-labelledby="tab-details"
           onSubmit={(e) => {
             e.preventDefault();
-            if (isScanning) return;
             save.mutate();
           }}
           className={clsx(
@@ -586,23 +481,6 @@ export default function ExpenseForm({
               {savedExpense.fx_rate.toFixed(4)}
               {savedExpense.fx_rate_manual ? " manual" : ""})
             </div>
-          )}
-
-          {!isEdit && (
-            <ReceiptScanner
-              isScanning={isScanning}
-              scanProgress={scanProgress}
-              onCancelScan={cancelScan}
-              isDragging={isDragging}
-              onScan={handleScan}
-              onCameraCapture={handleScan}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
-              onClick={() => scanInputRef.current?.click()}
-              scanInputRef={scanInputRef}
-              cameraInputRef={cameraInputRef}
-            />
           )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -892,7 +770,7 @@ export default function ExpenseForm({
           <div className="expense-form-actions sticky bottom-[calc(4rem+env(safe-area-inset-bottom,0px))] lg:static z-20 flex gap-3 pt-3 pb-3 bg-card border-t border-border lg:border-0">
             <button
               type="submit"
-              disabled={save.isPending || isScanning}
+              disabled={save.isPending}
               className="min-h-11 px-5 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-hover disabled:opacity-50"
             >
               {save.isPending

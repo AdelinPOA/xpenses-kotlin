@@ -99,6 +99,7 @@ function ExpensesPageContent() {
   const categoryFilter = searchParams.get("category_id") ?? "";
   const qParam = searchParams.get("q") ?? "";
   const page = Math.max(0, parseInt(searchParams.get("page") ?? "", 10) || 0);
+  const highlightId = Math.max(0, parseInt(searchParams.get("highlight") ?? "", 10) || 0);
   const t = useTranslations("expenses");
   const tc = useTranslations("common");
   const toffline = useTranslations("offline");
@@ -673,12 +674,19 @@ function ExpensesPageContent() {
             )
           ) : (
             <>
+              {highlightId > 0 && expenses.some((expense) => expense.id === highlightId) && (
+                <p role="status" className="border-b border-primary/20 bg-primary/5 px-4 py-3 text-sm font-medium text-primary">
+                  {t("expense_confirmed_highlight")}
+                </p>
+              )}
+
               {/* Mobile: stacked cards */}
               <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-700">
                 {expenses.map((e) => (
                   <div
                     key={e.id}
                     data-expense-row
+                    aria-current={highlightId === e.id ? "true" : undefined}
                     onClick={() =>
                       router.push(
                         e.status === "draft"
@@ -686,7 +694,10 @@ function ExpensesPageContent() {
                           : `/expenses/${e.id}`,
                       )
                     }
-                    className="p-3 active:bg-muted/10 transition-colors cursor-pointer"
+                    className={clsx(
+                      "p-3 active:bg-muted/10 transition-colors cursor-pointer",
+                      highlightId === e.id && "bg-primary/10 ring-1 ring-inset ring-primary/40",
+                    )}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-start gap-2.5 min-w-0">
@@ -851,7 +862,11 @@ function ExpensesPageContent() {
                     {expenses.map((e) => (
                       <tr
                         key={e.id}
-                        className="border-t border-slate-100 dark:border-slate-700 hover:bg-card-hover/50"
+                        aria-current={highlightId === e.id ? "true" : undefined}
+                        className={clsx(
+                          "border-t border-slate-100 dark:border-slate-700 hover:bg-card-hover/50",
+                          highlightId === e.id && "bg-primary/10 ring-1 ring-inset ring-primary/40",
+                        )}
                       >
                         <td className="px-4 py-3 text-center">
                           {e.status === "draft" && (

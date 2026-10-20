@@ -4,12 +4,66 @@
  * Owner-scoped IndexedDB storage for OCR sources captured while offline.
  * Sources remain available until the receipt-capture flow acknowledges them.
  */
+export interface OcrReviewFormValues {
+  amount: string;
+  currency: string;
+  date: string;
+  merchant: string;
+  description: string;
+  categoryId: string;
+  taxAmount: string;
+  taxRate: string;
+  manualFxRate: string;
+  fxRateEditMode: boolean;
+}
+
+export interface OcrReviewRequestValues {
+  amount?: number;
+  currency?: string;
+  date?: string;
+  merchant?: string;
+  description?: string;
+  category_id?: number | null;
+  clear_category?: boolean;
+  tax_amount?: number;
+  tax_rate?: number | null;
+  fx_rate?: number;
+  fx_rate_manual?: boolean;
+}
+
+export interface OcrReviewRequestBody {
+  expected_version: number;
+  confirm: boolean;
+  values: OcrReviewRequestValues;
+}
+
+export interface PendingOcrReviewOperation {
+  key: string;
+  body: OcrReviewRequestBody;
+  navigateTo?: "expenses" | "capture";
+}
+
+export interface PendingOcrJobActionOperation {
+  action: "retry" | "complete_manually";
+  key: string;
+  body?: { values: OcrReviewRequestValues };
+}
+
+export type OcrReviewSyncState =
+  | "local-only"
+  | "saving"
+  | "server-saved"
+  | "uncertain"
+  | "conflict"
+  | "error";
+
 export interface PendingOcrSource {
   id: string;
   userId: number;
   name: string;
   type: string;
-  data: ArrayBuffer;
+  /** Null for server-recovered reviews; only locally captured sources have bytes. */
+  data: ArrayBuffer | null;
   createdAt: number;
   updatedAt: number;
   leaseToken?: string;
@@ -18,6 +72,16 @@ export interface PendingOcrSource {
   remoteJobId?: number;
   /** A POST may already have reached the server. Only a known job ID permits resume. */
   uploadState?: "uploading" | "uncertain" | "rejected";
+  reportId?: number;
+  reportLinkStatus?: string;
+  expenseId?: number;
+  receiptId?: number;
+  expenseVersion?: number;
+  reviewValues?: OcrReviewFormValues;
+  reviewSyncState?: OcrReviewSyncState;
+  reviewOperation?: PendingOcrReviewOperation;
+  jobActionOperation?: PendingOcrJobActionOperation;
+  reviewError?: string;
 }
 
 export interface NewOcrSource {
@@ -26,10 +90,21 @@ export interface NewOcrSource {
   name: string;
   type: string;
   data: ArrayBuffer;
+  reportId?: number;
+}
+
+export interface RecoveredOcrReview {
+  userId: number;
+  remoteJobId?: number;
+  expenseId?: number;
+  receiptId?: number;
+  expenseVersion?: number;
+  reportId?: number;
+  reportLinkStatus?: string;
 }
 
 const DB_NAME = "xpenses-ocr-sources";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE = "pending_sources";
 const LEASE_DURATION_MS = 30_000;
 const MAX_QUEUE_SIZE = 20;
@@ -163,11 +238,15 @@ export async function enqueueOcrSource(
     request.onsuccess = () => {
       const items = (request.result as PendingOcrSource[]).map(normalizeSource);
       const current = items.find((existing) => existing.id === item.id);
+      if (current && current.userId !== item.userId) {
+        fail(new Error("OCR source ID is already owned by another account"));
+        return;
+      }
       const bytes = items.reduce((total, existing) => {
-        return total + existing.data.byteLength;
+        return total + (existing.data?.byteLength ?? 0);
       }, 0);
       const totalBytes =
-        bytes - (current?.data.byteLength ?? 0) + item.data.byteLength;
+        bytes - (current?.data?.byteLength ?? 0) + source.data.byteLength;
 
       if (!current && items.length >= MAX_QUEUE_SIZE) {
         fail(
@@ -206,6 +285,94 @@ export async function listOcrSources(
     .map(normalizeSource)
     .filter((item) => item.userId === ownerId)
     .sort((a, b) => a.createdAt - b.createdAt);
+}
+
+/** Locate a promoted local record without crossing the authenticated owner boundary. */
+export async function findOcrSourceByExpenseId(
+  userId: number | undefined,
+  expenseId: number,
+): Promise<PendingOcrSource | null> {
+  if (!isValidUserId(userId) || !Number.isSafeInteger(expenseId) || expenseId <= 0) return null;
+  const items = await listOcrSources(userId);
+  return items.find((item) => item.expenseId === expenseId) ?? null;
+}
+
+/** Persist review values and a retryable immutable operation before any network write. */
+export async function persistOcrReviewState(
+  id: string,
+  userId: number | undefined,
+  updates: Partial<Pick<PendingOcrSource,
+    | "reportId" | "reportLinkStatus" | "expenseId" | "receiptId" | "expenseVersion"
+    | "reviewValues" | "reviewSyncState" | "reviewOperation" | "jobActionOperation" | "reviewError"
+  >>,
+  expectedUpdatedAt?: number,
+): Promise<PendingOcrSource> {
+  if (!isValidUserId(userId)) throw new Error("Authenticated owner required");
+  return runTransaction<PendingOcrSource>("readwrite", (store, setResult, fail) => {
+    const request = store.get(id);
+    request.onsuccess = () => {
+      const current = request.result
+        ? normalizeSource(request.result as PendingOcrSource)
+        : null;
+      if (!current || current.userId !== userId) {
+        fail(new Error("OCR review record is not owned by this account"));
+        return;
+      }
+      if (expectedUpdatedAt !== undefined && current.updatedAt !== expectedUpdatedAt) {
+        fail(new Error("OCR review changed in another tab"));
+        return;
+      }
+      const updated: PendingOcrSource = {
+        ...current,
+        ...updates,
+        updatedAt: Math.max(now(), current.updatedAt + 1),
+      };
+      const put = store.put(updated);
+      put.onsuccess = () => setResult(updated);
+      put.onerror = () => fail(put.error ?? new Error("Could not save OCR review"));
+    };
+    request.onerror = () => fail(request.error ?? new Error("Could not read OCR review"));
+  });
+}
+
+/** Create a metadata-only local record when recovering a server job after device storage loss. */
+export async function createRecoveredOcrReview(
+  recovered: RecoveredOcrReview,
+): Promise<PendingOcrSource> {
+  if (!isValidUserId(recovered.userId)) throw new Error("Authenticated owner required");
+  return runTransaction<PendingOcrSource>("readwrite", (store, setResult, fail) => {
+    const request = store.getAll();
+    request.onsuccess = () => {
+      const items = (request.result as PendingOcrSource[]).map(normalizeSource);
+      const existing = items.find((item) =>
+        item.userId === recovered.userId &&
+        ((recovered.expenseId !== undefined && item.expenseId === recovered.expenseId) ||
+          (recovered.remoteJobId !== undefined && item.remoteJobId === recovered.remoteJobId)),
+      );
+      if (existing) {
+        setResult(existing);
+        return;
+      }
+      if (items.filter((item) => item.userId === recovered.userId).length >= MAX_QUEUE_SIZE) {
+        fail(new Error(`Offline OCR storage is limited to ${MAX_QUEUE_SIZE} sources`));
+        return;
+      }
+      const timestamp = now();
+      const item: PendingOcrSource = {
+        ...recovered,
+        id: crypto.randomUUID(),
+        name: "Recovered OCR review",
+        type: "application/x-xpenses-ocr-review",
+        data: null,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      };
+      const put = store.put(item);
+      put.onsuccess = () => setResult(item);
+      put.onerror = () => fail(put.error ?? new Error("Could not recover OCR review"));
+    };
+    request.onerror = () => fail(request.error ?? new Error("Could not inspect OCR review queue"));
+  });
 }
 
 /** Claim one source so two tabs cannot submit it simultaneously. */

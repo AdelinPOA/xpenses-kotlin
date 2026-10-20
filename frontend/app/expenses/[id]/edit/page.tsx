@@ -14,11 +14,16 @@ import { useTranslations } from "next-intl";
 const ExpenseForm = dynamic(() => import("@/components/expenses/ExpenseForm"), {
   loading: () => <div className="animate-pulse bg-card h-96 rounded-xl" />,
 });
+const ImmediateExpenseReview = dynamic(
+  () => import("@/components/expenses/ImmediateExpenseReview"),
+  { loading: () => <div className="animate-pulse bg-card h-96 rounded-xl" /> },
+);
 
 export default function EditExpensePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const searchParams = useSearchParams();
   const uploadFailed = searchParams.get("upload_failed") === "1";
+  const ocrSourceId = searchParams.get("ocr_source_id");
   const t = useTranslations("expenses");
 
   const { data: expense, isLoading, isError, isFetching, refetch } = useQuery<Expense>({
@@ -34,6 +39,15 @@ export default function EditExpensePage({ params }: { params: Promise<{ id: stri
       {isError && <QueryErrorNotice isFetching={isFetching} onRetry={() => { void refetch(); }} />}
       {isLoading ? (
         <div className="animate-pulse bg-card h-96 rounded-xl" />
+      ) : expense?.verification_state === "PENDING" ? (
+        <ImmediateExpenseReview
+          expense={expense}
+          sourceId={ocrSourceId}
+          onReload={async () => {
+            const latest = await refetch();
+            return latest.data ?? null;
+          }}
+        />
       ) : expense ? (
         <ExpenseForm expense={expense} highlightReceipts={uploadFailed} />
       ) : isError ? null : (

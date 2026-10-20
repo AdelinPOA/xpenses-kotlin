@@ -2,6 +2,7 @@ package eu.nt.xpenses.controllers
 
 import eu.nt.xpenses.IntegrationTestBase
 import eu.nt.xpenses.model.Expense
+import eu.nt.xpenses.model.ExpenseVerificationState
 import eu.nt.xpenses.model.Receipt
 import jakarta.persistence.EntityManager
 import org.junit.jupiter.api.Test
@@ -10,6 +11,7 @@ import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.*
 import java.math.BigDecimal
+import java.time.Instant
 
 class ExpenseControllerTest : IntegrationTestBase() {
 
@@ -43,6 +45,25 @@ class ExpenseControllerTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `GET expenses can filter verification state independently of financial status`() {
+        val expense = saveTechExpense().apply {
+            status = "submitted"
+            verificationState = ExpenseVerificationState.PENDING
+        }
+        expenseRepository.save(expense)
+        entityManager.flush()
+        entityManager.clear()
+        val cookie = authHelper.loginAs("tech1", "tech1")
+
+        mockMvc.perform(get("/api/expenses?verification_state=PENDING").cookie(cookie))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$[?(@.id == ${expense.id})]").isNotEmpty)
+        mockMvc.perform(get("/api/expenses?verification_state=VERIFIED").cookie(cookie))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$[?(@.id == ${expense.id})]").isEmpty)
+    }
+
+    @Test
     fun `POST expense creates expense and returns 201`() {
         val cat = categoryRepository.findAll().firstOrNull() ?: error("No seeded category")
         val cookie = authHelper.loginAs("tech1", "tech1")
@@ -56,6 +77,7 @@ class ExpenseControllerTest : IntegrationTestBase() {
             .andExpect(status().isCreated)
             .andExpect(jsonPath("$.amount_eur").value(75.0))
             .andExpect(jsonPath("$.status").value("draft"))
+            .andExpect(jsonPath("$.verification_state").value("NOT_REQUIRED"))
     }
 
     @Test
@@ -73,6 +95,177 @@ class ExpenseControllerTest : IntegrationTestBase() {
             .andExpect(status().isBadRequest)
 
         org.junit.jupiter.api.Assertions.assertEquals(expenseCountBefore, expenseRepository.count())
+    }
+
+    @Test
+    fun `PUT review confirms current values without changing submitted financial status`() {
+        val expense = saveTechExpense().apply {
+            status = "submitted"
+            verificationState = ExpenseVerificationState.PENDING
+        }
+        expense.receipts.add(Receipt(expense = expense, filePath = "2026/06/review-receipt.png", originalName = "review-receipt.png"))
+        expenseRepository.save(expense)
+        entityManager.flush()
+        entityManager.clear()
+        val expectedVersion = expenseRepository.findById(expense.id!!).orElseThrow().version
+        val cookie = authHelper.loginAs("tech1", "tech1")
+        val body = """{"expected_version":$expectedVersion,"values":{},"confirm":true}"""
+
+        mockMvc.perform(
+            put("/api/expenses/${expense.id}/review")
+                .header("Idempotency-Key", "review-confirm-${expense.id}")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body)
+                .cookie(cookie)
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.status").value("submitted"))
+            .andExpect(jsonPath("$.verification_state").value("VERIFIED"))
+            .andExpect(jsonPath("$.version").value(expectedVersion + 1))
+            .andExpect(jsonPath("$.last_verified_by_user_id").value(expense.user!!.id))
+
+        mockMvc.perform(
+            put("/api/expenses/${expense.id}/review")
+                .header("Idempotency-Key", "review-confirm-${expense.id}")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body)
+                .cookie(cookie)
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.verification_state").value("VERIFIED"))
+            .andExpect(jsonPath("$.version").value(expectedVersion + 1))
+
+        mockMvc.perform(
+            put("/api/expenses/${expense.id}/review")
+                .header("Idempotency-Key", "review-confirm-${expense.id}")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"expected_version":$expectedVersion,"values":{"description":"different"},"confirm":true}""")
+                .cookie(cookie)
+        ).andExpect(status().isConflict)
+
+        val secondExpense = saveTechExpense()
+        entityManager.flush()
+        mockMvc.perform(
+            put("/api/expenses/${secondExpense.id}/review")
+                .header("Idempotency-Key", "review-confirm-${expense.id}")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body)
+                .cookie(cookie)
+        ).andExpect(status().isConflict)
+    }
+
+    @Test
+    fun `PUT review cannot verify an Expense before its Receipt is attached`() {
+        val expense = saveTechExpense().apply { verificationState = ExpenseVerificationState.PENDING }
+        expenseRepository.save(expense)
+        entityManager.flush()
+        entityManager.clear()
+        val currentVersion = expenseRepository.findById(expense.id!!).orElseThrow().version
+        val cookie = authHelper.loginAs("tech1", "tech1")
+
+        mockMvc.perform(
+            put("/api/expenses/${expense.id}/review")
+                .header("Idempotency-Key", "review-without-receipt-${expense.id}")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"expected_version":$currentVersion,"values":{},"confirm":true}""")
+                .cookie(cookie)
+        )
+            .andExpect(status().isConflict)
+            .andExpect(jsonPath("$.detail").value("A Receipt must be attached before the Expense can be verified"))
+
+        entityManager.clear()
+        val persisted = expenseRepository.findById(expense.id!!).orElseThrow()
+        org.junit.jupiter.api.Assertions.assertEquals(ExpenseVerificationState.PENDING, persisted.verificationState)
+        org.junit.jupiter.api.Assertions.assertNull(persisted.lastVerifiedAt)
+    }
+
+    @Test
+    fun `PUT review rejects stale versions without mutating the Expense`() {
+        val expense = saveTechExpense()
+        entityManager.flush()
+        expense.status = "submitted"
+        entityManager.flush()
+        entityManager.clear()
+        val currentVersion = expenseRepository.findById(expense.id!!).orElseThrow().version
+        val cookie = authHelper.loginAs("tech1", "tech1")
+        val body = """{"expected_version":${currentVersion - 1},"values":{},"confirm":true}"""
+
+        mockMvc.perform(
+            put("/api/expenses/${expense.id}/review")
+                .header("Idempotency-Key", "stale-review-${expense.id}")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body)
+                .cookie(cookie)
+        )
+            .andExpect(status().isConflict)
+            .andExpect(jsonPath("$.current.version").value(currentVersion))
+            .andExpect(jsonPath("$.current.status").value("submitted"))
+            .andExpect(jsonPath("$.current.verification_state").value("NOT_REQUIRED"))
+
+        entityManager.clear()
+        val persisted = expenseRepository.findById(expense.id!!).orElseThrow()
+        org.junit.jupiter.api.Assertions.assertEquals(currentVersion, persisted.version)
+        org.junit.jupiter.api.Assertions.assertEquals(ExpenseVerificationState.NOT_REQUIRED, persisted.verificationState)
+        org.junit.jupiter.api.Assertions.assertNull(persisted.lastVerifiedAt)
+    }
+
+    @Test
+    fun `PUT review is restricted to the owning Technician`() {
+        val expense = saveTechExpense()
+        entityManager.flush()
+        entityManager.clear()
+        val modCookie = authHelper.loginAs("mod1", "mod1")
+        mockMvc.perform(
+            post("/api/users")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"username":"review-owner-check","display_name":"Review Owner Check","password":"pass1234","role":"technician"}""")
+                .cookie(modCookie)
+        ).andExpect(status().isCreated)
+        val otherTechCookie = authHelper.loginAs("review-owner-check", "pass1234")
+        val currentVersion = expenseRepository.findById(expense.id!!).orElseThrow().version
+
+        mockMvc.perform(
+            put("/api/expenses/${expense.id}/review")
+                .header("Idempotency-Key", "foreign-review-${expense.id}")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"expected_version":$currentVersion,"values":{},"confirm":true}""")
+                .cookie(otherTechCookie)
+        ).andExpect(status().isForbidden)
+
+        entityManager.clear()
+        org.junit.jupiter.api.Assertions.assertEquals(
+            ExpenseVerificationState.NOT_REQUIRED,
+            expenseRepository.findById(expense.id!!).orElseThrow().verificationState
+        )
+    }
+
+    @Test
+    fun `PATCH reviewable Expense changes invalidate prior verification`() {
+        val expense = saveTechExpense()
+        val verifiedAt = Instant.parse("2026-06-01T12:00:00Z")
+        expense.verificationState = ExpenseVerificationState.VERIFIED
+        expense.lastVerifiedAt = verifiedAt
+        expense.lastVerifiedBy = expense.user
+        expenseRepository.save(expense)
+        entityManager.flush()
+        entityManager.clear()
+        val cookie = authHelper.loginAs("tech1", "tech1")
+
+        mockMvc.perform(
+            patch("/api/expenses/${expense.id}")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"amount":45.00}""")
+                .cookie(cookie)
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.verification_state").value("PENDING"))
+            .andExpect(jsonPath("$.last_verified_at").exists())
+
+        entityManager.flush()
+        entityManager.clear()
+        val persisted = expenseRepository.findById(expense.id!!).orElseThrow()
+        org.junit.jupiter.api.Assertions.assertEquals(ExpenseVerificationState.PENDING, persisted.verificationState)
+        org.junit.jupiter.api.Assertions.assertEquals(verifiedAt, persisted.lastVerifiedAt)
     }
 
     @Test

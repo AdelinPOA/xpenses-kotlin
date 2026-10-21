@@ -58,5 +58,6 @@ Thumbs.db
 /.gsd-disabled/
 *.png
 !docs/ux/mobile-ios-review/issue-47/**/*.png
+!docs/ux/mobile-ios-review/issue-48/**/*.png
 !docs/ux/mobile-ios-review/issue-49/**/*.png
 

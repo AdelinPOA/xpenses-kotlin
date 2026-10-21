@@ -1,8 +1,5 @@
 package eu.nt.xpenses.services
 
-import tools.jackson.databind.ObjectMapper
-import tools.jackson.module.kotlin.readValue
-import tools.jackson.module.kotlin.jacksonMapperBuilder
 import eu.nt.xpenses.model.AppSetting
 import eu.nt.xpenses.repositories.AppSettingRepository
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -16,6 +13,9 @@ import org.mockito.Mockito.mock
 import org.mockito.Mockito.verify
 import org.mockito.Mockito.verifyNoInteractions
 import org.mockito.Mockito.verifyNoMoreInteractions
+import tools.jackson.databind.ObjectMapper
+import tools.jackson.module.kotlin.jacksonMapperBuilder
+import tools.jackson.module.kotlin.readValue
 import java.util.Optional
 
 class DelegationParsingSettingsServiceTest {

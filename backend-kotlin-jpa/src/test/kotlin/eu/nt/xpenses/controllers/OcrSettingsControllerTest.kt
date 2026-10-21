@@ -1,6 +1,5 @@
 package eu.nt.xpenses.controllers
 
-import tools.jackson.databind.ObjectMapper
 import eu.nt.xpenses.dto.settings.OCRConfigUpdate
 import eu.nt.xpenses.dto.settings.OCRModelUpdate
 import eu.nt.xpenses.dto.settings.OCRProviderUpdate
@@ -22,6 +21,7 @@ import org.mockito.ArgumentCaptor
 import org.mockito.Mockito.mock
 import org.mockito.Mockito.verify
 import org.mockito.Mockito.`when`
+import tools.jackson.databind.ObjectMapper
 
 class OcrSettingsControllerTest {
     private val ocrService = mock(OcrService::class.java)

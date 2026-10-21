@@ -1,7 +1,5 @@
 package eu.nt.xpenses.services
 
-import tools.jackson.databind.ObjectMapper
-import tools.jackson.module.kotlin.jacksonMapperBuilder
 import eu.nt.xpenses.dto.settings.OCRConfigUpdate
 import eu.nt.xpenses.dto.settings.OCRProviderUpdate
 import eu.nt.xpenses.model.AppSetting
@@ -23,6 +21,8 @@ import org.mockito.Mockito.*
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.TransactionStatus
 import org.springframework.transaction.support.TransactionTemplate
+import tools.jackson.databind.ObjectMapper
+import tools.jackson.module.kotlin.jacksonMapperBuilder
 import java.time.Instant
 import java.util.Optional
 
@@ -289,12 +289,19 @@ class OcrServiceTest {
     @Test
     fun `settings patch retains latest stored key when blank key is submitted`() {
         val config = objectMapper.readValue(inactiveModelSetting(tested = true).value, OCRConfig::class.java)
-        val stored = AppSetting("ocr_config", objectMapper.writeValueAsString(
-            config.copy(providers = config.providers.map { it.copy(apiKey = "latest-rotated-key") })
-        ))
+        val stored =
+            AppSetting(
+                "ocr_config",
+                objectMapper.writeValueAsString(
+                    config.copy(providers = config.providers.map { it.copy(apiKey = "latest-rotated-key") }),
+                ),
+            )
         `when`(appSettingRepository.findById("ocr_config")).thenReturn(Optional.of(stored))
-        val update = OCRConfigUpdate(ocrEnabled = false,
-            providers = listOf(OCRProviderUpdate("p", "Renamed provider", "https://8.8.8.8/v1", "")))
+        val update =
+            OCRConfigUpdate(
+                ocrEnabled = false,
+                providers = listOf(OCRProviderUpdate("p", "Renamed provider", "https://8.8.8.8/v1", "")),
+            )
 
         ocrService.updateOcrConfig(update)
 

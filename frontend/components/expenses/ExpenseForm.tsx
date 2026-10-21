@@ -246,7 +246,7 @@ export default function ExpenseForm({
             .patch(`/expenses/${currentExpense.id}`, payload)
             .then((r) => r.data);
         } catch (e: any) {
-          throw new Error(e.response?.data?.detail ?? t("error_save"));
+          throw new Error(e.response?.data?.detail ?? t("error_save"), { cause: e });
         }
         try {
           for (const rid of deletedReceiptIds) {

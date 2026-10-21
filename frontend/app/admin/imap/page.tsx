@@ -174,9 +174,10 @@ export default function ImapAdminPage() {
     defaultValues: DEFAULT_FORM,
   });
 
-  const enabled = watch("enabled");
+  // Preserve form subscriptions without unused value bindings.
+  watch("enabled");
   const passwordSet = watch("password_set");
-  const imapPass = watch("imap_pass");
+  watch("imap_pass");
 
   useEffect(() => {
     if (!loading && (!user || user.role !== "mod"))

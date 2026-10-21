@@ -82,7 +82,6 @@ export default function ReportReceiptsDrawer({ reportId, onClose }: Props) {
   // Auto-select the first expense that actually has receipts.
   useEffect(() => {
     setSelectedExpenseId(expensesWithReceipts[0]?.id ?? null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [report?.id]);
 
   const selectedExpense =

@@ -6,7 +6,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api, {
   Report,
   Expense,
-  API_BASE_URL,
   downloadBlob,
   duplicateExpense,
 } from "@/lib/api";
@@ -198,7 +197,8 @@ export default function ReportDetailClient({
   const toggleExpense = (eid: number) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
-      next.has(eid) ? next.delete(eid) : next.add(eid);
+      if (next.has(eid)) next.delete(eid);
+      else next.add(eid);
       return next;
     });
   };

@@ -97,23 +97,21 @@ function isDefinitiveUploadRejection(error: unknown): boolean {
 
 const sleep = (ms: number, signal?: AbortSignal) =>
   new Promise<void>((resolve, reject) => {
-    let timer: ReturnType<typeof setTimeout> | undefined;
+    if (signal?.aborted) {
+      reject(new DOMException("Aborted", "AbortError"));
+      return;
+    }
     const onAbort = () => {
-      if (timer !== undefined) clearTimeout(timer);
+      clearTimeout(timer);
       signal?.removeEventListener("abort", onAbort);
       reject(new DOMException("Aborted", "AbortError"));
     };
 
-    signal?.addEventListener("abort", onAbort, { once: true });
-    if (signal?.aborted) {
-      onAbort();
-      return;
-    }
-
-    timer = setTimeout(() => {
+    const timer = setTimeout(() => {
       signal?.removeEventListener("abort", onAbort);
       resolve();
     }, ms);
+    signal?.addEventListener("abort", onAbort, { once: true });
   });
 
 export interface ScanOptions {

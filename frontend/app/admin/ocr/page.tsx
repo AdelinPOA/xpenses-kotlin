@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import api, {
   Category,
-  OcrConfig,
   getOcrConfig,
   getOcrComparisons,
 } from "@/lib/api";
@@ -29,7 +28,7 @@ const getStatusColor = (
     return "text-slate-400 bg-slate-100/50 dark:bg-slate-800/30 border-border";
   }
 
-  let match = false;
+  let match: boolean;
   if (typeof ocrVal === "string" && typeof finalVal === "string") {
     match = ocrVal.trim().toLowerCase() === finalVal.trim().toLowerCase();
   } else {

@@ -10,7 +10,7 @@ export async function serverFetch<T>(
 
   const INTERNAL_API_URL = process.env.INTERNAL_API_URL || "http://backend:8080/api";
 
-  let cookieString = allCookies.map((c) => `${c.name}=${c.value}`).join("; ");
+  const cookieString = allCookies.map((c) => `${c.name}=${c.value}`).join("; ");
 
   const headers = new Headers(init?.headers);
   if (cookieString) {

@@ -202,7 +202,6 @@ export default function ExpenseDetailPage({ params }: { params: Promise<{ id: st
                           >
                             {isImage && (
                               <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted/20 border border-border shrink-0">
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img
                                   src={receiptUrl}
                                   alt=""

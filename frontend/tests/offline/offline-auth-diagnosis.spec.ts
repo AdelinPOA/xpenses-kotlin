@@ -143,7 +143,9 @@ test("refresh network failure after an auth 401 must not force the owner to logi
   state.refresh = "network-error";
   await triggerAuthCheck(page);
   await expect(page).toHaveURL(/\/dashboard$/);
-  await expect(page.getByRole("heading", { name: "Offline workspace" })).toHaveCount(0);
+  await expect(
+    page.getByRole("heading", { name: "Offline workspace" }),
+  ).toHaveCount(0);
   expect(
     new URL(page.url()).pathname,
     `network loss during refresh navigated to ${page.url()}`,

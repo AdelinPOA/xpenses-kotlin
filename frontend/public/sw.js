@@ -24,8 +24,14 @@ const OFFLINE_ASSETS = [
   },
 ];
 const STATIC_ASSETS = [
-  { url: "/manifest.json", contentTypes: ["application/json", "application/manifest+json"] },
-  { url: "/favicon.ico", contentTypes: ["image/x-icon", "image/vnd.microsoft.icon", "image/png"] },
+  {
+    url: "/manifest.json",
+    contentTypes: ["application/json", "application/manifest+json"],
+  },
+  {
+    url: "/favicon.ico",
+    contentTypes: ["image/x-icon", "image/vnd.microsoft.icon", "image/png"],
+  },
   { url: "/favicon-32x32.png", contentTypes: ["image/png"] },
   { url: "/icons/icon-192x192.png", contentTypes: ["image/png"] },
   { url: "/icons/icon-512x512.png", contentTypes: ["image/png"] },
@@ -45,9 +51,12 @@ self.addEventListener("install", (event) => {
       try {
         const cache = await caches.open(CACHE_NAME);
         // Icons are optional; the document and its executable dependencies are not.
-        await Promise.all(STATIC_ASSETS.map((asset) => cacheStaticAsset(cache, asset)));
+        await Promise.all(
+          STATIC_ASSETS.map((asset) => cacheStaticAsset(cache, asset)),
+        );
         const prepared = await prepareOfflineWorkspace(cache);
-        if (!prepared) throw new Error("Required offline workspace asset is unavailable");
+        if (!prepared)
+          throw new Error("Required offline workspace asset is unavailable");
         await self.skipWaiting();
       } catch (error) {
         // This cache belongs only to the uninstalled worker. Never damage the
@@ -64,12 +73,16 @@ self.addEventListener("activate", (event) => {
     (async () => {
       const cache = await caches.open(CACHE_NAME);
       if (!(await isVerifiedShell(cache))) {
-        throw new Error("Refusing to activate without a verified offline workspace");
+        throw new Error(
+          "Refusing to activate without a verified offline workspace",
+        );
       }
       const keys = await caches.keys();
       await Promise.all(
         keys
-          .filter((key) => key.startsWith(XPENSES_CACHE_PREFIX) && key !== CACHE_NAME)
+          .filter(
+            (key) => key.startsWith(XPENSES_CACHE_PREFIX) && key !== CACHE_NAME,
+          )
           .map((key) => caches.delete(key)),
       );
       await self.clients.claim();
@@ -86,7 +99,9 @@ self.addEventListener("message", (event) => {
       const keys = await caches.keys();
       await Promise.all(
         keys
-          .filter((key) => key.startsWith(XPENSES_CACHE_PREFIX) && key !== CACHE_NAME)
+          .filter(
+            (key) => key.startsWith(XPENSES_CACHE_PREFIX) && key !== CACHE_NAME,
+          )
           .map((key) => caches.delete(key)),
       );
       const cache = await caches.open(CACHE_NAME);
@@ -151,17 +166,21 @@ async function prepareOfflineWorkspace(cache) {
 
 async function fetchPublicAsset(asset) {
   try {
-    const response = await fetch(new URL(asset.url, self.location.origin).href, {
-      credentials: "omit",
-      cache: "reload",
-      redirect: "error",
-    });
+    const response = await fetch(
+      new URL(asset.url, self.location.origin).href,
+      {
+        credentials: "omit",
+        cache: "reload",
+        redirect: "error",
+      },
+    );
     if (!isSafePublicResponse(response, asset.contentTypes)) return null;
 
     const responseUrl = response.url ? new URL(response.url) : null;
     if (
       responseUrl &&
-      (responseUrl.origin !== self.location.origin || responseUrl.pathname !== asset.url)
+      (responseUrl.origin !== self.location.origin ||
+        responseUrl.pathname !== asset.url)
     ) {
       return null;
     }
@@ -170,7 +189,8 @@ async function fetchPublicAsset(asset) {
     if (asset.marker && !body.includes(asset.marker)) return null;
     if (asset.url === "/offline/messages.v9.json") {
       const messages = JSON.parse(body);
-      if (messages.shellVersion !== 9 || !messages.en || !messages.ro) return null;
+      if (messages.shellVersion !== 9 || !messages.en || !messages.ro)
+        return null;
     }
     return new Response(body, { status: 200, headers: response.headers });
   } catch {
@@ -211,13 +231,15 @@ function isSafePublicResponse(response, allowedContentTypes) {
 async function isVerifiedShell(cache) {
   for (const asset of OFFLINE_ASSETS) {
     const response = await cache.match(asset.url);
-    if (!response || !isSafePublicResponse(response, asset.contentTypes)) return false;
+    if (!response || !isSafePublicResponse(response, asset.contentTypes))
+      return false;
     const body = await response.clone().text();
     if (asset.marker && !body.includes(asset.marker)) return false;
     if (asset.url === "/offline/messages.v9.json") {
       try {
         const messages = JSON.parse(body);
-        if (messages.shellVersion !== 9 || !messages.en || !messages.ro) return false;
+        if (messages.shellVersion !== 9 || !messages.en || !messages.ro)
+          return false;
       } catch {
         return false;
       }
@@ -237,7 +259,8 @@ async function networkFirstNavigation(request) {
   }
 
   const cache = await caches.open(CACHE_NAME);
-  if (!(await isVerifiedShell(cache))) return offlineWorkspaceUnavailable(request);
+  if (!(await isVerifiedShell(cache)))
+    return offlineWorkspaceUnavailable(request);
   const shell = await cache.match(OFFLINE_DOCUMENT);
   return new Response(shell.body, {
     status: 200,
@@ -257,15 +280,16 @@ function offlineWorkspaceUnavailable(request) {
   )
     ? "ro"
     : "en";
-  const message = language === "ro"
-    ? {
-        title: "Spațiul offline nu este pregătit",
-        body: "Reconectează-te la Xpenses pentru a pregăti spațiul offline. Datele private nu au fost încărcate.",
-      }
-    : {
-        title: "Offline workspace is not ready",
-        body: "Reconnect to Xpenses to prepare this workspace. No private data was loaded.",
-      };
+  const message =
+    language === "ro"
+      ? {
+          title: "Spațiul offline nu este pregătit",
+          body: "Reconectează-te la Xpenses pentru a pregăti spațiul offline. Datele private nu au fost încărcate.",
+        }
+      : {
+          title: "Offline workspace is not ready",
+          body: "Reconnect to Xpenses to prepare this workspace. No private data was loaded.",
+        };
   return new Response(
     `<!doctype html><html lang="${language}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>${message.title}</title><style>body{display:grid;min-height:100vh;margin:0;padding:1.5rem;place-items:center;background:#f8fafc;color:#0f172a;font:16px system-ui,sans-serif}main{max-width:32rem;border-top:4px solid #ea580c;padding:1.25rem}h1{font-size:1.5rem}p{line-height:1.55;color:#334155}</style></head><body><main><h1>${message.title}</h1><p>${message.body}</p></main></body></html>`,
     {
@@ -297,13 +321,16 @@ async function cacheFirstPublicAsset(request) {
 
   const cache = await caches.open(CACHE_NAME);
   const cached = await cache.match(request);
-  if (cached && await isValidAssetResponse(cached, asset)) return cached;
+  if (cached && (await isValidAssetResponse(cached, asset))) return cached;
 
   const response = await fetchPublicAsset(asset);
   if (!response) {
     return new Response("Offline asset unavailable", {
       status: 503,
-      headers: { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" },
+      headers: {
+        "Cache-Control": "no-store",
+        "X-Content-Type-Options": "nosniff",
+      },
     });
   }
   await cache.put(request, response.clone()).catch(() => {});
@@ -318,7 +345,11 @@ async function isValidAssetResponse(response, asset) {
   if (asset.url === "/offline/messages.v9.json") {
     try {
       const messages = JSON.parse(body);
-      return messages.shellVersion === 9 && Boolean(messages.en) && Boolean(messages.ro);
+      return (
+        messages.shellVersion === 9 &&
+        Boolean(messages.en) &&
+        Boolean(messages.ro)
+      );
     } catch {
       return false;
     }

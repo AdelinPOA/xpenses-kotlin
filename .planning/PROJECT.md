@@ -30,7 +30,7 @@ This is a brownfield project. The current implementation consists of a Kotlin/Sp
 
 ## Next Milestone Goals
 
-- Promote items from backlog (`todo.md` and `.planning/codebase/CONCERNS.md`) into Milestone 2 (e.g. Async OCR Scaling & Queue Worker, Email Ingestion Hardening, or Export Enhancements).
+- Promote items from backlog (`docs/archive/root-md-2026-10-18/todo.md` (historical; recheck against `README.md` and GitHub Issues) and `.planning/codebase/CONCERNS.md`) into Milestone 2 (e.g. Async OCR Scaling & Queue Worker, Email Ingestion Hardening, or Export Enhancements).
 
 ## Non-Goals
 
@@ -50,7 +50,7 @@ This is a brownfield project. The current implementation consists of a Kotlin/Sp
 
 - Codebase map: `.planning/codebase/`
 - ADR: `docs/adr/0001-bnr-fx-rates-with-margin.md`
-- Detailed reviewed backlog: `todo.md`
+- Detailed reviewed backlog: `docs/archive/root-md-2026-10-18/todo.md` (historical; recheck against `README.md` and GitHub Issues)
 
 ## Success Metric
 

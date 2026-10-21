@@ -1,5 +1,7 @@
 # Feature Landscape — Xpenses
 
+> Historical research: references to root `todo.md` now refer to `docs/archive/root-md-2026-10-18/todo.md`. Its findings are not current verification; use `README.md` and the documentation-review reports before planning work.
+
 **Mode:** Ecosystem
 **Date:** 2026-08-04
 **Source threads:** `todo.md` backlog, comparable tools (SAP Concur, Expensify, Rydoo, Zoho Expense, Certify, field-service tools), Romanian expense-reimbursement practice.

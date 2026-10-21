@@ -116,7 +116,9 @@ async function seedBrowserQueue(page: Page) {
       const request = indexedDB.open("xpenses-offline", 2);
       request.onupgradeneeded = () => {
         if (!request.result.objectStoreNames.contains("pending_expenses"))
-          request.result.createObjectStore("pending_expenses", { keyPath: "id" });
+          request.result.createObjectStore("pending_expenses", {
+            keyPath: "id",
+          });
       };
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
@@ -226,7 +228,10 @@ async function startDelayedBrowserReplay(page: Page) {
       () => window.dispatchEvent(new Event("online")),
       100,
     );
-    const timeout = window.setTimeout(() => window.clearInterval(timer), 10_000);
+    const timeout = window.setTimeout(
+      () => window.clearInterval(timer),
+      10_000,
+    );
     return { timer, timeout };
   });
   await expect.poll(() => createStarted, { timeout: 10_000 }).toBe(true);
@@ -350,9 +355,10 @@ async function finishReplayAfterSharedOwnerChange(
 }
 
 test("a delayed A create response cannot upload or remove A's bytes after a second tab logs in as B", async () => {
-  const { queue, result, uploadCalls } = await finishReplayAfterSharedOwnerChange(
-    (setOwner) => setOwner(55, "session-b"),
-  );
+  const { queue, result, uploadCalls } =
+    await finishReplayAfterSharedOwnerChange((setOwner) =>
+      setOwner(55, "session-b"),
+    );
 
   expect(result.stoppedForAuth).toBe(true);
   expect(uploadCalls).toBe(0);
@@ -365,9 +371,8 @@ test("a delayed A create response cannot upload or remove A's bytes after a seco
 });
 
 test("a delayed A create response cannot upload or remove A's bytes after a second tab logs out", async () => {
-  const { queue, result, uploadCalls } = await finishReplayAfterSharedOwnerChange(
-    (setOwner) => setOwner(null),
-  );
+  const { queue, result, uploadCalls } =
+    await finishReplayAfterSharedOwnerChange((setOwner) => setOwner(null));
 
   expect(result.stoppedForAuth).toBe(true);
   expect(uploadCalls).toBe(0);
@@ -398,7 +403,9 @@ test("two real tabs stop A replay when the second tab verifies login as B", asyn
       }),
     )
     .toBe(USERS.manager.id);
-  await expect(page.getByText(USERS.manager.display_name).first()).toBeVisible();
+  await expect(
+    page.getByText(USERS.manager.display_name).first(),
+  ).toBeVisible();
 
   replay.releaseResponse();
   await expect.poll(() => replay.createRouteFinished).toBe(true);
@@ -414,7 +421,9 @@ test("two real tabs stop A replay when the second tab verifies login as B", asyn
   expect(replay.receiptUploads).toBe(0);
 });
 
-test("logout clears a freshly refreshed same-owner marker", async ({ page }) => {
+test("logout clears a freshly refreshed same-owner marker", async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await setupCommonMocks(page, { role: "user" });
   let serverUser: (typeof USERS)[keyof typeof USERS] | null = USERS.user;
@@ -435,14 +444,18 @@ test("logout clears a freshly refreshed same-owner marker", async ({ page }) => 
   await expect(signOut).toBeVisible();
 
   await page.evaluate(() => {
-    const profile = JSON.parse(localStorage.getItem("xpenses_user_profile") ?? "null");
+    const profile = JSON.parse(
+      localStorage.getItem("xpenses_user_profile") ?? "null",
+    );
     profile.__xpenses_auth_marker = "fresh-same-owner-marker";
     localStorage.setItem("xpenses_user_profile", JSON.stringify(profile));
   });
   await signOut.click();
 
   await expect
-    .poll(() => page.evaluate(() => localStorage.getItem("xpenses_user_profile")))
+    .poll(() =>
+      page.evaluate(() => localStorage.getItem("xpenses_user_profile")),
+    )
     .toBeNull();
   await expect(page).toHaveURL(/\/login/);
   expect(logoutRequests).toBe(1);
@@ -452,7 +465,9 @@ test("logout clears a freshly refreshed same-owner marker", async ({ page }) => 
   expect(unauthorizedMeResponses).toBeGreaterThan(0);
 });
 
-test("a stale A tab neither logs out nor clears the current B profile", async ({ page }) => {
+test("a stale A tab neither logs out nor clears the current B profile", async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await setupCommonMocks(page, { role: "user" });
   let logoutRequests = 0;
@@ -465,16 +480,23 @@ test("a stale A tab neither logs out nor clears the current B profile", async ({
   await expect(signOut).toBeVisible();
 
   await page.evaluate((profile) => {
-    localStorage.setItem("xpenses_user_profile", JSON.stringify({
-      ...profile,
-      __xpenses_auth_marker: "session-b",
-    }));
+    localStorage.setItem(
+      "xpenses_user_profile",
+      JSON.stringify({
+        ...profile,
+        __xpenses_auth_marker: "session-b",
+      }),
+    );
   }, USERS.manager);
   await signOut.click();
 
   await expect(page).toHaveURL(/\/login/);
   await expect
-    .poll(() => page.evaluate(() => JSON.parse(localStorage.getItem("xpenses_user_profile") ?? "null")))
+    .poll(() =>
+      page.evaluate(() =>
+        JSON.parse(localStorage.getItem("xpenses_user_profile") ?? "null"),
+      ),
+    )
     .toMatchObject({
       id: USERS.manager.id,
       __xpenses_auth_marker: "session-b",
@@ -519,7 +541,9 @@ test("two real tabs retain A's queued receipt when the second tab logs out", asy
   });
   await secondTab.setViewportSize({ width: 1280, height: 800 });
   await secondTab.goto("/dashboard");
-  await expect(secondTab.getByRole("button", { name: /sign out/i })).toBeVisible();
+  await expect(
+    secondTab.getByRole("button", { name: /sign out/i }),
+  ).toBeVisible();
   logoutInitiated = true;
   await secondTab.getByRole("button", { name: /sign out/i }).click();
 

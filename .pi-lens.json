@@ -1,0 +1,14 @@
+{
+  "$schema": "https://raw.githubusercontent.com/apmantza/pi-lens/master/docs/schema/pi-lens-config-v1.json",
+  "ignore": [
+    "frontend/.next/**",
+    "**/node_modules/**",
+    "backend-kotlin-jpa/build/**",
+    "backend-kotlin-jpa/.gradle/**",
+    "backend-kotlin-jpa/.kotlin/**",
+    "**/coverage/**",
+    "**/playwright-report/**",
+    "**/test-results/**",
+    "graphify-out/**"
+  ]
+}

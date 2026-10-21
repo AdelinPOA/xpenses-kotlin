@@ -39,7 +39,8 @@
         // Fall through to the browser language.
       }
     }
-    return navigator.language && navigator.language.toLowerCase().startsWith("ro")
+    return navigator.language &&
+      navigator.language.toLowerCase().startsWith("ro")
       ? "ro"
       : "en";
   }
@@ -51,7 +52,8 @@
       credentials: "omit",
       cache: "no-store",
     });
-    if (!response.ok) throw new Error("Offline workspace messages are unavailable");
+    if (!response.ok)
+      throw new Error("Offline workspace messages are unavailable");
     const messages = await response.json();
     if (messages.shellVersion !== 9 || !messages[state.locale]) {
       throw new Error("Offline workspace messages are out of date");
@@ -67,7 +69,9 @@
     try {
       const raw = localStorage.getItem(PROFILE_KEY);
       const profile = raw ? JSON.parse(raw) : null;
-      return Number.isSafeInteger(profile?.id) && profile.id > 0 ? profile.id : null;
+      return Number.isSafeInteger(profile?.id) && profile.id > 0
+        ? profile.id
+        : null;
     } catch {
       return null;
     }
@@ -142,7 +146,11 @@
     setText("#photo-name", text("noPhoto"));
   }
 
-  function setReconnect(visible, href = "/dashboard?offline=return", label = text("checkAndSync")) {
+  function setReconnect(
+    visible,
+    href = "/dashboard?offline=return",
+    label = text("checkAndSync"),
+  ) {
     const link = app.querySelector("#reconnect-link");
     if (!link) return;
     link.hidden = !visible;
@@ -184,7 +192,8 @@
         }
       };
       request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error ?? new Error("Could not open device storage"));
+      request.onerror = () =>
+        reject(request.error ?? new Error("Could not open device storage"));
       request.onblocked = () => reject(new Error("Device storage is busy"));
     });
   }
@@ -193,7 +202,8 @@
     return new Promise((resolve, reject) => {
       const request = indexedDB.deleteDatabase(name);
       request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error ?? new Error("Could not repair device storage"));
+      request.onerror = () =>
+        reject(request.error ?? new Error("Could not repair device storage"));
       request.onblocked = () => reject(new Error("Device storage is busy"));
     });
   }
@@ -203,18 +213,31 @@
       let count = 0;
       const tx = db.transaction(QUEUE_STORE, "readonly");
       const request = tx.objectStore(QUEUE_STORE).count();
-      request.onsuccess = () => { count = request.result; };
+      request.onsuccess = () => {
+        count = request.result;
+      };
       request.onerror = () => {
-        try { tx.abort(); } catch { /* already complete */ }
+        try {
+          tx.abort();
+        } catch {
+          /* already complete */
+        }
       };
       tx.oncomplete = () => resolve(count);
-      tx.onerror = tx.onabort = () => reject(tx.error ?? request.error ?? new Error("Could not inspect device storage"));
+      tx.onerror = tx.onabort = () =>
+        reject(
+          tx.error ??
+            request.error ??
+            new Error("Could not inspect device storage"),
+        );
     });
   }
 
   async function openQueueDatabase() {
     let db = await openDatabase(QUEUE_DB, QUEUE_DB_VERSION, QUEUE_STORE, "id");
-    const store = db.transaction(QUEUE_STORE, "readonly").objectStore(QUEUE_STORE);
+    const store = db
+      .transaction(QUEUE_STORE, "readonly")
+      .objectStore(QUEUE_STORE);
     if (store.keyPath === "id") return db;
 
     let rowCount;
@@ -225,12 +248,16 @@
     }
     if (rowCount !== 0) {
       // Never delete or rewrite records from an unknown/incompatible store.
-      throw new Error("The existing offline queue schema cannot be repaired safely");
+      throw new Error(
+        "The existing offline queue schema cannot be repaired safely",
+      );
     }
 
     await deleteDatabase(QUEUE_DB);
     db = await openDatabase(QUEUE_DB, QUEUE_DB_VERSION, QUEUE_STORE, "id");
-    const repairedStore = db.transaction(QUEUE_STORE, "readonly").objectStore(QUEUE_STORE);
+    const repairedStore = db
+      .transaction(QUEUE_STORE, "readonly")
+      .objectStore(QUEUE_STORE);
     if (repairedStore.keyPath !== "id") {
       db.close();
       throw new Error("The offline queue schema is incompatible");
@@ -244,9 +271,15 @@
       const tx = db.transaction(QUERY_STORE, "readonly");
       const request = tx.objectStore(QUERY_STORE).get(QUERY_KEY);
       let value = null;
-      request.onsuccess = () => { value = request.result ?? null; };
+      request.onsuccess = () => {
+        value = request.result ?? null;
+      };
       request.onerror = () => {
-        try { tx.abort(); } catch { /* already complete */ }
+        try {
+          tx.abort();
+        } catch {
+          /* already complete */
+        }
       };
       tx.oncomplete = () => {
         db.close();
@@ -254,7 +287,11 @@
       };
       tx.onerror = tx.onabort = () => {
         db.close();
-        reject(tx.error ?? request.error ?? new Error("Could not read cached expenses"));
+        reject(
+          tx.error ??
+            request.error ??
+            new Error("Could not read cached expenses"),
+        );
       };
     });
   }
@@ -282,32 +319,49 @@
   }
 
   function readQueue(ownerId) {
-    return openQueueDatabase().then((db) => new Promise((resolve, reject) => {
-      const tx = db.transaction(QUEUE_STORE, "readonly");
-      const request = tx.objectStore(QUEUE_STORE).getAll();
-      let items = [];
-      request.onsuccess = () => {
-        const records = request.result ?? [];
-        if (!records.every(validQueueItem)) {
-          try { tx.abort(); } catch { /* already aborted */ }
-          return;
-        }
-        items = records
-          .filter((item) => item && item.userId === ownerId)
-          .sort((left, right) => (left.createdAt ?? 0) - (right.createdAt ?? 0));
-      };
-      request.onerror = () => {
-        try { tx.abort(); } catch { /* already aborted */ }
-      };
-      tx.oncomplete = () => {
-        db.close();
-        resolve({ items, unavailable: false });
-      };
-      tx.onerror = tx.onabort = () => {
-        db.close();
-        reject(tx.error ?? request.error ?? new Error("Could not read offline drafts"));
-      };
-    }));
+    return openQueueDatabase().then(
+      (db) =>
+        new Promise((resolve, reject) => {
+          const tx = db.transaction(QUEUE_STORE, "readonly");
+          const request = tx.objectStore(QUEUE_STORE).getAll();
+          let items = [];
+          request.onsuccess = () => {
+            const records = request.result ?? [];
+            if (!records.every(validQueueItem)) {
+              try {
+                tx.abort();
+              } catch {
+                /* already aborted */
+              }
+              return;
+            }
+            items = records
+              .filter((item) => item && item.userId === ownerId)
+              .sort(
+                (left, right) => (left.createdAt ?? 0) - (right.createdAt ?? 0),
+              );
+          };
+          request.onerror = () => {
+            try {
+              tx.abort();
+            } catch {
+              /* already aborted */
+            }
+          };
+          tx.oncomplete = () => {
+            db.close();
+            resolve({ items, unavailable: false });
+          };
+          tx.onerror = tx.onabort = () => {
+            db.close();
+            reject(
+              tx.error ??
+                request.error ??
+                new Error("Could not read offline drafts"),
+            );
+          };
+        }),
+    );
   }
 
   function collectExpenses(payload) {
@@ -318,11 +372,13 @@
         value.forEach(add);
         return;
       }
-      if (Array.isArray(value.recent_expenses)) value.recent_expenses.forEach(add);
+      if (Array.isArray(value.recent_expenses))
+        value.recent_expenses.forEach(add);
       if (Array.isArray(value.data)) value.data.forEach(add);
       if (
         (typeof value.id === "number" || typeof value.id === "string") &&
-        (typeof value.amount_original === "number" || typeof value.amount_eur === "number")
+        (typeof value.amount_original === "number" ||
+          typeof value.amount_eur === "number")
       ) {
         found.push(value);
       }
@@ -397,7 +453,8 @@
     list.replaceChildren();
     empty.hidden = expenses.length > 0;
     for (const expense of expenses.slice(0, 20)) {
-      const title = expense.merchant || expense.description || text("cachedExpenses");
+      const title =
+        expense.merchant || expense.description || text("cachedExpenses");
       const detail = [formatDate(expense.date), expense.category_name]
         .filter(Boolean)
         .join(" · ");
@@ -416,7 +473,8 @@
     empty.hidden = items.length > 0;
     for (const item of items) {
       const payload = item.payload ?? {};
-      const title = payload.merchant || payload.description || text("newExpense");
+      const title =
+        payload.merchant || payload.description || text("newExpense");
       const receipt = item.receipts?.find((file) => file?.blob instanceof Blob);
       const date = formatDate(payload.date);
       const receiptLabel = item.receipts?.length
@@ -471,18 +529,28 @@
     renderExpenses(expenses);
     renderDrafts(queueState.items);
 
-    const status = onlineVerified ? text("accountReady") : text("offlineStatus");
+    const status = onlineVerified
+      ? text("accountReady")
+      : text("offlineStatus");
     const notice = state.queueUnavailable
       ? text("queueUnavailable")
       : !isFresh
         ? text("cachedExpired")
         : text("storageNote");
     showNotice(notice, status);
-    setReconnect(onlineVerified, "/dashboard?offline=return", text("checkAndSync"));
+    setReconnect(
+      onlineVerified,
+      "/dashboard?offline=return",
+      text("checkAndSync"),
+    );
     setCheckAccount(!onlineVerified);
   }
 
-  async function loadLocal(ownerId, onlineVerified, generation = state.ownerGeneration) {
+  async function loadLocal(
+    ownerId,
+    onlineVerified,
+    generation = state.ownerGeneration,
+  ) {
     const [queryRecord, queueState] = await Promise.all([
       readQueryRecord().catch(() => null),
       readQueue(ownerId).catch(() => ({ items: [], unavailable: true })),
@@ -557,9 +625,13 @@
   }
 
   function validDate(value) {
-    if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+    if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value))
+      return false;
     const parsed = new Date(`${value}T00:00:00.000Z`);
-    return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+    return (
+      !Number.isNaN(parsed.getTime()) &&
+      parsed.toISOString().slice(0, 10) === value
+    );
   }
 
   function validPayload(payload) {
@@ -581,18 +653,27 @@
       receipt.blob.size > 0 &&
       receipt.blob.size <= MAX_RECEIPT_BYTES &&
       RECEIPT_TYPES.has(receipt.type.toLowerCase()) &&
-      (!receipt.blob.type || receipt.blob.type.toLowerCase() === receipt.type.toLowerCase())
+      (!receipt.blob.type ||
+        receipt.blob.type.toLowerCase() === receipt.type.toLowerCase())
     );
   }
 
   function validateQueueItem(item) {
     if (!validPayload(item.payload)) throw new Error(text("saveFailed"));
-    if (!Array.isArray(item.receipts) || !item.receipts.every(validNewReceipt)) {
+    if (
+      !Array.isArray(item.receipts) ||
+      !item.receipts.every(validNewReceipt)
+    ) {
       throw new Error(text("invalidPhoto"));
     }
   }
 
-  async function addDraft(item, ownerIdAtStart, generationAtStart, querySnapshot) {
+  async function addDraft(
+    item,
+    ownerIdAtStart,
+    generationAtStart,
+    querySnapshot,
+  ) {
     validateQueueItem(item);
     if (!ownerIsCurrent(ownerIdAtStart, generationAtStart)) {
       throw new Error("Offline workspace owner changed");
@@ -623,7 +704,11 @@
         if (settled) return;
         settled = true;
         failure = error instanceof Error ? error : new Error(String(error));
-        try { tx.abort(); } catch { /* already aborted */ }
+        try {
+          tx.abort();
+        } catch {
+          /* already aborted */
+        }
         close();
         reject(failure);
       };
@@ -652,11 +737,22 @@
             return;
           }
           const bytes = items.reduce(
-            (total, queued) => total + queued.receipts.reduce((sum, receipt) => sum + receipt.blob.size, 0),
+            (total, queued) =>
+              total +
+              queued.receipts.reduce(
+                (sum, receipt) => sum + receipt.blob.size,
+                0,
+              ),
             0,
           );
-          const newBytes = item.receipts.reduce((total, receipt) => total + receipt.blob.size, 0);
-          if (items.length >= MAX_QUEUE_SIZE || bytes + newBytes > MAX_QUEUE_BYTES) {
+          const newBytes = item.receipts.reduce(
+            (total, receipt) => total + receipt.blob.size,
+            0,
+          );
+          if (
+            items.length >= MAX_QUEUE_SIZE ||
+            bytes + newBytes > MAX_QUEUE_BYTES
+          ) {
             fail(new Error(text("queueFull")));
             return;
           }
@@ -670,26 +766,34 @@
             return;
           }
           const put = store.put(item);
-          put.onerror = () => fail(put.error ?? new Error("Could not save offline draft"));
+          put.onerror = () =>
+            fail(put.error ?? new Error("Could not save offline draft"));
         };
-        request.onerror = () => fail(request.error ?? new Error("Could not inspect offline drafts"));
+        request.onerror = () =>
+          fail(request.error ?? new Error("Could not inspect offline drafts"));
         tx.oncomplete = () => {
           if (settled) return;
           settled = true;
           close();
           resolve();
         };
-        tx.onerror = () => fail(tx.error ?? new Error("Could not save offline draft"));
+        tx.onerror = () =>
+          fail(tx.error ?? new Error("Could not save offline draft"));
         tx.onabort = () => {
           if (settled) return;
           settled = true;
-          const error = failure ?? tx.error ?? new Error("Offline draft was not saved");
+          const error =
+            failure ?? tx.error ?? new Error("Offline draft was not saved");
           close();
           reject(error);
         };
       } catch (error) {
         failure = error instanceof Error ? error : new Error(String(error));
-        try { tx?.abort(); } catch { /* already aborted */ }
+        try {
+          tx?.abort();
+        } catch {
+          /* already aborted */
+        }
         close();
         reject(failure);
       }
@@ -752,7 +856,8 @@
     } else {
       name = name.replace(/\.[^.]+$/, "") + ".jpg";
     }
-    if (!(blob instanceof Blob) || blob.size <= 0) throw new Error(text("invalidPhoto"));
+    if (!(blob instanceof Blob) || blob.size <= 0)
+      throw new Error(text("invalidPhoto"));
     if (blob.size > MAX_RECEIPT_BYTES) throw new Error(text("photoTooLarge"));
     return {
       name,
@@ -777,7 +882,8 @@
       !Number.isSafeInteger(ownerIdAtStart) ||
       ownerIdAtStart <= 0 ||
       profileOwnerAtStart !== ownerIdAtStart
-    ) return;
+    )
+      return;
 
     const form = event.currentTarget;
     const button = app.querySelector("#save-draft");
@@ -860,10 +966,19 @@
       form.reset();
       app.querySelector("#date").value = new Date().toISOString().slice(0, 10);
       setText("#photo-name", text("noPhoto"));
-      await loadLocal(ownerIdAtStart, state.verifiedOwnerId === ownerIdAtStart, generationAtStart);
-      if (ownerIsCurrent(ownerIdAtStart, generationAtStart)) setText("#notice", text("savedNotice"));
+      await loadLocal(
+        ownerIdAtStart,
+        state.verifiedOwnerId === ownerIdAtStart,
+        generationAtStart,
+      );
+      if (ownerIsCurrent(ownerIdAtStart, generationAtStart))
+        setText("#notice", text("savedNotice"));
     } catch (error) {
-      if (isOwnerChangeError(error) || !ownerIsCurrent(ownerIdAtStart, generationAtStart)) return;
+      if (
+        isOwnerChangeError(error) ||
+        !ownerIsCurrent(ownerIdAtStart, generationAtStart)
+      )
+        return;
       if (error?.message === text("ownerUnavailable")) {
         showNeutral(text("ownerUnavailable"));
         return;
@@ -886,7 +1001,10 @@
     } finally {
       if (state.ownerGeneration === generationAtStart) {
         state.busy = false;
-        if (ownerIsCurrent(ownerIdAtStart, generationAtStart) && !state.queueUnavailable) {
+        if (
+          ownerIsCurrent(ownerIdAtStart, generationAtStart) &&
+          !state.queueUnavailable
+        ) {
           button.disabled = false;
           button.textContent = text("saveOnDevice");
         }
@@ -901,7 +1019,11 @@
     });
     app.querySelector("#receipt-photo")?.addEventListener("click", () => {
       state.photoPicker = ownerIsCurrent(state.ownerId, state.ownerGeneration)
-        ? { ownerId: state.ownerId, generation: state.ownerGeneration, invalidated: false }
+        ? {
+            ownerId: state.ownerId,
+            generation: state.ownerGeneration,
+            invalidated: false,
+          }
         : { invalidated: true };
     });
     app.querySelector("#receipt-photo")?.addEventListener("change", (event) => {
@@ -910,7 +1032,9 @@
       if (
         !ownerIsCurrent(state.ownerId, state.ownerGeneration) ||
         picker?.invalidated ||
-        (picker && (picker.ownerId !== state.ownerId || picker.generation !== state.ownerGeneration))
+        (picker &&
+          (picker.ownerId !== state.ownerId ||
+            picker.generation !== state.ownerGeneration))
       ) {
         event.target.value = "";
         setText("#photo-name", text("noPhoto"));
@@ -998,6 +1122,8 @@
       void boot();
     })
     .catch(() => {
-      showNeutral("Offline workspace could not be prepared. Reconnect to Xpenses and try again.");
+      showNeutral(
+        "Offline workspace could not be prepared. Reconnect to Xpenses and try again.",
+      );
     });
 })();

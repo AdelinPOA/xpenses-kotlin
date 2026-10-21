@@ -85,7 +85,10 @@ function makeFixture(): AppFixture {
   };
 }
 
-async function installApiFixtures(context: BrowserContext, fixture: AppFixture) {
+async function installApiFixtures(
+  context: BrowserContext,
+  fixture: AppFixture,
+) {
   await context.route("**/api/**", async (route, request) => {
     if (!fixture.networkAvailable) {
       await route.abort("failed");
@@ -95,23 +98,37 @@ async function installApiFixtures(context: BrowserContext, fixture: AppFixture) 
     if (pathname === "/api/auth/me") {
       if (fixture.authMeForbidden) {
         await route.fulfill({ status: 403, json: { detail: "Forbidden" } });
-      } else if (fixture.identity) await route.fulfill({ json: fixture.identity });
-      else await route.fulfill({ status: 401, json: { detail: "Unauthorized" } });
+      } else if (fixture.identity)
+        await route.fulfill({ json: fixture.identity });
+      else
+        await route.fulfill({ status: 401, json: { detail: "Unauthorized" } });
       return;
     }
     if (pathname === "/api/auth/refresh") {
       if (fixture.refreshRejected) {
-        await route.fulfill({ status: 401, json: { detail: "Refresh rejected" } });
+        await route.fulfill({
+          status: 401,
+          json: { detail: "Refresh rejected" },
+        });
       } else {
-        await route.fulfill({ json: { access_token: "fixture-refreshed-token" } });
+        await route.fulfill({
+          json: { access_token: "fixture-refreshed-token" },
+        });
       }
       return;
     }
     if (pathname === "/api/dashboard") {
-      const cachedExpense = fixture.identity?.id === OWNER_B.id
-        ? { ...CACHED_EXPENSE_A, id: 902, merchant: "Account B private hotel" }
-        : CACHED_EXPENSE_A;
-      await route.fulfill({ json: { ...DASHBOARD, recent_expenses: [cachedExpense] } });
+      const cachedExpense =
+        fixture.identity?.id === OWNER_B.id
+          ? {
+              ...CACHED_EXPENSE_A,
+              id: 902,
+              merchant: "Account B private hotel",
+            }
+          : CACHED_EXPENSE_A;
+      await route.fulfill({
+        json: { ...DASHBOARD, recent_expenses: [cachedExpense] },
+      });
       return;
     }
     if (pathname === "/api/settings/ui") {
@@ -119,7 +136,9 @@ async function installApiFixtures(context: BrowserContext, fixture: AppFixture) 
       return;
     }
     if (pathname === "/api/expenses" && request.method() === "POST") {
-      fixture.expenseCreates.push(request.postDataJSON() as Record<string, unknown>);
+      fixture.expenseCreates.push(
+        request.postDataJSON() as Record<string, unknown>,
+      );
       await route.fulfill({
         json: {
           ...CACHED_EXPENSE_A,
@@ -131,14 +150,20 @@ async function installApiFixtures(context: BrowserContext, fixture: AppFixture) 
       });
       return;
     }
-    if (/^\/api\/expenses\/\d+\/receipts$/.test(pathname) && request.method() === "POST") {
+    if (
+      /^\/api\/expenses\/\d+\/receipts$/.test(pathname) &&
+      request.method() === "POST"
+    ) {
       fixture.receiptUploads++;
       await route.fulfill({ json: [] });
       return;
     }
     if (pathname.includes("/ocr/")) {
       fixture.ocrRequests++;
-      await route.fulfill({ status: 500, json: { detail: "OCR must not run offline" } });
+      await route.fulfill({
+        status: 500,
+        json: { detail: "OCR must not run offline" },
+      });
       return;
     }
     await route.fulfill({ json: [] });
@@ -147,8 +172,16 @@ async function installApiFixtures(context: BrowserContext, fixture: AppFixture) 
 
 async function addCookies(context: BrowserContext, owner = OWNER_A) {
   await context.addCookies([
-    { name: "access_token", value: `fixture-access-${owner.id}`, url: APP_ORIGIN },
-    { name: "refresh_token", value: `fixture-refresh-${owner.id}`, url: APP_ORIGIN },
+    {
+      name: "access_token",
+      value: `fixture-access-${owner.id}`,
+      url: APP_ORIGIN,
+    },
+    {
+      name: "refresh_token",
+      value: `fixture-refresh-${owner.id}`,
+      url: APP_ORIGIN,
+    },
   ]);
 }
 
@@ -166,10 +199,17 @@ async function readPersistedOwner(page: Page) {
     });
     return new Promise<number | null>((resolve, reject) => {
       const transaction = db.transaction("react_query", "readonly");
-      const request = transaction.objectStore("react_query").get("persisted_state");
+      const request = transaction
+        .objectStore("react_query")
+        .get("persisted_state");
       let ownerId: number | null = null;
-      request.onsuccess = () => { ownerId = request.result?.userId ?? null; };
-      transaction.oncomplete = () => { db.close(); resolve(ownerId); };
+      request.onsuccess = () => {
+        ownerId = request.result?.userId ?? null;
+      };
+      transaction.oncomplete = () => {
+        db.close();
+        resolve(ownerId);
+      };
       transaction.onerror = transaction.onabort = () => {
         db.close();
         reject(transaction.error);
@@ -184,28 +224,45 @@ async function readQueuedItems(page: Page) {
       const request = indexedDB.open("xpenses-offline", 2);
       request.onupgradeneeded = () => {
         if (!request.result.objectStoreNames.contains("pending_expenses")) {
-          request.result.createObjectStore("pending_expenses", { keyPath: "id" });
+          request.result.createObjectStore("pending_expenses", {
+            keyPath: "id",
+          });
         }
       };
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });
-    return new Promise<Array<{ userId: number; payload: { merchant?: string }; receipts: Array<{ name: string; size: number; type: string }> }>>((resolve, reject) => {
+    return new Promise<
+      Array<{
+        userId: number;
+        payload: { merchant?: string };
+        receipts: Array<{ name: string; size: number; type: string }>;
+      }>
+    >((resolve, reject) => {
       const transaction = db.transaction("pending_expenses", "readonly");
       const request = transaction.objectStore("pending_expenses").getAll();
-      let items: Array<{ userId: number; payload: { merchant?: string }; receipts: Array<{ name: string; size: number; type: string }> }> = [];
+      let items: Array<{
+        userId: number;
+        payload: { merchant?: string };
+        receipts: Array<{ name: string; size: number; type: string }>;
+      }> = [];
       request.onsuccess = () => {
         items = (request.result ?? []).map((item) => ({
           userId: item.userId,
           payload: item.payload,
-          receipts: (item.receipts ?? []).map((receipt: { name: string; type: string; blob: Blob }) => ({
-            name: receipt.name,
-            type: receipt.type,
-            size: receipt.blob?.size ?? 0,
-          })),
+          receipts: (item.receipts ?? []).map(
+            (receipt: { name: string; type: string; blob: Blob }) => ({
+              name: receipt.name,
+              type: receipt.type,
+              size: receipt.blob?.size ?? 0,
+            }),
+          ),
         }));
       };
-      transaction.oncomplete = () => { db.close(); resolve(items); };
+      transaction.oncomplete = () => {
+        db.close();
+        resolve(items);
+      };
       transaction.onerror = transaction.onabort = () => {
         db.close();
         reject(transaction.error);
@@ -225,46 +282,73 @@ async function prepareInstalledOwner(page: Page, fixture: AppFixture) {
   });
   await page.waitForFunction(() => Boolean(navigator.serviceWorker.controller));
   await expect.poll(() => readPersistedOwner(page)).toBe(4);
-  await page.waitForFunction(async () => Boolean(await caches.match("/offline/index.v9.html")));
+  await page.waitForFunction(async () =>
+    Boolean(await caches.match("/offline/index.v9.html")),
+  );
 }
 
 async function createStorageWriterTab(context: BrowserContext) {
   const writer = await context.newPage();
   await writer.goto(`${APP_ORIGIN}/offline/index.v9.html`);
-  await expect(writer.getByRole("heading", { name: "Offline workspace" })).toBeVisible();
+  await expect(
+    writer.getByRole("heading", { name: "Offline workspace" }),
+  ).toBeVisible();
   return writer;
 }
 
-async function changeOwnerFromOtherTab(writer: Page, owner: typeof OWNER_B | null) {
+async function changeOwnerFromOtherTab(
+  writer: Page,
+  owner: typeof OWNER_B | null,
+) {
   await writer.evaluate((nextOwner) => {
-    if (nextOwner) localStorage.setItem("xpenses_user_profile", JSON.stringify(nextOwner));
+    if (nextOwner)
+      localStorage.setItem("xpenses_user_profile", JSON.stringify(nextOwner));
     else localStorage.removeItem("xpenses_user_profile");
   }, owner);
   await writer.reload();
 }
 
 async function deleteQueueDatabase(page: Page) {
-  await page.evaluate(() => new Promise<void>((resolve, reject) => {
-    const request = indexedDB.deleteDatabase("xpenses-offline");
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error);
-    request.onblocked = () => reject(new Error("Offline queue database is still open"));
-  }));
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve, reject) => {
+        const request = indexedDB.deleteDatabase("xpenses-offline");
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+        request.onblocked = () =>
+          reject(new Error("Offline queue database is still open"));
+      }),
+  );
 }
 
 async function prepareQueueDatabase(page: Page, withRecord = false) {
-  await page.evaluate((seed) => new Promise<void>((resolve, reject) => {
-    const request = indexedDB.open("xpenses-offline", 2);
-    request.onupgradeneeded = () => {
-      const store = request.result.createObjectStore("pending_expenses");
-      if (seed) store.put({ id: "legacy-record", userId: 4, payload: {}, receipts: [] }, "legacy-record");
-    };
-    request.onsuccess = () => { request.result.close(); resolve(); };
-    request.onerror = () => reject(request.error);
-  }), withRecord);
+  await page.evaluate(
+    (seed) =>
+      new Promise<void>((resolve, reject) => {
+        const request = indexedDB.open("xpenses-offline", 2);
+        request.onupgradeneeded = () => {
+          const store = request.result.createObjectStore("pending_expenses");
+          if (seed)
+            store.put(
+              { id: "legacy-record", userId: 4, payload: {}, receipts: [] },
+              "legacy-record",
+            );
+        };
+        request.onsuccess = () => {
+          request.result.close();
+          resolve();
+        };
+        request.onerror = () => reject(request.error);
+      }),
+    withRecord,
+  );
 }
 
-async function reopenOfflineWithoutCookies(page: Page, fixture: AppFixture, clearQueue = false) {
+async function reopenOfflineWithoutCookies(
+  page: Page,
+  fixture: AppFixture,
+  clearQueue = false,
+) {
   if (clearQueue) await deleteQueueDatabase(page);
   await page.close();
   await page.context().clearCookies();
@@ -273,12 +357,18 @@ async function reopenOfflineWithoutCookies(page: Page, fixture: AppFixture, clea
   const coldStart = await page.context().newPage();
   const response = await coldStart.goto(`${APP_ORIGIN}/dashboard`);
   expect(response?.status()).toBe(200);
-  await expect(coldStart.getByRole("heading", { name: "Offline workspace" })).toBeVisible();
+  await expect(
+    coldStart.getByRole("heading", { name: "Offline workspace" }),
+  ).toBeVisible();
   await expect(coldStart.locator("#private-workspace")).toBeVisible();
   return coldStart;
 }
 
-async function createOfflineExpense(page: Page, merchant: string, includePhoto = true) {
+async function createOfflineExpense(
+  page: Page,
+  merchant: string,
+  includePhoto = true,
+) {
   await page.locator("#amount").fill("19.75");
   await page.locator("#currency").selectOption("EUR");
   await page.locator("#date").fill("2026-10-18");
@@ -307,18 +397,24 @@ async function verifyAccountIfPrompted(page: Page) {
 async function ownerProfileId(page: Page) {
   return page.evaluate(() => {
     const raw = localStorage.getItem("xpenses_user_profile");
-    return raw ? JSON.parse(raw)?.id ?? null : null;
+    return raw ? (JSON.parse(raw)?.id ?? null) : null;
   });
 }
 
-test("installed app cold-starts offline without cookies, captures a durable photo draft, then verifies and syncs the same owner", async ({ page }) => {
+test("installed app cold-starts offline without cookies, captures a durable photo draft, then verifies and syncs the same owner", async ({
+  page,
+}) => {
   const fixture = makeFixture();
   await prepareInstalledOwner(page, fixture);
   const offlinePage = await reopenOfflineWithoutCookies(page, fixture, true);
 
-  await expect(offlinePage.locator("#cached-expenses")).toContainText("Account A private hotel");
+  await expect(offlinePage.locator("#cached-expenses")).toContainText(
+    "Account A private hotel",
+  );
   const cachedShell = await offlinePage.evaluate(async () =>
-    (await (await caches.open("xpenses-v9")).match("/offline/index.v9.html"))?.text(),
+    (
+      await (await caches.open("xpenses-v9")).match("/offline/index.v9.html")
+    )?.text(),
   );
   expect(cachedShell).not.toContain("Account A private hotel");
   await createOfflineExpense(offlinePage, "Offline lunch A", true);
@@ -328,21 +424,29 @@ test("installed app cold-starts offline without cookies, captures a durable phot
   expect(queued[0].userId).toBe(OWNER_A.id);
   expect(queued[0].payload.merchant).toBe("Offline lunch A");
   expect(queued[0].receipts[0].size).toBeGreaterThan(0);
-  expect(await offlinePage.evaluate(async () => {
-    const db = await new Promise<IDBDatabase>((resolve, reject) => {
-      const request = indexedDB.open("xpenses-offline", 2);
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-    const keyPath = db.transaction("pending_expenses", "readonly").objectStore("pending_expenses").keyPath;
-    db.close();
-    return keyPath;
-  })).toBe("id");
+  expect(
+    await offlinePage.evaluate(async () => {
+      const db = await new Promise<IDBDatabase>((resolve, reject) => {
+        const request = indexedDB.open("xpenses-offline", 2);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      const keyPath = db
+        .transaction("pending_expenses", "readonly")
+        .objectStore("pending_expenses").keyPath;
+      db.close();
+      return keyPath;
+    }),
+  ).toBe("id");
   expect(fixture.ocrRequests).toBe(0);
 
   await offlinePage.reload();
-  await expect(offlinePage.locator("#offline-drafts")).toContainText("Offline lunch A");
-  await expect(offlinePage.locator("#cached-expenses")).toContainText("Account A private hotel");
+  await expect(offlinePage.locator("#offline-drafts")).toContainText(
+    "Offline lunch A",
+  );
+  await expect(offlinePage.locator("#cached-expenses")).toContainText(
+    "Account A private hotel",
+  );
 
   fixture.networkAvailable = true;
   await addCookies(offlinePage.context());
@@ -358,7 +462,9 @@ test("installed app cold-starts offline without cookies, captures a durable phot
   expect(fixture.ocrRequests).toBe(0);
 });
 
-test("cross-tab account changes clear the form and cancel a save paused in storage.persist", async ({ page }) => {
+test("cross-tab account changes clear the form and cancel a save paused in storage.persist", async ({
+  page,
+}) => {
   const fixture = makeFixture();
   await prepareInstalledOwner(page, fixture);
   const writer = await createStorageWriterTab(page.context());
@@ -377,13 +483,27 @@ test("cross-tab account changes clear the form and cancel a save paused in stora
   await offlinePage.evaluate(() => {
     Object.defineProperty(navigator.storage, "persist", {
       configurable: true,
-      value: () => new Promise<boolean>((resolve) => {
-        Object.defineProperty(window, "resolveOfflinePersist", { configurable: true, value: resolve });
-      }),
+      value: () =>
+        new Promise<boolean>((resolve) => {
+          Object.defineProperty(window, "resolveOfflinePersist", {
+            configurable: true,
+            value: resolve,
+          });
+        }),
     });
   });
-  await offlinePage.getByRole("button", { name: "Save on this device" }).click();
-  await expect.poll(() => offlinePage.evaluate(() => typeof (window as Window & { resolveOfflinePersist?: unknown }).resolveOfflinePersist)).toBe("function");
+  await offlinePage
+    .getByRole("button", { name: "Save on this device" })
+    .click();
+  await expect
+    .poll(() =>
+      offlinePage.evaluate(
+        () =>
+          typeof (window as Window & { resolveOfflinePersist?: unknown })
+            .resolveOfflinePersist,
+      ),
+    )
+    .toBe("function");
   await offlinePage.locator("#receipt-photo").dispatchEvent("click");
 
   await changeOwnerFromOtherTab(writer, OWNER_B);
@@ -394,21 +514,31 @@ test("cross-tab account changes clear the form and cancel a save paused in stora
   await offlinePage.evaluate(() => {
     const input = document.querySelector<HTMLInputElement>("#receipt-photo")!;
     const transfer = new DataTransfer();
-    transfer.items.add(new File(["late photo"], "late-photo.jpg", { type: "image/jpeg" }));
+    transfer.items.add(
+      new File(["late photo"], "late-photo.jpg", { type: "image/jpeg" }),
+    );
     input.files = transfer.files;
     input.dispatchEvent(new Event("change", { bubbles: true }));
   });
   await expect(offlinePage.locator("#receipt-photo")).toHaveValue("");
-  await expect(offlinePage.locator("#photo-name")).toHaveText("No photo selected");
+  await expect(offlinePage.locator("#photo-name")).toHaveText(
+    "No photo selected",
+  );
   await offlinePage.evaluate(() => {
-    (window as Window & { resolveOfflinePersist?: (value: boolean) => void }).resolveOfflinePersist?.(false);
+    (
+      window as Window & { resolveOfflinePersist?: (value: boolean) => void }
+    ).resolveOfflinePersist?.(false);
   });
   await expect.poll(() => readQueuedItems(offlinePage)).toHaveLength(0);
-  await expect(offlinePage.locator("body")).not.toContainText("Never relabel this A draft");
+  await expect(offlinePage.locator("body")).not.toContainText(
+    "Never relabel this A draft",
+  );
   await writer.close();
 });
 
-test("cross-tab logout clears the form and cancels a pending local save", async ({ page }) => {
+test("cross-tab logout clears the form and cancels a pending local save", async ({
+  page,
+}) => {
   const fixture = makeFixture();
   await prepareInstalledOwner(page, fixture);
   const writer = await createStorageWriterTab(page.context());
@@ -419,47 +549,73 @@ test("cross-tab logout clears the form and cancels a pending local save", async 
   await offlinePage.evaluate(() => {
     Object.defineProperty(navigator.storage, "persist", {
       configurable: true,
-      value: () => new Promise<boolean>((resolve) => {
-        Object.defineProperty(window, "resolveOfflinePersist", { configurable: true, value: resolve });
-      }),
+      value: () =>
+        new Promise<boolean>((resolve) => {
+          Object.defineProperty(window, "resolveOfflinePersist", {
+            configurable: true,
+            value: resolve,
+          });
+        }),
     });
   });
-  await offlinePage.getByRole("button", { name: "Save on this device" }).click();
-  await expect.poll(() => offlinePage.evaluate(() => typeof (window as Window & { resolveOfflinePersist?: unknown }).resolveOfflinePersist)).toBe("function");
+  await offlinePage
+    .getByRole("button", { name: "Save on this device" })
+    .click();
+  await expect
+    .poll(() =>
+      offlinePage.evaluate(
+        () =>
+          typeof (window as Window & { resolveOfflinePersist?: unknown })
+            .resolveOfflinePersist,
+      ),
+    )
+    .toBe("function");
 
   await changeOwnerFromOtherTab(writer, null);
   await expect(offlinePage.locator("#private-workspace")).toBeHidden();
   await expect(offlinePage.locator("#amount")).toHaveValue("");
   await expect(offlinePage.locator("#merchant")).toHaveValue("");
   await offlinePage.evaluate(() => {
-    (window as Window & { resolveOfflinePersist?: (value: boolean) => void }).resolveOfflinePersist?.(false);
+    (
+      window as Window & { resolveOfflinePersist?: (value: boolean) => void }
+    ).resolveOfflinePersist?.(false);
   });
   await expect.poll(() => readQueuedItems(offlinePage)).toHaveLength(0);
-  await expect(offlinePage.locator("body")).not.toContainText("Draft canceled on logout");
+  await expect(offlinePage.locator("body")).not.toContainText(
+    "Draft canceled on logout",
+  );
   await writer.close();
 });
 
-test("an empty incompatible queue schema is safely repaired without preventing capture", async ({ page }) => {
+test("an empty incompatible queue schema is safely repaired without preventing capture", async ({
+  page,
+}) => {
   const fixture = makeFixture();
   await prepareInstalledOwner(page, fixture);
   await deleteQueueDatabase(page);
   await prepareQueueDatabase(page);
   const offlinePage = await reopenOfflineWithoutCookies(page, fixture);
   await createOfflineExpense(offlinePage, "Repaired empty queue", false);
-  expect(await offlinePage.evaluate(async () => {
-    const db = await new Promise<IDBDatabase>((resolve, reject) => {
-      const request = indexedDB.open("xpenses-offline", 2);
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-    const keyPath = db.transaction("pending_expenses", "readonly").objectStore("pending_expenses").keyPath;
-    db.close();
-    return keyPath;
-  })).toBe("id");
+  expect(
+    await offlinePage.evaluate(async () => {
+      const db = await new Promise<IDBDatabase>((resolve, reject) => {
+        const request = indexedDB.open("xpenses-offline", 2);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      const keyPath = db
+        .transaction("pending_expenses", "readonly")
+        .objectStore("pending_expenses").keyPath;
+      db.close();
+      return keyPath;
+    }),
+  ).toBe("id");
   await expect.poll(() => readQueuedItems(offlinePage)).toHaveLength(1);
 });
 
-test("manual capture rejects malformed dates, currencies, and receipt blobs before queueing", async ({ page }) => {
+test("manual capture rejects malformed dates, currencies, and receipt blobs before queueing", async ({
+  page,
+}) => {
   const fixture = makeFixture();
   await prepareInstalledOwner(page, fixture);
   const offlinePage = await reopenOfflineWithoutCookies(page, fixture);
@@ -470,8 +626,12 @@ test("manual capture rejects malformed dates, currencies, and receipt blobs befo
     date.type = "text";
     date.value = "2026-02-30";
   });
-  await offlinePage.getByRole("button", { name: "Save on this device" }).click();
-  await expect(offlinePage.locator("#form-error")).toContainText("Choose a valid expense date");
+  await offlinePage
+    .getByRole("button", { name: "Save on this device" })
+    .click();
+  await expect(offlinePage.locator("#form-error")).toContainText(
+    "Choose a valid expense date",
+  );
   await expect.poll(() => readQueuedItems(offlinePage)).toHaveLength(0);
 
   await offlinePage.evaluate(() => {
@@ -482,8 +642,12 @@ test("manual capture rejects malformed dates, currencies, and receipt blobs befo
     currency.add(new Option("Invalid", "EU"));
     currency.value = "EU";
   });
-  await offlinePage.getByRole("button", { name: "Save on this device" }).click();
-  await expect(offlinePage.locator("#form-error")).toContainText("valid three-letter currency");
+  await offlinePage
+    .getByRole("button", { name: "Save on this device" })
+    .click();
+  await expect(offlinePage.locator("#form-error")).toContainText(
+    "valid three-letter currency",
+  );
   await expect.poll(() => readQueuedItems(offlinePage)).toHaveLength(0);
 
   await offlinePage.evaluate(() => {
@@ -495,24 +659,38 @@ test("manual capture rejects malformed dates, currencies, and receipt blobs befo
     mimeType: "text/plain",
     buffer: Buffer.from("not an image"),
   });
-  await offlinePage.getByRole("button", { name: "Save on this device" }).click();
-  await expect(offlinePage.locator("#form-error")).toContainText("Choose a readable receipt photo");
+  await offlinePage
+    .getByRole("button", { name: "Save on this device" })
+    .click();
+  await expect(offlinePage.locator("#form-error")).toContainText(
+    "Choose a readable receipt photo",
+  );
   await expect.poll(() => readQueuedItems(offlinePage)).toHaveLength(0);
 });
 
-test("a nonempty incompatible queue is preserved and disables writes without breaking cached reads", async ({ page }) => {
+test("a nonempty incompatible queue is preserved and disables writes without breaking cached reads", async ({
+  page,
+}) => {
   const fixture = makeFixture();
   await prepareInstalledOwner(page, fixture);
   await deleteQueueDatabase(page);
   await prepareQueueDatabase(page, true);
   const offlinePage = await reopenOfflineWithoutCookies(page, fixture);
-  await expect(offlinePage.locator("#cached-expenses")).toContainText("Account A private hotel");
-  await expect(offlinePage.locator("#notice")).toContainText("could not be read safely");
-  await expect(offlinePage.getByRole("button", { name: "Save on this device" })).toBeDisabled();
+  await expect(offlinePage.locator("#cached-expenses")).toContainText(
+    "Account A private hotel",
+  );
+  await expect(offlinePage.locator("#notice")).toContainText(
+    "could not be read safely",
+  );
+  await expect(
+    offlinePage.getByRole("button", { name: "Save on this device" }),
+  ).toBeDisabled();
   expect(await readQueuedItems(offlinePage)).toHaveLength(1);
 });
 
-test("a mismatched online account cannot see or replay the prior owner's offline data", async ({ page }) => {
+test("a mismatched online account cannot see or replay the prior owner's offline data", async ({
+  page,
+}) => {
   const fixture = makeFixture();
   await prepareInstalledOwner(page, fixture);
   const offlinePage = await reopenOfflineWithoutCookies(page, fixture);
@@ -523,16 +701,26 @@ test("a mismatched online account cannot see or replay the prior owner's offline
   await addCookies(offlinePage.context(), OWNER_B);
   await offlinePage.context().setOffline(false);
   await verifyAccountIfPrompted(offlinePage);
-  await expect(offlinePage.locator("#notice")).toContainText("different account");
+  await expect(offlinePage.locator("#notice")).toContainText(
+    "different account",
+  );
   await expect(offlinePage.locator("#private-workspace")).toBeHidden();
-  await expect(offlinePage.locator("body")).not.toContainText("Account A private hotel");
-  await expect(offlinePage.locator("body")).not.toContainText("Owner A private draft");
+  await expect(offlinePage.locator("body")).not.toContainText(
+    "Account A private hotel",
+  );
+  await expect(offlinePage.locator("body")).not.toContainText(
+    "Owner A private draft",
+  );
   expect(fixture.expenseCreates).toHaveLength(0);
 
   await offlinePage.locator("#reconnect-link").click();
   await expect(offlinePage).toHaveURL(/\/dashboard\?offline=return/);
-  await expect(offlinePage.locator("body")).toContainText("Account B private hotel");
-  await expect(offlinePage.locator("body")).not.toContainText("Account A private hotel");
+  await expect(offlinePage.locator("body")).toContainText(
+    "Account B private hotel",
+  );
+  await expect(offlinePage.locator("body")).not.toContainText(
+    "Account A private hotel",
+  );
   await expect.poll(() => ownerProfileId(offlinePage)).toBe(OWNER_B.id);
   await expect.poll(() => fixture.expenseCreates.length).toBe(0);
 
@@ -542,7 +730,9 @@ test("a mismatched online account cannot see or replay the prior owner's offline
   expect(queued[0].payload.merchant).toBe("Owner A private draft");
 });
 
-test("an auth-check 403 is unverifiable rather than a definitive login rejection", async ({ page }) => {
+test("an auth-check 403 is unverifiable rather than a definitive login rejection", async ({
+  page,
+}) => {
   const fixture = makeFixture();
   await prepareInstalledOwner(page, fixture);
   const offlinePage = await reopenOfflineWithoutCookies(page, fixture);
@@ -553,8 +743,12 @@ test("an auth-check 403 is unverifiable rather than a definitive login rejection
   await addCookies(offlinePage.context());
   await offlinePage.context().setOffline(false);
   await verifyAccountIfPrompted(offlinePage);
-  await expect(offlinePage.locator("#notice")).toContainText("Could not verify this account");
-  await expect(offlinePage.locator("#notice")).not.toContainText("server requires a sign-in");
+  await expect(offlinePage.locator("#notice")).toContainText(
+    "Could not verify this account",
+  );
+  await expect(offlinePage.locator("#notice")).not.toContainText(
+    "server requires a sign-in",
+  );
   await expect(offlinePage.locator("#private-workspace")).toBeHidden();
   await expect.poll(() => ownerProfileId(offlinePage)).toBe(OWNER_A.id);
   const queued = await readQueuedItems(offlinePage);
@@ -563,7 +757,9 @@ test("an auth-check 403 is unverifiable rather than a definitive login rejection
   expect(queued[0].payload.merchant).toBe("Kept after auth-check 403");
 });
 
-test("a definitive session rejection asks for login but keeps the local draft and receipt bytes", async ({ page }) => {
+test("a definitive session rejection asks for login but keeps the local draft and receipt bytes", async ({
+  page,
+}) => {
   const fixture = makeFixture();
   await prepareInstalledOwner(page, fixture);
   const offlinePage = await reopenOfflineWithoutCookies(page, fixture);
@@ -575,11 +771,15 @@ test("a definitive session rejection asks for login but keeps the local draft an
   await addCookies(offlinePage.context());
   await offlinePage.context().setOffline(false);
   await verifyAccountIfPrompted(offlinePage);
-  await expect(offlinePage.locator("#notice")).toContainText("server requires a sign-in");
+  await expect(offlinePage.locator("#notice")).toContainText(
+    "server requires a sign-in",
+  );
   await expect(offlinePage.locator("#private-workspace")).toBeHidden();
   await offlinePage.locator("#reconnect-link").click();
   await expect(offlinePage).toHaveURL(/\/login/);
-  await expect(offlinePage.getByRole("button", { name: /sign in/i })).toBeVisible();
+  await expect(
+    offlinePage.getByRole("button", { name: /sign in/i }),
+  ).toBeVisible();
   await expect.poll(() => ownerProfileId(offlinePage)).toBeNull();
 
   const queued = await readQueuedItems(offlinePage);
@@ -590,23 +790,33 @@ test("a definitive session rejection asks for login but keeps the local draft an
   expect(fixture.expenseCreates).toHaveLength(0);
 });
 
-test("an ownerless installation receives neutral guidance and no local account data", async ({ page }) => {
+test("an ownerless installation receives neutral guidance and no local account data", async ({
+  page,
+}) => {
   const fixture = makeFixture();
   fixture.identity = null;
   fixture.refreshRejected = true;
   await installApiFixtures(page.context(), fixture);
   await page.goto(`${APP_ORIGIN}/login`);
   await page.waitForFunction(() => Boolean(navigator.serviceWorker.controller));
-  await page.waitForFunction(async () => Boolean(await caches.match("/offline/index.v9.html")));
+  await page.waitForFunction(async () =>
+    Boolean(await caches.match("/offline/index.v9.html")),
+  );
 
   fixture.networkAvailable = false;
   await page.context().setOffline(true);
   const coldPage = await page.context().newPage();
   const response = await coldPage.goto(`${APP_ORIGIN}/dashboard`);
   expect(response?.status()).toBe(200);
-  await expect(coldPage.getByRole("heading", { name: "Offline workspace" })).toBeVisible();
-  await expect(coldPage.locator("#notice")).toContainText("No offline workspace is available");
+  await expect(
+    coldPage.getByRole("heading", { name: "Offline workspace" }),
+  ).toBeVisible();
+  await expect(coldPage.locator("#notice")).toContainText(
+    "No offline workspace is available",
+  );
   await expect(coldPage.locator("#private-workspace")).toBeHidden();
-  await expect(coldPage.locator("body")).not.toContainText("Account A private hotel");
+  await expect(coldPage.locator("body")).not.toContainText(
+    "Account A private hotel",
+  );
   await expect(coldPage.locator("#reconnect-link")).toBeHidden();
 });

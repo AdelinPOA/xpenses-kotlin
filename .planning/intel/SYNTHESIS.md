@@ -15,4 +15,4 @@ The BNR FX policy, per-currency source-leg margins, expense-date locking, fallba
 
 ## Planning Implications
 
-The first implementation phase should validate the existing FX implementation against the ADR, add missing settings and fallback/cache tests, and protect already-posted financial records. Later work can address the broader backlog in `todo.md` through independently verifiable vertical slices.
+The first implementation phase should validate the existing FX implementation against the ADR, add missing settings and fallback/cache tests, and protect already-posted financial records. Later work can address the broader backlog in `docs/archive/root-md-2026-10-18/todo.md` (historical; recheck against `README.md` and GitHub Issues) through independently verifiable vertical slices.

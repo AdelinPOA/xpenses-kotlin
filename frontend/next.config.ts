@@ -7,6 +7,8 @@ const scriptSrc = process.env.NODE_ENV === "production"
   : "script-src 'self' 'unsafe-inline' 'unsafe-eval'";
 
 const nextConfig: NextConfig = {
+  // The optional root QA lockfile is not an application workspace.
+  turbopack: { root: __dirname },
   output: "standalone",
   reactStrictMode: true,
   poweredByHeader: false,

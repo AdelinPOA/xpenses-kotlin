@@ -222,7 +222,9 @@ test.describe("Axios session refresh", () => {
     await page.goto("/login");
     await expect.poll(() => refreshes).toBe(1);
     await page.getByLabel(/username/i).fill("mod1");
-    await page.getByRole("textbox", { name: "Password", exact: true }).fill("password");
+    await page
+      .getByRole("textbox", { name: "Password", exact: true })
+      .fill("password");
     await page.getByRole("button", { name: /sign in/i }).click();
     await expect(page).toHaveURL(/\/dashboard$/);
 

@@ -1,5 +1,7 @@
 # Domain Ecosystem Research — Xpenses
 
+> Historical research: references to root `todo.md` now refer to `docs/archive/root-md-2026-10-18/todo.md`. Its findings are not current verification; use `README.md` and the documentation-review reports before planning work.
+
 **Mode:** Ecosystem
 **Date:** 2026-08-04
 **Scope:** technician/field-service expense management, comparable tools, Romanian/EU regulatory context, and the roadmap backlog in `todo.md`

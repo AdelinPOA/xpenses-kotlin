@@ -5,6 +5,7 @@ The mobile receipt capture pipeline is decoupled from synchronous HTTP blocking.
 ## Context
 
 Technicians in the field frequently incur multiple expenses in sequence (fuel, meals, tolls, materials). Under the previous implementation:
+
 1. The camera UI blocked synchronously for 5–15 seconds per receipt while awaiting backend OCR.
 2. If OCR extraction failed on illegible or handwritten receipts, the app forcibly navigated away to the manual edit form (`/expenses/[id]/edit`), breaking multi-receipt capture flow.
 3. Mobile cellular latency compounded user friction, and spotty coverage led to client timeouts before a draft Expense could be stored.

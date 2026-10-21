@@ -1,7 +1,5 @@
 package eu.nt.xpenses.controllers
 
-import tools.jackson.databind.ObjectMapper
-import tools.jackson.module.kotlin.jacksonMapperBuilder
 import eu.nt.xpenses.services.DelegationParsingConfig
 import eu.nt.xpenses.services.DelegationParsingSettingsService
 import eu.nt.xpenses.services.EmailImportService
@@ -38,6 +36,8 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean
+import tools.jackson.databind.ObjectMapper
+import tools.jackson.module.kotlin.jacksonMapperBuilder
 
 class DelegationParsingControllerTest {
     private val mapper = jacksonMapperBuilder().build()

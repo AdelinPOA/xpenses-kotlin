@@ -1,16 +1,14 @@
 package eu.nt.xpenses.controllers
 
-import tools.jackson.core.type.TypeReference
-import tools.jackson.databind.ObjectMapper
 import eu.nt.xpenses.IntegrationTestBase
 import eu.nt.xpenses.dto.expense.ExpenseCreate
 import eu.nt.xpenses.dto.expense.ExpenseOut
+import eu.nt.xpenses.models.RawUpload
 import eu.nt.xpenses.services.ExpenseService
 import eu.nt.xpenses.services.IdempotentExpenseSaving
 import eu.nt.xpenses.services.SaveIdempotencyService
-import eu.nt.xpenses.services.StorageService
 import eu.nt.xpenses.services.StorageContext
-import eu.nt.xpenses.models.RawUpload
+import eu.nt.xpenses.services.StorageService
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
@@ -19,13 +17,15 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.MediaType
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.mock.web.MockMultipartFile
-import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*
-import org.springframework.test.web.servlet.result.MockMvcResultMatchers.*
-import org.springframework.test.context.bean.override.mockito.MockitoSpyBean
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers.*
 import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
+import tools.jackson.core.type.TypeReference
+import tools.jackson.databind.ObjectMapper
 import java.math.BigDecimal
 import java.util.UUID
 import java.util.concurrent.CountDownLatch
@@ -36,7 +36,9 @@ import java.util.concurrent.TimeUnit
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class ExpenseIdempotencyTest : IntegrationTestBase() {
     companion object {
-        private val storageDirectory = java.nio.file.Files.createTempDirectory("expense-idempotency-")
+        private val storageDirectory =
+            java.nio.file.Files
+                .createTempDirectory("expense-idempotency-")
 
         @JvmStatic
         @DynamicPropertySource
@@ -87,8 +89,10 @@ class ExpenseIdempotencyTest : IntegrationTestBase() {
         // Include a failed test's committed rows even if response parsing did not run.
         val owned = jdbc.queryForList("SELECT id FROM expenses WHERE merchant = ?", Int::class.java, prefix) + ids
         owned.distinct().forEach { id ->
-            jdbc.queryForList("SELECT file_path FROM receipts WHERE expense_id = ?", String::class.java, id)
-                .filterNotNull().forEach { storage.deleteFile(it) }
+            jdbc
+                .queryForList("SELECT file_path FROM receipts WHERE expense_id = ?", String::class.java, id)
+                .filterNotNull()
+                .forEach { storage.deleteFile(it) }
             jdbc.update("DELETE FROM receipts WHERE expense_id = ?", id)
             jdbc.update("DELETE FROM expenses WHERE id = ?", id)
         }
@@ -123,10 +127,14 @@ class ExpenseIdempotencyTest : IntegrationTestBase() {
     fun `deleted expense never becomes a replacement when its create is replayed`() {
         val first = postExpense("$prefix:deleted")
         val id = mapper.readTree(first)["id"].asInt()
-        mockMvc.perform(delete("/api/expenses/$id").cookie(authHelper.loginAs("tech1", "tech1")))
+        mockMvc
+            .perform(delete("/api/expenses/$id").cookie(authHelper.loginAs("tech1", "tech1")))
             .andExpect(status().isNoContent)
         assertEquals(first, postExpense("$prefix:deleted"))
-        assertEquals(1L, jdbc.queryForObject("SELECT count(*) FROM expenses WHERE merchant = ? AND deleted = true", Long::class.java, prefix))
+        assertEquals(
+            1L,
+            jdbc.queryForObject("SELECT count(*) FROM expenses WHERE merchant = ? AND deleted = true", Long::class.java, prefix),
+        )
     }
 
     @Test
@@ -202,28 +210,36 @@ class ExpenseIdempotencyTest : IntegrationTestBase() {
         val cookie = authHelper.loginAs("tech1", "tech1")
         var failSecond = true
         val storageAttempts = mutableMapOf<String, Int>()
+
         fun receiptContext(): StorageContext {
             org.mockito.ArgumentMatchers.eq(StorageContext.RECEIPT)
             return StorageContext.RECEIPT
         }
+
         fun anyUpload(): RawUpload {
             org.mockito.ArgumentMatchers.any(RawUpload::class.java)
             return RawUpload(png, "one.png", "image/png")
         }
-        org.mockito.Mockito.doAnswer { invocation ->
-            val name = invocation.getArgument<RawUpload>(1).originalFilename
-            storageAttempts[name] = (storageAttempts[name] ?: 0) + 1
-            if (name == "two.png" && failSecond) {
-                failSecond = false
-                throw org.springframework.web.server.ResponseStatusException(
-                    org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE, "Transient storage failure",
-                )
-            }
-            invocation.callRealMethod()
-        }.`when`(storage).storeFile(receiptContext(), anyUpload(), org.mockito.ArgumentMatchers.anyInt())
+        org.mockito.Mockito
+            .doAnswer { invocation ->
+                val name = invocation.getArgument<RawUpload>(1).originalFilename
+                storageAttempts[name] = (storageAttempts[name] ?: 0) + 1
+                if (name == "two.png" && failSecond) {
+                    failSecond = false
+                    throw org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE,
+                        "Transient storage failure",
+                    )
+                }
+                invocation.callRealMethod()
+            }.`when`(storage)
+            .storeFile(receiptContext(), anyUpload(), org.mockito.ArgumentMatchers.anyInt())
         val request = {
-            multipart("/api/expenses/$id/receipts").file(file()).file(file("two.png"))
-                .cookie(cookie).header("Idempotency-Key", "$prefix:transient")
+            multipart("/api/expenses/$id/receipts")
+                .file(file())
+                .file(file("two.png"))
+                .cookie(cookie)
+                .header("Idempotency-Key", "$prefix:transient")
         }
         mockMvc.perform(request()).andExpect(status().isServiceUnavailable)
         assertEquals(1L, jdbc.queryForObject("SELECT count(*) FROM receipts WHERE expense_id = ?", Long::class.java, id))
@@ -232,7 +248,10 @@ class ExpenseIdempotencyTest : IntegrationTestBase() {
             mockMvc.perform(request()).andExpect(status().isOk).andExpect(jsonPath("$.length()").value(2))
         }
         assertEquals(2L, jdbc.queryForObject("SELECT count(*) FROM receipts WHERE expense_id = ?", Long::class.java, id))
-        assertEquals(firstReceiptId, jdbc.queryForObject("SELECT id FROM receipts WHERE expense_id = ? AND original_name = 'one.png'", Int::class.java, id))
+        assertEquals(
+            firstReceiptId,
+            jdbc.queryForObject("SELECT id FROM receipts WHERE expense_id = ? AND original_name = 'one.png'", Int::class.java, id),
+        )
         assertEquals(mapOf("one.png" to 1, "two.png" to 2), storageAttempts)
     }
 
@@ -280,42 +299,61 @@ class ExpenseIdempotencyTest : IntegrationTestBase() {
     @Test
     fun `bulk storage failure exposes known ID and attachment retry reuses initial key`() {
         var failNextReceipt = true
+
         fun receiptContext(): StorageContext {
             org.mockito.ArgumentMatchers.eq(StorageContext.RECEIPT)
             return StorageContext.RECEIPT
         }
+
         fun anyUpload(): RawUpload {
             org.mockito.ArgumentMatchers.any(RawUpload::class.java)
             return RawUpload(png, "one.png", "image/png")
         }
-        org.mockito.Mockito.doAnswer { invocation ->
-            if (failNextReceipt) {
-                failNextReceipt = false
-                throw IllegalStateException("Storage temporarily unavailable")
-            }
-            invocation.callRealMethod()
-        }.`when`(storage).storeFile(receiptContext(), anyUpload(), org.mockito.ArgumentMatchers.anyInt())
+        org.mockito.Mockito
+            .doAnswer { invocation ->
+                if (failNextReceipt) {
+                    failNextReceipt = false
+                    throw IllegalStateException("Storage temporarily unavailable")
+                }
+                invocation.callRealMethod()
+            }.`when`(storage)
+            .storeFile(receiptContext(), anyUpload(), org.mockito.ArgumentMatchers.anyInt())
         val cookie = authHelper.loginAs("tech1", "tech1")
         val batchKey = "$prefix:recover"
-        val first = mockMvc.perform(multipart("/api/expenses/bulk-upload").file(file()).cookie(cookie).header("Idempotency-Key", batchKey))
-            .andExpect(status().isOk)
-            .andExpect(jsonPath("$.errors[0].file_index").value(0))
-            .andExpect(jsonPath("$.errors[0].expense_id").isNumber)
-            .andExpect(jsonPath("$.created[0].receipts").isEmpty)
-            .andReturn().response.contentAsString
+        val first =
+            mockMvc
+                .perform(multipart("/api/expenses/bulk-upload").file(file()).cookie(cookie).header("Idempotency-Key", batchKey))
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.errors[0].file_index").value(0))
+                .andExpect(jsonPath("$.errors[0].expense_id").isNumber)
+                .andExpect(jsonPath("$.created[0].receipts").isEmpty)
+                .andReturn()
+                .response.contentAsString
         val id = mapper.readTree(first)["errors"][0]["expense_id"].asInt()
         ids.add(id)
         assertEquals(id, mapper.readTree(first)["created"][0]["id"].asInt())
         repeat(2) {
-            mockMvc.perform(multipart("/api/expenses/$id/receipts").file(file()).cookie(cookie)
-                .header("Idempotency-Key", "$batchKey:receipt:0")).andExpect(status().isOk)
+            mockMvc
+                .perform(
+                    multipart("/api/expenses/$id/receipts")
+                        .file(file())
+                        .cookie(cookie)
+                        .header("Idempotency-Key", "$batchKey:receipt:0"),
+                ).andExpect(status().isOk)
         }
-        val replay = mockMvc.perform(multipart("/api/expenses/bulk-upload").file(file()).cookie(cookie).header("Idempotency-Key", batchKey))
-            .andExpect(status().isOk).andExpect(jsonPath("$.errors").isEmpty)
-            .andExpect(jsonPath("$.created[0].receipts[0].id").isNumber).andReturn().response.contentAsString
+        val replay =
+            mockMvc
+                .perform(multipart("/api/expenses/bulk-upload").file(file()).cookie(cookie).header("Idempotency-Key", batchKey))
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.errors").isEmpty)
+                .andExpect(jsonPath("$.created[0].receipts[0].id").isNumber)
+                .andReturn()
+                .response.contentAsString
         assertEquals(id, mapper.readTree(replay)["created"][0]["id"].asInt())
         assertEquals(1L, jdbc.queryForObject("SELECT count(*) FROM receipts WHERE expense_id = ?", Long::class.java, id))
-        org.mockito.Mockito.verify(ocrService, org.mockito.Mockito.times(1)).scanReceipt(png, "one.png")
+        org.mockito.Mockito
+            .verify(ocrService, org.mockito.Mockito.times(1))
+            .scanReceipt(png, "one.png")
     }
 
     @Test
@@ -332,38 +370,55 @@ class ExpenseIdempotencyTest : IntegrationTestBase() {
         expenses.deleteExpense(deletedId, user)
         val cookie = authHelper.loginAs("tech1", "tech1")
         val request = {
-            multipart("/api/expenses/bulk-upload").file(files[0]).file(files[1])
-                .cookie(cookie).header("Idempotency-Key", batchKey)
+            multipart("/api/expenses/bulk-upload")
+                .file(files[0])
+                .file(files[1])
+                .cookie(cookie)
+                .header("Idempotency-Key", batchKey)
         }
-        val first = mockMvc.perform(request()).andExpect(status().isOk)
-            .andExpect(jsonPath("$.errors.length()").value(1))
-            .andExpect(jsonPath("$.errors[0].expense_id").value(deletedId))
-            .andExpect(jsonPath("$.errors[0].file_index").value(0))
-            .andExpect(jsonPath("$.created.length()").value(1))
-            .andExpect(jsonPath("$.created[0].receipts.length()").value(1))
-            .andReturn().response.contentAsString
+        val first =
+            mockMvc
+                .perform(request())
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.errors.length()").value(1))
+                .andExpect(jsonPath("$.errors[0].expense_id").value(deletedId))
+                .andExpect(jsonPath("$.errors[0].file_index").value(0))
+                .andExpect(jsonPath("$.created.length()").value(1))
+                .andExpect(jsonPath("$.created[0].receipts.length()").value(1))
+                .andReturn()
+                .response.contentAsString
         val secondId = mapper.readTree(first)["created"][0]["id"].asInt()
         ids.add(secondId)
         assertNotEquals(deletedId, secondId)
-        mockMvc.perform(request()).andExpect(status().isOk)
+        mockMvc
+            .perform(request())
+            .andExpect(status().isOk)
             .andExpect(jsonPath("$.errors[0].expense_id").value(deletedId))
             .andExpect(jsonPath("$.created[0].id").value(secondId))
         assertEquals(1L, jdbc.queryForObject("SELECT count(*) FROM expenses WHERE id = ? AND deleted = true", Long::class.java, deletedId))
         assertEquals(1L, jdbc.queryForObject("SELECT count(*) FROM receipts WHERE expense_id = ?", Long::class.java, secondId))
-        org.mockito.Mockito.verify(ocrService, org.mockito.Mockito.never()).scanReceipt(png, "one.png")
-        org.mockito.Mockito.verify(ocrService, org.mockito.Mockito.times(1)).scanReceipt(png, "two.png")
+        org.mockito.Mockito
+            .verify(ocrService, org.mockito.Mockito.never())
+            .scanReceipt(png, "one.png")
+        org.mockito.Mockito
+            .verify(ocrService, org.mockito.Mockito.times(1))
+            .scanReceipt(png, "two.png")
     }
 
     @Test
     fun `CORS preflight permits keyed expense and receipt saves`() {
         listOf("/api/expenses", "/api/expenses/1/receipts", "/api/expenses/bulk-upload").forEach { path ->
-            val response = mockMvc.perform(
-                options(path).header("Origin", "http://localhost:3001")
-                    .header("Access-Control-Request-Method", "POST")
-                    .header("Access-Control-Request-Headers", "content-type,idempotency-key"),
-            ).andExpect(status().isOk)
-                .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:3001"))
-                .andReturn().response
+            val response =
+                mockMvc
+                    .perform(
+                        options(path)
+                            .header("Origin", "http://localhost:3001")
+                            .header("Access-Control-Request-Method", "POST")
+                            .header("Access-Control-Request-Headers", "content-type,idempotency-key"),
+                    ).andExpect(status().isOk)
+                    .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:3001"))
+                    .andReturn()
+                    .response
             val allowed = response.getHeader("Access-Control-Allow-Headers")!!.split(',').map { it.trim().lowercase() }
             assertTrue(allowed.containsAll(listOf("content-type", "idempotency-key")))
         }
@@ -392,7 +447,9 @@ class ExpenseIdempotencyTest : IntegrationTestBase() {
                 .response.contentAsString
         assertEquals(id, mapper.readTree(replay)["created"][0]["id"].asInt())
         assertEquals(1L, jdbc.queryForObject("SELECT count(*) FROM receipts WHERE expense_id = ?", Long::class.java, id))
-        org.mockito.Mockito.verify(ocrService, org.mockito.Mockito.times(1)).scanReceipt(png, "one.png")
+        org.mockito.Mockito
+            .verify(ocrService, org.mockito.Mockito.times(1))
+            .scanReceipt(png, "one.png")
         mockMvc
             .perform(
                 multipart("/api/expenses/bulk-upload").file(file("changed.png")).cookie(cookie).header("Idempotency-Key", "$prefix:bulk"),

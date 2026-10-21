@@ -1,7 +1,5 @@
 package eu.nt.xpenses.services
 
-import tools.jackson.databind.ObjectMapper
-import tools.jackson.module.kotlin.jacksonMapperBuilder
 import eu.nt.xpenses.ingestion.ImapIngestionLedger
 import eu.nt.xpenses.model.AppSetting
 import eu.nt.xpenses.repositories.AppSettingRepository
@@ -21,6 +19,8 @@ import org.mockito.Mockito.mock
 import org.mockito.Mockito.`when`
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.support.TransactionTemplate
+import tools.jackson.databind.ObjectMapper
+import tools.jackson.module.kotlin.jacksonMapperBuilder
 import java.util.Optional
 
 class EmailImportServiceTest {

@@ -164,7 +164,10 @@ export default function AuthProvider({
           )
             localStorage.setItem(
               USER_STORAGE_KEY,
-              JSON.stringify({ ...nextUser, [AUTH_MARKER_FIELD]: identityMarker }),
+              JSON.stringify({
+                ...nextUser,
+                [AUTH_MARKER_FIELD]: identityMarker,
+              }),
             );
         } else if (persistProfile) {
           const current = readStoredIdentityMarker(localStorage);

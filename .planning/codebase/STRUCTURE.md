@@ -138,7 +138,7 @@ xpenses-kotlin/
 - `frontend/tests/`: Playwright end-to-end tests (`tests/auth/`, `tests/reports/`, `tests/expenses/`, `tests/admin/`, `tests/dashboard/`, `tests/responsive/`).
 
 **Documentation & ADRs:**
-- `CONTEXT.md`: Business domain terminology, roles, and currency calculation definitions.
+- `CONTEXT.md`: Canonical business vocabulary; implementation and operations guidance lives in `README.md`.
 - `README.md`: System overview, setup guide, and operational instructions.
 - `docs/adr/0001-bnr-fx-rates-with-margin.md`: Architectural decision record for BNR FX rate margins.
 

@@ -2,7 +2,7 @@
 
 import { ActivityFeedItem } from "@/lib/api";
 import { formatEur } from "@/lib/format";
-import { Activity, CheckCircle, Clock, XCircle, CreditCard, User } from "lucide-react";
+import { Activity, CheckCircle, Clock, XCircle, CreditCard } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 interface RecentActivityStreamProps {

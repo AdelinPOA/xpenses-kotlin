@@ -123,7 +123,8 @@ export default function LdapAdminPage() {
   });
 
   const enabled = watch("enabled");
-  const useTls = watch("use_tls");
+  // Keep the existing subscription even though its value is not bound locally.
+  watch("use_tls");
 
   useEffect(() => {
     if (!loading && (!user || user.role !== "mod")) router.replace("/dashboard");

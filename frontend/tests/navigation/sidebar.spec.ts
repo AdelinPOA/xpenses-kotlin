@@ -59,7 +59,6 @@ test.describe("Sidebar navigation", () => {
     await page.waitForTimeout(2000);
     await page.waitForTimeout(2000);
 
-    const menuBtn = page.getByLabel(/open.*nav|menu|hamburger/i).or(page.locator("button").filter({ has: page.locator("svg") }).first());
     const hasOverflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
     expect(hasOverflow).toBe(false);
   });

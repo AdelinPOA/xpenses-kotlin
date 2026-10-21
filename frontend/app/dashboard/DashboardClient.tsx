@@ -20,9 +20,9 @@ import { useAllowNavigation } from "@/lib/navigationGuard";
 import { useReviewQueueActions } from "@/lib/reviewQueueActions";
 import clsx from "clsx";
 import { 
-  Bell, Download, Plus, ChevronDown, 
+  Bell, Download, Plus,
   Briefcase, Utensils, Plane, Car, Building, FileText, LucideIcon,
-  Search, Camera, ArrowUpRight, Clock, CheckCircle2, FileEdit
+  Search, Camera, Clock, CheckCircle2, FileEdit
 } from "lucide-react";
 import { formatEur } from "@/lib/format";
 import { useTranslations } from "next-intl";
@@ -61,7 +61,6 @@ export default function DashboardClient() {
   const toast = useToast();
   const allowNavigation = useAllowNavigation();
 
-  const isOrgWideRole = user?.role === "chef_finance" || user?.role === "mod";
   const [showAll, setShowAll] = useState(true);
 
   const canToggle = user?.role === "chef_finance" || user?.role === "mod";

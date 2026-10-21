@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
-import api, {
+import {
   StorageConfig,
   getStorageConfig,
   updateStorageConfig,
@@ -19,8 +19,6 @@ import { useToast } from "@/components/ToastProvider";
 import { useTranslations } from "next-intl";
 import {
   Database,
-  HardDrive,
-  Folder,
   RefreshCw,
   CheckCircle,
   AlertCircle,

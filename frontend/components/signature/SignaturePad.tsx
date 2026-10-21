@@ -11,7 +11,6 @@ interface SignaturePadProps {
 
 export default function SignaturePad({
   onSave,
-  width = 400,
   height = 200,
 }: SignaturePadProps) {
   const t = useTranslations("profile");

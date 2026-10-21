@@ -1,8 +1,13 @@
 import js from "@eslint/js";
 import globals from "globals";
+import tseslint from "typescript-eslint";
 
 const eslintConfig = [
   js.configs.recommended,
+  ...tseslint.configs.recommended.map((config) => ({
+    ...config,
+    files: ["**/*.{ts,tsx,mts,cts}"],
+  })),
   {
     languageOptions: {
       globals: {
@@ -22,6 +27,8 @@ const eslintConfig = [
     ignores: [
       ".next/**",
       "node_modules/**",
+      "playwright-report/**",
+      "test-results/**",
       "public/sw.js",
       "postcss.config.js",
     ],

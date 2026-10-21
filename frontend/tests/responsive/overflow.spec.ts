@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { setupAuthMocks, setupCommonMocks, setupAdminMocks } from "../shared/mocks";
+import { setupAuthMocks, setupAdminMocks } from "../shared/mocks";
 
 const VIEWPORTS = [
   { width: 375, height: 812, name: "mobile" },

@@ -24,7 +24,6 @@ import {
   createRecoveredOcrReview,
   enqueueOcrSource,
   discardUnacceptedOcrSource,
-  findOcrSourceByExpenseId,
   listOcrSources,
   markOcrSourceUpload,
   persistOcrReviewState,
@@ -199,7 +198,7 @@ function CaptureSession({ reportId }: { reportId?: number }) {
   const refreshRecovery = useCallback(async () => {
     if (!user?.id) return;
     setRefreshing(true);
-    let serverJobs: OcrJobRecovery[] = [];
+    const serverJobs: OcrJobRecovery[] = [];
     try {
       const remoteJobs = navigator.onLine
         ? await listRecoverableOcrJobs()
@@ -556,7 +555,7 @@ function CaptureSession({ reportId }: { reportId?: number }) {
       setError("");
       void processSource(resumed);
       await refreshRecovery();
-    } catch (actionError) {
+    } catch {
       setError(tc("action_uncertain"));
     }
   };

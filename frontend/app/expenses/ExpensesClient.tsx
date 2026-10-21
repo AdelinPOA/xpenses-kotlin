@@ -32,7 +32,6 @@ import {
   Copy,
   Download,
   Search,
-  Check,
   FileText,
   SlidersHorizontal,
   MoreHorizontal,

@@ -10,7 +10,6 @@ import {
   Check, X, FileText, Eye, User, ChevronDown, ChevronUp, 
   Paperclip, Tag, Calendar, AlertCircle, Loader2 
 } from "lucide-react";
-import Badge from "@/components/ui/Badge";
 import ReportReceiptsDrawer from "@/components/reports/ReportReceiptsDrawer";
 import { useTranslations } from "next-intl";
 

@@ -88,7 +88,9 @@ export default function ReceiptLightbox({
       setIsDragging(false);
       try {
         e.currentTarget.releasePointerCapture(e.pointerId);
-      } catch (_) {}
+      } catch {
+        // The browser may already have released capture after pointer cancellation.
+      }
     }
   };
 
@@ -208,7 +210,6 @@ export default function ReceiptLightbox({
         onTouchEnd={handleTouchEnd}
         onDoubleClick={handleDoubleTap}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={imageUrl}
           alt={title || "Receipt"}

@@ -11,7 +11,6 @@ import { emailKeys } from "@/lib/queryKeys";
 import AppShell from "@/components/layout/AppShell";
 import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/ToastProvider";
-import { Banknote, XCircle } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 type FormState = Omit<SmtpConfig, "smtp_port"> & { smtp_port: string };
@@ -87,9 +86,10 @@ export default function EmailAdminPage() {
     defaultValues: DEFAULT_FORM,
   });
 
-  const emailsEnabled = watch("emails_enabled");
+  // Preserve form subscriptions without unused value bindings.
+  watch("emails_enabled");
   const passwordSet = watch("password_set");
-  const smtpPass = watch("smtp_pass");
+  watch("smtp_pass");
 
   const { data } = useQuery({
     queryKey: emailKeys.config(),

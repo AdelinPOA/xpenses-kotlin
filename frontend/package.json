@@ -6,7 +6,8 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint .",
+    "lint": "eslint . --max-warnings 0",
+    "test:lint-config": "node --test tests/tooling/eslint-coverage.test.mjs",
     "typecheck": "tsc --noEmit",
     "i18n:check": "node ../scripts/check-i18n-parity.mjs",
     "test:service-worker:unit": "node --test tests/service-worker/sw-regression.test.mjs",
@@ -46,7 +47,8 @@
     "globals": "^17.11.0",
     "postcss": "^8.5.26",
     "tailwindcss": "^4.0.0",
-    "typescript": "^5"
+    "typescript": "^5",
+    "typescript-eslint": "8.72.0"
   },
   "overrides": {
     "postcss": "^8.5.26",

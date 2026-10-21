@@ -16,9 +16,9 @@ Primary references:
 - Spring Boot **4.1.1**, managed Spring Framework **7.0.9**, Hibernate **7.4.5**, Apache HttpCore **5.4.3**, Java **21**.
 - Replace the web starter with `webmvc`, add the modular Flyway starter, and use webmvc/security/JPA test starters. Relocate `AutoConfigureMockMvc` imports.
 - Remove old Boot 3 generation pins for Framework 6, Security 6, Tomcat 10 and Netty 4.1. Merely changing the Boot plugin while retaining those pins is not a valid framework migration.
-- Application/internal and HTTP JSON use Jackson **3.1.5** (`tools.jackson`). Shared `com.fasterxml.jackson.annotation` annotations remain unchanged as required by Jackson 3.
+- Application/internal and HTTP JSON use Jackson **3.1.8** (`tools.jackson`), patched beyond Boot's managed 3.1.5 baseline. Shared `com.fasterxml.jackson.annotation` annotations remain unchanged as required by Jackson 3.
 - Keep unavoidable Jackson 2 adapters (JWT, logging and third-party OpenAPI dependencies) consistently on patched **2.21.8**, rather than Boot's older managed 2.x baseline. No application services remain on the old mapper package.
-- Upgrade springdoc to **3.1.1**.
+- Upgrade springdoc to **3.1.1** and Tomcat to **11.0.27**, beyond Boot's managed 11.0.24 baseline. The first Boot 4 CI scan identified the remaining patch-level Tomcat/Jackson findings; these are upgraded, not suppressed.
 - Keep established JSON defaults via `spring.jackson.use-jackson2-defaults=true` and the existing SNAKE_CASE policy. This does not switch HTTP back to Jackson 2.
 - Bound build memory and use the compiler in-process with no resident Gradle daemon by default.
 

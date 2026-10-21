@@ -23,6 +23,9 @@ repositories {
 // JWT/logging adapters still use Jackson 2; keep that managed family patched
 // while application HTTP/settings/OCR JSON migrates to Boot 4's Jackson 3.
 extra["jackson-2-bom.version"] = "2.21.8"
+// Security patches newer than Boot 4.1.1's managed baseline, within its lines.
+extra["jackson-bom.version"] = "3.1.8"
+extra["tomcat.version"] = "11.0.27"
 
 dependencies {
     // Spring Boot Starters

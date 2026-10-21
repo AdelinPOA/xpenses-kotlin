@@ -36,6 +36,14 @@ The dirty main checkout was not used as a build source or reset/stashed. Impleme
 - `scripts/verify-ocr-restart.py` injects committed expired-worker fixtures for OCR, EXPENSE and RECEIPT while the **disposable** backend is stopped. After restart all three resume with the same job; RECEIPT preserves its known Expense and produces one Receipt. It accepts only `xpenses-ci`/`xpenses-repair` container prefixes and CI fixture credentials. This is a persisted-state rehearsal, not a claim to crash every CPU instruction or external provider.
 - The new browser, disabled-gate, real integration and backend-restart checks are included in CI.
 
+## Full mobile gate follow-up
+
+CI run `39541392478` passed backend tests, frontend checks and both image security scans, then exposed first-visit WebKit failures in the previously unreachable authenticated mobile gate. The install hint was a fixed overlay intercepting both bundling and manual-create actions. It now sits after content inside the padded main flow, remains dismissible, and no test dismisses it or forces clicks to hide this regression.
+
+The SSR login form also accepted input before React installed its handlers; subsequent hydration could erase the first filled field. Login controls now remain disabled until handlers are attached. A deterministic regression holds JavaScript responses, verifies the SSR controls cannot accept input, releases scripts and checks the exact synthetic credentials submitted. The regression failed against the previous image and passed in Chromium and WebKit after the repair, alongside the previously blocked bundling case (**4/4**). The new hydration regression is included in frontend and authenticated-image CI gates. TypeScript, lint, all 1192 translation keys and zero-vulnerability npm audit were rechecked.
+
+Playwright documents Service Worker automation as Chromium-only. The real offline cold-start integration explicitly selects that supported engine; running it in headless WebKit returned an internal engine error, not physical Safari acceptance. The ordinary WebKit UI/review/accessibility gate remains enabled, and issue #51 remains open.
+
 ## Visual evidence
 
 See [issue #49 evidence](../ux/mobile-ios-review/issue-49/EVIDENCE.md). Identical synthetic records are shown at capture, review/edit and list stages for EN/RO × light/dark × 375×667/390×844: 24 PNGs before and 24 after. Baseline is the clean merged prerequisite tree `c3b9b68`; there was no immediate-confirmation UI there, so its review frame shows ordinary Expense editing. Only the development-tools overlay is excluded, not product elements. Screenshots and browser emulation do not establish physical iPhone, camera/HEIC, VoiceOver or real-keyboard acceptance; #51 remains a human-device gate.

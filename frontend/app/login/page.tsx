@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 import { login } from "@/lib/auth";
@@ -21,6 +21,9 @@ function LoginForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [ready, setReady] = useState(false);
+  // SSR controls must not accept input before React attaches their handlers.
+  useEffect(() => setReady(true), []);
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -60,6 +63,7 @@ function LoginForm() {
             <label htmlFor="login-username" className="block text-sm font-medium text-foreground mb-1">{t("label_username")}</label>
             <input
               id="login-username"
+              disabled={!ready || loading}
               name="username"
               type="text"
               value={username}
@@ -76,6 +80,7 @@ function LoginForm() {
             <div className="relative">
               <input
                 id="login-password"
+                disabled={!ready || loading}
                 name="password"
                 type={showPassword ? "text" : "password"}
                 value={password}
@@ -86,6 +91,7 @@ function LoginForm() {
               />
               <button
                 type="button"
+                disabled={!ready || loading}
                 onClick={() => setShowPassword((v) => !v)}
                 aria-pressed={showPassword}
                 aria-label={showPassword ? t("hide_password") : t("show_password")}
@@ -97,7 +103,7 @@ function LoginForm() {
           </div>
           <button
             type="submit"
-            disabled={loading}
+            disabled={!ready || loading}
             className="w-full min-h-11 bg-primary text-white py-2 rounded-lg font-medium hover:bg-primary-hover transition-colors disabled:opacity-50 cursor-pointer"
           >
             {loading ? t("button_sign_in_loading") : t("button_sign_in")}

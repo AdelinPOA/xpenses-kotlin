@@ -7,7 +7,10 @@ test.use({ serviceWorkers: "allow" });
 test.describe("authenticated capture integration", () => {
   test.skip(process.env.PLAYWRIGHT_CAPTURE_INTEGRATION !== "true", "Requires an explicitly enabled disposable integration stack");
 
-  test("real acceptance and recovery, offline cold-start and versioned confirmation", async ({ page, baseURL }) => {
+  test("real acceptance and recovery, offline cold-start and versioned confirmation", async ({ page, baseURL, browserName }) => {
+    // Playwright's Service Worker automation is Chromium-only; this is not
+    // physical Safari/PWA acceptance (tracked separately in issue #51).
+    test.skip(browserName !== "chromium", "Service Worker automation requires Chromium");
     test.setTimeout(120_000);
     expect(["localhost", "127.0.0.1"]).toContain(new URL(baseURL!).hostname);
     const username = process.env.PLAYWRIGHT_USER;

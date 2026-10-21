@@ -85,6 +85,7 @@ jobs:
             tests/expenses/ocr-recovery-client.test.cjs
           INTERNAL_API_URL=http://127.0.0.1:18089/api PLAYWRIGHT_PORT=3120 \
             npx playwright test tests/expenses/capture-review.spec.ts \
+            tests/auth/login-hydration.spec.ts \
             --project=mobile-chromium --workers=1
           NEXT_PUBLIC_OCR_IMMEDIATE_REVIEW_ENABLED=false \
             INTERNAL_API_URL=http://127.0.0.1:18089/api PLAYWRIGHT_PORT=3121 \

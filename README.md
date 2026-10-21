@@ -2,7 +2,7 @@
 
 Expense management for field-service teams. Technicians record expenses and receipts, submit expense reports, and track advances and mileage. Managers and `chef_finance` review, approve and reject reports; `chef_finance` alone can mark approved reports as paid. Moderators manage application settings and integrations.
 
-This is the consolidated project reference, checked against the working tree at commit `d62bcdc` on **2026-10-18**. Source inspection establishes implementation and configuration, not successful production operation. Findings requiring browser, device, database, ingress, or provider verification are explicitly separated below.
+This is the consolidated project reference, updated for the **2026-10-21** capture/platform release and integration of pending local work. Read [HANDOFF.md](HANDOFF.md) for source-versus-production provenance, current verification and unresolved gates. The dated [2026-10-18 documentation review](docs/documentation-review/2026-10-18/README.md) remains historical evidence, not a current defect list or deployment certificate.
 
 - [Architecture and source map](#architecture-and-source-map)
 - [Domain language](#domain-language)
@@ -20,7 +20,7 @@ The backend is one Spring Boot application with shared PostgreSQL persistence. T
 
 | Area | Checked configuration | Source |
 | --- | --- | --- |
-| Backend | Kotlin 2.4.0; Spring Boot 3.5.16; Java toolchain 21; MVC, Security, JPA | [Gradle build](backend-kotlin-jpa/build.gradle.kts) |
+| Backend | Kotlin 2.4.0; Spring Boot 4.1.1 / Spring Framework 7; Java toolchain 21; MVC, Security, JPA | [Gradle build](backend-kotlin-jpa/build.gradle.kts) |
 | Frontend | Next.js 16.3.8; React 19; TypeScript; Tailwind CSS 4; TanStack Query 5 | [package manifest](frontend/package.json), [lockfile](frontend/package-lock.json) |
 | Data | PostgreSQL 16; Redis 7.4 with append-only persistence | [Compose](docker-compose.yml) |
 | Schema | Flyway SQL; Hibernate `ddl-auto: validate`; batch fetch size 16 | [application configuration](backend-kotlin-jpa/src/main/resources/application.yml) |
@@ -51,6 +51,8 @@ Browser API requests use relative `/api`; server-side requests use `INTERNAL_API
 ### Expense, receipt and report flows
 
 Manual entry, receipt capture, and bulk upload are separate implemented paths. The form stages manual saves in a local recovery queue; asynchronous capture uses durable backend OCR jobs. Do not infer identical retry or offline behavior across these paths. See [ExpenseForm](frontend/components/expenses/ExpenseForm.tsx), [capture page](frontend/app/expenses/capture/page.tsx), and [BulkExpenseController](backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/BulkExpenseController.kt).
+
+Single-receipt capture defaults to durable acceptance → immediate Expense review → explicit versioned confirmation; verification is independent of financial status and never submits a Report. Interrupted reviews retain owner-scoped edits and known IDs. See the [verification contract](docs/contracts/expense-verification-and-immediate-review.md) and [release repair](docs/reviews/2026-10-21-capture-release-repair.md).
 
 OCR jobs progress through `OCR`, `EXPENSE`, and `RECEIPT` stages with database leases. Successful promotion creates a draft expense and attaches a receipt; cancellation and successful attachment attempt to delete the staged source. A result with missing details can advance into draft recovery; permanent provider failure does not itself guarantee a photo-only expense. See [AsyncOcrService](backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/AsyncOcrService.kt) and [ADR-0004](docs/adr/0004-asynchronous-receipt-capture-and-ocr-staging.md).
 
@@ -165,7 +167,7 @@ The [Makefile](Makefile) also contains build/test/rebuild shortcuts. Its `test-h
 
 ### Migrations and backups
 
-Migration files currently run through `V103__durabilize_ocr_job_state.sql`. Determine the next version from the directory when adding a migration; this inventory is not the deployed database version.
+The coordinated capture release adds V105 (Expense verification) and V106 (OCR acceptance/recovery) after V104 durable-save idempotency. Determine the next version from the directory when adding a migration; [HANDOFF.md](HANDOFF.md) separates source schema from verified production state.
 
 ```bash
 ls -1 backend-kotlin-jpa/src/main/resources/db/migration/ | sort -V | tail -n 1
@@ -173,7 +175,7 @@ ls -1 backend-kotlin-jpa/src/main/resources/db/migration/ | sort -V | tail -n 1
 
 Add incremented migrations; preserve applied migrations. Hibernate schema validation is enabled. Flyway `validate-on-migrate` is false in the base configuration and true in `prod` and `ci`; `baseline-on-migrate` is true in base and false in those profiles. Schema validation and migration-history validation are different mechanisms.
 
-[scripts/backup-db.sh](scripts/backup-db.sh) uses `set -euo pipefail` and `pg_dump -Fc`, with `BACKUP_DIR`, `DB_CONTAINER`, `DB_USER`, `DB_NAME`, and `RETENTION_DAYS` overrides. It backs up the database only and prunes old matching dumps; it does not back up uploaded files. Scheduling, off-host copies, restore success, and uploaded-file coverage were not verified. The script was not executed during this documentation review.
+[scripts/backup-db.sh](scripts/backup-db.sh) uses `set -euo pipefail` and `pg_dump -Fc`, with `BACKUP_DIR`, `DB_CONTAINER`, `DB_USER`, `DB_NAME`, and `RETENTION_DAYS` overrides. It backs up the database only and prunes old matching dumps; it does not back up uploaded files. The 2026-10-21 coordinated release separately backed up database and uploaded files, verified the archives, and actually restored the database and rehearsed additive migrations in isolation. Private backup paths/rollback commands stay in the host operations directory referenced by [HANDOFF.md](HANDOFF.md); never publish their contents. Off-host coverage and scheduling are not inferred from this rehearsal.
 
 ## Verification and CI
 
@@ -183,9 +185,11 @@ Fast checks suitable for this host:
 cd frontend
 npm run typecheck
 npm run i18n:check
+npm run test:lint-config
+npm run lint
 ```
 
-Both passed during this review; translation parity covered **1,028 keys** in English and Romanian. Parity does not establish that every UI string is translated or accessible.
+Typecheck, lint-coverage regressions and lint pass on the integrated source; translation parity covers **1,192 keys** in English and Romanian. Parity does not establish that every UI string is translated or accessible.
 
 For a backend change, select the affected test class:
 
@@ -194,32 +198,36 @@ cd backend-kotlin-jpa
 ./gradlew test --tests '<ClassName>' --no-daemon
 ```
 
-The backend build includes JUnit/Spring Security tests and Testcontainers PostgreSQL support. Heavy checks belong in an isolated development or CI environment. [Playwright configuration](frontend/playwright.config.ts) defines mobile Chromium, mobile WebKit, tablet and desktop projects; locally it defaults to four workers, CI uses one, and service workers are blocked. Those suites therefore do not establish PWA service-worker correctness or real iPhone acceptance.
+The optional root `package.json`/lockfile is a separate Playwright QA toolbox retained from local work, not the frontend application package. Install and run application checks under `frontend/`; the root QA dependency is development-only. The maintained [mobile QA skill](skills/mobile-pwa-qa/SKILL.md) describes its manual acceptance boundaries.
+
+The backend build includes JUnit/Spring Security tests and Testcontainers PostgreSQL support. Heavy checks belong in an isolated development or CI environment. [Playwright configuration](frontend/playwright.config.ts) defines mobile Chromium, mobile WebKit, tablet and desktop projects; generic browser tests block service workers by default, while dedicated VM/browser and authenticated offline cold-start suites explicitly exercise the real worker. Run serially on this host. These automated checks do not establish physical iPhone/Safari/PWA/keyboard/VoiceOver acceptance; #51 remains separate.
 
 [CI](.github/workflows/ci.yml) runs on pushes and PRs targeting `main`:
 
 1. Gitleaks secret scanning.
 2. Java 21 backend tests and `bootJar`, with `--no-daemon`.
-3. Node 22 frontend install, TypeScript, translation parity, lint and production build.
-4. Compose integration after backend/frontend jobs: npm-audit policy tests and dependency audit, Docker builds, Trivy image scans, temporary-stack startup, health checks, and authenticated mobile browser tests.
+3. Node 22 frontend install, TypeScript, translation parity, real TS/TSX lint with executable coverage regression, safety tests normally and with Python optimization, capture/offline regressions and production build.
+4. Compose integration after backend/frontend jobs: npm-audit policy tests and dependency audit, Docker builds, Trivy image scans, temporary-stack startup, health checks, authenticated mobile/capture/SW tests and an actual persisted-state backend-restart rehearsal.
 
-CI generates temporary credentials and tears down its disposable volumes. That cleanup is scoped to CI and must not be copied onto this production host. Workflow presence does not establish the status of a particular CI run; this review did not rerun the pipeline.
+Workflow actions are pinned to verified commit SHAs, job permissions are explicit and checkout credentials are not persisted. See the [pi-lens follow-up](docs/reviews/2026-10-21-pi-lens-follow-up.md).
+
+CI generates temporary credentials and tears down its disposable volumes. That cleanup is scoped to CI and must not be copied onto this production host. Workflow presence does not establish a particular run's result. Check the linked CI runs in [HANDOFF.md](HANDOFF.md) and the integration record; never describe a running or skipped gate as passed.
 
 ## Current limitations
 
 These are source-supported gaps, not a list of reproduced production incidents. The [audit findings and disposition](docs/documentation-review/2026-10-18/README.md) separates confirmed mechanisms, contradicted/stale claims, runtime-dependent risks and product proposals. Detailed source evidence is in the [frontend review](docs/documentation-review/2026-10-18/frontend.md), [backend review](docs/documentation-review/2026-10-18/backend.md), and [operations review](docs/documentation-review/2026-10-18/operations.md).
 
 - **Orphan cleanup:** [AppSettingsService](backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/AppSettingsService.kt) derives candidates from receipt references while other stored file purposes exist. Cleaning can affect non-receipt files; scanning alone does not delete. No cleanup was run.
-- **Offline privacy:** [query persistence](frontend/lib/queryPersister.ts) uses a shared IndexedDB record; [service worker](frontend/public/sw.js) caches navigation HTML without account scoping. Logout cleanup exists, but account/session-transition safety is not established. A cross-user leak was not reproduced.
-- **Capture recovery:** OCR-source replay is owned by the [capture page](frontend/app/expenses/capture/page.tsx), while [global offline sync](frontend/components/OfflineSyncProvider.tsx) handles the manual queue. Retrying committed manual creation after a lost response lacks a server idempotency guarantee.
-- **OCR retention:** worker-lease recovery exists, but the stored job expiry is not enforced by a cleanup worker. Terminal processing failures can retain source files and do not automatically create photo-only expenses. See the [backend review](docs/documentation-review/2026-10-18/backend.md).
+- **Offline privacy/device acceptance:** current [query persistence](frontend/lib/queryPersister.ts), auth-generation fences and public-only [service worker](frontend/public/sw.js) supersede the old navigation-HTML caching description. Owner/session transitions have automated regressions; this is not a blanket security certification or physical-device pass. Recheck #58/#59/#51 before closing their remaining acceptance gates.
+- **Capture recovery:** OCR-source replay is owned by the [capture page](frontend/app/expenses/capture/page.tsx), while [global offline sync](frontend/components/OfflineSyncProvider.tsx) handles the manual queue. Manual saves use the [durable idempotency contract](docs/adr/0007-durable-expense-save-idempotency.md); capture has its own acceptance/review operations. Do not infer interchangeable queues or create replacement Expenses during recovery.
+- **OCR retention:** worker-lease recovery and opt-in source cleanup are distinct. Cleanup remains disabled in production pending #60 provenance/recoverability evidence; preserve the approved upload-based expiry and do not invent or repair historical sources without evidence. See the [current contract](docs/contracts/ocr-source-resume-and-retention.md).
 - **Bulk creation:** receipt-upload rollback cleanup exists, but the bulk flow creates an expense before separately attaching its receipt. Attachment failure can leave a receiptless expense; this is distinct from orphaned-file cleanup.
-- **Frontend correctness:** SSR/client query keys differ in list/dashboard flows; local dates use UTC conversion in some paths; `en-EU` does not guarantee the intended European formatting; proactive/reactive refresh are not coordinated by one shared guard. See the frontend review for precise scope.
-- **UX gaps:** bulk review lacks complete visible failure handling; the full search page omits result types represented in its contract; the mobile “Approved” summary uses paid counts/totals. Existing receipt lightbox/toast fixes must not be planned again as missing work.
+- **Frontend correctness:** remaining query-key/date/locale concerns need focused current reproductions. Shared refresh/session-generation safeguards and response-loss recovery supersede the historical uncoordinated-refresh description. Keep dated source observations separate from proven current defects.
+- **UX gaps:** bulk review now has explicit uncertain-save/upload failure handling and known-ID recovery tests/evidence; #48/#51 still carry device acceptance limits. Search/dashboard-label observations in the dated audit require current verification; shared receipt-modal lifecycle remains #50. Do not plan implemented recovery/toast controls again as missing work.
 - **Domain and infrastructure:** privileged advance mutations still mix read-all and management checks; recall retains signature/rejection metadata; some transactional methods call FX/LDAP externally; lazy mapping warrants query measurement. Hibernate batching already exists, so the audit's asserted unbatched query counts are not established.
 - **HTTP/storage hardening:** some exception-to-4xx mappings and insurance magic-byte checks are absent; rate-limit coverage is endpoint-specific. `/api/expenses/bulk-upload` already has a limit. Proxy bypass, SQL counts, memory exhaustion, and actual public headers require focused runtime verification.
 
-GitHub Issues are the task source of truth; this README does not assign new priorities from old audit scores. Open items checked on 2026-10-18 include [mobile umbrella #45](https://github.com/AdelinPOA/xpenses-kotlin/issues/45), [contract #46](https://github.com/AdelinPOA/xpenses-kotlin/issues/46), [form/navigation #47](https://github.com/AdelinPOA/xpenses-kotlin/issues/47), [bulk review #48](https://github.com/AdelinPOA/xpenses-kotlin/issues/48), [capture verification #49](https://github.com/AdelinPOA/xpenses-kotlin/issues/49), [receipt viewer #50](https://github.com/AdelinPOA/xpenses-kotlin/issues/50), [real-device acceptance #51](https://github.com/AdelinPOA/xpenses-kotlin/issues/51), and [dependency tracking #54](https://github.com/AdelinPOA/xpenses-kotlin/issues/54). Recheck issue state before taking work.
+GitHub Issues are the task source of truth; this README does not assign new priorities from old audit scores. Historical items checked on 2026-10-18 included [mobile umbrella #45](https://github.com/AdelinPOA/xpenses-kotlin/issues/45), [contract #46](https://github.com/AdelinPOA/xpenses-kotlin/issues/46), [form/navigation #47](https://github.com/AdelinPOA/xpenses-kotlin/issues/47), [bulk review #48](https://github.com/AdelinPOA/xpenses-kotlin/issues/48), [capture verification #49](https://github.com/AdelinPOA/xpenses-kotlin/issues/49), [receipt viewer #50](https://github.com/AdelinPOA/xpenses-kotlin/issues/50), [real-device acceptance #51](https://github.com/AdelinPOA/xpenses-kotlin/issues/51), and [dependency tracking #54](https://github.com/AdelinPOA/xpenses-kotlin/issues/54). Recheck issue state before taking work: #46/#47/#49/#54/#56/#61/#62/#65 were subsequently closed; #45/#48/#50/#51/#57/#58/#59/#60 have distinct remaining scope. Tooling follow-up is #66/PR #67.
 
 ## Documentation review and history
 
@@ -248,4 +256,4 @@ Original working-tree versions were preserved **byte for byte**, including the p
 
 `AGENTS.md` remains in root because agents load it automatically. `CONTEXT.md` remains the separate canonical domain glossary, with verified wording corrections; its original snapshot is retained in the archive. Agent instructions and maintained guides point to the root glossary. Specialized guides, ADRs, accepted specifications and release records remain under `docs/` and `openspec/`; they are outside this root-file consolidation and are not globally re-certified by it.
 
-Production logins, destructive cleanup, backup/restore actions, database-content queries, external-provider calls, real-device checks and full builds/test suites were not performed. Source-backed risks remain risks until reproduced; no undocumented production state is assumed.
+The dated 2026-10-18 review performed none of those runtime operations; its archived reports retain that boundary. Subsequent release/integration checks are documented separately in [HANDOFF.md](HANDOFF.md) and [docs/reviews](docs/reviews/). No physical-device or external-provider accuracy pass is claimed, and no destructive cleanup is authorized by these documents.

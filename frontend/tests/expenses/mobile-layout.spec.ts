@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, devices, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import {
   APP_ORIGIN,
@@ -143,7 +143,7 @@ test.describe("Mobile expense layout (#47)", () => {
     ).toBeVisible();
   });
 
-  test("admin-enabled quick-add FAB is visible and opens a new Expense", async ({
+  test("admin-enabled quick-add FAB stays clear of install dismissal and opens Expense entry", async ({
     page,
   }) => {
     await page.route("**/api/settings/ui", (route) =>
@@ -161,6 +161,10 @@ test.describe("Mobile expense layout (#47)", () => {
     await expect(fab).toHaveAttribute("href", "/expenses/new");
     await fab.click();
     await expect(page).toHaveURL(/\/expenses\/new$/);
+    if (process.env.NEXT_PUBLIC_OCR_IMMEDIATE_REVIEW_ENABLED !== "false") {
+      await expect(page.locator('main a[href="/expenses/capture"]')).toBeVisible();
+      await expect(page.locator('main a[href="/expenses/new?mode=manual"]')).toBeVisible();
+    }
   });
 
   test("expense list is compact, preserves filter URLs, and fits two rows above navigation", async ({
@@ -952,35 +956,26 @@ test.describe("Mobile expense layout (#47)", () => {
   });
 
   test("captures comparable EN/RO light/dark list and form evidence", async ({
-    page,
+    browser,
   }, testInfo) => {
     test.setTimeout(120_000);
     test.skip(
       testInfo.project.name !== "mobile-webkit",
       "Evidence is captured once with the WebKit mobile profile.",
     );
-    await mockExpenses(page);
-    await page.unroute("**/api/auth/me");
-    await page.route("**/api/auth/me", (route) =>
-      route.fulfill({ json: { ...USERS.user, language: "en" } }),
-    );
-    let evidencePage = page;
     for (const locale of ["en", "ro"] as const) {
-      if (locale === "ro") {
-        await page.evaluate(() =>
-          localStorage.removeItem("xpenses_user_profile"),
-        );
-        evidencePage = await page.context().newPage();
-        await evidencePage.route("**/sw.js", (route) => route.abort());
-        await setupAuthMocks(evidencePage, "user");
-        await mockExpenses(evidencePage);
-        await evidencePage.unroute("**/api/auth/me");
-        await evidencePage.route("**/api/auth/me", (route) =>
-          route.fulfill({ json: { ...USERS.user, language: "ro" } }),
-        );
-      }
       for (const theme of ["light", "dark"] as const) {
-        for (const viewport of [
+        // Separate account/cookie storage and initialization scripts per matrix
+        // variant: a still-open EN tab must never rewrite the RO language.
+        const context = await browser.newContext({ ...devices["iPhone 13"], serviceWorkers: "block" });
+        const evidencePage = await context.newPage();
+        try {
+          await setupAuthMocks(evidencePage, "user");
+          await mockExpenses(evidencePage);
+          await evidencePage.route("**/api/auth/me", (route) =>
+            route.fulfill({ json: { ...USERS.user, language: locale } }),
+          );
+          for (const viewport of [
           { width: 375, height: 667, name: "375x667" },
           { width: 390, height: 844, name: "390x844" },
           { width: 844, height: 390, name: "844x390" },
@@ -1016,6 +1011,9 @@ test.describe("Mobile expense layout (#47)", () => {
           await evidencePage.screenshot({
             path: `${EVIDENCE_DIR}/new-expense-${locale}-${theme}-${viewport.name}.png`,
           });
+          }
+        } finally {
+          await context.close();
         }
       }
     }

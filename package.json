@@ -1,5 +1,8 @@
 {
-  "dependencies": {
+  "name": "xpenses-local-qa",
+  "private": true,
+  "description": "Optional root Playwright QA toolbox; application tooling lives in frontend/.",
+  "devDependencies": {
     "@playwright/test": "^1.64.1"
   }
 }

@@ -144,7 +144,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
       <main
         id="main-content"
-        className="app-main flex-1 lg:ml-[220px] pt-[calc(3.5rem_+_var(--app-header-safe-inset,env(safe-area-inset-top,0px))_+_var(--app-banner-height,0px)_+_1rem)] sm:pt-[calc(3.5rem_+_var(--app-header-safe-inset,env(safe-area-inset-top,0px))_+_var(--app-banner-height,0px)_+_1.5rem)] lg:pt-[calc(1.5rem_+_var(--app-banner-height,0px))] pb-[calc(4rem_+_env(safe-area-inset-bottom,0px)_+_1rem)] lg:pb-0 p-4 sm:p-6 lg:p-8"
+        className="app-main flex-1 lg:ml-[220px] pt-[calc(3.5rem_+_var(--app-header-safe-inset,env(safe-area-inset-top,0px))_+_var(--app-banner-height,0px)_+_1rem)] sm:pt-[calc(3.5rem_+_var(--app-header-safe-inset,env(safe-area-inset-top,0px))_+_var(--app-banner-height,0px)_+_1.5rem)] lg:pt-[calc(1.5rem_+_var(--app-banner-height,0px))] pb-[calc(7.5rem_+_env(safe-area-inset-bottom,0px))] lg:pb-0 p-4 sm:p-6 lg:p-8"
       >
         {children}
         <IosInstallHint />

@@ -1,4 +1,6 @@
-# Handoff — P2 release follow-up
+# Historical handoff — P2 release follow-up
+
+**Superseded:** read [HANDOFF.md](HANDOFF.md) for current source, production, CI and remaining gates. The original P2 checkpoint below is retained as dated history, not current execution instructions. The V104/old-image and unverified-backup statements below were superseded by the verified 2026-10-21 coordinated V105/V106 release.
 
 ## Continue here
 

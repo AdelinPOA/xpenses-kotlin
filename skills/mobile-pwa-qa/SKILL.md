@@ -1,6 +1,4 @@
-
 ---
-
 name: mobile-pwa-qa
 description: Audit and test mobile PWA interfaces. Use for responsive layout bugs, iOS issues, overflow, and frontend regression testing
 ---

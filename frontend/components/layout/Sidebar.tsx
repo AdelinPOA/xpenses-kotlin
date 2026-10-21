@@ -43,7 +43,6 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
   const guardedNavigate = (e: { preventDefault: () => void }) => {
     if (!allowNavigation()) e.preventDefault();
   };
-  const tCommon = useTranslations("common");
 
   const visibleNav = NAV.filter((item) => user && item.roles.includes(user.role));
   const sidebarRef = useRef<HTMLElement>(null);

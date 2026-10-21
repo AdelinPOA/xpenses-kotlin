@@ -35,8 +35,7 @@ export default function IosInstallHint() {
     try {
       localStorage.setItem(DISMISS_KEY, "1");
     } catch {
-      // Keep the hint dismissed for this session when persistence is unavailable.
-      setVisible(false);
+      // The hint remains dismissed for this page if persistence is unavailable.
     }
   };
 
@@ -45,20 +44,15 @@ export default function IosInstallHint() {
   return (
     <div
       role="status"
-      className="lg:hidden fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] left-3 right-3 z-40 flex items-start gap-3 rounded-xl border border-border bg-card p-3 shadow-lg"
+      className="lg:hidden mt-4 flex items-start gap-3 rounded-xl border border-border bg-card p-3 shadow-sm"
     >
-      <Share
-        className="mt-0.5 h-4 w-4 shrink-0 text-primary"
-        aria-hidden="true"
-      />
-      <p className="flex-1 text-xs font-medium text-foreground">
-        {t("ios_install_hint")}
-      </p>
+      <Share className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+      <p className="flex-1 text-xs font-medium text-foreground">{t("ios_install_hint")}</p>
       <button
         type="button"
         onClick={dismiss}
         aria-label={t("ios_install_dismiss")}
-        className="min-w-11 min-h-11 -m-2 -mt-3 flex items-center justify-center rounded-lg text-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        className="min-w-11 min-h-11 shrink-0 flex items-center justify-center rounded-lg text-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
       >
         <X className="h-4 w-4" aria-hidden="true" />
       </button>

@@ -1,7 +1,8 @@
 package eu.nt.xpenses.services
 
-import com.fasterxml.jackson.databind.ObjectMapper
+import tools.jackson.databind.ObjectMapper
 import eu.nt.xpenses.model.Expense
+import eu.nt.xpenses.model.ExpenseVerificationState
 import eu.nt.xpenses.model.OcrJob
 import eu.nt.xpenses.model.OcrJobStage
 import eu.nt.xpenses.model.OcrJobStatus
@@ -10,6 +11,7 @@ import eu.nt.xpenses.model.User
 import eu.nt.xpenses.models.RawUpload
 import eu.nt.xpenses.repositories.CategoryRepository
 import eu.nt.xpenses.repositories.ExpenseRepository
+import eu.nt.xpenses.repositories.ExpenseReportRepository
 import eu.nt.xpenses.repositories.OcrComparisonRepository
 import eu.nt.xpenses.repositories.OcrJobRepository
 import eu.nt.xpenses.repositories.ReceiptRepository
@@ -39,6 +41,7 @@ class AsyncOcrService(
     private val expenseRepository: ExpenseRepository,
     private val receiptRepository: ReceiptRepository,
     private val categoryRepository: CategoryRepository,
+    private val expenseReportRepository: ExpenseReportRepository,
     private val fxService: FxService,
     private val transactionTemplate: TransactionTemplate,
     @Qualifier("ocrTaskExecutor") private val ocrTaskExecutor: Executor
@@ -134,6 +137,11 @@ class AsyncOcrService(
                     OcrJobStage.RECEIPT -> processReceiptStage(jobId, leaseToken)
                     else -> false
                 }
+            } catch (_: ManualCategoryUnavailableException) {
+                ocrJobRepository.recordPermanentFailure(
+                    jobId, leaseToken, "MANUAL_CATEGORY_INVALID", "Selected category is unavailable", Instant.now()
+                )
+                false
             } catch (exception: Exception) {
                 recordFailure(jobId, leaseToken, exception)
                 false
@@ -182,7 +190,11 @@ class AsyncOcrService(
         var fxRate = BigDecimal.ONE
         var fxRateManual = false
         var errorCode = job.errorCode
-        if (currency != "EUR") {
+        val suppliedFxRate = decimal(result["fx_rate"])?.takeIf { it > BigDecimal.ZERO }
+        if (suppliedFxRate != null) {
+            fxRate = suppliedFxRate
+            fxRateManual = true
+        } else if (currency != "EUR") {
             try {
                 fxRate = fxService.getRate(currency, date)
             } catch (exception: Exception) {
@@ -197,12 +209,28 @@ class AsyncOcrService(
             val current = ocrJobRepository.findById(jobId).orElse(null) ?: return@execute null
             if (current.status != OcrJobStatus.PROCESSING || current.leaseToken != leaseToken) return@execute null
 
+            val manualCompletion = result["manual_completion"] == true
             val category = decimal(result["category_id"])?.toInt()?.let { categoryId ->
-                categoryRepository.findById(categoryId).orElse(null)?.takeIf { it.isActive }
+                val found = categoryRepository.findById(categoryId).orElse(null)
+                if (manualCompletion && (found == null || !found.isActive)) {
+                    throw ManualCategoryUnavailableException()
+                }
+                found?.takeIf { it.isActive }
+            }
+            val requestedReportId = current.requestedReportId
+            val report = requestedReportId?.let { reportId ->
+                expenseReportRepository.findByIdForOcrPromotion(reportId).orElse(null)
+                    ?.takeIf { it.user?.id == user.id && it.status == "draft" }
+            }
+            current.reportLinkStatus = when {
+                requestedReportId == null -> "NOT_REQUESTED"
+                report != null -> "LINKED"
+                else -> "CONFLICT"
             }
             val expense = Expense(
                 user = user,
                 category = category,
+                report = report,
                 amountOriginal = amount,
                 currencyOriginal = currency,
                 amountEur = amount.multiply(fxRate).setScale(2, RoundingMode.HALF_UP),
@@ -215,7 +243,8 @@ class AsyncOcrService(
                 description = result["description"]?.toString(),
                 merchant = result["merchant"]?.toString(),
                 rawOcrText = result["raw_text"]?.toString(),
-                status = "draft"
+                status = "draft",
+                verificationState = ExpenseVerificationState.PENDING
             )
             val saved = expenseRepository.saveAndFlush(expense)
             decimal(result["comparison_id"])?.toInt()?.let { comparisonId ->
@@ -256,6 +285,7 @@ class AsyncOcrService(
                     throw LeaseLostException()
                 }
                 val expense = expenseRepository.findById(expenseId).orElseThrow()
+                val now = Instant.now()
                 val receipt = receiptRepository.saveAndFlush(
                     Receipt(
                         expense = expense,
@@ -263,7 +293,12 @@ class AsyncOcrService(
                         originalName = job.filename
                     )
                 )
-                if (ocrJobRepository.completeReceiptStage(jobId, leaseToken, receipt.id!!, Instant.now()) != 1) {
+                if (expense.verificationState == ExpenseVerificationState.VERIFIED) {
+                    expense.verificationState = ExpenseVerificationState.PENDING
+                    expense.updatedAt = now
+                    expenseRepository.saveAndFlush(expense)
+                }
+                if (ocrJobRepository.completeReceiptStage(jobId, leaseToken, receipt.id!!, now) != 1) {
                     throw LeaseLostException()
                 }
                 TransactionSynchronizationManager.registerSynchronization(object : TransactionSynchronization {
@@ -319,6 +354,7 @@ class AsyncOcrService(
     }
 
     private class LeaseLostException : IllegalStateException("OCR lease was lost")
+    private class ManualCategoryUnavailableException : IllegalStateException()
 
     companion object {
         private const val MAX_ATTEMPTS = 3

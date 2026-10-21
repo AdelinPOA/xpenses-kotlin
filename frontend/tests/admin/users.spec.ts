@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { setupAuthMocks, setupAdminMocks, USERS_LIST } from "../shared/mocks";
+import { setupAuthMocks, setupAdminMocks } from "../shared/mocks";
 
 test.describe("Admin Users", () => {
   test.beforeEach(async ({ page }) => {

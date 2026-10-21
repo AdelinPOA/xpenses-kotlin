@@ -4,12 +4,14 @@ import eu.nt.xpenses.dto.expense.ExpenseCreate
 import eu.nt.xpenses.dto.expense.ExpenseUpdate
 import eu.nt.xpenses.model.Category
 import eu.nt.xpenses.model.Expense
+import eu.nt.xpenses.model.ExpenseVerificationState
 import eu.nt.xpenses.model.Receipt
 import eu.nt.xpenses.model.User
 import eu.nt.xpenses.models.RawUpload
 import eu.nt.xpenses.repositories.CategoryRepository
 import eu.nt.xpenses.repositories.ExpenseReportRepository
 import eu.nt.xpenses.repositories.ExpenseRepository
+import eu.nt.xpenses.repositories.ExpenseReviewOperationRepository
 import eu.nt.xpenses.repositories.OcrComparisonRepository
 import eu.nt.xpenses.repositories.ReceiptRepository
 import eu.nt.xpenses.services.mapper.ExpenseMapper
@@ -20,6 +22,7 @@ import org.junit.jupiter.api.assertThrows
 import org.mockito.ArgumentMatchers.*
 import org.mockito.Mockito.*
 import org.springframework.http.HttpStatus
+import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.mock.web.MockMultipartFile
 import org.springframework.web.server.ResponseStatusException
 import java.math.BigDecimal
@@ -47,6 +50,8 @@ class ExpenseServiceTest {
     }
 
     private val expenseRepository = mock(ExpenseRepository::class.java)
+    private val expenseReviewOperationRepository = mock(ExpenseReviewOperationRepository::class.java)
+    private val jdbcTemplate = mock(JdbcTemplate::class.java)
     private val categoryRepository = mock(CategoryRepository::class.java)
     private val expenseReportRepository = mock(ExpenseReportRepository::class.java)
     private val ocrComparisonRepository = mock(OcrComparisonRepository::class.java)
@@ -67,7 +72,9 @@ class ExpenseServiceTest {
         storageService,
         exportService,
         expenseMapper,
-        authorization
+        authorization,
+        expenseReviewOperationRepository,
+        jdbcTemplate
     )
 
     private lateinit var techUser: User
@@ -316,7 +323,7 @@ class ExpenseServiceTest {
     @Test
     fun `listExpenses with filters and authorization`() {
         val exp = Expense(id = 1, user = techUser, status = "draft", amountOriginal = BigDecimal("10.00"), amountEur = BigDecimal("10.00"), currencyOriginal = "EUR", date = "2024-01-01")
-        doReturn(listOf(exp)).`when`(expenseRepository).findAllWithFilters(any(), any(), any(), any(), any(), any(), any())
+        doReturn(listOf(exp)).`when`(expenseRepository).findAllWithFilters(any(), any(), any(), any(), any(), any(), any(), any())
 
         val list = expenseService.listExpenses(techUser, null, null, null, null, null, false, null, 20, null) as List<*>
         assertEquals(1, list.size)
@@ -344,7 +351,7 @@ class ExpenseServiceTest {
     @Test
     fun `exportExpenses builds csv and xlsx`() {
         val exp = Expense(id = 1, user = techUser, status = "draft", amountOriginal = BigDecimal("10.00"), amountEur = BigDecimal("10.00"), currencyOriginal = "EUR", date = "2024-01-01")
-        doReturn(listOf(exp)).`when`(expenseRepository).findAllWithFilters(any(), any(), any(), any(), any(), any(), any())
+        doReturn(listOf(exp)).`when`(expenseRepository).findAllWithFilters(any(), any(), any(), any(), any(), any(), any(), any())
         doReturn("csv,content".toByteArray()).`when`(exportService).buildCsv(anyList(), anyList())
 
         val (bytes, contentType, filename) = expenseService.exportExpenses(techUser, "csv", null, null, null, null, null, false, null)
@@ -369,7 +376,7 @@ class ExpenseServiceTest {
 
     @Test
     fun `uploadReceipts uses StorageContext RECEIPT`() {
-        val exp = Expense(id = 1, user = techUser, status = "draft", amountOriginal = BigDecimal("10.00"), amountEur = BigDecimal("10.00"), currencyOriginal = "EUR", date = "2024-01-01")
+        val exp = Expense(id = 1, user = techUser, status = "draft", amountOriginal = BigDecimal("10.00"), amountEur = BigDecimal("10.00"), currencyOriginal = "EUR", date = "2024-01-01", verificationState = ExpenseVerificationState.VERIFIED)
         doReturn(Optional.of(exp)).`when`(expenseRepository).findById(1)
         doReturn("2024/01/1_test.png").`when`(storageService).storeFile(eqNonNull(StorageContext.RECEIPT), anyObject(dummyUpload), anyInt())
         doAnswer {
@@ -383,6 +390,7 @@ class ExpenseServiceTest {
 
         assertEquals(1, result.size)
         assertEquals("2024/01/1_test.png", result[0]["file_path"])
+        assertEquals(ExpenseVerificationState.PENDING, exp.verificationState)
         verify(storageService).storeFile(eqNonNull(StorageContext.RECEIPT), anyObject(dummyUpload), anyInt())
     }
 }

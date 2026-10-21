@@ -1,8 +1,8 @@
 package eu.nt.xpenses.services
 
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.module.kotlin.readValue
-import com.fasterxml.jackson.module.kotlin.registerKotlinModule
+import tools.jackson.databind.ObjectMapper
+import tools.jackson.module.kotlin.readValue
+import tools.jackson.module.kotlin.jacksonMapperBuilder
 import eu.nt.xpenses.model.AppSetting
 import eu.nt.xpenses.repositories.AppSettingRepository
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -19,7 +19,7 @@ import org.mockito.Mockito.verifyNoMoreInteractions
 import java.util.Optional
 
 class DelegationParsingSettingsServiceTest {
-    private val mapper = ObjectMapper().registerKotlinModule()
+    private val mapper = jacksonMapperBuilder().build()
     private val repository = mock(AppSettingRepository::class.java)
     private val service = DelegationParsingSettingsService(repository, mapper)
 

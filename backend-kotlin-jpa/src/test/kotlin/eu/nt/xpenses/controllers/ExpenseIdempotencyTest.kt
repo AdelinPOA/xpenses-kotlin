@@ -1,7 +1,7 @@
 package eu.nt.xpenses.controllers
 
-import com.fasterxml.jackson.core.type.TypeReference
-import com.fasterxml.jackson.databind.ObjectMapper
+import tools.jackson.core.type.TypeReference
+import tools.jackson.databind.ObjectMapper
 import eu.nt.xpenses.IntegrationTestBase
 import eu.nt.xpenses.dto.expense.ExpenseCreate
 import eu.nt.xpenses.dto.expense.ExpenseOut
@@ -87,7 +87,8 @@ class ExpenseIdempotencyTest : IntegrationTestBase() {
         // Include a failed test's committed rows even if response parsing did not run.
         val owned = jdbc.queryForList("SELECT id FROM expenses WHERE merchant = ?", Int::class.java, prefix) + ids
         owned.distinct().forEach { id ->
-            jdbc.queryForList("SELECT file_path FROM receipts WHERE expense_id = ?", String::class.java, id).forEach { storage.deleteFile(it) }
+            jdbc.queryForList("SELECT file_path FROM receipts WHERE expense_id = ?", String::class.java, id)
+                .filterNotNull().forEach { storage.deleteFile(it) }
             jdbc.update("DELETE FROM receipts WHERE expense_id = ?", id)
             jdbc.update("DELETE FROM expenses WHERE id = ?", id)
         }

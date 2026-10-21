@@ -1,7 +1,7 @@
 package eu.nt.xpenses.controllers
 
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.module.kotlin.registerKotlinModule
+import tools.jackson.databind.ObjectMapper
+import tools.jackson.module.kotlin.jacksonMapperBuilder
 import eu.nt.xpenses.services.DelegationParsingConfig
 import eu.nt.xpenses.services.DelegationParsingSettingsService
 import eu.nt.xpenses.services.EmailImportService
@@ -25,7 +25,7 @@ import org.springframework.context.annotation.AnnotationConfigApplicationContext
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.http.MediaType
-import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter
+import org.springframework.http.converter.json.JacksonJsonHttpMessageConverter
 import org.springframework.security.access.AccessDeniedException
 import org.springframework.security.authentication.AnonymousAuthenticationToken
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
@@ -40,7 +40,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean
 
 class DelegationParsingControllerTest {
-    private val mapper = ObjectMapper().registerKotlinModule()
+    private val mapper = jacksonMapperBuilder().build()
     private val settingsService = mock(DelegationParsingSettingsService::class.java)
     private val emailService = mock(EmailImportService::class.java)
     private val ocrService = mock(OcrService::class.java)
@@ -63,7 +63,7 @@ class DelegationParsingControllerTest {
             val readJson = mapper.readTree(read.response.contentAsString)
             assertEquals(settings.outputInstructions, readJson["output_instructions"].asText())
             assertFalse(readJson.has("outputInstructions"))
-            assertEquals(setOf("instructions", "examples", "output_instructions"), readJson.fieldNames().asSequence().toSet())
+            assertEquals(setOf("instructions", "examples", "output_instructions"), readJson.propertyNames().toSet())
 
             val saved =
                 mvc
@@ -300,7 +300,7 @@ class DelegationParsingControllerTest {
                 MockMvcBuilders
                     .standaloneSetup(controller)
                     .setValidator(validator)
-                    .setMessageConverters(MappingJackson2HttpMessageConverter(mapper))
+                    .setMessageConverters(JacksonJsonHttpMessageConverter(mapper))
                     .build()
             assertions(mvc)
         }

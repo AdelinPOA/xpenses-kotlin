@@ -10,8 +10,8 @@ test.describe("Expense form manual FX editor", () => {
   });
 
   async function openManualEditor(page: import("@playwright/test").Page, amount: string, currency: string) {
-    await page.goto("/expenses/new", { waitUntil: "load" });
-    await page.getByLabel("Amount").fill(amount);
+    await page.goto("/expenses/new?mode=manual", { waitUntil: "load" });
+    await page.locator("#expense-amount").fill(amount);
     await page.getByLabel("Currency").selectOption(currency);
     // The pencil toggle only shows for non-EUR currencies.
     await page.getByTitle("Edit rate manually").click();

@@ -80,7 +80,7 @@ test.describe("Offline draft queue", () => {
       await route.fallback();
     });
 
-    await page.goto("/expenses/new", { waitUntil: "load" });
+    await page.goto("/expenses/new?mode=manual", { waitUntil: "load" });
     await expect(page.locator("#expense-amount")).toBeVisible();
 
     // Go offline and save.
@@ -164,7 +164,7 @@ test.describe("Offline draft queue", () => {
       });
     });
 
-    await page.goto("/expenses/new", { waitUntil: "load" });
+    await page.goto("/expenses/new?mode=manual", { waitUntil: "load" });
     await expect(page.locator("#expense-amount")).toBeVisible();
     await page.locator("#expense-amount").fill("42.5");
     await page.getByLabel("Merchant", { exact: true }).fill("Receipt Shop");
@@ -198,7 +198,7 @@ test.describe("Offline draft queue", () => {
   test("connection banner appears when offline with a queue and clears on reconnect", async ({
     page,
   }) => {
-    await page.goto("/expenses/new", { waitUntil: "load" });
+    await page.goto("/expenses/new?mode=manual", { waitUntil: "load" });
     await expect(page.locator("#expense-amount")).toBeVisible();
 
     await page.context().setOffline(true);

@@ -1,6 +1,6 @@
 package eu.nt.xpenses.services
 
-import com.fasterxml.jackson.databind.ObjectMapper
+import tools.jackson.databind.ObjectMapper
 import eu.nt.xpenses.config.FxMarginsValidationException
 import eu.nt.xpenses.dto.settings.DailyAllowanceOut
 import eu.nt.xpenses.dto.settings.DailyAllowanceUpdate

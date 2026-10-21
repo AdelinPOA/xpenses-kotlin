@@ -1,6 +1,5 @@
 import React from "react";
 import { Inbox } from "lucide-react";
-import clsx from "clsx";
 
 interface EmptyStateProps {
   message?: string;

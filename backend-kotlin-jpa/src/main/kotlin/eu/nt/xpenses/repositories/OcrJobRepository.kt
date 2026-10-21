@@ -13,6 +13,14 @@ import java.time.Instant
 
 @Repository
 interface OcrJobRepository : JpaRepository<OcrJob, Int> {
+    fun findByUser_IdAndAcceptanceKey(userId: Int, acceptanceKey: String): OcrJob?
+
+    fun findAllByUser_IdOrderByCreatedAtDesc(userId: Int, pageable: org.springframework.data.domain.Pageable): List<OcrJob>
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT j FROM OcrJob j WHERE j.id = :jobId")
+    fun findByIdForUpdate(@Param("jobId") jobId: Int): OcrJob?
+
     @Query(
         value = """
             SELECT id FROM ocr_jobs

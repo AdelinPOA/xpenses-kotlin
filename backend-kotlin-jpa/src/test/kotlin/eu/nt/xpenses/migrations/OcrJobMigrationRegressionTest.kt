@@ -67,6 +67,87 @@ class OcrJobMigrationRegressionTest {
         }
     }
 
+    @Test
+    fun `V105 defaults historical expenses to not required and enforces valid verification states`() {
+        flyway("104").clean()
+        flyway("104").migrate()
+
+        connection().use { connection ->
+            connection.prepareStatement(
+                "INSERT INTO users (id, username, display_name, role) VALUES (1, 'verification-user', 'Verification User', 'technician')"
+            ).executeUpdate()
+            connection.prepareStatement(
+                "INSERT INTO expenses (user_id, amount_original, currency_original, amount_eur, date) VALUES (1, 12.50, 'EUR', 12.50, '2026-06-01')"
+            ).executeUpdate()
+            connection.commit()
+        }
+
+        flyway("105").migrate()
+
+        connection().use { connection ->
+            connection.prepareStatement("SELECT verification_state FROM expenses").use { statement ->
+                statement.executeQuery().use { result ->
+                    check(result.next())
+                    assertEquals("NOT_REQUIRED", result.getString("verification_state"))
+                }
+            }
+            connection.prepareStatement(
+                "INSERT INTO expenses (user_id, amount_original, currency_original, amount_eur, date, verification_state) VALUES (1, 5, 'EUR', 5, '2026-06-02', 'INVALID')"
+            ).use { statement ->
+                org.junit.jupiter.api.Assertions.assertThrows(java.sql.SQLException::class.java) {
+                    statement.executeUpdate()
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `V106 keeps legacy jobs quarantined and allows nullable acceptance keys`() {
+        flyway("102").clean()
+        flyway("102").migrate()
+        connection().use { connection ->
+            connection.prepareStatement(
+                "INSERT INTO users (id, username, display_name, role) VALUES (1, 'acceptance-user', 'Acceptance User', 'technician')"
+            ).executeUpdate()
+            connection.prepareStatement(
+                "INSERT INTO ocr_jobs (id, user_id, status, filename, result_json) VALUES (901, 1, 'completed', 'legacy.jpg', '{\"amount\":12.50}')"
+            ).executeUpdate()
+            connection.commit()
+        }
+
+        flyway("106").migrate()
+
+        connection().use { connection ->
+            connection.prepareStatement(
+                "SELECT status, result_json, acceptance_key, acceptance_fingerprint, report_link_status FROM ocr_jobs WHERE id = 901"
+            ).use { statement ->
+                statement.executeQuery().use { result ->
+                    check(result.next())
+                    assertEquals("UNRECOVERABLE", result.getString("status"))
+                    assertEquals("{\"amount\":12.50}", result.getString("result_json"))
+                    assertEquals(null, result.getString("acceptance_key"))
+                    assertEquals(null, result.getString("acceptance_fingerprint"))
+                    assertEquals("NOT_REQUESTED", result.getString("report_link_status"))
+                }
+            }
+            connection.prepareStatement(
+                "INSERT INTO ocr_jobs (user_id, filename, acceptance_key, acceptance_fingerprint) VALUES (1, 'keyed.jpg', 'source-key', ?)"
+            ).use { statement ->
+                statement.setString(1, "a".repeat(64))
+                statement.executeUpdate()
+            }
+            connection.commit()
+            connection.prepareStatement(
+                "INSERT INTO ocr_jobs (user_id, filename, acceptance_key, acceptance_fingerprint) VALUES (1, 'duplicate.jpg', 'source-key', ?)"
+            ).use { statement ->
+                statement.setString(1, "b".repeat(64))
+                org.junit.jupiter.api.Assertions.assertThrows(java.sql.SQLException::class.java) {
+                    statement.executeUpdate()
+                }
+            }
+        }
+    }
+
     private fun flyway(target: String): Flyway = Flyway.configure()
         .dataSource(postgres.jdbcUrl, postgres.username, postgres.password)
         .locations("classpath:db/migration")

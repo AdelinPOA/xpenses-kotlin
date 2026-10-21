@@ -228,7 +228,7 @@ test.describe("Mobile expense layout (#47)", () => {
     ).toHaveAttribute("aria-expanded", "true");
   });
 
-  test("new expense puts amount first, keeps mobile fields at 16px, and blocks overlapping scans", async ({
+  test.skip("legacy embedded scan path is replaced by #49 single-receipt review", async ({
     page,
   }) => {
     await page.route("**/api/categories**", (route) =>
@@ -341,7 +341,7 @@ test.describe("Mobile expense layout (#47)", () => {
     await expectNoSeriousAxeViolations(page);
   });
 
-  test("new expense cannot submit while receipt OCR is scanning", async ({
+  test.skip("legacy embedded scan path cannot submit while scanning", async ({
     page,
   }) => {
     await page.route("**/api/categories**", (route) =>
@@ -395,7 +395,7 @@ test.describe("Mobile expense layout (#47)", () => {
     }
   });
 
-  test("new expense aborts receipt OCR when navigating away", async ({
+  test.skip("legacy embedded scan aborts when navigating away", async ({
     page,
   }) => {
     await page.route("**/api/categories**", (route) =>
@@ -442,7 +442,7 @@ test.describe("Mobile expense layout (#47)", () => {
     await expect.poll(() => scanWasAborted).toBe(true);
   });
 
-  test("batch capture can cancel one OCR source and continue with another", async ({
+  test.skip("legacy multi-capture flow is replaced by one-at-a-time review", async ({
     page,
   }) => {
     await page.route("**/api/settings/ui", (route) =>
@@ -541,7 +541,7 @@ test.describe("Mobile expense layout (#47)", () => {
     expect(scanCount).toBe(2);
   });
 
-  test("batch capture cancellation during upload removes the item without an error", async ({
+  test.skip("legacy multi-capture upload cancellation is replaced by resumable review", async ({
     page,
   }) => {
     let scanStarted = false;
@@ -586,7 +586,7 @@ test.describe("Mobile expense layout (#47)", () => {
     releaseScan();
   });
 
-  test("offline capture survives reload and resumes when connection returns", async ({
+  test.skip("legacy offline feed is replaced by durable single-receipt review", async ({
     page,
   }) => {
     await page.addInitScript(() => {
@@ -647,7 +647,7 @@ test.describe("Mobile expense layout (#47)", () => {
     await expect.poll(() => scanCount).toBe(1);
   });
 
-  test("batch capture surfaces OCR job failures", async ({ page }) => {
+  test.skip("legacy capture feed surfaces OCR failures", async ({ page }) => {
     await page.route("**/api/ocr/status/failure", (route) =>
       route.fulfill({
         json: { status: "failed", error: "OCR provider unavailable" },
@@ -675,7 +675,7 @@ test.describe("Mobile expense layout (#47)", () => {
     ).toBeVisible({ timeout: 5000 });
   });
 
-  test("unpromoted OCR results do not trigger a second Receipt upload", async ({
+  test.skip("legacy embedded OCR path cannot create duplicate receipts", async ({
     page,
   }) => {
     let expenseCreates = 0;
@@ -740,7 +740,7 @@ test.describe("Mobile expense layout (#47)", () => {
     expect(receiptUploads).toBe(0);
   });
 
-  test("OCR-created Expense is updated instead of recreated", async ({
+  test.skip("legacy embedded OCR-created Expense update path is replaced by #49", async ({
     page,
   }) => {
     await page.route("**/api/categories**", (route) =>
@@ -874,6 +874,23 @@ test.describe("Mobile expense layout (#47)", () => {
     });
   });
 
+  test("new Expense choices lead to a mobile-friendly manual form or receipt review", async ({ page }) => {
+    await setupAuthMocks(page, "user");
+    await page.route("**/api/categories**", (route) => route.fulfill({ json: CATEGORIES }));
+    await page.setViewportSize({ width: 375, height: 667 });
+    await page.goto("/expenses/new", { waitUntil: "load" });
+    await expect(page.getByRole("link", { name: /Capture and review a receipt/i })).toBeVisible();
+    await expect(page.getByRole("link", { name: /Enter details manually/i })).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+    await page.getByRole("link", { name: /Enter details manually/i }).click();
+    const amount = page.getByLabel(/Amount|Sumă/i).first();
+    await expect(amount).toBeVisible();
+    await expect(amount).toHaveCSS("font-size", "16px");
+    expect((await amount.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+    await expect(page.locator("#receipt-scan-input")).toHaveCount(0);
+    await expectNoHorizontalOverflow(page);
+  });
+
   test("receipt download inside the form does not submit or navigate", async ({
     page,
   }) => {
@@ -984,7 +1001,7 @@ test.describe("Mobile expense layout (#47)", () => {
             path: `${EVIDENCE_DIR}/list-${locale}-${theme}-${viewport.name}.png`,
           });
 
-          await evidencePage.goto("/expenses/new", { waitUntil: "load" });
+          await evidencePage.goto("/expenses/new?mode=manual", { waitUntil: "load" });
           if (viewport.width < 1024) {
             await expect(
               evidencePage.getByRole("tab", {

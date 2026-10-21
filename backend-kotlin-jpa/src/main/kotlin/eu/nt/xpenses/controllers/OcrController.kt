@@ -1,19 +1,26 @@
 package eu.nt.xpenses.controllers
 
-import com.fasterxml.jackson.databind.ObjectMapper
+import tools.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.annotation.JsonProperty
+import eu.nt.xpenses.dto.ocr.OcrJobRecoveryOut
+import eu.nt.xpenses.dto.ocr.OcrManualCompletionRequest
 import eu.nt.xpenses.model.OcrComparison
 import eu.nt.xpenses.model.OcrJob
 import eu.nt.xpenses.model.OcrJobStatus
 import eu.nt.xpenses.model.User
 import eu.nt.xpenses.models.RawUpload
+import eu.nt.xpenses.repositories.ExpenseReportRepository
 import eu.nt.xpenses.repositories.OcrComparisonRepository
 import eu.nt.xpenses.repositories.OcrJobRepository
 import eu.nt.xpenses.services.OcrJobPipeline
+import eu.nt.xpenses.services.OcrRecoveryService
 import eu.nt.xpenses.services.OcrService
+import eu.nt.xpenses.services.SaveIdempotencyService
 import eu.nt.xpenses.services.StorageContext
 import eu.nt.xpenses.services.StorageService
 import jakarta.servlet.http.HttpServletRequest
+import jakarta.validation.Valid
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.security.access.prepost.PreAuthorize
@@ -35,20 +42,66 @@ class OcrController(
     private val ocrJobRepository: OcrJobRepository,
     private val storageService: StorageService,
     private val objectMapper: ObjectMapper,
-    private val rateLimitStore: RateLimitStore
+    private val rateLimitStore: RateLimitStore,
+    private val expenseReportRepository: ExpenseReportRepository,
+    private val idempotency: SaveIdempotencyService,
+    private val ocrRecoveryService: OcrRecoveryService
 ) {
 
     @PostMapping("/scan")
     fun scanReceipt(
         @RequestParam("file") file: MultipartFile,
         @RequestParam(value = "sync", required = false, defaultValue = "false") sync: Boolean,
-        request: HttpServletRequest
+        request: HttpServletRequest,
+        @RequestParam(value = "report_id", required = false) reportId: Int? = null
     ): ResponseEntity<*> {
         val currentUser = request.getAttribute("currentUser") as? User
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
+        val userId = currentUser.id
+            ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
+        val acceptanceKey = idempotency.validateKey(request.getHeader("Idempotency-Key"))
+
+        val filename = file.originalFilename ?: "unknown"
+        val ext = filename.substringAfterLast('.', "").lowercase()
+        val allowedExtensions = setOf("jpg", "jpeg", "png", "pdf", "webp")
+        if (ext !in allowedExtensions) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(mapOf("detail" to "File type not supported for OCR"))
+        }
+        if (file.size > 10 * 1024 * 1024) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(mapOf("detail" to "File exceeds 10MB limit"))
+        }
+
+        val fileBytes = file.bytes
+        if (!OcrService.isValidOcrContent(fileBytes)) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(mapOf("detail" to "Unsupported or invalid file format detected via magic bytes"))
+        }
+        if (sync && (acceptanceKey != null || reportId != null)) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(mapOf("detail" to "Idempotency keys and report context require async OCR"))
+        }
+
+        val sourceSha256 = sha256Hex(fileBytes)
+        val fingerprint = idempotency.hash(
+            mapOf(
+                "sha256" to sourceSha256,
+                "size_bytes" to fileBytes.size,
+                "filename" to filename,
+                "content_type" to file.contentType,
+                "report_id" to reportId
+            )
+        )
+        if (acceptanceKey != null) {
+            val existing = ocrJobRepository.findByUser_IdAndAcceptanceKey(userId, acceptanceKey)
+            if (existing != null) {
+                return acceptExisting(existing, fingerprint, fileBytes, filename, file.contentType, sourceSha256)
+            }
+        }
+
+        validateReportContext(currentUser, reportId)
 
         val userQuotaCount = rateLimitStore.record(
-            "rl:ocr_quota:user:${currentUser.id}", 30, 60_000L, System.currentTimeMillis()
+            "rl:ocr_quota:user:$userId", 30, 60_000L, System.currentTimeMillis()
         )
         if (userQuotaCount > 30) {
             return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
@@ -57,83 +110,129 @@ class OcrController(
 
         val config = ocrService.getOcrConfig()
         if (!config.ocrEnabled) {
-            return ResponseEntity.status(503).body(mapOf("detail" to "OCR is disabled"))
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(mapOf("detail" to "OCR is disabled"))
         }
-
-        val filename = file.originalFilename ?: "unknown"
-        val ext = filename.substringAfterLast('.', "").lowercase()
-        val allowedExtensions = setOf("jpg", "jpeg", "png", "pdf", "webp")
-        if (ext !in allowedExtensions) {
-            return ResponseEntity.status(400).body(mapOf("detail" to "File type not supported for OCR"))
-        }
-
-        if (file.size > 10 * 1024 * 1024) {
-            return ResponseEntity.status(400).body(mapOf("detail" to "File exceeds 10MB limit"))
-        }
-
-        val fileBytes = file.bytes
-        if (!OcrService.isValidOcrContent(fileBytes)) {
-            return ResponseEntity.status(400).body(mapOf("detail" to "Unsupported or invalid file format detected via magic bytes"))
-        }
-
         if (sync) {
-            val result = ocrService.scanReceipt(fileBytes, filename)
-            return ResponseEntity.ok(result)
+            return ResponseEntity.ok(ocrService.scanReceipt(fileBytes, filename))
         }
 
-        // Create OCR Job
         val job = OcrJob(
             user = currentUser,
             filename = filename,
-            // Keep the job invisible to recovery until the OCR source is durable.
-            status = OcrJobStatus.PAUSED
+            status = OcrJobStatus.PAUSED,
+            acceptanceKey = acceptanceKey,
+            acceptanceFingerprint = acceptanceKey?.let { fingerprint },
+            requestedReportId = reportId,
+            reportLinkStatus = if (reportId == null) "NOT_REQUESTED" else "PENDING"
         )
-        val savedJob = ocrJobRepository.save(job)
-        val jobId = savedJob.id!!
-        var sourcePath: String? = null
+        val savedJob = try {
+            ocrJobRepository.save(job)
+        } catch (exception: DataIntegrityViolationException) {
+            val winner = acceptanceKey?.let { ocrJobRepository.findByUser_IdAndAcceptanceKey(userId, it) }
+            if (winner != null) {
+                return acceptExisting(winner, fingerprint, fileBytes, filename, file.contentType, sourceSha256)
+            }
+            throw exception
+        }
 
+        return persistSourceAndDispatch(savedJob, fileBytes, filename, file.contentType, sourceSha256)
+    }
+
+    private fun validateReportContext(currentUser: User, reportId: Int?) {
+        if (reportId == null) return
+        val report = expenseReportRepository.findById(reportId).orElseThrow {
+            ResponseStatusException(HttpStatus.NOT_FOUND, "Report not found")
+        }
+        if (report.user?.id != currentUser.id) {
+            throw ResponseStatusException(HttpStatus.FORBIDDEN, "Cannot attach OCR Expense to another user's report")
+        }
+        if (report.status != "draft") {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Can only capture into a draft report")
+        }
+    }
+
+    private fun acceptExisting(
+        job: OcrJob,
+        fingerprint: String,
+        fileBytes: ByteArray,
+        filename: String,
+        contentType: String?,
+        sourceSha256: String
+    ): ResponseEntity<*> {
+        if (job.acceptanceFingerprint != fingerprint) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(mapOf("detail" to "Idempotency-Key was already used with different OCR input"))
+        }
+        if (job.sourcePath.isNullOrBlank()) {
+            return persistSourceAndDispatch(job, fileBytes, filename, contentType, sourceSha256)
+        }
+        if (job.status == OcrJobStatus.PAUSED) {
+            job.status = OcrJobStatus.PENDING
+            ocrJobRepository.saveAndFlush(job)
+        }
+        if (job.status == OcrJobStatus.PENDING) dispatch(job.id!!)
+        return acceptedJob(job)
+    }
+
+    private fun persistSourceAndDispatch(
+        job: OcrJob,
+        fileBytes: ByteArray,
+        filename: String,
+        contentType: String?,
+        sourceSha256: String
+    ): ResponseEntity<*> {
+        var sourcePath: String? = null
         try {
+            val jobId = requireNotNull(job.id) { "OCR job id must be persisted before source storage" }
             sourcePath = storageService.storeFile(
                 StorageContext.OCR_SOURCE,
-                RawUpload(fileBytes, filename, file.contentType),
+                RawUpload(fileBytes, filename, contentType),
                 jobId
             )
-            savedJob.sourcePath = sourcePath
-            savedJob.sourceContentType = file.contentType
-            savedJob.sourceSizeBytes = fileBytes.size.toLong()
-            savedJob.sourceSha256 = sha256Hex(fileBytes)
-            savedJob.expiresAt = Instant.now().plus(30, ChronoUnit.DAYS)
-            savedJob.status = OcrJobStatus.PENDING
-            ocrJobRepository.saveAndFlush(savedJob)
-        } catch (e: Exception) {
-            if (sourcePath != null) {
-                runCatching { storageService.deleteFile(sourcePath) }
-            }
-            savedJob.status = OcrJobStatus.PERMANENT_FAILURE
-            savedJob.errorCode = "OCR_SOURCE_STORE_FAILED"
-            savedJob.errorMessage = "OCR source could not be durably stored"
-            ocrJobRepository.save(savedJob)
+            job.sourcePath = sourcePath
+            job.sourceContentType = contentType
+            job.sourceSizeBytes = fileBytes.size.toLong()
+            job.sourceSha256 = sourceSha256
+            job.expiresAt = Instant.now().plus(30, ChronoUnit.DAYS)
+            job.status = OcrJobStatus.PENDING
+            job.errorCode = null
+            job.errorMessage = null
+            ocrJobRepository.saveAndFlush(job)
+        } catch (exception: Exception) {
+            sourcePath?.let { runCatching { storageService.deleteFile(it) } }
+            job.sourcePath = null
+            job.status = OcrJobStatus.PERMANENT_FAILURE
+            job.errorCode = "OCR_SOURCE_STORE_FAILED"
+            job.errorMessage = "OCR source could not be durably stored"
+            ocrJobRepository.save(job)
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
                 .body(mapOf("detail" to "OCR source could not be stored"))
         }
 
+        dispatch(requireNotNull(job.id))
+        return acceptedJob(job)
+    }
+
+    private fun dispatch(jobId: Int) {
         try {
             ocrJobPipeline.processOcr(jobId)
-        } catch (e: java.util.concurrent.RejectedExecutionException) {
+        } catch (_: java.util.concurrent.RejectedExecutionException) {
             // The durable job remains PENDING; the scheduled recovery worker will retry it.
-            return ResponseEntity.status(HttpStatus.ACCEPTED).body(mapOf(
-                "job_id" to savedJob.id,
-                "status" to "pending",
-                "status_url" to "/ocr/status/${savedJob.id}"
-            ))
         }
-
-        return ResponseEntity.status(HttpStatus.ACCEPTED).body(mapOf(
-            "job_id" to savedJob.id,
-            "status" to "pending",
-            "status_url" to "/ocr/status/${savedJob.id}"
-        ))
     }
+
+    private fun acceptedJob(job: OcrJob): ResponseEntity<*> = ResponseEntity.status(HttpStatus.ACCEPTED).body(
+        mapOf(
+            "job_id" to job.id,
+            "status" to when (job.status) {
+                OcrJobStatus.COMPLETED -> "completed"
+                OcrJobStatus.PERMANENT_FAILURE, OcrJobStatus.UNRECOVERABLE,
+                OcrJobStatus.CANCELLED, OcrJobStatus.EXPIRED -> "failed"
+                else -> job.status.lowercase()
+            },
+            "status_url" to "/ocr/status/${job.id}"
+        )
+    )
 
     private fun sha256Hex(bytes: ByteArray): String =
         MessageDigest.getInstance("SHA-256").digest(bytes)
@@ -182,6 +281,60 @@ class OcrController(
 
         return ResponseEntity.ok(response)
     }
+
+    @GetMapping("/jobs")
+    fun listRecoverableJobs(
+        @RequestParam(value = "limit", required = false, defaultValue = "50") limit: Int,
+        request: HttpServletRequest
+    ): List<OcrJobRecoveryOut> {
+        val currentUser = request.getAttribute("currentUser") as? User
+            ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
+        val userId = currentUser.id
+            ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
+        if (limit !in 1..100) throw ResponseStatusException(HttpStatus.BAD_REQUEST, "limit must be between 1 and 100")
+        return ocrRecoveryService.listJobs(userId, limit)
+    }
+
+    @GetMapping("/jobs/{jobId}")
+    fun getRecoverableJob(
+        @PathVariable jobId: Int,
+        request: HttpServletRequest
+    ): OcrJobRecoveryOut {
+        val currentUser = request.getAttribute("currentUser") as? User
+            ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
+        return ocrRecoveryService.getJob(jobId, currentUser)
+    }
+
+    @PostMapping("/jobs/{jobId}/retry")
+    fun retryJob(
+        @PathVariable jobId: Int,
+        request: HttpServletRequest
+    ): ResponseEntity<OcrJobRecoveryOut> {
+        val currentUser = request.getAttribute("currentUser") as? User
+            ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
+        val requestKey = requiredActionKey(request)
+        val requestHash = idempotency.hash(mapOf("job_id" to jobId, "action" to "retry"))
+        return ResponseEntity.status(HttpStatus.ACCEPTED)
+            .body(ocrRecoveryService.retry(jobId, currentUser, requestKey, requestHash))
+    }
+
+    @PostMapping("/jobs/{jobId}/complete-manually")
+    fun completeJobManually(
+        @PathVariable jobId: Int,
+        @Valid @RequestBody body: OcrManualCompletionRequest,
+        request: HttpServletRequest
+    ): ResponseEntity<OcrJobRecoveryOut> {
+        val currentUser = request.getAttribute("currentUser") as? User
+            ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
+        val requestKey = requiredActionKey(request)
+        val requestHash = idempotency.hash(mapOf("job_id" to jobId, "action" to "complete_manually", "body" to body))
+        return ResponseEntity.status(HttpStatus.ACCEPTED)
+            .body(ocrRecoveryService.completeManually(jobId, body, currentUser, requestKey, requestHash))
+    }
+
+    private fun requiredActionKey(request: HttpServletRequest): String =
+        idempotency.validateKey(request.getHeader("Idempotency-Key"))
+            ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Idempotency-Key is required")
 
     @DeleteMapping("/jobs/{jobId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)

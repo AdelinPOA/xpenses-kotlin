@@ -98,7 +98,7 @@ test.describe("Expenses list", () => {
     await expect(page.locator("#main-content").getByRole("alert").filter({ hasText: "Couldn't load data." })).toBeVisible({ timeout: 15000 });
     await expect(page.getByText("No expenses found")).not.toBeVisible();
     await page.locator("#main-content").getByRole("button", { name: "Try again" }).click();
-    await expect(page.getByText("Lidl").first()).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText("Lidl").filter({ visible: true }).first()).toBeVisible({ timeout: 15000 });
   });
 
   test("clearing filters drops an old any-expense probe error", async ({ page }) => {

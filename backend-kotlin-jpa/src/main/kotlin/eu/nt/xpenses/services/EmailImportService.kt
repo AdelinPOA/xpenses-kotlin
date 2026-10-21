@@ -1,7 +1,7 @@
 package eu.nt.xpenses.services
 
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.module.kotlin.readValue
+import tools.jackson.databind.ObjectMapper
+import tools.jackson.module.kotlin.readValue
 import eu.nt.xpenses.ingestion.DelegationDraft
 import eu.nt.xpenses.ingestion.ImapIngestionLedger
 import eu.nt.xpenses.ingestion.ProcessingClaim

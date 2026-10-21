@@ -6,7 +6,8 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint .",
+    "lint": "eslint . --max-warnings 0",
+    "test:lint-config": "node --test tests/tooling/eslint-coverage.test.mjs",
     "typecheck": "tsc --noEmit",
     "i18n:check": "node ../scripts/check-i18n-parity.mjs",
     "test:service-worker:unit": "node --test tests/service-worker/sw-regression.test.mjs",
@@ -16,7 +17,7 @@
     "test:offline-workspace": "INTERNAL_API_URL=http://127.0.0.1:18081/api PLAYWRIGHT_PORT=3101 RUN_OFFLINE_WORKSPACE=1 playwright test tests/offline/offline-workspace.spec.ts --project=mobile-chromium --workers=1 --reporter=list",
     "test:offline-regressions": "npm run test:auth:unit && INTERNAL_API_URL=http://127.0.0.1:18081/api PLAYWRIGHT_PORT=3101 RUN_OFFLINE_WORKSPACE=1 RUN_OFFLINE_DIAGNOSIS=1 playwright test tests/offline/offline-workspace.spec.ts tests/offline/offline-auth-diagnosis.spec.ts tests/auth/token-refresh.spec.ts tests/auth/replay-session.spec.ts --project=mobile-chromium --workers=1 --reporter=list",
     "test:e2e": "playwright test",
-    "test:e2e:mobile": "playwright test tests/mobile-ui.spec.ts --project=mobile-chromium --project=mobile-webkit"
+    "test:e2e:mobile": "playwright test tests/mobile-ui.spec.ts tests/auth/login-hydration.spec.ts --project=mobile-chromium --project=mobile-webkit"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",
@@ -37,18 +38,17 @@
   "devDependencies": {
     "@axe-core/playwright": "^4.10.2",
     "@eslint/js": "^10.0.1",
-    "@next/eslint-plugin-next": "16.3.8",
     "@playwright/test": "^1.62.1",
     "@tailwindcss/postcss": "^4.0.0",
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^10.8.0",
-    "eslint-config-next": "^0.2.4",
     "globals": "^17.11.0",
     "postcss": "^8.5.26",
     "tailwindcss": "^4.0.0",
-    "typescript": "^5"
+    "typescript": "^5",
+    "typescript-eslint": "8.72.0"
   },
   "overrides": {
     "postcss": "^8.5.26",

@@ -34,7 +34,10 @@ export default function IosInstallHint() {
     setVisible(false);
     try {
       localStorage.setItem(DISMISS_KEY, "1");
-    } catch {}
+    } catch {
+      // Keep the hint dismissed for this session when persistence is unavailable.
+      setVisible(false);
+    }
   };
 
   if (!visible) return null;
@@ -44,8 +47,13 @@ export default function IosInstallHint() {
       role="status"
       className="lg:hidden fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] left-3 right-3 z-40 flex items-start gap-3 rounded-xl border border-border bg-card p-3 shadow-lg"
     >
-      <Share className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
-      <p className="flex-1 text-xs font-medium text-foreground">{t("ios_install_hint")}</p>
+      <Share
+        className="mt-0.5 h-4 w-4 shrink-0 text-primary"
+        aria-hidden="true"
+      />
+      <p className="flex-1 text-xs font-medium text-foreground">
+        {t("ios_install_hint")}
+      </p>
       <button
         type="button"
         onClick={dismiss}

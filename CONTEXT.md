@@ -9,18 +9,22 @@ A proof-of-purchase document (paper or electronic) uploaded by a technician. Con
 _Avoid_: recipe
 
 **OCR source**:
-A temporary, Technician-owned representation submitted for Receipt OCR before an Expense or Receipt exists. On successful OCR completion it is promoted to the Receipt of an automatically created Expense; on permanent OCR failure it may support a photo-only draft, otherwise it is discarded after cancellation or expiry.
+A Technician-owned staged upload submitted for Receipt OCR before an Expense or Receipt exists. A completed extraction, including partial results, can be promoted into a draft Expense and Receipt; permanent processing failure does not itself guarantee promotion or source deletion.
 _Avoid_: OCR receipt, uploaded Receipt
 
 **Expense**:
 A logged claim of money spent by a technician, created from a receipt (or manually), carrying the original amount and currency.
 _Avoid_: entry, claim
 
+**Expense verification**:
+A Technician's explicit, server-acknowledged confirmation that an Expense's current reviewable values match its Receipt. It is independent of the Expense's financial status and is not financial approval.
+_Avoid_: Expense approval, verified status
+
 **Original currency**:
 The currency printed on the receipt, as detected by OCR or entered by the technician.
 
 **EUR amount**:
-The canonical reporting value of an expense, advance or mileage record: the original amount converted to EUR. All report totals, PDFs and dashboards are expressed in EUR.
+The canonical EUR reporting value of an expense, advance or mileage record. The denomination does not determine which components a particular report total includes; PDF reimbursement and API reimbursement have different mileage treatment.
 _Avoid_: converted amount
 
 **FX rate**:
@@ -43,15 +47,15 @@ The currency in which the bank charged an expense, shown on the bank statement. 
 _Avoid_: billing currency, settlement currency
 
 **Advance**:
-A payment given to a technician in advance of expected expenses, later settled against a report.
+A payment requested or given to a Technician in advance of expected expenses, later settled against a report.
 _Avoid_: pre-payment, avans
 
 **ExpenseReport**:
-A formal container of one or more Expenses submitted by a Technician for review and reimbursement, settled against any Advances and expressed in total EUR amount.
+A formal container grouping Expenses, Advances and MileageRecords for review and reimbursement in EUR. A draft may be empty; submission requires at least one Expense.
 _Avoid_: expense folder, expense pack, claim
 
 **Technician**:
-An employee who incurs and submits expenses. A `User` with role `technician`; reimbursed for the exact EUR amount debited from their bank account.
+An employee who incurs and submits expenses, represented by a User with role `technician`. Exact bank-debit reimbursement is a policy goal; an automatically estimated FX rate alone does not establish the actual bank debit.
 _Avoid_: employee, worker, user
 
 **Delegation email**:
@@ -85,7 +89,7 @@ A domain categorization of stored files (`RECEIPT`, `SIGNATURE`, `OCR_SOURCE`) d
 _Avoid_: storage bucket, file category
 
 **OCR service**:
-The service responsible for optical character recognition on receipt uploads. OCR rate-limiting, queuing, and provider concurrency control live internally within this service.
+The service responsible for extracting purchase information from receipt uploads.
 _Avoid_: scanner service
 
 **AI provider**:

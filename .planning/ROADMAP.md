@@ -8,4 +8,4 @@
 
 ## Future Backlog
 
-The reviewed backlog in `todo.md` and `.planning/codebase/CONCERNS.md` contains security, concurrency, storage, performance, export, OCR, email, and frontend UX work. Promote items into new milestones/phases using `/gsd-new-milestone` or `/gsd-phase`.
+The reviewed backlog in `docs/archive/root-md-2026-10-18/todo.md` (historical; recheck against `README.md` and GitHub Issues) and `.planning/codebase/CONCERNS.md` contains security, concurrency, storage, performance, export, OCR, email, and frontend UX work. Promote items into new milestones/phases using `/gsd-new-milestone` or `/gsd-phase`.

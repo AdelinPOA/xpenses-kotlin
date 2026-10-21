@@ -1,5 +1,7 @@
 # Architecture Patterns for Future Work — Xpenses
 
+> Historical research: references to root `todo.md` now refer to `docs/archive/root-md-2026-10-18/todo.md`. Its findings are not current verification; use `README.md` and the documentation-review reports before planning work.
+
 **Mode:** Ecosystem
 **Date:** 2026-08-04
 **Basis:** `.planning/codebase/ARCHITECTURE.md`, `services/` inspection, `todo.md` findings, and library facts verified via ctx7.

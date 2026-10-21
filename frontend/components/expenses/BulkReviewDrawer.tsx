@@ -58,7 +58,8 @@ function dirty(row: RowState) {
 }
 function fieldsToSave(row: RowState): Field[] {
   return (Object.keys(row.values) as Field[]).filter(
-    (field) => row.values[field] !== row.saved[field] || row.uncertain.includes(field),
+    (field) =>
+      row.values[field] !== row.saved[field] || row.uncertain.includes(field),
   );
 }
 function patchOf(values: Values, fields: Field[]) {
@@ -69,17 +70,26 @@ function patchOf(values: Values, fields: Field[]) {
       // Nullable PATCH fields historically mean omit. Clearing is explicit.
       patch.clear_category = true;
     } else {
-      patch[field] = field === "amount" || field === "category_id" ? Number(value) : value;
+      patch[field] =
+        field === "amount" || field === "category_id" ? Number(value) : value;
     }
   }
   return patch;
 }
 function acknowledged(field: Field, sent: string, received: string): boolean {
   // The server may normalize a decimal's representation (20.00 -> 20).
-  return field === "amount" ? Number(sent) === Number(received) : sent === received;
+  return field === "amount"
+    ? Number(sent) === Number(received)
+    : sent === received;
 }
 function unfinished(row: RowState): boolean {
-  return dirty(row) || row.error || row.uncertain.length > 0 || row.saving || row.deleting;
+  return (
+    dirty(row) ||
+    row.error ||
+    row.uncertain.length > 0 ||
+    row.saving ||
+    row.deleting
+  );
 }
 
 export default function BulkReviewDrawer({
@@ -187,7 +197,13 @@ export default function BulkReviewDrawer({
         const fields = fieldsToSave(row);
         if (!fields.length) {
           // A corrected local validation error has no uncertain remote write.
-          updateRows((previous) => previous.map((current) => current.expense.id === id ? { ...current, error: false } : current));
+          updateRows((previous) =>
+            previous.map((current) =>
+              current.expense.id === id
+                ? { ...current, error: false }
+                : current,
+            ),
+          );
           break;
         }
         const values = { ...row.values };
@@ -218,21 +234,39 @@ export default function BulkReviewDrawer({
             patchOf(values, fields),
           );
           const saved = valuesOf(data);
-          const rejected = fields.filter((field) => !acknowledged(field, values[field], saved[field]));
+          const rejected = fields.filter(
+            (field) => !acknowledged(field, values[field], saved[field]),
+          );
           // HTTP success is not field-level acknowledgement. Trust the returned
           // values while preserving any newer edits made during this request.
-          updateRows((previous) => previous.map((current) => {
-            if (current.expense.id !== id) return current;
-            const visible = { ...current.values };
-            for (const field of fields) {
-              if (!rejected.includes(field) && visible[field] === values[field]) visible[field] = saved[field];
-            }
-            return {
-              ...current, expense: data, values: visible, saved,
-              uncertain: [...new Set([...current.uncertain.filter((field) => !fields.includes(field)), ...rejected])],
-              error: rejected.length > 0,
-            };
-          }));
+          updateRows((previous) =>
+            previous.map((current) => {
+              if (current.expense.id !== id) return current;
+              const visible = { ...current.values };
+              for (const field of fields) {
+                if (
+                  !rejected.includes(field) &&
+                  visible[field] === values[field]
+                )
+                  visible[field] = saved[field];
+              }
+              return {
+                ...current,
+                expense: data,
+                values: visible,
+                saved,
+                uncertain: [
+                  ...new Set([
+                    ...current.uncertain.filter(
+                      (field) => !fields.includes(field),
+                    ),
+                    ...rejected,
+                  ]),
+                ],
+                error: rejected.length > 0,
+              };
+            }),
+          );
           queryClient.invalidateQueries({ queryKey: expenseKeys.all });
           if (rejected.length) {
             requested.current.delete(id);
@@ -242,7 +276,13 @@ export default function BulkReviewDrawer({
           requested.current.delete(id);
           updateRows((previous) =>
             previous.map((row) =>
-              row.expense.id === id ? { ...row, error: true, uncertain: [...new Set([...row.uncertain, ...fields])] } : row,
+              row.expense.id === id
+                ? {
+                    ...row,
+                    error: true,
+                    uncertain: [...new Set([...row.uncertain, ...fields])],
+                  }
+                : row,
             ),
           );
           break;
@@ -326,9 +366,7 @@ export default function BulkReviewDrawer({
     if (
       uploadingRef.current ||
       receiptRetryRef.current ||
-      rowsRef.current.some(
-        (row) => !row.deleted && unfinished(row),
-      )
+      rowsRef.current.some((row) => !row.deleted && unfinished(row))
     ) {
       setCloseBlocked(true);
       return;
@@ -352,9 +390,7 @@ export default function BulkReviewDrawer({
         uploadingRef.current ||
         receiptRetryRef.current ||
         uploadErrors.some((error) => error.expense_id != null) ||
-        rowsRef.current.some(
-          (row) => !row.deleted && unfinished(row),
-        )
+        rowsRef.current.some((row) => !row.deleted && unfinished(row))
       ) {
         event.preventDefault();
         event.returnValue = "";
@@ -372,9 +408,7 @@ export default function BulkReviewDrawer({
   const incomplete =
     uploadFailed ||
     uploadErrors.length > 0 ||
-    visibleRows.some(
-      (row) => unfinished(row) || row.deleteError,
-    );
+    visibleRows.some((row) => unfinished(row) || row.deleteError);
   if (!isOpen) return null;
   return (
     <>
@@ -586,7 +620,7 @@ function BulkExpenseRow({
             ? t("bulk_not_saved")
             : t("bulk_saved")}
       </p>
-      {((row.error || dirty(row) || row.uncertain.length > 0) && !row.saving) && (
+      {(row.error || dirty(row) || row.uncertain.length > 0) && !row.saving && (
         <button
           onClick={onSave}
           className="min-h-11 underline text-sm font-semibold"

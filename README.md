@@ -1,626 +1,251 @@
 # Xpenses
 
-Xpenses is an expense-management application for service teams. Technicians capture expenses and receipts, OCR extracts receipt data, reports group expenses for submission, and managers review, approve, reject, and track reimbursement-related work.
+Expense management for field-service teams. Technicians record expenses and receipts, submit expense reports, and track advances and mileage. Managers and `chef_finance` review, approve and reject reports; `chef_finance` alone can mark approved reports as paid. Moderators manage application settings and integrations.
 
-The repository is a modular monolith with a Kotlin/Spring backend, a Next.js frontend, PostgreSQL as the system of record, Redis for distributed runtime state, and Docker Compose for local and production-style deployments.
+This is the consolidated project reference, checked against the working tree at commit `d62bcdc` on **2026-10-18**. Source inspection establishes implementation and configuration, not successful production operation. Findings requiring browser, device, database, ingress, or provider verification are explicitly separated below.
 
-> Repository: [AdelinPOA/xpenses-kotlin](https://github.com/AdelinPOA/xpenses-kotlin)  
-> Live application: [xpenses.nt-automation.cc](https://xpenses.nt-automation.cc/)
-
-## Table of contents
-
-- [Product scope](#product-scope)
-- [Repository facts](#repository-facts)
-- [Architecture](#architecture)
-- [Domain model](#domain-model)
-- [Repository layout](#repository-layout)
-- [Request and data flows](#request-and-data-flows)
-- [Prerequisites](#prerequisites)
-- [Local development](#local-development)
+- [Architecture and source map](#architecture-and-source-map)
+- [Domain language](#domain-language)
+- [Development and deployment](#development-and-deployment)
 - [Configuration](#configuration)
-- [Database and migrations](#database-and-migrations)
-- [Testing and verification](#testing-and-verification)
-- [Docker deployment](#docker-deployment)
-- [CI pipeline](#ci-pipeline)
-- [Security model](#security-model)
-- [Storage, OCR, and ingestion](#storage-ocr-and-ingestion)
-- [AI-agent contribution guide](#ai-agent-contribution-guide)
-- [Current architecture priorities](#current-architecture-priorities)
-- [Documentation maintenance](#documentation-maintenance)
+- [Verification and CI](#verification-and-ci)
+- [Current limitations](#current-limitations)
+- [Documentation review and history](#documentation-review-and-history)
 
-## Product scope
+Repository: [AdelinPOA/xpenses-kotlin](https://github.com/AdelinPOA/xpenses-kotlin). Production hostname used by repository configuration: `xpenses.nt-automation.cc`.
 
-### Core workflows
+## Architecture and source map
 
-1. A user creates an expense manually or uploads a receipt.
-2. OCR extracts merchant, amount, currency, date, category, and raw receipt text when possible.
-3. The receipt is stored and linked to the expense.
-4. Expenses can be grouped into an expense report.
-5. The report is submitted for review.
-6. A manager reviews, approves, or rejects the report.
-7. Approved reports can continue through payment/export workflows.
+The backend is one Spring Boot application with shared PostgreSQL persistence. The frontend uses the Next.js App Router. Compose defines four services: `frontend`, `backend`, `db`, and `redis`.
 
-### Main capabilities
+| Area | Checked configuration | Source |
+| --- | --- | --- |
+| Backend | Kotlin 2.4.0; Spring Boot 3.5.16; Java toolchain 21; MVC, Security, JPA | [Gradle build](backend-kotlin-jpa/build.gradle.kts) |
+| Frontend | Next.js 16.3.8; React 19; TypeScript; Tailwind CSS 4; TanStack Query 5 | [package manifest](frontend/package.json), [lockfile](frontend/package-lock.json) |
+| Data | PostgreSQL 16; Redis 7.4 with append-only persistence | [Compose](docker-compose.yml) |
+| Schema | Flyway SQL; Hibernate `ddl-auto: validate`; batch fetch size 16 | [application configuration](backend-kotlin-jpa/src/main/resources/application.yml) |
+| Exports | PDF via OpenPDF/PDFBox; XLSX via Apache POI; CSV | [Gradle build](backend-kotlin-jpa/build.gradle.kts), [export service](backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/ExportService.kt) |
+| Packaging | Backend executable JVM JAR; frontend standalone Node server; Node 22 build/runtime image | [backend Dockerfile](backend-kotlin-jpa/Dockerfile), [frontend Dockerfile](frontend/Dockerfile) |
 
-- Authentication with access and refresh tokens stored in cookies.
-- Role-based application behavior for technicians, managers, finance, and administrators.
-- Expense and receipt CRUD operations.
-- Single and bulk receipt upload.
-- GUI-managed AI providers/models and independent ordered fallback chains for receipt OCR and delegation-email parsing.
-- Expense reports with draft, submitted, approved, rejected, and payment-related states.
-- Advance payments and mileage records.
-- Currency conversion and EUR-based calculations.
-- PDF, Excel, and CSV export capabilities.
-- Local filesystem and S3-compatible object storage.
-- IMAP-based ingestion for incoming expense information.
-- Manager approval and review workflows.
-- Internationalized frontend copy with translation-parity checks.
-- Responsive desktop and mobile UI.
+```text
+Browser → frontend /api rewrite → backend → PostgreSQL
+                                         → Redis (when selected by runtime configuration)
+                                         → filesystem or S3-compatible storage
+                                         → configured AI, FX, LDAP, SMTP and IMAP integrations
+```
 
-## Repository facts
+Browser API requests use relative `/api`; server-side requests use `INTERNAL_API_URL`. The frontend rewrite defaults to `http://backend:8080/api`, appropriate inside Compose. See [API client](frontend/lib/api.ts), [server client](frontend/lib/serverApi.ts), and [Next configuration](frontend/next.config.ts).
 
-| Area | Technology / rule |
+| Code area | Location |
 | --- | --- |
-| Backend | Kotlin, Java 21, Spring Boot 3.4, Spring MVC, Spring Security, Spring Data JPA |
-| Frontend | Next.js 16, React 19, TypeScript, Tailwind CSS, TanStack Query |
-| Database | PostgreSQL 16 |
-| Migrations | Flyway SQL migrations |
-| Runtime state | Redis 7.4; Caffeine/JCache for local caching where appropriate |
-| Authentication | JWT access/refresh tokens, secure production cookies |
-| OCR | Moderator-managed compatible AI providers, tested models, per-workflow fallback chains, and cache/comparison records |
-| File storage | Local storage and S3-compatible storage |
-| Deployment | Docker Compose with backend, frontend, PostgreSQL, and Redis |
-| Backend build | Gradle wrapper in `backend-kotlin-jpa/` |
-| Frontend package manager | npm with `frontend/package-lock.json` |
-| E2E testing | Playwright, including mobile Chromium and WebKit projects |
-| Accessibility | axe checks in the frontend test suite |
-| Secret scanning | Gitleaks in GitHub Actions |
+| HTTP endpoints | [controllers](backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/) |
+| Application services | [services](backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/) |
+| Report transitions and review queue | [report](backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/report/) |
+| Authentication and request protection | [security](backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/security/), [SecurityConfig](backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/config/SecurityConfig.kt) |
+| Durable mailbox ingestion | [ingestion](backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/ingestion/) |
+| SQL migrations | [migration directory](backend-kotlin-jpa/src/main/resources/db/migration/) |
+| Pages, components, API contracts | [app](frontend/app/), [components](frontend/components/), [lib](frontend/lib/) |
+| Automated tests | [backend tests](backend-kotlin-jpa/src/test/), [browser tests](frontend/tests/) |
+| Design decisions | [ADRs](docs/adr/) |
 
-## Architecture
+### Expense, receipt and report flows
 
-Xpenses is a modular monolith. Backend modules run in one Spring Boot application and share the deployment unit, but responsibilities should remain separated by domain concept.
+Manual entry, receipt capture, and bulk upload are separate implemented paths. The form stages manual saves in a local recovery queue; asynchronous capture uses durable backend OCR jobs. Do not infer identical retry or offline behavior across these paths. See [ExpenseForm](frontend/components/expenses/ExpenseForm.tsx), [capture page](frontend/app/expenses/capture/page.tsx), and [BulkExpenseController](backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/BulkExpenseController.kt).
 
-### Logical bounded contexts
+OCR jobs progress through `OCR`, `EXPENSE`, and `RECEIPT` stages with database leases. Successful promotion creates a draft expense and attaches a receipt; cancellation and successful attachment attempt to delete the staged source. A result with missing details can advance into draft recovery; permanent provider failure does not itself guarantee a photo-only expense. See [AsyncOcrService](backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/AsyncOcrService.kt) and [ADR-0004](docs/adr/0004-asynchronous-receipt-capture-and-ocr-staging.md).
 
-- **Identity** — users, roles, authentication, JWT lifecycle, cookies, and authorization.
-- **Expenses** — expense lifecycle, receipt attachment, validation, ownership, and editing rules.
-- **Reports** — report lifecycle, submission, manager review, approval, rejection, and payment state.
-- **OCR and ingestion** — receipt scanning, OCR fallback, mailbox polling, idempotency, and retry state.
-- **Storage** — local/S3 providers, path containment, file validation, receipt persistence, and migrations between providers.
-- **FX and mileage** — exchange rates, EUR conversion, mileage calculations, and rate snapshots.
-- **PDF and export** — PDF generation, Excel/CSV exports, and export-specific formatting.
-- **Admin and configuration** — application settings, categories, company configuration, and operational controls.
+Report state transitions live in [ExpenseReportLifecycle](backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/report/lifecycle/ExpenseReportLifecycle.kt). The states are `draft`, `submitted`, `approved`, `rejected`, and `paid`. Recall accepts submitted or rejected reports and returns them to draft. Authorization is endpoint-specific; the existence of a management screen does not grant a role every financial mutation.
 
-### Architectural rules
+### Integrations
 
-1. Controllers are HTTP adapters. They should validate transport input, call the appropriate domain module, and construct the HTTP response.
-2. Business rules belong in domain services or dedicated domain modules, not duplicated across controllers.
-3. Storage providers must be accessed through the storage abstraction; callers must not reimplement path, extension, size, or magic-byte rules.
-4. Authorization must be explicit and consistent for both reads and mutations.
-5. External provider calls must not hold database transactions open.
-6. Distributed work must be idempotent and safe when more than one backend replica performs polling or processing.
-7. Database schema changes must be delivered through Flyway migrations.
-8. Public behavior changes require tests at the highest practical seam: service tests for business rules, HTTP tests for contracts, and Playwright for user-visible behavior.
-9. Production secrets must be supplied through environment configuration; development defaults must not become production fallbacks.
-10. Keep domain terminology stable. When a new concept is introduced, update this README and the project glossary/documentation together.
+- **AI workflows:** moderators configure providers/models and separate ordered chains for receipt OCR and delegation-email parsing at `/admin/ocr`. Provider/model chains are configurable; built-in inactive Gemini defaults remain for initial configuration. The integration accepts compatible multimodal Chat Completions providers through validated public HTTPS destinations. Keys use encrypted storage. Setup and limits: [AI administration guide](docs/ocr-model-management.md), [ADR-0006](docs/adr/0006-gui-managed-ai-provider-model-chains.md).
+- **Delegation email:** incoming Technician emails can create draft reports through a durable ingestion ledger. Committing the draft and source-message association is distinct from marking an IMAP message seen. Retry and acknowledgement behavior: [ADR-0003](docs/adr/0003-durable-technician-email-ingestion.md), [ingestion code](backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/ingestion/).
+- **Storage:** local and S3 providers exist behind [StorageService](backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/StorageService.kt). Context validation applies to receipt/signature/OCR-source APIs; insurance uses a separate upload path and does not inherit every check. Provider migration has persisted progress; see the backend verification report before relying on old migration findings.
+- **FX:** [FxService](backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/FxService.kt) implements EUR identity, BNR-based conversion and per-currency margins, with provider fallbacks. RON conversion has no margin. Expense-specific rates and EUR amounts are stored; automatic rates approximate settlement unless actual debit information or a manual rate is supplied. [ADR-0001](docs/adr/0001-bnr-fx-rates-with-margin.md) records the policy; code remains the reference for provider fallback behavior.
 
-## Domain model
+## Domain language
 
-The central relationship is:
+The canonical project glossary lives in [CONTEXT.md](CONTEXT.md). It defines Expenses, Receipts, ExpenseReports, Advances, FX terms, OCR jobs, delegation emails, AI model chains and roles. Keep terminology there; use this README for implementation and operational guidance.
 
-```text
-User
- ├── owns Expense records
- ├── submits ExpenseReport records
- └── participates in approval/payment actions
+The API report mapper computes reimbursement as expenses + allowance + mileage − paid advances; the PDF summary uses its separately documented mileage exclusion. See [ReportMapper](backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/mapper/ReportMapper.kt).
 
-ExpenseReport
- ├── contains Expense records
- ├── may contain AdvancePayment records
- └── may contain MileageRecord records
+The glossary is grounded in [models](backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/model/), [FX service](backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/FxService.kt), [PDF service](backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/PdfService.kt), [OCR service](backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/AsyncOcrService.kt), and [ingestion ADR](docs/adr/0003-durable-technician-email-ingestion.md). Detailed qualifications are in the [backend documentation review](docs/documentation-review/2026-10-18/backend.md).
 
-Expense
- ├── belongs to a User
- ├── optionally belongs to an ExpenseReport
- ├── belongs to a Category
- └── owns one or more Receipt records
+## Development and deployment
+
+**This checkout is on the live production host.** Preserve running services and the `pgdata`, `redisdata`, and `xpenses-data` volumes. Never run `docker compose down`, `make down`, or volume deletion here. Use `--no-daemon` for Gradle and target individual tests; avoid full stack builds or multi-worker browser suites on this host. See [AGENTS.md](AGENTS.md).
+
+The following startup instructions are for a **separate development checkout/environment**. They are not a request to restart production.
+
+### Running from source
+
+Use Java 21 and Node.js 22, matching the build and CI. Provide PostgreSQL and Redis endpoints accessible to the source processes. Compose's `db` and `redis` services do not publish host ports; merely starting those services does not make `localhost:5432` or `localhost:6379` reachable from host processes.
+
+Set backend environment variables before starting it:
+
+```bash
+export SPRING_DATASOURCE_URL='jdbc:postgresql://<database-host>:5432/<database>'
+export SPRING_DATASOURCE_USERNAME='<database-user>'
+export SPRING_DATASOURCE_PASSWORD='<database-password>'
+export REDIS_URL='redis://<redis-host>:6379'
+export JWT_SECRET='<unique-long-random-signing-secret>'
+export ENCRYPTION_SECRET='<different-long-random-encryption-secret>'
+export COOKIE_SECURE=false
+export CORS_ALLOWED_ORIGINS='http://localhost:3000,http://127.0.0.1:3000'
+cd backend-kotlin-jpa
+./gradlew bootRun --no-daemon
 ```
 
-### Important persistence concepts
+The backend's direct default port is 8080. In another shell, set the frontend's server-side backend URL **before starting Next**:
 
-- `users` — identity, role, account status, and user settings.
-- `expense_reports` — report ownership, date range, status, totals, approval, payment, and rejection information.
-- `expenses` — original amount/currency, converted EUR amount, tax, merchant, date, category, status, and OCR text.
-- `receipts` — stored receipt objects linked to expenses.
-- `categories` — configurable expense categories and optional limits.
-- `fx_rates` — dated exchange-rate snapshots.
-- `advance_payments` — advance/payment records associated with reports and users.
-- `mileage_records` — mileage calculation inputs and persisted results.
-- `refresh_tokens` — hashed refresh-token persistence.
-- `app_settings` — application-level settings.
-- OCR, IMAP, rate-limit, and storage-migration ledger tables — durable state for safe retries and multi-instance processing.
-
-### Expense and report state changes
-
-Do not introduce a new state casually. First find the existing state constants, transition checks, API DTOs, frontend filters, translations, and tests. A state change usually affects backend validation, permissions, list filters, exports, and Playwright assertions.
-
-## Repository layout
-
-```text
-xpenses-kotlin/
-├── backend-kotlin-jpa/
-│   ├── build.gradle.kts
-│   ├── gradlew
-│   └── src/
-│       ├── main/kotlin/eu/nt/xpenses/
-│       │   ├── controllers/       # HTTP adapters
-│       │   ├── services/          # domain/application modules
-│       │   ├── security/          # authentication and request protection
-│       │   ├── ingestion/         # IMAP and external ingestion
-│       │   ├── model/             # persistence and transport models
-│       │   └── ...
-│       ├── main/resources/
-│       │   ├── application.yml
-│       │   └── db/migration/       # Flyway migrations
-│       └── test/                  # Kotlin/JUnit tests
-├── frontend/
-│   ├── app/                       # Next.js routes and page entry points
-│   ├── components/                # reusable UI and feature components
-│   ├── lib/                       # API clients, query keys, and shared helpers
-│   ├── tests/                     # Playwright and accessibility tests
-│   ├── package.json
-│   └── playwright.config.*
-├── scripts/                       # repository-level verification scripts
-├── openspec/                      # feature proposals and implementation tasks
-├── docs/                          # plans, ADRs, and supporting documentation
-├── docker-compose.yml             # local/production-style service topology
-└── .github/workflows/ci.yml       # build, test, security, and Docker CI
+```bash
+cd frontend
+npm ci
+INTERNAL_API_URL=http://localhost:8080/api npm run dev
 ```
 
-The exact package or component path may evolve. When updating this section, prefer the current directory tree and domain ownership over preserving historical names.
+The normal direct frontend address is `http://localhost:3000`. Browser calls still use same-origin `/api`. If a backend is already exposed on port 8001, use `http://localhost:8001/api` instead. [Next configuration](frontend/next.config.ts) embeds the rewrite destination when evaluated; for a production frontend build, supply the intended destination during build as well as runtime.
 
-## Request and data flows
+### Compose deployment reference
 
-### Normal expense creation
-
-```text
-Browser
-  → Next.js page/component
-  → frontend API client
-  → Spring controller
-  → authentication + authorization
-  → Expense domain module
-  → PostgreSQL
-  → response DTO
-  → frontend query/cache refresh
-```
-
-### Receipt upload and OCR
-
-```text
-Receipt upload
-  → request validation and rate limit
-  → OCR module
-  → provider/cache/fallback processing
-  → Expense domain module
-  → Storage module
-  → Receipt persistence
-  → draft Expense response
-```
-
-Provider calls should remain outside long database transactions. OCR failures should be represented as recoverable user-facing results where the workflow supports manual completion.
-
-### Multi-instance background work
-
-```text
-Scheduler / worker
-  → deterministic message or file key
-  → PostgreSQL claim ledger
-  → process once or retry within the attempt limit
-  → mark processed/completed or failed
-```
-
-The claim must be conflict-safe. A second replica must not duplicate successful work merely because it observed the same mailbox message or storage path.
-
-## Prerequisites
-
-For local development, install:
-
-- Java 21 JDK.
-- Node.js 22 and npm.
-- Docker Engine with Docker Compose.
-- Git.
-
-PostgreSQL and Redis are supplied by Docker Compose. Running them natively is possible, but the application configuration must point to the matching local endpoints.
-
-## Local development
-
-### Option A: run the complete stack with Docker Compose
-
-Create a local `.env` file containing the required secrets and database settings. Do not commit it.
+A root `.env` is required by `env_file`; supply protected deployment-specific values. Do not copy production secrets into a development environment.
 
 ```bash
 docker compose up -d --build
 docker compose ps
 ```
 
-Default local endpoints from `docker-compose.yml`:
-
-- Frontend: `http://localhost:3001`
-- Backend: `http://localhost:8001`
-- Backend health: `http://localhost:8001/api/health`
-- PostgreSQL: exposed to the Compose network as `db:5432`
-- Redis: exposed to the Compose network as `redis:6379`
-
-Follow logs:
-
-```bash
-docker compose logs -f backend
-docker compose logs -f frontend
-```
-
-Stop the stack without deleting persistent volumes:
-
-```bash
-docker compose down
-```
-
-### Option B: run backend and frontend from source
-
-Start PostgreSQL and Redis first, then configure the backend environment for local endpoints.
-
-Backend:
-
-```bash
-cd backend-kotlin-jpa
-./gradlew bootRun
-```
-
-Frontend:
-
-```bash
-cd frontend
-npm ci
-npm run dev
-```
-
-The frontend normally runs on `http://localhost:3000` when started directly. Keep the API URL consistent with the backend port used by your local setup.
-
-### Makefile shortcuts
-
-A `Makefile` wraps the most common operations:
-
-| Command | Purpose |
+| Service | Default endpoint / persistence |
 | --- | --- |
-| `make up` | Build and start the full Docker Compose stack |
-| `make down` | Stop the stack |
-| `make rebuild` | Rebuild and restart only the backend service |
-| `make logs` | Follow backend logs |
-| `make build` | Build the backend bootJar (checks JDK 21 first) |
-| `make test` | Run the backend test suite |
-| `make test-health` | Smoke-test the running backend health endpoint |
-| `make test-login` / `make test-expenses` | Curl-based login and authenticated API checks against a locally running stack |
+| Frontend | `127.0.0.1:3001` → container 3000 |
+| Backend | `127.0.0.1:8001` → container 8080; `/api/health` |
+| PostgreSQL | Compose-network `db:5432`; `pgdata` |
+| Redis | Compose-network `redis:6379`; `redisdata` |
+| Uploaded local files | Backend `/app/data`; `xpenses-data` |
 
-### Useful backend commands
+`FRONTEND_BIND_IP`, `BACKEND_BIND_IP`, and `COMPOSE_CONTAINER_PREFIX` override bindings/names. Loopback binding is the checked default, not proof of the running host's exposure. Backend startup waits for healthy database and Redis services. [Compose configuration](docker-compose.yml) is authoritative.
 
-```bash
-cd backend-kotlin-jpa
-./gradlew test
-./gradlew bootJar
-./gradlew clean test
-```
-
-### Useful frontend commands
-
-```bash
-cd frontend
-npm ci
-npx tsc --noEmit
-npm run lint
-npm run i18n:check
-npm run build
-npm run test:e2e
-npm run test:e2e:mobile
-```
-
-## Configuration
-
-The backend reads configuration from `application.yml` and environment variables. Values below are the important operational settings; check the current configuration file before adding a new variable.
-
-### Required or production-critical variables
-
-| Variable | Purpose | Production guidance |
-| --- | --- | --- |
-| `JWT_SECRET` | Signs authentication tokens | Required; use a strong unique secret; never use an empty/default value |
-| `ENCRYPTION_SECRET` | Encrypts protected application data | Required; preserve it across deployments |
-| `CORS_ALLOWED_ORIGINS` | Allowed browser origins | Set only trusted frontend origins |
-| `DB_USER` | PostgreSQL username | Use a non-default production account |
-| `DB_PASSWORD` | PostgreSQL password | Use a secret manager or protected environment file |
-| `DB_NAME` | PostgreSQL database name | Must match the database and JDBC configuration |
-| `SPRING_PROFILES_ACTIVE` | Active Spring profile | Use the intended production profile in production |
-| `REDIS_URL` | Redis connection URL | Point to the production Redis service |
-| `TRUSTED_PROXY_ADDRESSES` | Proxies allowed to provide forwarded client IP headers | List only known reverse proxies |
-
-### Optional operational variables
-
-| Variable | Purpose |
-| --- | --- |
-| `SEED_DEMO_USERS` | Enables demo-user seeding; keep disabled for normal production operation |
-| `RATE_LIMITING_ENABLED` | Enables request rate limiting |
-| `RATE_LIMITING_STORE` | Selects memory or Redis-backed rate-limit state |
-| `RATE_LIMITING_FAIL_CLOSED` | Determines behavior when the distributed store is unavailable |
-| `RATE_LIMITING_MAX_TRACKED_KEYS` | Bounds in-memory identity state |
-| `SWAGGER_ENABLED` | Enables OpenAPI/Swagger endpoints |
-| `COMPANY_NAME` | Company display name |
-| `IMAP_POLL_INTERVAL` | Mailbox polling interval |
-| `OCR_CACHE_RETENTION_DAYS` | OCR comparison/cache retention |
-| `OCR_CACHE_CLEANUP_INTERVAL` | OCR cleanup interval |
-| `OCR_CACHE_CLEANUP_BATCH_SIZE` | Cleanup batch size |
-
-Never document real secret values. Use placeholders such as `<set-in-secret-manager>` in examples.
-
-## Database and migrations
-
-- PostgreSQL is the source of truth for business data and durable processing state.
-- Hibernate uses `ddl-auto: validate`; it must not silently create or mutate the schema.
-- Schema changes belong in `backend-kotlin-jpa/src/main/resources/db/migration/`.
-- Use the next Flyway version and a descriptive filename, for example `V101__add_example_field.sql`.
-- Keep migrations forward-only and safe to run in every environment.
-- Add indexes for new high-volume lookup paths when justified by query behavior.
-- Update affected entities, DTOs, services, controllers, exports, and tests in the same change.
-- Never edit an already-applied migration to repair production history. Add a new migration.
-- For operational backups, `scripts/backup-db.sh` runs `pg_dump` against the running Compose database container and prunes dumps past a retention window. It is configurable via environment variables (`BACKUP_DIR`, `DB_CONTAINER`, `DB_USER`, `DB_NAME`, `RETENTION_DAYS`); schedule or wrap it per your deployment requirements.
-
-Before merging a migration change, verify:
-
-1. A clean database migrates from the beginning.
-2. An existing database migrates from its current version.
-3. The application starts with Hibernate validation enabled.
-4. Rollout order does not require the old application and new schema to be incompatible at the same time.
-
-## Testing and verification
-
-### Backend
-
-Backend tests use JUnit through Gradle and include Spring test support, security test support, and Testcontainers PostgreSQL coverage where appropriate.
-
-```bash
-cd backend-kotlin-jpa
-./gradlew test
-```
-
-Prefer unit tests at the domain module interface for business rules. Use MockMvc or equivalent HTTP tests for endpoint contracts. Use Testcontainers when behavior depends on PostgreSQL semantics, migrations, locking, or SQL conflict handling.
-
-### Frontend
-
-```bash
-cd frontend
-npx tsc --noEmit
-npm run lint
-npm run i18n:check
-npm run build
-```
-
-### Browser and mobile behavior
-
-```bash
-cd frontend
-npx playwright install --with-deps chromium webkit
-npm run test:e2e
-npm run test:e2e:mobile
-```
-
-Authenticated flows use environment-provided credentials when enabled. Do not commit test credentials or bypass authentication checks in application code to make tests pass.
-
-### What to verify for a feature
-
-- Backend business rules and authorization.
-- HTTP status codes and response DTO shape.
-- Database migration and persistence behavior.
-- Frontend loading, empty, success, and failure states.
-- Desktop and mobile layouts when the feature is user-facing.
-- Translation parity for all visible strings.
-- Accessibility names, keyboard behavior, and touch-target size.
-- Rate limits and idempotency for externally triggered or background work.
-- Docker build/startup if runtime wiring changed.
-
-## Docker deployment
-
-The Compose topology contains four services:
-
-```text
-frontend → backend → PostgreSQL
-                  ↘ Redis
-```
-
-The backend depends on healthy PostgreSQL and Redis services. Persistent volumes are used for:
-
-- `pgdata` — PostgreSQL data.
-- `redisdata` — Redis append-only data.
-- `xpenses-data` — backend local storage data.
-
-Build and start:
-
-```bash
-docker compose build
-docker compose up -d
-```
-
-Inspect health and logs:
+Read-only operational checks:
 
 ```bash
 docker compose ps
-docker compose logs --tail=200 backend
-curl -f http://localhost:8001/api/health
+docker compose logs --tail=100 backend
+curl --fail http://127.0.0.1:8001/api/health
 ```
 
-For production, verify secrets, CORS, secure cookies, trusted proxy configuration, storage location, database backups, Redis persistence, migration status, and reverse-proxy routing before considering a deployment complete.
+The [Makefile](Makefile) also contains build/test/rebuild shortcuts. Its `test-health` target prints failures without reliably propagating a failing exit status; use `curl --fail` when checking success programmatically. Login smoke shortcuts reference demo accounts and are unsuitable as evidence of production authentication health.
 
-## CI pipeline
+## Configuration
 
-`.github/workflows/ci.yml` runs on pushes and pull requests targeting `main`.
+[application.yml](backend-kotlin-jpa/src/main/resources/application.yml) defines base defaults; [application-prod.yml](backend-kotlin-jpa/src/main/resources/application-prod.yml) and [application-ci.yml](backend-kotlin-jpa/src/main/resources/application-ci.yml) apply profile overrides. [Compose](docker-compose.yml) defaults to `prod` and supplies environment overrides. The production profile requires `JWT_SECRET`, `JWT_SALT`, `ENCRYPTION_SECRET`, `CORS_ALLOWED_ORIGINS`, and `REDIS_URL`. Database-backed integration settings are not all environment variables.
 
-Current checks include:
+| Setting | Checked meaning / default |
+| --- | --- |
+| `JWT_SECRET`, `ENCRYPTION_SECRET` | Both must be nonblank and different; startup validation enforces this. Preserve encryption-key compatibility with stored settings. |
+| `JWT_SALT` | Required by the `prod` profile; used in JWT signing-key derivation. |
+| `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD` | Direct backend database settings. Compose derives them from `DB_NAME`, `DB_USER`, and `DB_PASSWORD`. |
+| `SPRING_PROFILES_ACTIVE` | Compose defaults to `prod`; its overrides enable secure cookies, Flyway validation and Redis-backed fail-closed limiting. |
+| `COOKIE_SECURE` | Cookie flag: controller fallback false; `prod` profile sets true. Environment overrides can change the effective value. |
+| `CORS_ALLOWED_ORIGINS` | Base default: localhost/127.0.0.1 port 3001; required explicitly in `prod`. Set the actual browser origins. |
+| `REDIS_URL` | Base default: localhost; `prod` requires a value. Compose supplies `redis://redis:6379` unless overridden. |
+| `RATE_LIMITING_ENABLED` | true by default. |
+| `RATE_LIMITING_STORE` | Base configuration: `memory`; `prod`: `redis`. |
+| `RATE_LIMITING_FAIL_CLOSED` | Base configuration: false; `prod`: true. |
+| `RATE_LIMITING_MAX_TRACKED_KEYS` | 10,000 by default. |
+| `TRUSTED_PROXY_ADDRESSES` | Empty by default; used by the custom limiter. Framework forwarding is also enabled; ingress/filter interactions require runtime verification. |
+| `SEED_DEMO_USERS` | false by default; enables demo initialization when the user table is empty. No production-profile refusal is implemented. |
+| `SWAGGER_ENABLED` | false by default. |
+| `COMPANY_NAME` | Display name in application configuration. |
+| `IMAP_POLL_INTERVAL` | 300,000 ms by default. |
+| `OCR_CACHE_RETENTION_DAYS` | 90 days by default. |
+| `OCR_CACHE_CLEANUP_INTERVAL`, `OCR_CACHE_CLEANUP_BATCH_SIZE` | 86,400,000 ms / 100 by default. |
+| `INTERNAL_API_URL` | Frontend rewrite and server fetch target; default `http://backend:8080/api`. |
 
-1. **Gitleaks** — scans repository history/content for leaked secrets.
-2. **Kotlin backend** — JDK 21 setup, Gradle tests, and `bootJar` build.
-3. **Frontend** — npm install, TypeScript check, translation parity, lint, production build, Playwright browser installation, and mobile UI/accessibility tests.
-4. **Docker** — builds the Compose images after backend and frontend jobs pass.
+[AuthController](backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/AuthController.kt) uses HttpOnly, SameSite=Lax access/refresh cookies and stores hashed refresh tokens. [SecurityConfig](backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/config/SecurityConfig.kt) disables framework CSRF tokens and checks Origin/Referer for protected mutations; curl/integration mutations need an allowed Origin. [CryptoService](backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/CryptoService.kt) writes AES-128-GCM values and retains legacy CBC decryption. The old audit's AES-256 description was incorrect.
 
-A pull request is not complete merely because the code compiles. Review the behavior covered by the change, inspect failed Playwright artifacts when available, and verify operational configuration for production-sensitive changes.
+### Migrations and backups
 
-## Security model
-
-Security-sensitive behavior is part of the architecture, not an optional follow-up.
-
-### Authentication and secrets
-
-- Production authentication cookies must be secure.
-- JWT signing and encryption secrets must be explicit production configuration.
-- Refresh tokens are persisted as hashes, not reusable plaintext tokens.
-- Secrets belong in environment configuration or a secret manager, never in source, README examples, fixtures, or logs.
-
-### Authorization
-
-Every read and mutation must consider the current user, ownership, and role. Do not rely on frontend visibility as an authorization control. Enforce access in the backend domain module.
-
-### Request protection
-
-- Rate limits protect login, token refresh, OCR, expense scanning, and report-export workloads.
-- The Redis-aware custom filter is the authoritative application-level limiter.
-- Forwarded client IP headers are trusted only from configured proxies.
-- In-memory identity state is bounded and expires.
-- Protected path matching must avoid prefix collisions.
-
-### File and storage protection
-
-- Resolve storage paths through the canonical containment logic.
-- Reject traversal, absolute-path escape, and symlink escape attempts.
-- Validate file size, extension, and content/magic bytes at the storage seam.
-- Do not concatenate user-controlled filenames into filesystem paths directly.
-
-### Background work
-
-Mailbox ingestion and storage migration use durable ledgers so retries are bounded and duplicate processing is prevented across replicas. Preserve this behavior when changing worker code.
-
-## Storage, OCR, and ingestion
-
-### Storage providers
-
-The storage module supports local and S3-compatible providers. Callers should depend on storage operations, not provider-specific path or SDK behavior.
-
-Storage changes must preserve:
-
-- path containment;
-- filename and content validation;
-- receipt/signature context rules;
-- stable object naming;
-- migration progress and retry state;
-- compatibility with existing receipt records.
-
-### OCR
-
-Moderators (the same `mod` role as admins) manage a shared AI provider/model catalog at `/admin/ocr`. Each workflow has its own ordered model chain: receipt OCR and delegation-email parsing. Add a provider and inactive model, save, run the synthetic receipt test, activate, then add the model to a chain. The first eligible model is primary; every failure advances to the next model until a usable result is returned.
-
-Providers must support the OpenAI-compatible multimodal Chat Completions format through a public HTTPS endpoint. API keys are encrypted and write-only; private/metadata destinations, unsafe DNS answers, and redirects are blocked. Other API formats need a backend integration. Prompts and extraction contracts remain app-controlled.
-
-See the [administrator guide and settings API](docs/ocr-model-management.md), [ADR-0006](docs/adr/0006-gui-managed-ai-provider-model-chains.md), and [verification/deployment record](docs/releases/2026-10-16-ocr-model-management.md) for setup, migration, limits, test commands, and rollback considerations.
-
-External provider calls stay outside database transactions; receipt failures remain recoverable through the existing draft/manual-completion workflow. The global Enable OCR toggle also controls delegation AI parsing, which falls back to the local parser when disabled or unsuccessful.
-
-When modifying OCR:
-
-- preserve the stable service interface used by callers;
-- keep rate limiting and budget controls inside the OCR module where possible;
-- avoid holding database connections while waiting on providers;
-- test provider success, fallback, timeout, malformed output, and cache behavior.
-
-### IMAP ingestion
-
-Incoming messages require a deterministic identity key, normally based on `Message-ID` with a safe fallback. Claim, process, and mark the message through the PostgreSQL ledger. A failed message may be retried only within the configured attempt limit.
-
-## AI-agent contribution guide
-
-This section is intentionally explicit so an AI coding agent can work safely in the repository.
-
-### Before changing code
-
-1. Read this README and any relevant `CONTEXT.md` or ADR in `docs/adr/`.
-2. Inspect recent commits and existing tests around the target module.
-3. Identify the user-visible behavior, domain rule, persistence change, and operational impact.
-4. Search for all callers, DTOs, frontend API functions, translations, and tests before editing a shared contract.
-5. Check whether an existing module already owns the rule. Do not create a second implementation.
-
-### During implementation
-
-- Keep changes focused and incremental.
-- Preserve existing API contracts unless the task explicitly requires a breaking change.
-- Prefer a deep domain module with a small stable interface over controller logic duplicated across endpoints.
-- Keep adapters thin and provider-specific code behind the owning module.
-- Use existing naming, error, authorization, and i18n conventions.
-- Add or update tests in the same change.
-- Add migrations rather than changing applied migration history.
-- Do not weaken security, disable validation, skip tests, or add secret defaults to unblock a build.
-
-### After implementation
-
-Run the narrowest relevant tests first, then the broader verification sequence:
+Migration files currently run through `V103__durabilize_ocr_job_state.sql`. Determine the next version from the directory when adding a migration; this inventory is not the deployed database version.
 
 ```bash
-cd backend-kotlin-jpa && ./gradlew test
-cd ../frontend && npx tsc --noEmit && npm run lint && npm run i18n:check && npm run build
+ls -1 backend-kotlin-jpa/src/main/resources/db/migration/ | sort -V | tail -n 1
 ```
 
-For UI work, run the relevant Playwright projects. For Docker or configuration work, build and health-check the affected services. Report exactly what was run and what was not run.
+Add incremented migrations; preserve applied migrations. Hibernate schema validation is enabled. Flyway `validate-on-migrate` is false in the base configuration and true in `prod` and `ci`; `baseline-on-migrate` is true in base and false in those profiles. Schema validation and migration-history validation are different mechanisms.
 
-### Change-impact checklist
+[scripts/backup-db.sh](scripts/backup-db.sh) uses `set -euo pipefail` and `pg_dump -Fc`, with `BACKUP_DIR`, `DB_CONTAINER`, `DB_USER`, `DB_NAME`, and `RETENTION_DAYS` overrides. It backs up the database only and prunes old matching dumps; it does not back up uploaded files. Scheduling, off-host copies, restore success, and uploaded-file coverage were not verified. The script was not executed during this documentation review.
 
-| Change | Also inspect |
-| --- | --- |
-| New backend field | Entity, migration, DTO, mapper, service, controller, exports, frontend type, translations, tests |
-| New expense/report state | Transition rules, authorization, filters, labels, exports, mobile UI, API tests, E2E tests |
-| Receipt/storage change | Storage context rules, local/S3 providers, path safety, MIME/magic-byte checks, migration behavior |
-| OCR change | Provider adapter, cache, fallback, rate limit, transaction boundary, error state, cost/budget behavior |
-| Auth change | Cookies, JWT config, refresh-token persistence, CORS, proxy headers, security tests, production env |
-| New background job | Deterministic key, claim ledger, retry limit, idempotency, concurrency, metrics, failure recovery |
-| Frontend visible copy | All locale files, `i18n:check`, screenshots, accessible labels, empty/loading/error states |
-| API contract change | Backend DTO/controller, frontend API client, query keys, mocks, integration/E2E tests |
+## Verification and CI
 
-### Never do without explicit approval
+Fast checks suitable for this host:
 
-- Delete or rewrite applied migrations.
-- Remove authorization checks.
-- Commit secrets or production credentials.
-- Disable Gitleaks, CI, security tests, or migration validation.
-- Change production deployment topology as a side effect of an unrelated feature.
-- Perform broad refactors while implementing a narrow bug fix.
+```bash
+cd frontend
+npm run typecheck
+npm run i18n:check
+```
 
-## Current architecture priorities
+Both passed during this review; translation parity covered **1,028 keys** in English and Romanian. Parity does not establish that every UI string is translated or accessible.
 
-Recent hardening work completed:
+For a backend change, select the affected test class:
 
-- Dashboard endpoints use SQL aggregates (`SUM`, grouped category spend) instead of hydrating month-wide expense entities.
-- Application settings (daily allowance, mileage rates, FX margins, storage migration status, receipt orphan handling) are owned by `AppSettingsService`; controllers no longer access repositories directly.
-- Settings transport DTOs live in `dto/settings`, shared correctly between controller and service.
+```bash
+cd backend-kotlin-jpa
+./gradlew test --tests '<ClassName>' --no-daemon
+```
 
-The next architectural/product priorities are:
+The backend build includes JUnit/Spring Security tests and Testcontainers PostgreSQL support. Heavy checks belong in an isolated development or CI environment. [Playwright configuration](frontend/playwright.config.ts) defines mobile Chromium, mobile WebKit, tablet and desktop projects; locally it defaults to four workers, CI uses one, and service workers are blocked. Those suites therefore do not establish PWA service-worker correctness or real iPhone acceptance.
 
-1. Deepen the Expense lifecycle into a single authoritative `ExpenseService` so receipt handling, authorization, listing, export, and download rules do not drift across controllers.
-2. Polish the manager review workflow so the dashboard acts as a work hub, `/approvals` is the focused review queue, and `/reports` remains the report browser/archive.
-3. Add focused deployed-environment verification for Redis failover behavior, background-job retries, migration recovery, and production configuration. A Compose smoke job in CI (build the stack, wait for health, exercise login + an authenticated read) is the foundation for this.
+[CI](.github/workflows/ci.yml) runs on pushes and PRs targeting `main`:
 
-Update this section when priorities change. Link the relevant issue, ADR, or pull request instead of allowing this list to become an untracked roadmap.
+1. Gitleaks secret scanning.
+2. Java 21 backend tests and `bootJar`, with `--no-daemon`.
+3. Node 22 frontend install, TypeScript, translation parity, lint and production build.
+4. Compose integration after backend/frontend jobs: npm-audit policy tests and dependency audit, Docker builds, Trivy image scans, temporary-stack startup, health checks, and authenticated mobile browser tests.
 
-## Documentation maintenance
+CI generates temporary credentials and tears down its disposable volumes. That cleanup is scoped to CI and must not be copied onto this production host. Workflow presence does not establish the status of a particular CI run; this review did not rerun the pipeline.
 
-Update this README when any of the following changes:
+## Current limitations
 
-- a service, port, prerequisite, or startup command changes;
-- a required environment variable is added, removed, or renamed;
-- a domain state or bounded context changes;
-- a security invariant changes;
-- a CI job or required verification command changes;
-- a migration or background-processing contract changes;
-- an AI-agent contribution rule is learned from a production incident or review.
+These are source-supported gaps, not a list of reproduced production incidents. The [audit findings and disposition](docs/documentation-review/2026-10-18/README.md) separates confirmed mechanisms, contradicted/stale claims, runtime-dependent risks and product proposals. Detailed source evidence is in the [frontend review](docs/documentation-review/2026-10-18/frontend.md), [backend review](docs/documentation-review/2026-10-18/backend.md), and [operations review](docs/documentation-review/2026-10-18/operations.md).
 
-Keep explanations close to the owning code when behavior is subtle. Use this README for stable repository-level orientation, not for temporary task notes or secrets.
+- **Orphan cleanup:** [AppSettingsService](backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/AppSettingsService.kt) derives candidates from receipt references while other stored file purposes exist. Cleaning can affect non-receipt files; scanning alone does not delete. No cleanup was run.
+- **Offline privacy:** [query persistence](frontend/lib/queryPersister.ts) uses a shared IndexedDB record; [service worker](frontend/public/sw.js) caches navigation HTML without account scoping. Logout cleanup exists, but account/session-transition safety is not established. A cross-user leak was not reproduced.
+- **Capture recovery:** OCR-source replay is owned by the [capture page](frontend/app/expenses/capture/page.tsx), while [global offline sync](frontend/components/OfflineSyncProvider.tsx) handles the manual queue. Retrying committed manual creation after a lost response lacks a server idempotency guarantee.
+- **OCR retention:** worker-lease recovery exists, but the stored job expiry is not enforced by a cleanup worker. Terminal processing failures can retain source files and do not automatically create photo-only expenses. See the [backend review](docs/documentation-review/2026-10-18/backend.md).
+- **Bulk creation:** receipt-upload rollback cleanup exists, but the bulk flow creates an expense before separately attaching its receipt. Attachment failure can leave a receiptless expense; this is distinct from orphaned-file cleanup.
+- **Frontend correctness:** SSR/client query keys differ in list/dashboard flows; local dates use UTC conversion in some paths; `en-EU` does not guarantee the intended European formatting; proactive/reactive refresh are not coordinated by one shared guard. See the frontend review for precise scope.
+- **UX gaps:** bulk review lacks complete visible failure handling; the full search page omits result types represented in its contract; the mobile “Approved” summary uses paid counts/totals. Existing receipt lightbox/toast fixes must not be planned again as missing work.
+- **Domain and infrastructure:** privileged advance mutations still mix read-all and management checks; recall retains signature/rejection metadata; some transactional methods call FX/LDAP externally; lazy mapping warrants query measurement. Hibernate batching already exists, so the audit's asserted unbatched query counts are not established.
+- **HTTP/storage hardening:** some exception-to-4xx mappings and insurance magic-byte checks are absent; rate-limit coverage is endpoint-specific. `/api/expenses/bulk-upload` already has a limit. Proxy bypass, SQL counts, memory exhaustion, and actual public headers require focused runtime verification.
+
+GitHub Issues are the task source of truth; this README does not assign new priorities from old audit scores. Open items checked on 2026-10-18 include [mobile umbrella #45](https://github.com/AdelinPOA/xpenses-kotlin/issues/45), [contract #46](https://github.com/AdelinPOA/xpenses-kotlin/issues/46), [form/navigation #47](https://github.com/AdelinPOA/xpenses-kotlin/issues/47), [bulk review #48](https://github.com/AdelinPOA/xpenses-kotlin/issues/48), [capture verification #49](https://github.com/AdelinPOA/xpenses-kotlin/issues/49), [receipt viewer #50](https://github.com/AdelinPOA/xpenses-kotlin/issues/50), [real-device acceptance #51](https://github.com/AdelinPOA/xpenses-kotlin/issues/51), and [dependency tracking #54](https://github.com/AdelinPOA/xpenses-kotlin/issues/54). Recheck issue state before taking work.
+
+## Documentation review and history
+
+The review covered all seven root Markdown files: README, AGENTS, CONTEXT, WIP, todo, FULL_APP_AUDIT and FULL_APP_AUDIT_VERIFICATION. Three independent GPT-6 Luna agents with maximum reasoning checked frontend, backend/domain, and operations claims. The consolidated reference retains source-backed behavior, separates proposals from implementation, and removes unsupported scores, performance estimates, invented defects, and production-success claims.
+
+Use the [reconciled audit findings](docs/documentation-review/2026-10-18/README.md) before planning fixes from either audit. The earlier audit verification corrects many false positives, but its historical environment observations and unperformed runtime checks remain bounded by its evidence. Documentation correction does not mean the supported application defects have been fixed.
+
+### Corrections to historical documents
+
+The [disposition tables](docs/documentation-review/2026-10-18/README.md#contradicted-or-stale-claims) explain why the alleged desktop wrapper, first-receipt-only view, first-page picker restriction, broken gzip backup and missing OCR worker recovery are not valid descriptions of the checked code. They also distinguish existing fixes from residual gaps, such as terminal OCR-source retention and account isolation in offline caches.
+
+The [WIP inventory](docs/documentation-review/2026-10-18/frontend.md#wip-inventory-accepted-plan-vs-current-implementation) records shipped and partial UX work. Neither the old WIP nor the audits should be imported wholesale as a current backlog.
+
+### Archive and evidence
+
+Original working-tree versions were preserved **byte for byte**, including the pre-existing local changes to `todo.md` and untracked audit verification. Their SHA-256 hashes are recorded in [SHA256SUMS](docs/archive/root-md-2026-10-18/SHA256SUMS). They live in [docs/archive/root-md-2026-10-18](docs/archive/root-md-2026-10-18/):
+
+- [Previous README](docs/archive/root-md-2026-10-18/README.before-consolidation.md)
+- [Previous CONTEXT glossary](docs/archive/root-md-2026-10-18/CONTEXT.md)
+- [WIP plan](docs/archive/root-md-2026-10-18/WIP.md)
+- [Legacy todo findings](docs/archive/root-md-2026-10-18/todo.md)
+- [Full audit](docs/archive/root-md-2026-10-18/FULL_APP_AUDIT.md)
+- [Earlier audit verification](docs/archive/root-md-2026-10-18/FULL_APP_AUDIT_VERIFICATION.md)
+
+**The archive is historical evidence, not current guidance.** Its original source paths/relative links refer to the repository root, before relocation; consult the current source links and disposition reports above. Its claims may be false or stale even when an old checkbox says “verified”. Historical audit dates, scores and runtime observations were not adopted as current facts.
+
+`AGENTS.md` remains in root because agents load it automatically. `CONTEXT.md` remains the separate canonical domain glossary, with verified wording corrections; its original snapshot is retained in the archive. Agent instructions and maintained guides point to the root glossary. Specialized guides, ADRs, accepted specifications and release records remain under `docs/` and `openspec/`; they are outside this root-file consolidation and are not globally re-certified by it.
+
+Production logins, destructive cleanup, backup/restore actions, database-content queries, external-provider calls, real-device checks and full builds/test suites were not performed. Source-backed risks remain risks until reproduced; no undocumented production state is assumed.

@@ -24,18 +24,18 @@ conditional, or still require reproduction. Severity: [critical] > [high] > [med
 
 ## Security / Critical-Impact Backend
 
-- [ ] **[high] Rate limiter bypassable** — `backend-kotlin-jpa/.../security/RateLimitingFilter.kt:88-103`
+- [x] **[high] Rate limiter bypassable** (fixed: trusted-proxy gating + pruned store) — `backend-kotlin-jpa/.../security/RateLimitingFilter.kt:88-103`
   Trusts `X-Forwarded-For`/`X-Real-IP` directly; attacker sends a fake IP per request to bypass the 5/min login and 10/min scan limits. IPv6 never matches `isPrivateIp` (parts != 4 → treated as public → trusted). `requestTimes` map never prunes entries → memory-leak DoS.
   Fix: key on `remoteAddr` only when behind a known proxy; prune/expire map entries.
 
 - [ ] [high] `@Async` is dead code (self-invocation) — `backend-kotlin-jpa/.../report/lifecycle/ReportLifecycleNotificationAdapter.kt:14-23`
   `dispatch()` calls its own `@Async` methods via `this`, bypassing the proxy; approver emails send synchronously on the HTTP thread. Fix: inject self-reference (`@Lazy`) and call through it.
 
-- [ ] [high] Stored XSS via insurance files — `backend-kotlin-jpa/.../controllers/InsuranceController.kt:126,160-165`
+- [x] [high] Stored XSS via insurance files (fixed: extension-based safe mime, attachment disposition, nosniff) — `backend-kotlin-jpa/.../controllers/InsuranceController.kt:126,160-165`
   Client-supplied `Content-Type` echoed on download with no magic-byte check, no `Content-Disposition: attachment`, no `nosniff`. A `.png` containing HTML is served inline as HTML under the app origin.
   Fix: server-side magic-byte → content-type mapping; force `application/octet-stream`; add `Content-Disposition` + `X-Content-Type-Options: nosniff`.
 
-- [ ] [high] DB connection held across Gemini OCR chain — `backend-kotlin-jpa/.../services/OcrService.kt:146-153` + `repositories/OcrResultCacheRepository.kt:22-23`
+- [x] [high] DB connection held across Gemini OCR chain (fixed: advisory lock scoped to short tx) — `backend-kotlin-jpa/.../services/OcrService.kt:146-153` + `repositories/OcrResultCacheRepository.kt:22-23`
   `pg_advisory_xact_lock` lives for the entire 4-tier OCR chain (up to ~60s each) inside `@Transactional` → connection pool exhaustion. Fix: keep the lock only for the cache-fill phase (short tx / in-memory guard).
 
 - [ ] [high] FX HTTP call inside open transactions — `services/ExpenseService.kt:191`, `controllers/AdvanceController.kt:106,172,264`
@@ -57,7 +57,7 @@ conditional, or still require reproduction. Severity: [critical] > [high] > [med
 
 ## Core Domain / Concurrency
 
-- [ ] [medium] Unvalidated manual `fxRate` — `services/ExpenseService.kt:91-98,187-204`, `dto/expense/ExpenseCreate.kt:21`
+- [x] [medium] Unvalidated manual `fxRate` (fixed: DTO DecimalMin>0 + FxService signum>0) — `services/ExpenseService.kt:91-98,187-204`, `dto/expense/ExpenseCreate.kt:21`
   0/negative rate → `amountEur` 0/negative persisted into report totals; `FxService.kt:47` only rejects 0, accepts negatives. Fix: validate `fxRate > 0`.
 
 - [ ] [medium] `uploadReceipts` stores files before tx commit — `services/ExpenseService.kt:327-351`
@@ -132,7 +132,7 @@ conditional, or still require reproduction. Severity: [critical] > [high] > [med
 
 - [ ] [info] Internal storage paths leaked into PDF error cells — `services/PdfService.kt:665-683`
 
-- [ ] [high] OCR advisory lock held across external calls — see Security section above
+- [x] [high] OCR advisory lock held across external calls — see Security section above (fixed)
 
 - [ ] [low] Cache hits write `OcrComparison` + update `lastUsedAt` (write amplification) — `services/OcrService.kt:164-187`
 

@@ -5,6 +5,7 @@ The mobile receipt capture pipeline is decoupled from synchronous HTTP blocking.
 ## Context
 
 Technicians in the field frequently incur multiple expenses in sequence (fuel, meals, tolls, materials). Under the previous implementation:
+
 1. The camera UI blocked synchronously for 5–15 seconds per receipt while awaiting backend OCR.
 2. If OCR extraction failed on illegible or handwritten receipts, the app forcibly navigated away to the manual edit form (`/expenses/[id]/edit`), breaking multi-receipt capture flow.
 3. Mobile cellular latency compounded user friction, and spotty coverage led to client timeouts before a draft Expense could be stored.
@@ -22,3 +23,7 @@ Technicians in the field frequently incur multiple expenses in sequence (fuel, m
 - The frontend consumes the Expense and Receipt IDs produced by the durable pipeline; it does not upload the captured image a second time.
 - Stage promotion is lease-fenced and queue rejection leaves the OcrJob pending for scheduled recovery.
 - Synchronous error alerts are replaced with persistent, non-intrusive status badges on draft cards.
+
+## Superseding navigation default for #45/#49
+
+The original continuous-camera and batch-review default above remains the historical rationale for the durable staged OcrJob. The approved #45/#49 product direction supersedes only that navigation default for single-receipt Technician capture: the default becomes capture → background processing → immediate per-Expense review/confirmation. A second capture is an explicit secondary action after server acknowledgement, not an automatic camera reset. Leaving the page still stops observation only; it does not cancel accepted server work, and known Expense/Receipt IDs and owner recovery remain authoritative. Bulk capture is unchanged. This amendment records the selected direction, not an implementation or deployment claim; see `docs/contracts/expense-verification-and-immediate-review.md` for the integration contract.

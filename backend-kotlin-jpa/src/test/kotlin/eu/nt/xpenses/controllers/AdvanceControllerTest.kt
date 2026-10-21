@@ -133,7 +133,7 @@ class AdvanceControllerTest : IntegrationTestBase() {
         )
             .andExpect(status().isCreated)
             .andReturn()
-        val advanceId = com.fasterxml.jackson.module.kotlin.jacksonObjectMapper()
+        val advanceId = tools.jackson.module.kotlin.jacksonObjectMapper()
             .readTree(createResult.response.contentAsString).get("id").asInt()
 
         org.mockito.Mockito.`when`(fxService.getRate("GBP", "2024-03-04"))
@@ -170,7 +170,7 @@ class AdvanceControllerTest : IntegrationTestBase() {
                 .content("""{"type":"paid","amount":100.00,"currency":"USD","date":"2024-02-03"}""")
                 .cookie(cookie)
         ).andExpect(status().isCreated).andReturn()
-        val advanceId = com.fasterxml.jackson.module.kotlin.jacksonObjectMapper()
+        val advanceId = tools.jackson.module.kotlin.jacksonObjectMapper()
             .readTree(createResult.response.contentAsString).get("id").asInt()
         clearInvocations(fxService)
 
@@ -203,7 +203,7 @@ class AdvanceControllerTest : IntegrationTestBase() {
                 .content("""{"type":"request","amount":200.00,"currency":"USD"}""")
                 .cookie(cookie)
         ).andExpect(status().isCreated).andReturn()
-        val advanceId = com.fasterxml.jackson.module.kotlin.jacksonObjectMapper()
+        val advanceId = tools.jackson.module.kotlin.jacksonObjectMapper()
             .readTree(createResult.response.contentAsString).get("id").asInt()
         clearInvocations(fxService)
 
@@ -271,7 +271,7 @@ class AdvanceControllerTest : IntegrationTestBase() {
                 .content("""{"type":"request","amount":200.00,"currency":"USD"}""")
                 .cookie(cookie)
         ).andExpect(status().isCreated).andReturn()
-        val advanceId = com.fasterxml.jackson.module.kotlin.jacksonObjectMapper()
+        val advanceId = tools.jackson.module.kotlin.jacksonObjectMapper()
             .readTree(createResult.response.contentAsString).get("id").asInt()
         clearInvocations(fxService)
 

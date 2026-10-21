@@ -1,7 +1,7 @@
 package eu.nt.xpenses.services
 
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.module.kotlin.registerKotlinModule
+import tools.jackson.databind.ObjectMapper
+import tools.jackson.module.kotlin.jacksonMapperBuilder
 import eu.nt.xpenses.ingestion.ImapIngestionLedger
 import eu.nt.xpenses.model.AppSetting
 import eu.nt.xpenses.repositories.AppSettingRepository
@@ -24,7 +24,7 @@ import org.springframework.transaction.support.TransactionTemplate
 import java.util.Optional
 
 class EmailImportServiceTest {
-    private val mapper = ObjectMapper().registerKotlinModule()
+    private val mapper = jacksonMapperBuilder().build()
     private val client = mock(OpenAiCompatibleClient::class.java)
     private val settingsRepository = mock(AppSettingRepository::class.java)
     private val parsingSettingsService = DelegationParsingSettingsService(settingsRepository, mapper)

@@ -1,6 +1,6 @@
 package eu.nt.xpenses.services
 
-import com.fasterxml.jackson.core.type.TypeReference
+import tools.jackson.core.type.TypeReference
 import eu.nt.xpenses.dto.expense.ExpenseCreate
 import eu.nt.xpenses.dto.expense.ExpenseOut
 import eu.nt.xpenses.model.User

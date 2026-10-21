@@ -1,7 +1,7 @@
 package eu.nt.xpenses.services
 
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.module.kotlin.registerKotlinModule
+import tools.jackson.databind.ObjectMapper
+import tools.jackson.module.kotlin.jacksonMapperBuilder
 import eu.nt.xpenses.dto.settings.OCRConfigUpdate
 import eu.nt.xpenses.dto.settings.OCRProviderUpdate
 import eu.nt.xpenses.model.AppSetting
@@ -33,7 +33,7 @@ class OcrServiceTest {
     private val ocrResultCacheRepository = mock(OcrResultCacheRepository::class.java)
     private val cryptoService = mock(CryptoService::class.java)
     private val compatibleClient = mock(OpenAiCompatibleClient::class.java)
-    private val objectMapper = ObjectMapper().registerKotlinModule()
+    private val objectMapper = jacksonMapperBuilder().build()
     private val transactionManager = mock(PlatformTransactionManager::class.java)
     private val transactionTemplate = TransactionTemplate(transactionManager)
 
@@ -131,7 +131,7 @@ class OcrServiceTest {
         // Legacy persisted configuration does not contain a catalog.
         stored.value =
             objectMapper.readTree(stored.value).let { root ->
-                (root as com.fasterxml.jackson.databind.node.ObjectNode).remove(
+                (root as tools.jackson.databind.node.ObjectNode).remove(
                     listOf("providers", "models", "receipt_model_chain", "delegation_model_chain"),
                 )
                 root.toString()
@@ -451,7 +451,7 @@ class OcrServiceTest {
         `when`(appSettingRepository.findById("ocr_config")).thenReturn(Optional.of(setting))
 
         val config = ocrService.getOcrConfig()
-        val serialized = objectMapper.valueToTree<com.fasterxml.jackson.databind.JsonNode>(config)
+        val serialized = objectMapper.valueToTree<tools.jackson.databind.JsonNode>(config)
 
         assertEquals("https://api.example.com/v1", serialized["providers"][0]["base_url"].asText())
         assertEquals("encrypted-key", serialized["providers"][0]["api_key"].asText())

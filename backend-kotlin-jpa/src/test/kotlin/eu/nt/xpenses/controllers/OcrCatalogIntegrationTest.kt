@@ -1,8 +1,8 @@
 package eu.nt.xpenses.controllers
 
-import com.fasterxml.jackson.databind.JsonNode
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.databind.node.ObjectNode
+import tools.jackson.databind.JsonNode
+import tools.jackson.databind.ObjectMapper
+import tools.jackson.databind.node.ObjectNode
 import eu.nt.xpenses.model.AppSetting
 import eu.nt.xpenses.repositories.AppSettingRepository
 import eu.nt.xpenses.services.CryptoService
@@ -18,7 +18,7 @@ import org.mockito.ArgumentMatchers.any
 import org.mockito.ArgumentMatchers.anyString
 import org.mockito.Mockito.doReturn
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.http.MediaType
 import org.springframework.security.test.context.support.WithMockUser
@@ -122,7 +122,7 @@ class OcrCatalogIntegrationTest {
         assertFalse(migrated["providers"][0].has("api_key"))
         val providerId = migrated["providers"][0]["id"].asText()
         val existingPrimary = migrated["receipt_model_chain"][0].asText()
-        val originalDelegation = migrated["delegation_model_chain"].deepCopy<JsonNode>()
+        val originalDelegation = migrated["delegation_model_chain"].deepCopy()
         val patchBody = editableSettings(migrated)
         patchBody
             .withArray("models")
@@ -168,7 +168,7 @@ class OcrCatalogIntegrationTest {
         activatedBody.putArray("receipt_model_chain").add("integration-vision").add(existingPrimary)
         val activated = patchSettings(activatedBody)
         assertTrue(activated["models"].last()["active"].asBoolean())
-        assertEquals(listOf("integration-vision", existingPrimary), activated["receipt_model_chain"].map { it.asText() })
+        assertEquals(listOf("integration-vision", existingPrimary), activated["receipt_model_chain"].values().map { it.asText() })
         assertEquals(originalDelegation, activated["delegation_model_chain"])
 
         // A separate HTTP read proves the transaction committed; secrets remain write-only after migration.
@@ -226,7 +226,7 @@ class OcrCatalogIntegrationTest {
         )
 
     private fun editableSettings(source: JsonNode): ObjectNode {
-        val editable = source.deepCopy<ObjectNode>()
+        val editable = source.deepCopy() as ObjectNode
         editable.withArray("providers").forEach { (it as ObjectNode).remove("api_key_set") }
         editable.withArray("models").forEach { (it as ObjectNode).remove("tested") }
         return editable

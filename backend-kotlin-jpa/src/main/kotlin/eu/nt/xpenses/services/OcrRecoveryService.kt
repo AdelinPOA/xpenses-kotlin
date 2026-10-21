@@ -1,6 +1,6 @@
 package eu.nt.xpenses.services
 
-import com.fasterxml.jackson.databind.ObjectMapper
+import tools.jackson.databind.ObjectMapper
 import eu.nt.xpenses.dto.ocr.OcrJobRecoveryOut
 import eu.nt.xpenses.dto.ocr.OcrManualCompletionRequest
 import eu.nt.xpenses.dto.ocr.OcrManualExpenseValues

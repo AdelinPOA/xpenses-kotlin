@@ -2,7 +2,7 @@ plugins {
     kotlin("jvm") version "2.4.0"
     kotlin("plugin.spring") version "2.4.0"
     kotlin("plugin.jpa") version "2.4.0"
-    id("org.springframework.boot") version "3.5.16"
+    id("org.springframework.boot") version "4.1.1"
     id("io.spring.dependency-management") version "1.1.7"
     id("org.graalvm.buildtools.native") version "0.10.4"
 }
@@ -20,14 +20,18 @@ repositories {
     mavenCentral()
 }
 
+// JWT/logging adapters still use Jackson 2; keep that managed family patched
+// while application HTTP/settings/OCR JSON migrates to Boot 4's Jackson 3.
+extra["jackson-2-bom.version"] = "2.21.8"
+
 dependencies {
     // Spring Boot Starters
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
-    implementation("org.springframework.boot:spring-boot-starter-web")
+    implementation("org.springframework.boot:spring-boot-starter-webmvc")
     implementation("org.apache.httpcomponents.client5:httpclient5")
     implementation("org.springframework.boot:spring-boot-starter-security")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
-    implementation("org.flywaydb:flyway-core")
+    implementation("org.springframework.boot:spring-boot-starter-flyway")
     implementation("org.springframework.boot:spring-boot-starter-mail")
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("io.micrometer:micrometer-registry-prometheus")
@@ -35,7 +39,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-cache")
     implementation("org.springframework.boot:spring-boot-starter-data-redis")
     implementation("com.github.ben-manes.caffeine:caffeine")
-    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.5")
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.1")
     implementation("javax.cache:cache-api:1.1.1")
     implementation("com.github.ben-manes.caffeine:jcache")
 
@@ -63,14 +67,15 @@ dependencies {
 
     // Kotlin Support
     implementation("org.jetbrains.kotlin:kotlin-reflect")
-    implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
+    implementation("tools.jackson.module:jackson-module-kotlin")
 
     // DevTools for Hot-Swapping
     developmentOnly("org.springframework.boot:spring-boot-devtools")
 
     // Testing
-    testImplementation("org.springframework.boot:spring-boot-starter-test")
-    testImplementation("org.springframework.security:spring-security-test")
+    testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
+    testImplementation("org.springframework.boot:spring-boot-starter-security-test")
+    testImplementation("org.springframework.boot:spring-boot-starter-data-jpa-test")
     testImplementation("org.testcontainers:junit-jupiter")
     testImplementation("org.testcontainers:postgresql")
 }

@@ -200,7 +200,7 @@ export default function ImmediateExpenseReview({
         let record: PendingOcrSource | null = null;
         const currentExpense = initialExpenseRef.current;
         const records = await listOcrSources(user.id);
-        if (sourceId) record = records.find((item) => item.id === sourceId) ?? null;
+        if (sourceId) record = records.find((item) => item.id === sourceId && item.expenseId === currentExpense.id) ?? null;
         if (!record) record = await findOcrSourceByExpenseId(user.id, currentExpense.id);
         if (!record) {
           record = await createRecoveredOcrReview({
@@ -209,6 +209,23 @@ export default function ImmediateExpenseReview({
             receiptId: currentExpense.receipts?.[0]?.id,
             expenseVersion: currentExpense.version,
             reportId: currentExpense.report_id ?? undefined,
+          });
+        }
+        if (!active) return;
+        if (record.reviewOperation) {
+          // A crash may have happened before or after the server commit. Only
+          // the immutable original operation can resolve that ambiguity.
+          record = await persistOcrReviewState(record.id, user.id, { reviewSyncState: "uncertain" });
+        } else if (record.reviewValues && record.reviewSyncState !== "server-saved" &&
+          record.expenseVersion !== currentExpense.version) {
+          record = await persistOcrReviewState(record.id, user.id, {
+            reviewSyncState: "conflict",
+            reviewError: tr("version_conflict"),
+          });
+        } else if (record.expenseVersion !== currentExpense.version) {
+          record = await persistOcrReviewState(record.id, user.id, {
+            expenseVersion: currentExpense.version,
+            reviewValues: undefined,
           });
         }
         if (!active) return;
@@ -284,6 +301,19 @@ export default function ImmediateExpenseReview({
         headers: { "Idempotency-Key": operation.key },
       });
       const saved: Expense = response.data;
+      if (operation.body.confirm && saved.verification_state !== "VERIFIED") {
+        // Replays return current state, not a frozen confirmation snapshot.
+        // Later edits can invalidate the original attestation.
+        const conflicted = await persistOcrReviewState(prepared.id, user.id, {
+          reviewSyncState: "conflict",
+          reviewOperation: undefined,
+          reviewError: tr("version_conflict"),
+        });
+        setSource(conflicted);
+        setExpense(saved);
+        setError(tr("version_conflict"));
+        return;
+      }
       setExpense(saved);
       const acknowledged = await persistOcrReviewState(prepared.id, user.id, {
         expenseVersion: saved.version,
@@ -304,7 +334,7 @@ export default function ImmediateExpenseReview({
         reviewSyncState: "server-saved",
         reviewOperation: undefined,
         reviewError: undefined,
-      }).catch(() => ({
+      }, prepared.updatedAt).catch(() => ({
         ...prepared,
         expenseVersion: saved.version,
         reviewOperation: undefined,
@@ -317,7 +347,7 @@ export default function ImmediateExpenseReview({
       qc.invalidateQueries({ queryKey: expenseKeys.all });
       qc.invalidateQueries({ queryKey: dashboardKeys.all });
       if (operation.body.confirm) {
-        await removeOcrSource(prepared.id, user.id).catch(() => undefined);
+        await removeOcrSource(prepared.id, user.id, undefined, acknowledged.updatedAt).catch(() => undefined);
         clearDirty();
         if (nextAction === "capture") {
           const report = saved.report_id ? `?reportId=${saved.report_id}` : "";
@@ -487,7 +517,7 @@ export default function ImmediateExpenseReview({
             </div>
           </div>
 
-          <div className="sticky bottom-[calc(4rem+env(safe-area-inset-bottom,0px))] z-20 -mx-4 flex flex-col gap-2 border-t border-border bg-card px-4 pb-3 pt-3 sm:static sm:mx-0 sm:grid sm:grid-cols-2 sm:border-0 sm:p-0">
+          <div className="grid grid-cols-1 gap-2 border-t border-border bg-card pt-4 sm:grid-cols-2">
             {source?.reviewSyncState === "uncertain" && source.reviewOperation ? (
               <button type="button" disabled={!online || submitting} onClick={() => void retryExactOperation()} className="min-h-11 rounded-xl bg-primary px-4 text-sm font-semibold text-white disabled:opacity-50">{tr("retry_same_request")}</button>
             ) : source?.reviewSyncState === "conflict" ? (

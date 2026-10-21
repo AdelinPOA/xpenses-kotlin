@@ -98,6 +98,38 @@ test("upload intent and uncertainty survive release, and acceptance clears them"
   await assert.rejects(q.markOcrSourceUpload(restored, "uploading"), /must resume/);
 });
 
+test("local discard rejects uncertain, accepted, leased or foreign work and permits a rejected file", async () => {
+  const { queue: q } = harness();
+  await q.enqueueOcrSource(source());
+  await assert.rejects(q.discardUnacceptedOcrSource("source", 8), /owner/);
+  const claim = await q.claimOcrSource("source", 7);
+  await assert.rejects(q.discardUnacceptedOcrSource("source", 7), /in use/);
+  await q.markOcrSourceUpload(claim, "uncertain");
+  await q.releaseOcrSource(claim);
+  await assert.rejects(q.discardUnacceptedOcrSource("source", 7), /acceptance/);
+  const rejected = await q.claimOcrSource("source", 7);
+  await q.markOcrSourceUpload(rejected, "rejected");
+  await q.releaseOcrSource(rejected);
+  await q.discardUnacceptedOcrSource("source", 7);
+  assert.equal((await q.listOcrSources(7)).length, 0);
+  await q.enqueueOcrSource(source());
+  const accepted = await q.claimOcrSource("source", 7);
+  await q.acknowledgeOcrSource(accepted, 91);
+  await q.releaseOcrSource(accepted);
+  await assert.rejects(q.discardUnacceptedOcrSource("source", 7), /accepted/i);
+});
+
+test("cleanup cannot delete corrections written after its observed revision", async () => {
+  const { queue: q } = harness();
+  const record = await q.createRecoveredOcrReview({ userId: 7, expenseId: 31, expenseVersion: 5 });
+  const observed = await q.persistOcrReviewState(record.id, 7, { reviewSyncState: "server-saved" });
+  const correction = await q.persistOcrReviewState(record.id, 7, { reviewSyncState: "local-only", reviewError: "retained edit" });
+  await q.removeOcrSource(record.id, 7, undefined, observed.updatedAt);
+  assert.equal((await q.listOcrSources(7))[0].reviewError, "retained edit");
+  await q.removeOcrSource(record.id, 7, undefined, correction.updatedAt);
+  assert.equal((await q.listOcrSources(7)).length, 0);
+});
+
 test("acknowledged source cannot be redirected to a replacement job", async () => {
   const { queue: q } = harness();
   await q.enqueueOcrSource(source());

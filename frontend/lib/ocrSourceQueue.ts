@@ -46,7 +46,7 @@ export interface PendingOcrReviewOperation {
 export interface PendingOcrJobActionOperation {
   action: "retry" | "complete_manually";
   key: string;
-  body?: { values: OcrReviewRequestValues };
+  body?: { values?: OcrReviewRequestValues };
 }
 
 export type OcrReviewSyncState =
@@ -403,7 +403,7 @@ export async function claimOcrSource(
           ...current,
           leaseToken: createLeaseToken(),
           leaseUntil: at + LEASE_DURATION_MS,
-          updatedAt: at,
+          updatedAt: Math.max(at, current.updatedAt + 1),
         };
         const put = store.put(claimed);
         put.onsuccess = () => setResult(claimed);
@@ -464,7 +464,7 @@ async function updateClaimedSource(
         return;
       }
       const put = store.put({
-        ...current, ...updates, updatedAt: now(), leaseUntil: now() + LEASE_DURATION_MS,
+        ...current, ...updates, updatedAt: Math.max(now(), current.updatedAt + 1), leaseUntil: now() + LEASE_DURATION_MS,
       });
       put.onerror = () => fail(put.error ?? new Error("Could not persist OCR acceptance"));
     };
@@ -495,7 +495,7 @@ export async function releaseOcrSource(
         ...current,
         leaseToken: undefined,
         leaseUntil: undefined,
-        updatedAt: at,
+        updatedAt: Math.max(at, current.updatedAt + 1),
       });
       put.onerror = () =>
         fail(put.error ?? new Error("Could not release OCR source"));
@@ -505,11 +505,35 @@ export async function releaseOcrSource(
   });
 }
 
-/** Remove a source after cancellation or successful promotion. */
+/** Explicit local discard is safe only when the server cannot own this source. */
+export async function discardUnacceptedOcrSource(id: string, userId: number | undefined): Promise<void> {
+  if (!isValidUserId(userId)) throw new Error("Authenticated owner required");
+  await runTransaction<void>("readwrite", (store, _setResult, fail) => {
+    const request = store.get(id);
+    request.onsuccess = () => {
+      const source = request.result as PendingOcrSource | undefined;
+      if (!source) return;
+      if (source.userId !== userId) return fail(new Error("Authenticated owner required"));
+      if (source.leaseUntil && source.leaseUntil > now()) return fail(new Error("OCR source is in use"));
+      if (source.remoteJobId || source.expenseId || source.reviewOperation || source.jobActionOperation) {
+        return fail(new Error("Accepted work must be recovered, not discarded locally"));
+      }
+      if (source.uploadState === "uploading" || source.uploadState === "uncertain") {
+        return fail(new Error("Resolve upload acceptance before discarding this source"));
+      }
+      const deletion = store.delete(id);
+      deletion.onerror = () => fail(deletion.error ?? new Error("Could not discard OCR source"));
+    };
+    request.onerror = () => fail(request.error ?? new Error("Could not read OCR source"));
+  });
+}
+
+/** Remove a source after explicit cancellation or acknowledged verification. */
 export async function removeOcrSource(
   id: string,
   userId: number | undefined,
   expectedLeaseToken?: string,
+  expectedUpdatedAt?: number,
 ): Promise<void> {
   if (!isValidUserId(userId)) return;
   await runTransaction<void>("readwrite", (store, _setResult, fail) => {
@@ -519,6 +543,7 @@ export async function removeOcrSource(
         ? normalizeSource(request.result as PendingOcrSource)
         : null;
       if (!current || current.userId !== userId) return;
+      if (expectedUpdatedAt !== undefined && current.updatedAt !== expectedUpdatedAt) return;
       if (expectedLeaseToken && current.leaseToken !== expectedLeaseToken) {
         return;
       }

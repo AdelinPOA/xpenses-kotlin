@@ -30,7 +30,7 @@ export interface OcrJobStatus {
 }
 
 export interface ManualCompletionRequest {
-  values: OcrReviewRequestValues;
+  values?: OcrReviewRequestValues;
 }
 
 function requireJobId(jobId: number): void {

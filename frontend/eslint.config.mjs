@@ -1,6 +1,5 @@
 import js from "@eslint/js";
 import globals from "globals";
-import nextPlugin from "@next/eslint-plugin-next";
 
 const eslintConfig = [
   js.configs.recommended,
@@ -12,13 +11,9 @@ const eslintConfig = [
         ...globals.es2021,
       },
     },
-    plugins: {
-      "@next/next": nextPlugin,
-    },
     rules: {
       "@typescript-eslint/no-explicit-any": "off",
       "react/no-unescaped-entities": "off",
-      "@next/next/no-img-element": "off",
       "react-hooks/exhaustive-deps": "off",
       "no-undef": "off", // Disable for service workers and Next.js internals
     },

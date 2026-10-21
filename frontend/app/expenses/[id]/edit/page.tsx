@@ -31,15 +31,18 @@ export default function EditExpensePage({ params }: { params: Promise<{ id: stri
     queryFn: () => api.get(`/expenses/${id}`).then((r) => r.data),
   });
 
+  const showImmediateReview = process.env.NEXT_PUBLIC_OCR_IMMEDIATE_REVIEW_ENABLED === "true" && expense &&
+    (expense.verification_state === "PENDING" || Boolean(ocrSourceId));
+
   return (
     <AppShell>
-      <div className="mb-6">
+      {!showImmediateReview && <div className="mb-6">
         <h1 className="text-2xl font-bold text-foreground">{t("edit_expense")}</h1>
-      </div>
+      </div>}
       {isError && <QueryErrorNotice isFetching={isFetching} onRetry={() => { void refetch(); }} />}
       {isLoading ? (
         <div className="animate-pulse bg-card h-96 rounded-xl" />
-      ) : expense?.verification_state === "PENDING" ? (
+      ) : showImmediateReview ? (
         <ImmediateExpenseReview
           expense={expense}
           sourceId={ocrSourceId}

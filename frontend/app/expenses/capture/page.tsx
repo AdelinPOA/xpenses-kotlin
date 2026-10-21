@@ -23,6 +23,7 @@ import {
   claimOcrSource,
   createRecoveredOcrReview,
   enqueueOcrSource,
+  discardUnacceptedOcrSource,
   findOcrSourceByExpenseId,
   listOcrSources,
   markOcrSourceUpload,
@@ -122,11 +123,26 @@ export default function CapturePage() {
   const reportId = Number.isSafeInteger(rawReportId) && rawReportId > 0
     ? rawReportId
     : undefined;
-  return (
+  return CAPTURE_REVIEW_ENABLED ? (
     <CaptureSession
       key={`${user?.id ?? "signed-out"}:${reportId ?? "no-report"}`}
       reportId={reportId}
     />
+  ) : <CaptureDisabled reportId={reportId} />;
+}
+
+function CaptureDisabled({ reportId }: { reportId?: number }) {
+  const tc = useTranslations("capture");
+  return (
+    <AppShell>
+      <div className="mx-auto max-w-lg rounded-2xl border border-border bg-card p-6 shadow-sm">
+        <h1 className="text-xl font-bold text-foreground">{tc("title")}</h1>
+        <p className="mt-2 text-sm text-muted-foreground">{tc("feature_disabled")}</p>
+        <Link className="mt-4 inline-flex min-h-11 items-center rounded-lg bg-primary px-4 text-sm font-semibold text-white" href={reportId ? `/expenses/new?mode=manual&reportId=${reportId}` : "/expenses/new?mode=manual"}>
+          {tc("manual_entry")}
+        </Link>
+      </div>
+    </AppShell>
   );
 }
 
@@ -188,32 +204,47 @@ function CaptureSession({ reportId }: { reportId?: number }) {
       const remoteJobs = navigator.onLine
         ? await listRecoverableOcrJobs()
         : [];
-      serverJobs = remoteJobs;
+      const localSources = await listOcrSources(user.id);
+      const expenses = new Map<number, Expense>();
+      for (const expenseId of new Set([
+        ...remoteJobs.map((job) => job.expense_id),
+        ...localSources.map((source) => source.expenseId),
+      ])) {
+        if (!expenseId || !navigator.onLine) continue;
+        try {
+          expenses.set(expenseId, await api.get<Expense>(`/expenses/${expenseId}`).then((response) => response.data));
+        } catch {
+          // An unavailable Expense never authorizes discarding local work.
+        }
+      }
       for (const job of remoteJobs) {
+        const expense = job.expense_id ? expenses.get(job.expense_id) : undefined;
+        const active = ["PENDING", "PROCESSING", "RETRY_WAIT"].includes(job.status);
+        const recoverable = job.allowed_actions.some((action) => action === "retry" || action === "complete_manually");
+        if (expense?.verification_state !== "PENDING" && !active && !recoverable) continue;
+        serverJobs.push(job);
         await createRecoveredOcrReview({
           userId: user.id,
           remoteJobId: job.job_id,
           expenseId: job.expense_id ?? undefined,
           receiptId: job.receipt_id ?? undefined,
+          expenseVersion: expense?.version,
           reportId: job.report_id ?? undefined,
           reportLinkStatus: job.report_link_status,
         }).catch(() => undefined);
       }
       let refreshedSources = await listOcrSources(user.id);
-      if (navigator.onLine) {
-        for (const source of refreshedSources) {
-          if (!source.expenseId) continue;
-          try {
-            const expense = await api.get<Expense>(`/expenses/${source.expenseId}`).then((response) => response.data);
-            if (expense.verification_state === "VERIFIED") {
-              await removeOcrSource(source.id, user.id);
-            }
-          } catch {
-            // Keep the review record until the server can confirm its state.
-          }
+      for (const source of refreshedSources) {
+        const expense = source.expenseId ? expenses.get(source.expenseId) : undefined;
+        const unsynced = source.reviewSyncState && source.reviewSyncState !== "server-saved";
+        const job = remoteJobs.find((item) => item.job_id === source.remoteJobId);
+        const obsoleteJob = source.data === null && !source.expenseId && job && !serverJobs.includes(job);
+        if (!unsynced && !source.reviewOperation &&
+          (expense?.verification_state === "VERIFIED" || expense?.verification_state === "NOT_REQUIRED" || obsoleteJob)) {
+          await removeOcrSource(source.id, user.id, undefined, source.updatedAt);
         }
-        refreshedSources = await listOcrSources(user.id);
       }
+      refreshedSources = await listOcrSources(user.id);
       if (!mountedRef.current) return;
       setSources(refreshedSources);
       setJobs(serverJobs);
@@ -222,9 +253,10 @@ function CaptureSession({ reportId }: { reportId?: number }) {
       if (navigator.onLine) {
         for (const source of refreshedSources) {
           if (
-            !source.expenseId &&
+            !source.expenseId && source.uploadState !== "rejected" &&
             !inFlightRef.current.has(source.id) &&
             !failedSourceIdsRef.current.has(source.id) &&
+            (!source.remoteJobId || serverJobs.some((job) => job.job_id === source.remoteJobId && ["PENDING", "PROCESSING", "RETRY_WAIT"].includes(job.status))) &&
             (source.remoteJobId || source.data)
           ) {
             void processSourceRef.current?.(source);
@@ -432,9 +464,9 @@ function CaptureSession({ reportId }: { reportId?: number }) {
       setManualError(tc("manual_online_required"));
       return;
     }
-    let body: ReturnType<typeof makeManualRequest>;
+    let body: { values?: ReturnType<typeof makeManualRequest>["values"] };
     try {
-      body = makeManualRequest(manualValues, tc);
+      body = manualJob.expense_id ? {} : makeManualRequest(manualValues, tc);
     } catch (validationError) {
       setManualError((validationError as Error).message);
       return;
@@ -457,13 +489,14 @@ function CaptureSession({ reportId }: { reportId?: number }) {
       setManualSource(stored);
       await completeOcrJobManually(manualJob.job_id, body, operation.key);
       failedSourceIdsRef.current.delete(stored.id);
-      await persistOcrReviewState(stored.id, user.id, {
+      const resumed = await persistOcrReviewState(stored.id, user.id, {
         reviewSyncState: "server-saved",
         jobActionOperation: undefined,
         reviewError: undefined,
-      }).then(setManualSource);
+      });
       setManualJob(null);
       setManualSource(null);
+      void processSource(resumed);
       await refreshRecovery();
     } catch (actionError) {
       const status = (actionError as { response?: { status?: number } })?.response?.status;
@@ -515,15 +548,29 @@ function CaptureSession({ reportId }: { reportId?: number }) {
       });
       await retryOcrJob(job.job_id, operation.key);
       failedSourceIdsRef.current.delete(stored.id);
-      await persistOcrReviewState(stored.id, user.id, {
+      const resumed = await persistOcrReviewState(stored.id, user.id, {
         jobActionOperation: undefined,
         reviewSyncState: "server-saved",
         reviewError: undefined,
       });
       setError("");
+      void processSource(resumed);
       await refreshRecovery();
     } catch (actionError) {
       setError(tc("action_uncertain"));
+    }
+  };
+
+  const discardLocalSource = async (source: PendingOcrSource) => {
+    if (!user?.id || !window.confirm(tc("discard_local_confirm"))) return;
+    try {
+      await discardUnacceptedOcrSource(source.id, user.id);
+      failedSourceIdsRef.current.delete(source.id);
+      setCurrentSourceId(null);
+      setError("");
+      await refreshRecovery();
+    } catch {
+      setError(tc("discard_local_failed"));
     }
   };
 
@@ -535,20 +582,6 @@ function CaptureSession({ reportId }: { reportId?: number }) {
     : undefined;
   const processing = Boolean(activeSourceId && inFlightRef.current.has(activeSourceId));
   const manualLocked = manualSaving || manualSource?.reviewSyncState === "uncertain";
-
-  if (!CAPTURE_REVIEW_ENABLED) {
-    return (
-      <AppShell>
-        <div className="mx-auto max-w-lg rounded-2xl border border-border bg-card p-6 shadow-sm">
-          <h1 className="text-xl font-bold text-foreground">{tc("title")}</h1>
-          <p className="mt-2 text-sm text-muted-foreground">{tc("feature_disabled")}</p>
-          <Link className="mt-4 inline-flex min-h-11 items-center rounded-lg bg-primary px-4 text-sm font-semibold text-white" href={reportId ? `/expenses/new?mode=manual&reportId=${reportId}` : "/expenses/new?mode=manual"}>
-            {tc("manual_entry")}
-          </Link>
-        </div>
-      </AppShell>
-    );
-  }
 
   return (
     <AppShell>
@@ -614,6 +647,13 @@ function CaptureSession({ reportId }: { reportId?: number }) {
                     {currentStatus && !currentStatus.expenseId && (currentStatus.data || currentStatus.remoteJobId) && (
                       <button type="button" onClick={() => void processSource(currentStatus)} className="min-h-11 rounded-lg bg-primary px-4 text-sm font-semibold text-white">{tc("retry_same_source")}</button>
                     )}
+                    {currentStatus && !currentStatus.remoteJobId && !currentStatus.expenseId &&
+                      (!currentStatus.uploadState || currentStatus.uploadState === "rejected") && (
+                      <div>
+                        <p className="text-xs text-muted-foreground">{tc("discard_local_hint")}</p>
+                        <button type="button" onClick={() => void discardLocalSource(currentStatus)} className="min-h-11 px-3 text-sm font-semibold text-rose-700 dark:text-rose-300">{tc("discard_local")}</button>
+                      </div>
+                    )}
                   </div>
                 )}
               </section>
@@ -672,6 +712,7 @@ function CaptureSession({ reportId }: { reportId?: number }) {
               <button type="button" onClick={() => { setManualJob(null); setManualSource(null); }} className="min-h-11 px-3 text-sm text-muted-foreground">{tc("close")}</button>
             </div>
             {manualError && <p role="alert" className="mt-3 text-sm text-rose-700 dark:text-rose-300">{manualError}</p>}
+            {manualJob.expense_id ? <p className="mt-4 text-sm text-muted-foreground">{tc("resume_existing_expense")}</p> : (
             <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
               <label className="text-xs font-medium text-muted-foreground">{t("label_amount")}<input disabled={manualLocked} type="number" min="0.01" step="0.01" inputMode="decimal" value={manualValues.amount} onChange={(event) => setManualValues((value) => ({ ...value, amount: event.target.value }))} className="mt-1 min-h-11 w-full rounded-lg border border-input-border bg-background px-3 text-base text-foreground" /></label>
               <label className="text-xs font-medium text-muted-foreground">{t("label_currency")}<select disabled={manualLocked} value={manualValues.currency} onChange={(event) => setManualValues((value) => ({ ...value, currency: event.target.value }))} className="mt-1 min-h-11 w-full rounded-lg border border-input-border bg-background px-3 text-base text-foreground">{["EUR", "USD", "GBP", "RON", "CHF", "CAD", "AUD", "JPY"].map((currency) => <option key={currency}>{currency}</option>)}</select></label>
@@ -679,6 +720,7 @@ function CaptureSession({ reportId }: { reportId?: number }) {
               <label className="text-xs font-medium text-muted-foreground">{t("label_merchant")}<input disabled={manualLocked} value={manualValues.merchant} onChange={(event) => setManualValues((value) => ({ ...value, merchant: event.target.value }))} className="mt-1 min-h-11 w-full rounded-lg border border-input-border bg-background px-3 text-base text-foreground" /></label>
               <label className="text-xs font-medium text-muted-foreground sm:col-span-2">{t("label_description")}<textarea disabled={manualLocked} value={manualValues.description} onChange={(event) => setManualValues((value) => ({ ...value, description: event.target.value }))} rows={2} className="mt-1 w-full rounded-lg border border-input-border bg-background px-3 py-2 text-base text-foreground" /></label>
             </div>
+            )}
             {manualSource.reviewSyncState === "local-only" && <p aria-live="polite" className="mt-3 text-xs text-muted-foreground">{tc("manual_local_saved")}</p>}
             <button type="button" disabled={manualSaving || !navigator.onLine} onClick={() => void submitManualCompletion()} className="mt-4 min-h-11 w-full rounded-xl bg-primary px-4 text-sm font-semibold text-white disabled:opacity-50">
                   {manualSaving ? tc("saving") : manualSource.reviewSyncState === "uncertain" ? tc("retry_same_action") : tc("complete_manually")}

@@ -250,11 +250,21 @@ function ExpensesPageContent() {
     expensesPayload && isPagedResponse(expensesPayload)
       ? expensesPayload
       : null;
-  const expenses: Expense[] = paged
+  const pageExpenses: Expense[] = paged
     ? paged.data
     : Array.isArray(expensesPayload)
       ? expensesPayload
       : [];
+  // Confirmation pins the authoritative Expense independently of the user's
+  // normal filter/sort/page, without rewriting that list context.
+  const { data: highlightedExpense, isError: highlightError, isFetching: highlightFetching, refetch: refetchHighlight } = useQuery<Expense>({
+    queryKey: expenseKeys.detail(highlightId),
+    queryFn: () => api.get<Expense>(`/expenses/${highlightId}`).then((response) => response.data),
+    enabled: highlightId > 0 && !isLoading && !pageExpenses.some((expense) => expense.id === highlightId),
+  });
+  const expenses = highlightedExpense && !pageExpenses.some((expense) => expense.id === highlightId)
+    ? [highlightedExpense, ...pageExpenses]
+    : pageExpenses;
   const totalPages = paged?.total_pages ?? 1;
   const totalElements = paged?.total_elements ?? expenses.length;
 
@@ -674,7 +684,8 @@ function ExpensesPageContent() {
             )
           ) : (
             <>
-              {highlightId > 0 && expenses.some((expense) => expense.id === highlightId) && (
+              {highlightError && <QueryErrorNotice isFetching={highlightFetching} onRetry={() => { void refetchHighlight(); }} />}
+              {highlightId > 0 && expenses.some((expense) => expense.id === highlightId && expense.verification_state === "VERIFIED") && (
                 <p role="status" className="border-b border-primary/20 bg-primary/5 px-4 py-3 text-sm font-medium text-primary">
                   {t("expense_confirmed_highlight")}
                 </p>

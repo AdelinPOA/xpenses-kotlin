@@ -1,6 +1,6 @@
 package eu.nt.xpenses.controllers
 
-import com.fasterxml.jackson.databind.ObjectMapper
+import tools.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.annotation.JsonProperty
 import eu.nt.xpenses.dto.ocr.OcrJobRecoveryOut
 import eu.nt.xpenses.dto.ocr.OcrManualCompletionRequest

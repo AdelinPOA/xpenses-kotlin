@@ -33,6 +33,10 @@ export interface Expense {
   receipt_path: string | null;
   receipts: Receipt[];
   status: string;
+  version?: number;
+  verification_state?: "NOT_REQUIRED" | "PENDING" | "VERIFIED" | string;
+  last_verified_at?: string | null;
+  last_verified_by_user_id?: number | null;
   raw_ocr_text?: string | null;
   user_display_name?: string | null;
   created_at: string;

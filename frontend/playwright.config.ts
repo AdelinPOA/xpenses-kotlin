@@ -51,7 +51,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: `npm run dev -- -p ${PORT}`,
+    command: `NEXT_PUBLIC_OCR_IMMEDIATE_REVIEW_ENABLED=${process.env.NEXT_PUBLIC_OCR_IMMEDIATE_REVIEW_ENABLED ?? "true"} npm run dev -- -p ${PORT}`,
     url: BASE_URL,
     reuseExistingServer: true,
     timeout: 120000,

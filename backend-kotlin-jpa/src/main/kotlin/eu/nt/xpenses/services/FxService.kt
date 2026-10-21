@@ -1,6 +1,6 @@
 package eu.nt.xpenses.services
 
-import com.fasterxml.jackson.databind.ObjectMapper
+import tools.jackson.databind.ObjectMapper
 import eu.nt.xpenses.model.FxRate
 import eu.nt.xpenses.repositories.AppSettingRepository
 import eu.nt.xpenses.repositories.FxRateRepository

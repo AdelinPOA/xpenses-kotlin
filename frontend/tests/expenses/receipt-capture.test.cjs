@@ -69,6 +69,21 @@ test("transport intent must commit before sending the source", async () => {
   assert.equal(uploaded, false);
 });
 
+test("single-capture acceptance binds stable idempotency and report context to upload", async () => {
+  let sent;
+  const scan = harness({
+    post: async (...args) => {
+      sent = args;
+      return { status: 202, data: { job_id: 17 } };
+    },
+    get: async () => complete,
+  });
+  await scan.captureReceipt(file(), { idempotencyKey: "stable-capture-key", reportId: 6 });
+  assert.equal(sent[0], "/ocr/scan");
+  assert.equal(sent[1].get("report_id"), "6");
+  assert.equal(sent[2].headers["Idempotency-Key"], "stable-capture-key");
+});
+
 test("upload rejection is distinct from ambiguous timeout/server failure", async () => {
   for (const status of [400, 413, 415, 408, 500]) {
     const scan = harness({ post: async () => { throw { response: { status } }; } });

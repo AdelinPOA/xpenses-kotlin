@@ -1,6 +1,6 @@
 package eu.nt.xpenses.controllers
 
-import com.fasterxml.jackson.databind.ObjectMapper
+import tools.jackson.databind.ObjectMapper
 import eu.nt.xpenses.dto.settings.OCRConfigUpdate
 import eu.nt.xpenses.dto.settings.OCRModelUpdate
 import eu.nt.xpenses.dto.settings.OCRProviderUpdate
@@ -41,13 +41,13 @@ class OcrSettingsControllerTest {
         `when`(ocrService.getOcrConfig()).thenReturn(testConfig())
 
         val response = controller.readOcrSettings().body!!
-        val json = ObjectMapper().valueToTree<com.fasterxml.jackson.databind.JsonNode>(response)
+        val json = ObjectMapper().valueToTree<tools.jackson.databind.JsonNode>(response)
 
         assertEquals("provider-1", json["providers"][0]["id"].asText())
         assertTrue(json["providers"][0]["api_key_set"].asBoolean())
         assertFalse(json.toString().contains("secret-api-key"))
-        assertEquals(listOf("receipt-model"), json["receipt_model_chain"].map { it.asText() })
-        assertEquals(listOf("email-model"), json["delegation_model_chain"].map { it.asText() })
+        assertEquals(listOf("receipt-model"), json["receipt_model_chain"].values().map { it.asText() })
+        assertEquals(listOf("email-model"), json["delegation_model_chain"].values().map { it.asText() })
     }
 
     @Test
@@ -71,11 +71,11 @@ class OcrSettingsControllerTest {
         val response = controller.updateOcrSettings(body)
 
         verify(ocrService).updateOcrConfig(body)
-        val json = ObjectMapper().valueToTree<com.fasterxml.jackson.databind.JsonNode>(response.body)
+        val json = ObjectMapper().valueToTree<tools.jackson.databind.JsonNode>(response.body)
         assertFalse(json.toString().contains("secret-api-key"))
         assertTrue(json["providers"][0]["api_key_set"].asBoolean())
-        assertEquals(listOf("receipt-model"), json["receipt_model_chain"].map { it.asText() })
-        assertEquals(listOf("email-model"), json["delegation_model_chain"].map { it.asText() })
+        assertEquals(listOf("receipt-model"), json["receipt_model_chain"].values().map { it.asText() })
+        assertEquals(listOf("email-model"), json["delegation_model_chain"].values().map { it.asText() })
     }
 
     private fun testConfig() =

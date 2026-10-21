@@ -85,6 +85,8 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_OCR_IMMEDIATE_REVIEW_ENABLED: ${NEXT_PUBLIC_OCR_IMMEDIATE_REVIEW_ENABLED:-false}
     container_name: ${COMPOSE_CONTAINER_PREFIX:-xpenses}-frontend
     ports:
       - "${FRONTEND_BIND_IP:-127.0.0.1}:3001:3000"

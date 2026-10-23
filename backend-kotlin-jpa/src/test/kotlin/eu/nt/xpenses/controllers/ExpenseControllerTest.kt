@@ -210,33 +210,78 @@ class ExpenseControllerTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `PUT review is restricted to the owning Technician`() {
-        val expense = saveTechExpense()
+    fun `PUT review allows each owner role to verify its own Expense`() {
+        val category = categoryRepository.findAll().firstOrNull() ?: error("No seeded category")
+        val ownerAccounts = listOf(
+            "tech1" to "tech1",
+            "manager1" to "manager1",
+            "cfo1" to "cfo1",
+            "mod1" to "mod1"
+        )
+
+        for ((username, password) in ownerAccounts) {
+            val owner = userRepository.findByUsername(username)!!
+            val expense = Expense(
+                user = owner,
+                category = category,
+                amountOriginal = BigDecimal("30.00"),
+                amountEur = BigDecimal("30.00"),
+                date = "2026-06-01",
+                verificationState = ExpenseVerificationState.PENDING
+            )
+            expense.receipts.add(
+                Receipt(expense = expense, filePath = "2026/06/review-$username.png", originalName = "review-$username.png")
+            )
+            expenseRepository.save(expense)
+            entityManager.flush()
+            val currentVersion = expense.version
+
+            mockMvc.perform(
+                put("/api/expenses/${expense.id}/review")
+                    .header("Idempotency-Key", "owner-review-$username-${expense.id}")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""{"expected_version":$currentVersion,"values":{},"confirm":true}""")
+                    .cookie(authHelper.loginAs(username, password))
+            )
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.verification_state").value("VERIFIED"))
+                .andExpect(jsonPath("$.last_verified_by_user_id").value(owner.id))
+
+            entityManager.clear()
+            org.junit.jupiter.api.Assertions.assertEquals(
+                ExpenseVerificationState.VERIFIED,
+                expenseRepository.findById(expense.id!!).orElseThrow().verificationState
+            )
+        }
+    }
+
+    @Test
+    fun `PUT review forbids a non-owner even when the requester is a moderator`() {
+        val expense = saveTechExpense().apply { verificationState = ExpenseVerificationState.PENDING }
+        expense.receipts.add(
+            Receipt(expense = expense, filePath = "2026/06/non-owner-review.png", originalName = "non-owner-review.png")
+        )
+        expenseRepository.save(expense)
         entityManager.flush()
         entityManager.clear()
-        val modCookie = authHelper.loginAs("mod1", "mod1")
-        mockMvc.perform(
-            post("/api/users")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("""{"username":"review-owner-check","display_name":"Review Owner Check","password":"pass1234","role":"technician"}""")
-                .cookie(modCookie)
-        ).andExpect(status().isCreated)
-        val otherTechCookie = authHelper.loginAs("review-owner-check", "pass1234")
         val currentVersion = expenseRepository.findById(expense.id!!).orElseThrow().version
+        val modCookie = authHelper.loginAs("mod1", "mod1")
 
         mockMvc.perform(
             put("/api/expenses/${expense.id}/review")
                 .header("Idempotency-Key", "foreign-review-${expense.id}")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""{"expected_version":$currentVersion,"values":{},"confirm":true}""")
-                .cookie(otherTechCookie)
-        ).andExpect(status().isForbidden)
+                .cookie(modCookie)
+        )
+            .andExpect(status().isForbidden)
+            .andExpect(jsonPath("$.detail").value("Only the owner can verify this Expense"))
 
         entityManager.clear()
-        org.junit.jupiter.api.Assertions.assertEquals(
-            ExpenseVerificationState.NOT_REQUIRED,
-            expenseRepository.findById(expense.id!!).orElseThrow().verificationState
-        )
+        val unchanged = expenseRepository.findById(expense.id!!).orElseThrow()
+        org.junit.jupiter.api.Assertions.assertEquals(ExpenseVerificationState.PENDING, unchanged.verificationState)
+        org.junit.jupiter.api.Assertions.assertEquals(currentVersion, unchanged.version)
+        org.junit.jupiter.api.Assertions.assertNull(unchanged.lastVerifiedAt)
     }
 
     @Test

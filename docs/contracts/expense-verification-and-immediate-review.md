@@ -1,8 +1,8 @@
-# Technician OCR verification and immediate review contract (#46)
+# Expense owner verification and immediate review contract (#46)
 
 **Status:** selected integration contract; not implemented by this document. The offline-confirmation decision was confirmed in #46: editing may be retained locally, but confirmation requires connectivity and server acknowledgement. Backend prerequisites are tracked by #61 and #62; #49 must remain blocked until both are closed.
 
-This contract applies to the default, single-receipt Technician capture flow. It preserves the durable background `OcrJob`, the authoritative promoted Expense/Receipt IDs, existing manual-entry behavior, and the financial Expense lifecycle. It does not change bulk OCR, report submission rules, OCR-provider policy, or the global offline shell.
+This contract applies to the default, single-receipt capture flow. Any Expense owner may verify that Expense, regardless of role; this does not grant access to verify another User's Expense. It preserves the durable background `OcrJob`, the authoritative promoted Expense/Receipt IDs, existing manual-entry behavior, and the financial Expense lifecycle. It does not change bulk OCR, report submission rules, OCR-provider policy, or the global offline shell.
 
 ## ADR alignment
 
@@ -26,8 +26,8 @@ Persist `Expense.verification_state` independently of `Expense.status`:
 | Verification state | Meaning |
 | --- | --- |
 | `NOT_REQUIRED` | No explicit OCR-capture confirmation is required by this flow. |
-| `PENDING` | A single-capture OCR Expense exists, but its current reviewable values have not been confirmed by the owning Technician. |
-| `VERIFIED` | The owning Technician explicitly confirmed the current reviewable values and associated Receipt; the server acknowledged the command. |
+| `PENDING` | A single-capture OCR Expense exists, but its current reviewable values have not been confirmed by its owning User. |
+| `VERIFIED` | The owning User explicitly confirmed the current reviewable values and associated Receipt; the server acknowledged the command. |
 
 Add `last_verified_at` and `last_verified_by_user_id` as the most recent acknowledged attestation. When reviewable Expense or Receipt data changes after verification, reset state to `PENDING` while retaining the last-attestation metadata. `Expense.version` remains the current concurrency token.
 
@@ -35,7 +35,7 @@ Add `last_verified_at` and `last_verified_by_user_id` as the most recent acknowl
 - Manual Expenses created through the existing manual-entry flow and bulk-upload Expenses remain `NOT_REQUIRED`; #49 does not add a new confirmation obligation to either flow.
 - V105 backfills all existing Expenses to `NOT_REQUIRED`. Do not infer verification need from status, `raw_ocr_text`, `comparison_id`, merchant/amount completeness, or historical OcrJobs. Legacy OCR jobs remain quarantined under V103; no source bytes or verification state are fabricated.
 - Verification never changes `Expense.status`, approves/rejects a Report, or gates Report submission. A `PENDING` Expense can remain pending at any financial status and must remain discoverable through a verification-state filter.
-- Only the Expense owner (Technician) may verify. Verification is available regardless of financial status because it changes neither the Report nor the financial lifecycle. Existing financial authorization/edit restrictions remain in force.
+- Only the Expense owner may verify, regardless of the owner's role. Verification is available regardless of financial status because it changes neither the Report nor the financial lifecycle. Existing financial authorization/edit restrictions remain in force.
 - A verified Expense edited later through any supported route returns to `PENDING` when amount, currency, date, merchant, description, category, tax/FX review values or attached Receipt set changes. Report association/status changes alone do not invalidate the attestation.
 
 ## State transitions and truthful UI

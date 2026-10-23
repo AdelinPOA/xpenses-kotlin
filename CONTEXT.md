@@ -1,11 +1,11 @@
 # Xpenses
 
-Expense management for a field-service organization: technicians submit receipts, expenses and advance payments are reviewed by finance and reimbursed.
+Expense management for a field-service organization: users submit receipts, expenses and advance payments for finance review and reimbursement.
 
 ## Language
 
 **Receipt**:
-A proof-of-purchase document (paper or electronic) uploaded by a technician. Contains at least an amount and a currency.
+A proof-of-purchase document (paper or electronic) attached to an Expense by its owning User. Contains at least an amount and a currency.
 _Avoid_: recipe
 
 **OCR source**:
@@ -13,11 +13,11 @@ A Technician-owned staged upload submitted for Receipt OCR before an Expense or 
 _Avoid_: OCR receipt, uploaded Receipt
 
 **Expense**:
-A logged claim of money spent by a technician, created from a receipt (or manually), carrying the original amount and currency.
+A logged record of money spent, submitted and owned by a User regardless of role. It may be created from a Receipt or manually and carries the original amount and currency.
 _Avoid_: entry, claim
 
 **Expense verification**:
-A Technician's explicit, server-acknowledged confirmation that an Expense's current reviewable values match its Receipt. It is independent of the Expense's financial status and is not financial approval.
+The owning User's explicit, server-acknowledged confirmation that an Expense's current reviewable values match its Receipt. It is independent of the Expense's financial status and is not financial approval.
 _Avoid_: Expense approval, verified status
 
 **Original currency**:

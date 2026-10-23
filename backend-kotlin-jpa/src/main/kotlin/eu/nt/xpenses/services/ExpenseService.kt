@@ -279,13 +279,11 @@ class ExpenseService(
         requestKey: String,
         requestHash: String
     ): ExpenseOut {
-        if (currentUser.role != Authorization.ROLE_TECHNICIAN) {
-            throw ResponseStatusException(HttpStatus.FORBIDDEN, "Only the owning Technician can verify an Expense")
-        }
         val currentUserId = currentUser.id
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
         val expense = expenseRepository.findByIdForReview(expenseId)
             ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Expense not found")
+        // Verification is an owner attestation; privileged read access does not grant cross-owner verification.
         if (expense.user?.id != currentUserId) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Only the owner can verify this Expense")
         }

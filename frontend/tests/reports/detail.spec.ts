@@ -9,6 +9,7 @@ test.describe("Report detail page", () => {
   function setupReportMocks(
     page: Page,
     description = REPORT_DETAIL.description,
+    status = REPORT_DETAIL.status,
   ) {
     return page.route("**/api/reports/**", async (route, request) => {
       const url = request.url();
@@ -24,7 +25,7 @@ test.describe("Report detail page", () => {
       const match = url.match(/\/api\/reports\/(\d+)/);
       if (match) {
         return route.fulfill({
-          json: { ...REPORT_DETAIL, description, id: parseInt(match[1]) },
+          json: { ...REPORT_DETAIL, description, status, id: parseInt(match[1]) },
         });
       }
       return route.fulfill({ json: [REPORT_DETAIL] });
@@ -81,6 +82,20 @@ test.describe("Report detail page", () => {
       .filter({ hasText: "Task: Cooling tower maintenance" });
     await expect(description).toBeVisible();
     await expect(description).toHaveCSS("white-space", "pre-wrap");
+  });
+
+  test("expense edit links preserve the originating report in both layouts", async ({ page }) => {
+    await setupAuthMocks(page, "user");
+    await setupReportMocks(page, REPORT_DETAIL.description, "draft");
+
+    for (const viewport of [{ width: 1280, height: 900 }, { width: 375, height: 812 }]) {
+      await page.setViewportSize(viewport);
+      await page.goto("/reports/1", { waitUntil: "load" });
+      const editLinks = page.locator('a[href^="/expenses/2/edit"]');
+      await expect(editLinks).toHaveCount(2);
+      await expect(editLinks.nth(0)).toHaveAttribute("href", /return_report_id=1/);
+      await expect(editLinks.nth(1)).toHaveAttribute("href", /return_report_id=1/);
+    }
   });
 
   test("back navigation present", async ({ page }) => {

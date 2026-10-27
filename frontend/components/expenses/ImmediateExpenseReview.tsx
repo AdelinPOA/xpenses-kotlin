@@ -11,7 +11,6 @@ import { useFormGuard } from "@/lib/useFormGuard";
 import { CURRENCIES } from "@/lib/types/common";
 import {
   findOcrSourceByExpenseId,
-  createRecoveredOcrReview,
   listOcrSources,
   persistOcrReviewState,
   removeOcrSource,
@@ -140,11 +139,13 @@ function sanitizeUrl(url: string): string {
 export default function ImmediateExpenseReview({
   expense: initialExpense,
   sourceId,
-  onReload,
+  onSourceUnavailableAction,
+  onReloadAction,
 }: {
   expense: Expense;
   sourceId?: string | null;
-  onReload: () => Promise<Expense | null>;
+  onSourceUnavailableAction?: () => void;
+  onReloadAction: () => Promise<Expense | null>;
 }) {
   const router = useRouter();
   const qc = useQueryClient();
@@ -203,13 +204,9 @@ export default function ImmediateExpenseReview({
         if (sourceId) record = records.find((item) => item.id === sourceId && item.expenseId === currentExpense.id) ?? null;
         if (!record) record = await findOcrSourceByExpenseId(user.id, currentExpense.id);
         if (!record) {
-          record = await createRecoveredOcrReview({
-            userId: user.id,
-            expenseId: currentExpense.id,
-            receiptId: currentExpense.receipts?.[0]?.id,
-            expenseVersion: currentExpense.version,
-            reportId: currentExpense.report_id ?? undefined,
-          });
+          onSourceUnavailableAction?.();
+          setError(tr("local_storage_unavailable"));
+          return;
         }
         if (!active) return;
         if (record.reviewOperation) {
@@ -236,7 +233,10 @@ export default function ImmediateExpenseReview({
           setFxRateEditMode(record.reviewValues.fxRateEditMode);
         }
       } catch {
-        if (active) setError(tr("local_storage_unavailable"));
+        if (active) {
+          setError(tr("local_storage_unavailable"));
+          onSourceUnavailableAction?.();
+        }
       } finally {
         if (active) setSourceLoaded(true);
       }
@@ -416,7 +416,7 @@ export default function ImmediateExpenseReview({
   };
 
   const reloadLatest = async () => {
-    const latest = await onReload();
+    const latest = await onReloadAction();
     if (!latest) return;
     setExpense(latest);
     setForm(valuesFromExpense(latest));

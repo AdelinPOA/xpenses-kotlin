@@ -13,6 +13,7 @@ import { reportKeys, expenseKeys, dashboardKeys } from "@/lib/queryKeys";
 import AppShell from "@/components/layout/AppShell";
 import Badge from "@/components/ui/Badge";
 import EmptyState from "@/components/ui/EmptyState";
+import QueryErrorNotice from "@/components/ui/QueryErrorNotice";
 import { useToast } from "@/components/ToastProvider";
 import {
   AlertTriangle,
@@ -77,7 +78,7 @@ export default function ReportDetailClient({
   const clearError = () => setMutationError("");
   const onError = (msg: string) => () => setMutationError(msg);
 
-  const { data: report, isLoading } = useQuery<Report>({
+  const { data: report, isLoading, isError, isFetching, refetch } = useQuery<Report>({
     queryKey: reportKeys.detail(parseInt(id)),
     queryFn: () => api.get(`/reports/${id}`).then((r) => r.data),
   });
@@ -236,7 +237,11 @@ export default function ReportDetailClient({
   if (!report)
     return (
       <AppShell>
-        <p className="text-red-500 text-sm">{t("detail_not_found")}</p>
+        {isError ? (
+          <QueryErrorNotice isFetching={isFetching} onRetry={() => { void refetch(); }} />
+        ) : (
+          <p className="text-red-500 text-sm">{t("detail_not_found")}</p>
+        )}
       </AppShell>
     );
 
@@ -778,7 +783,7 @@ export default function ReportDetailClient({
                         <Copy className="w-4 h-4" aria-hidden="true" />
                       </button>
                       <Link
-                        href={`/expenses/${e.id}/edit`}
+                        href={`/expenses/${e.id}/edit?return_report_id=${id}`}
                         aria-label={`${t("detail_expense_edit")} ${e.merchant || e.id}`}
                         className="min-w-11 min-h-11 inline-flex items-center justify-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                       >
@@ -916,7 +921,7 @@ export default function ReportDetailClient({
                               <Copy className="w-4 h-4" aria-hidden="true" />
                             </button>
                             <Link
-                              href={`/expenses/${e.id}/edit`}
+                              href={`/expenses/${e.id}/edit?return_report_id=${id}`}
                               aria-label={`${t("detail_expense_edit")} ${e.merchant || e.id}`}
                               className="min-w-11 min-h-11 inline-flex items-center justify-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                             >

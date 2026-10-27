@@ -293,11 +293,6 @@ class AsyncOcrService(
                         originalName = job.filename
                     )
                 )
-                if (expense.verificationState == ExpenseVerificationState.VERIFIED) {
-                    expense.verificationState = ExpenseVerificationState.PENDING
-                    expense.updatedAt = now
-                    expenseRepository.saveAndFlush(expense)
-                }
                 if (ocrJobRepository.completeReceiptStage(jobId, leaseToken, receipt.id!!, now) != 1) {
                     throw LeaseLostException()
                 }

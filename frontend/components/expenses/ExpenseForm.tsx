@@ -10,7 +10,7 @@ import api, {
   API_BASE_URL,
   downloadBlob,
 } from "@/lib/api";
-import { categoryKeys, expenseKeys, dashboardKeys } from "@/lib/queryKeys";
+import { categoryKeys, expenseKeys, dashboardKeys, reportKeys } from "@/lib/queryKeys";
 import { useFormGuard } from "@/lib/useFormGuard";
 import { saveNewExpense } from "@/lib/expenseSaving";
 import { useOfflineSync } from "@/components/OfflineSyncProvider";
@@ -59,6 +59,8 @@ interface Props {
   defaultCurrency?: string;
   /** Highlights the receipt section (set when arriving with ?upload_failed=1). */
   highlightReceipts?: boolean;
+  /** Return to this report after a successful edit; never changes report association. */
+  returnToReportId?: number;
 }
 
 export default function ExpenseForm({
@@ -66,6 +68,7 @@ export default function ExpenseForm({
   reportId,
   defaultCurrency,
   highlightReceipts,
+  returnToReportId,
 }: Props) {
   const router = useRouter();
   const qc = useQueryClient();
@@ -272,6 +275,7 @@ export default function ExpenseForm({
           // Editing an existing Expense never creates a replacement Expense.
           qc.invalidateQueries({ queryKey: expenseKeys.all });
           qc.invalidateQueries({ queryKey: dashboardKeys.all });
+          qc.invalidateQueries({ queryKey: reportKeys.all });
           return {
             expense: result,
             receiptUploadFailed: true as const,
@@ -353,6 +357,7 @@ export default function ExpenseForm({
       if (!result) return;
       qc.invalidateQueries({ queryKey: expenseKeys.all });
       qc.invalidateQueries({ queryKey: dashboardKeys.all });
+      qc.invalidateQueries({ queryKey: reportKeys.all });
       if (receiptUploadFailed) {
         await refreshOffline();
         toast.warning(t("warning_expense_saved_receipt_failed"));
@@ -367,7 +372,25 @@ export default function ExpenseForm({
         }
         return;
       }
-      const destination = reportId ? `/reports/${reportId}` : "/expenses";
+      const destination = returnToReportId
+        ? `/reports/${returnToReportId}`
+        : reportId
+          ? `/reports/${reportId}`
+          : "/expenses";
+      if (returnToReportId) {
+        const queryKey = reportKeys.detail(returnToReportId);
+        try {
+          await qc.fetchQuery({
+            queryKey,
+            queryFn: () => api.get(`/reports/${returnToReportId}`).then((r) => r.data),
+            staleTime: 0,
+            retry: false,
+          });
+        } catch {
+          // Do not show cached pre-edit values as fresh if refresh failed.
+          qc.removeQueries({ queryKey, exact: true });
+        }
+      }
       if (result.currency_original !== "EUR") {
         setSavedExpense(result);
         clearDirty();

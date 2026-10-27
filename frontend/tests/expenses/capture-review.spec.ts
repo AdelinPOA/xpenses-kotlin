@@ -87,6 +87,14 @@ test.describe("single receipt capture and immediate review (#49)", () => {
     await setup(page);
   });
 
+  test("a pending expense without its matching local and server OCR source stays on the edit form", async ({ page }) => {
+    await page.route("**/api/expenses/31", (route) => route.fulfill({ json: pendingExpense }));
+    await page.goto("/expenses/31/edit?ocr_source_id=spoofed-source", { waitUntil: "load" });
+    await expect(page.getByLabel(/Amount/i).first()).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Check the receipt details" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Confirm Expense", exact: true })).toHaveCount(0);
+  });
+
   test("historical and unrecoverable OCR jobs do not block a new capture", async ({ page }) => {
     await page.route("**/api/ocr/jobs**", (route) => route.fulfill({ json: [
       { job_id: 11, status: "COMPLETED", stage: "RECEIPT", expense_id: 31, receipt_id: 32, allowed_actions: ["view_expense"] },

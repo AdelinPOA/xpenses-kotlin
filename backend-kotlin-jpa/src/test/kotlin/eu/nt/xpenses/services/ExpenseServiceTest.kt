@@ -13,6 +13,7 @@ import eu.nt.xpenses.repositories.ExpenseReportRepository
 import eu.nt.xpenses.repositories.ExpenseRepository
 import eu.nt.xpenses.repositories.ExpenseReviewOperationRepository
 import eu.nt.xpenses.repositories.OcrComparisonRepository
+import eu.nt.xpenses.repositories.OcrJobRepository
 import eu.nt.xpenses.repositories.ReceiptRepository
 import eu.nt.xpenses.services.mapper.ExpenseMapper
 import org.junit.jupiter.api.Assertions.*
@@ -51,6 +52,7 @@ class ExpenseServiceTest {
 
     private val expenseRepository = mock(ExpenseRepository::class.java)
     private val expenseReviewOperationRepository = mock(ExpenseReviewOperationRepository::class.java)
+    private val ocrJobRepository = mock(OcrJobRepository::class.java)
     private val jdbcTemplate = mock(JdbcTemplate::class.java)
     private val categoryRepository = mock(CategoryRepository::class.java)
     private val expenseReportRepository = mock(ExpenseReportRepository::class.java)
@@ -74,6 +76,7 @@ class ExpenseServiceTest {
         expenseMapper,
         authorization,
         expenseReviewOperationRepository,
+        ocrJobRepository,
         jdbcTemplate
     )
 
@@ -376,7 +379,8 @@ class ExpenseServiceTest {
 
     @Test
     fun `uploadReceipts uses StorageContext RECEIPT`() {
-        val exp = Expense(id = 1, user = techUser, status = "draft", amountOriginal = BigDecimal("10.00"), amountEur = BigDecimal("10.00"), currencyOriginal = "EUR", date = "2024-01-01", verificationState = ExpenseVerificationState.VERIFIED)
+        val verifiedAt = Instant.parse("2024-01-02T03:04:05Z")
+        val exp = Expense(id = 1, user = techUser, status = "draft", amountOriginal = BigDecimal("10.00"), amountEur = BigDecimal("10.00"), currencyOriginal = "EUR", date = "2024-01-01", verificationState = ExpenseVerificationState.VERIFIED, lastVerifiedAt = verifiedAt, lastVerifiedBy = techUser)
         doReturn(Optional.of(exp)).`when`(expenseRepository).findById(1)
         doReturn("2024/01/1_test.png").`when`(storageService).storeFile(eqNonNull(StorageContext.RECEIPT), anyObject(dummyUpload), anyInt())
         doAnswer {
@@ -390,7 +394,37 @@ class ExpenseServiceTest {
 
         assertEquals(1, result.size)
         assertEquals("2024/01/1_test.png", result[0]["file_path"])
-        assertEquals(ExpenseVerificationState.PENDING, exp.verificationState)
+        assertEquals(ExpenseVerificationState.VERIFIED, exp.verificationState)
+        assertEquals(verifiedAt, exp.lastVerifiedAt)
+        assertEquals(techUser.id, exp.lastVerifiedBy?.id)
         verify(storageService).storeFile(eqNonNull(StorageContext.RECEIPT), anyObject(dummyUpload), anyInt())
+    }
+
+    @Test
+    fun `deleteSingleReceipt preserves completed verification`() {
+        val verifiedAt = Instant.parse("2024-01-02T03:04:05Z")
+        val expense = Expense(
+            id = 1,
+            user = techUser,
+            status = "draft",
+            amountOriginal = BigDecimal("10.00"),
+            amountEur = BigDecimal("10.00"),
+            currencyOriginal = "EUR",
+            date = "2024-01-01",
+            verificationState = ExpenseVerificationState.VERIFIED,
+            lastVerifiedAt = verifiedAt,
+            lastVerifiedBy = techUser,
+        )
+        val receipt = Receipt(id = 100, expense = expense, filePath = "2024/01/1_test.png", originalName = "test.png")
+        expense.receipts.add(receipt)
+        doReturn(Optional.of(expense)).`when`(expenseRepository).findById(1)
+        doReturn(Optional.of(receipt)).`when`(receiptRepository).findById(100)
+
+        expenseService.deleteSingleReceipt(1, 100, techUser)
+
+        assertEquals(ExpenseVerificationState.VERIFIED, expense.verificationState)
+        assertEquals(verifiedAt, expense.lastVerifiedAt)
+        assertEquals(techUser.id, expense.lastVerifiedBy?.id)
+        verify(receiptRepository).delete(receipt)
     }
 }

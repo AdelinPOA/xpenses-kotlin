@@ -26,17 +26,17 @@ Persist `Expense.verification_state` independently of `Expense.status`:
 | Verification state | Meaning |
 | --- | --- |
 | `NOT_REQUIRED` | No explicit OCR-capture confirmation is required by this flow. |
-| `PENDING` | A single-capture OCR Expense exists, but its current reviewable values have not been confirmed by its owning User. |
-| `VERIFIED` | The owning User explicitly confirmed the current reviewable values and associated Receipt; the server acknowledged the command. |
+| `PENDING` | A single-capture OCR Expense awaits its owning User's initial review. |
+| `VERIFIED` | The owning User completed the initial OCR review and the server acknowledged it. This records that the first review happened; it does not assert that later-edited values still match the Receipt. |
 
-Add `last_verified_at` and `last_verified_by_user_id` as the most recent acknowledged attestation. When reviewable Expense or Receipt data changes after verification, reset state to `PENDING` while retaining the last-attestation metadata. `Expense.version` remains the current concurrency token.
+Add `last_verified_at` and `last_verified_by_user_id` as the acknowledged initial-review metadata. Verification is one-time: later changes to Expense values or attached Receipts do not reset `VERIFIED` or clear that metadata. `Expense.version` remains the current concurrency token.
 
 - New single-capture OcrJob promotion creates `PENDING`, including photo-only/manual completion of that captured source.
 - Manual Expenses created through the existing manual-entry flow and bulk-upload Expenses remain `NOT_REQUIRED`; #49 does not add a new confirmation obligation to either flow.
 - V105 backfills all existing Expenses to `NOT_REQUIRED`. Do not infer verification need from status, `raw_ocr_text`, `comparison_id`, merchant/amount completeness, or historical OcrJobs. Legacy OCR jobs remain quarantined under V103; no source bytes or verification state are fabricated.
 - Verification never changes `Expense.status`, approves/rejects a Report, or gates Report submission. A `PENDING` Expense can remain pending at any financial status and must remain discoverable through a verification-state filter.
 - Only the Expense owner may verify, regardless of the owner's role. Verification is available regardless of financial status because it changes neither the Report nor the financial lifecycle. Existing financial authorization/edit restrictions remain in force.
-- A verified Expense edited later through any supported route returns to `PENDING` when amount, currency, date, merchant, description, category, tax/FX review values or attached Receipt set changes. Report association/status changes alone do not invalidate the attestation.
+- The initial OCR review can be completed only while an Expense is `PENDING` with no prior `last_verified_at`. Once confirmed, later Expense edits and Receipt additions/deletions preserve `VERIFIED` and its initial-review metadata. The state does not claim those later values were reviewed. Report association/status changes do not affect verification.
 
 ## State transitions and truthful UI
 
@@ -68,10 +68,10 @@ Add `last_verified_at` and `last_verified_by_user_id` as the most recent acknowl
 
 - V105 (owned by #61) adds `verification_state` (default/check constraint `NOT_REQUIRED`), nullable last-verification actor/time, the minimal review-operation idempotency ledger, and an index supporting owner + verification state. V106 (owned by #62, after V105) adds nullable owner-scoped OCR acceptance key/fingerprint and optional report context on OcrJob. Do not edit applied V103/V104 migrations.
 - Extend `ExpenseOut` with `version`, `verification_state`, `last_verified_at`, and `last_verified_by_user_id`. Add `verification_state` to the existing paged/unpaged `GET /api/expenses` filters, across all financial statuses.
-- Add `PUT /api/expenses/{id}/review` with body `{ expected_version, values, confirm }` and an `Idempotency-Key`. `values` are the allowed reviewable Expense fields with explicit category-clear semantics. In one transaction, the owner-scoped handler compares `expected_version`, applies allowed corrections, recomputes existing FX fields through current service logic, and—only if `confirm=true`—sets `VERIFIED` plus actor/time. `confirm=false` saves values but leaves verification pending. `confirm=true` requires at least one associated Receipt; an Expense promoted ahead of its Receipt cannot be verified in the gap. Confirmation and the values it confirms cannot race into separate versions. Applying edits continues to obey the existing financial edit restrictions; confirming unchanged values is allowed to the owner at any financial status.
+- Add `PUT /api/expenses/{id}/review` with body `{ expected_version, values, confirm }` and an `Idempotency-Key`. `values` are the allowed reviewable Expense fields with explicit category-clear semantics. In one transaction, the owner-scoped handler compares `expected_version`, applies allowed corrections, recomputes existing FX fields through current service logic, and—only if `confirm=true`—sets `VERIFIED` plus actor/time. The operation accepts only an outstanding initial review (`PENDING` with no prior verification timestamp) linked to a non-terminal OcrJob owned by the same User and associated with that Expense; a new operation cannot review an already verified or `NOT_REQUIRED` Expense. Replaying the original idempotency key remains safe after confirmation. `confirm=false` saves values but leaves the initial review pending. `confirm=true` requires at least one associated Receipt; an Expense promoted ahead of its Receipt cannot be verified in the gap. Confirmation and the values it confirms cannot race into separate versions. Applying edits continues to obey the existing financial edit restrictions.
 - Same owner/key/body replay returns the current acknowledged state without reapplying; same key with a different fingerprint returns `409`. A stale expected version returns `409` with the current safe Expense snapshot and makes no mutation. Do not silently merge or overwrite: the client keeps its local values, shows a conflict, reloads the server version, and requires explicit reapplication.
 - The review operation ledger stores owner, operation key, payload hash, Expense ID and resulting version—not receipt bytes, OCR text or a frozen sensitive response snapshot. Retain keys long enough to resolve retries; an expired key cannot bypass `expected_version`.
-- Existing `PATCH /api/expenses/{id}` remains compatible for other clients, but its shared mutation path invalidates `VERIFIED` when reviewable values change. Receipt attach/delete paths do likewise. The new immediate-review UI uses the versioned review operation.
+- Existing `PATCH /api/expenses/{id}` remains compatible for other clients and preserves `VERIFIED` and its initial-review metadata when values change. Receipt attach/delete paths likewise preserve verification. The initial OCR review UI uses the versioned review operation.
 - `confirm=true` is rejected while offline or while local/server edits are pending/uncertain. The UI may retain edits locally, but it must not label them confirmed. If connectivity drops after sending, keep the same operation key and resolve the result before allowing another confirmation.
 
 ## Local retention, account scope, and offline behavior
@@ -102,7 +102,7 @@ Approved 2026-10-19: preserve the existing 30-day OCR source expiry measured fro
 ## Compatibility, rollout, and rollback
 
 1. Additive V105 migration after V104 adds verification fields/ledger; V106 adds OCR acceptance/report-context metadata. All existing Expenses default `NOT_REQUIRED`; existing OcrJobs with no acceptance key remain unchanged, including V103 `UNRECOVERABLE` quarantine. No fabricated data or automatic historical verification.
-2. Deploy backend support before the new frontend. New DTO fields are additive; old clients ignore them. Old clients without OCR idempotency keys retain at-least-once behavior. Old PATCH callers keep working, but edits to an already verified Expense invalidate verification in the shared service.
+2. Deploy backend support before the new frontend. New DTO fields are additive; old clients ignore them. Old clients without OCR idempotency keys retain at-least-once behavior. Old PATCH callers keep working, and edits to an already verified Expense preserve its one-time initial-review state.
 3. Deploy the new client with a feature gate disabled until acceptance idempotency, recovery/manual completion, review CAS, owner isolation, migration rehearsal, and restart/failure tests pass. Rollback removes no columns/data; old clients continue using existing routes. If a new route is unavailable after rollback, keep local data and report “not synced”; never silently create a replacement.
 4. Do not enable OCR-source cleanup merely because V105 or the new capture flow ships. Preserve the #60 production hold until source/backup provenance is established and separately approved.
 
@@ -115,13 +115,13 @@ Extend these existing suites and add the named cases before rollout:
 - New `OcrRecoveryControllerTest`: owner list/detail/actions, safe payload (no bytes/result JSON/provider diagnostics), cross-owner denial, repeated retry/manual-completion requests, and rejection of invalid manual categories.
 - `OcrJobMigrationRegressionTest`: V105 defaults historical/manual/bulk Expenses to `NOT_REQUIRED`, new OcrJob promotion to `PENDING`, preserves V103 legacy quarantine, and leaves old nullable acceptance keys valid.
 - `ExpenseControllerTest`: `PUT review` returns 409 without mutation for stale version or before a Receipt is attached; owner-only confirmation is independent of financial status; replay of the same operation does not create a second attestation.
-- `ExpenseServiceTest`: changing reviewable Expense/Receipt data after `VERIFIED` returns to `PENDING`; unrelated financial/report transitions do not.
+- `ExpenseServiceTest`: changing reviewable Expense/Receipt data after `VERIFIED` preserves its state and metadata; only an outstanding initial OCR review can be confirmed.
 - `ExpenseIdempotencyTest` or a focused `ExpenseReviewIdempotencyTest`: same key/body replays, changed body conflicts, response-loss recovery keeps the exact current version.
 - Frontend module tests: extend `ocr-source-queue.test.cjs`, `capture-resume-state.test.cjs`, and `expense-saving-idempotency.test.cjs` for edit persistence, same-key retry, owner switch and confirmation gating. `capture-review.spec.ts` covers reload, navigation, manual completion, conflict, report-link conflict and both confirmation destinations. `offline-queue.spec.ts` gets an explicit service-worker-enabled offline cold-start case.
 - Follow #36's release gate: migration rehearsal plus controlled restart at every persisted stage, concurrent workers/stale-token rejection, authenticated owner recovery, permanent/transient failures, and local-storage scope. Emulated WebKit is not physical iPhone acceptance; #51 remains a separate human gate.
 
 ## Blocking work
 
-- **#61** — Expense verification state, versioned/idempotent review writes, verification invalidation and V105 migration/compatibility. Land before #62.
+- **#61** — Expense verification state, versioned/idempotent initial-review writes and V105 migration/compatibility. Land before #62.
 - **#62** — OCR acceptance idempotency, owner recovery list/actions, same-job manual completion and V106 migration/report context. Blocked by #61 so promotion can call the durable verification service.
 - **#49** remains blocked by #47, #61 and #62; #46's contract is complete. This document resolves the design choices; it does not claim those backend prerequisites are delivered or authorize production deployment.

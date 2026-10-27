@@ -11,7 +11,6 @@ import { useFormGuard } from "@/lib/useFormGuard";
 import { CURRENCIES } from "@/lib/types/common";
 import {
   findOcrSourceByExpenseId,
-  createRecoveredOcrReview,
   listOcrSources,
   persistOcrReviewState,
   removeOcrSource,
@@ -140,11 +139,15 @@ function sanitizeUrl(url: string): string {
 export default function ImmediateExpenseReview({
   expense: initialExpense,
   sourceId,
-  onReload,
+  recoveringConfirmedOperation = false,
+  onSourceUnavailableAction,
+  onReloadAction,
 }: {
   expense: Expense;
   sourceId?: string | null;
-  onReload: () => Promise<Expense | null>;
+  recoveringConfirmedOperation?: boolean;
+  onSourceUnavailableAction?: () => void;
+  onReloadAction: () => Promise<Expense | null>;
 }) {
   const router = useRouter();
   const qc = useQueryClient();
@@ -203,13 +206,9 @@ export default function ImmediateExpenseReview({
         if (sourceId) record = records.find((item) => item.id === sourceId && item.expenseId === currentExpense.id) ?? null;
         if (!record) record = await findOcrSourceByExpenseId(user.id, currentExpense.id);
         if (!record) {
-          record = await createRecoveredOcrReview({
-            userId: user.id,
-            expenseId: currentExpense.id,
-            receiptId: currentExpense.receipts?.[0]?.id,
-            expenseVersion: currentExpense.version,
-            reportId: currentExpense.report_id ?? undefined,
-          });
+          onSourceUnavailableAction?.();
+          setError(tr("local_storage_unavailable"));
+          return;
         }
         if (!active) return;
         if (record.reviewOperation) {
@@ -236,7 +235,10 @@ export default function ImmediateExpenseReview({
           setFxRateEditMode(record.reviewValues.fxRateEditMode);
         }
       } catch {
-        if (active) setError(tr("local_storage_unavailable"));
+        if (active) {
+          setError(tr("local_storage_unavailable"));
+          onSourceUnavailableAction?.();
+        }
       } finally {
         if (active) setSourceLoaded(true);
       }
@@ -416,7 +418,7 @@ export default function ImmediateExpenseReview({
   };
 
   const reloadLatest = async () => {
-    const latest = await onReload();
+    const latest = await onReloadAction();
     if (!latest) return;
     setExpense(latest);
     setForm(valuesFromExpense(latest));
@@ -465,7 +467,7 @@ export default function ImmediateExpenseReview({
           <p className="mt-1 text-sm text-muted-foreground">{tr("subtitle")}</p>
         </div>
         <span className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-3 text-xs font-bold text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
-          <span className="h-2 w-2 rounded-full bg-amber-500" /> {tr("pending")}
+          <span className="h-2 w-2 rounded-full bg-amber-500" /> {recoveringConfirmedOperation ? tr("state_uncertain") : tr("pending")}
         </span>
       </div>
 

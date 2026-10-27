@@ -12,6 +12,7 @@ import eu.nt.xpenses.repositories.ExpenseReportRepository
 import eu.nt.xpenses.repositories.ExpenseRepository
 import eu.nt.xpenses.repositories.ExpenseReviewOperationRepository
 import eu.nt.xpenses.repositories.OcrComparisonRepository
+import eu.nt.xpenses.repositories.OcrJobRepository
 import eu.nt.xpenses.repositories.ReceiptRepository
 import eu.nt.xpenses.services.mapper.ExpenseMapper
 import org.slf4j.LoggerFactory
@@ -42,6 +43,7 @@ class ExpenseService(
     private val expenseMapper: ExpenseMapper,
     private val authorization: Authorization,
     private val expenseReviewOperationRepository: ExpenseReviewOperationRepository,
+    private val ocrJobRepository: OcrJobRepository,
     private val jdbcTemplate: JdbcTemplate
 ) {
     private val log = LoggerFactory.getLogger(ExpenseService::class.java)
@@ -184,8 +186,6 @@ class ExpenseService(
         if (expense.status != "draft") {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Only draft expenses can be edited")
         }
-        val reviewBefore = reviewableSnapshot(expense)
-
         if (body.clearCategory && body.categoryId != null) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot select and clear category in the same update")
         }
@@ -252,11 +252,6 @@ class ExpenseService(
             expense.report = rep
         }
 
-        if (reviewableFieldsChanged(reviewBefore, reviewableSnapshot(expense)) &&
-            expense.verificationState == ExpenseVerificationState.VERIFIED
-        ) {
-            expense.verificationState = ExpenseVerificationState.PENDING
-        }
         expense.updatedAt = Instant.now()
         val saved = expenseRepository.save(expense)
 
@@ -302,6 +297,20 @@ class ExpenseService(
         if (expense.version != body.expectedVersion) {
             throw ExpenseVersionConflict(expenseMapper.toExpenseOut(expense))
         }
+        if (expense.verificationState != ExpenseVerificationState.PENDING || expense.lastVerifiedAt != null) {
+            throw ResponseStatusException(HttpStatus.CONFLICT, "Initial OCR review is no longer pending")
+        }
+        val sourceJob = ocrJobRepository.findFirstByUser_IdAndExpenseIdOrderByCreatedAtDesc(currentUserId, expenseId)
+        if (sourceJob == null || sourceJob.status !in setOf(
+                OcrJobStatus.PENDING,
+                OcrJobStatus.PROCESSING,
+                OcrJobStatus.RETRY_WAIT,
+                OcrJobStatus.PAUSED,
+                OcrJobStatus.COMPLETED,
+            )
+        ) {
+            throw ResponseStatusException(HttpStatus.CONFLICT, "Expense is not linked to an active OCR source")
+        }
         if (body.confirm && expense.receipts.isEmpty()) {
             throw ResponseStatusException(HttpStatus.CONFLICT, "A Receipt must be attached before the Expense can be verified")
         }
@@ -317,9 +326,6 @@ class ExpenseService(
         val changed = reviewableFieldsChanged(before, reviewableSnapshot(expense))
         val now = Instant.now()
 
-        if (changed && expense.verificationState == ExpenseVerificationState.VERIFIED) {
-            expense.verificationState = ExpenseVerificationState.PENDING
-        }
         if (body.confirm) {
             expense.verificationState = ExpenseVerificationState.VERIFIED
             expense.lastVerifiedAt = now
@@ -596,9 +602,6 @@ class ExpenseService(
                 "original_name" to originalName
             ))
         }
-        if (savedReceiptsList.isNotEmpty() && expense.verificationState == ExpenseVerificationState.VERIFIED) {
-            expense.verificationState = ExpenseVerificationState.PENDING
-        }
         expense.updatedAt = now
         expenseRepository.save(expense)
         return savedReceiptsList
@@ -625,9 +628,6 @@ class ExpenseService(
 
         val filePath = receipt.filePath
         receiptRepository.delete(receipt)
-        if (expense.verificationState == ExpenseVerificationState.VERIFIED) {
-            expense.verificationState = ExpenseVerificationState.PENDING
-        }
         expense.updatedAt = Instant.now()
         expenseRepository.save(expense)
 

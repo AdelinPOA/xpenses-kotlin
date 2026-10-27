@@ -15,6 +15,8 @@ import java.time.Instant
 interface OcrJobRepository : JpaRepository<OcrJob, Int> {
     fun findByUser_IdAndAcceptanceKey(userId: Int, acceptanceKey: String): OcrJob?
 
+    fun findFirstByUser_IdAndExpenseIdOrderByCreatedAtDesc(userId: Int, expenseId: Int): OcrJob?
+
     fun findAllByUser_IdOrderByCreatedAtDesc(userId: Int, pageable: org.springframework.data.domain.Pageable): List<OcrJob>
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)

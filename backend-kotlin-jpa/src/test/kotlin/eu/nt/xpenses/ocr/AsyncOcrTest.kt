@@ -7,6 +7,7 @@ import eu.nt.xpenses.model.ExpenseReport
 import eu.nt.xpenses.model.OcrJob
 import eu.nt.xpenses.model.OcrJobStage
 import eu.nt.xpenses.model.OcrJobStatus
+import eu.nt.xpenses.model.Receipt
 import eu.nt.xpenses.model.User
 import eu.nt.xpenses.repositories.CategoryRepository
 import eu.nt.xpenses.repositories.ExpenseRepository
@@ -17,6 +18,8 @@ import eu.nt.xpenses.repositories.ReceiptRepository
 import eu.nt.xpenses.services.AsyncOcrService
 import eu.nt.xpenses.services.FxService
 import eu.nt.xpenses.services.OcrService
+import eu.nt.xpenses.models.RawUpload
+import eu.nt.xpenses.services.StorageContext
 import eu.nt.xpenses.services.StorageService
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
@@ -26,6 +29,7 @@ import org.mockito.Mockito.*
 import org.springframework.transaction.TransactionStatus
 import org.springframework.transaction.support.TransactionCallback
 import org.springframework.transaction.support.TransactionTemplate
+import java.math.BigDecimal
 import java.time.Instant
 import java.util.Optional
 import java.util.concurrent.Executor
@@ -41,6 +45,7 @@ class AsyncOcrTest {
                 1
             }
             "completeExpenseStage" -> 1
+            "completeReceiptStage" -> 1
             "recordPermanentFailure" -> {
                 job.status = OcrJobStatus.PERMANENT_FAILURE
                 job.errorCode = invocation.getArgument(2)
@@ -89,6 +94,16 @@ class AsyncOcrTest {
 
     private lateinit var techUser: User
     private lateinit var job: OcrJob
+
+    private fun <T : Any> anyObject(dummy: T): T {
+        any(dummy::class.java)
+        return dummy
+    }
+
+    private fun <T : Any> eqNonNull(value: T): T {
+        eq(value)
+        return value
+    }
 
     @BeforeEach
     fun setup() {
@@ -161,6 +176,38 @@ class AsyncOcrTest {
         assertEquals(null, promoted.value.report)
         assertEquals("CONFLICT", job.reportLinkStatus)
         assertEquals(ExpenseVerificationState.PENDING, promoted.value.verificationState)
+    }
+
+    @Test
+    fun `OCR receipt promotion preserves a previously verified Expense`() {
+        job.stage = OcrJobStage.RECEIPT
+        job.expenseId = 99
+        job.sourcePath = "ocr-sources/1_receipt.jpg"
+        val expense = Expense(
+            id = 99,
+            user = techUser,
+            amountOriginal = BigDecimal.ONE,
+            amountEur = BigDecimal.ONE,
+            date = "2026-10-20",
+            verificationState = ExpenseVerificationState.VERIFIED,
+        )
+        `when`(expenseRepository.findById(99)).thenReturn(Optional.of(expense))
+        `when`(storageService.downloadFile(job.sourcePath!!)).thenReturn(byteArrayOf(1, 2, 3, 4))
+        doReturn("receipts/99_receipt.jpg").`when`(storageService)
+            .storeFile(eqNonNull(StorageContext.RECEIPT), anyObject(RawUpload(byteArrayOf(1, 2, 3, 4), "receipt.jpg", "image/jpeg")), eq(99))
+        doAnswer { invocation ->
+            (invocation.arguments[0] as Receipt).apply { id = 100 }
+        }.`when`(receiptRepository).saveAndFlush(anyObject(Receipt(expense = expense, filePath = "dummy", originalName = "dummy")))
+        org.springframework.transaction.support.TransactionSynchronizationManager.initSynchronization()
+
+        try {
+            asyncOcrService.processOcr(1)
+        } finally {
+            org.springframework.transaction.support.TransactionSynchronizationManager.clearSynchronization()
+        }
+
+        assertEquals(ExpenseVerificationState.VERIFIED, expense.verificationState)
+        verify(expenseRepository, never()).saveAndFlush(expense)
     }
 
     @Test

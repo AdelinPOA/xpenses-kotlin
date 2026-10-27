@@ -3,7 +3,11 @@ package eu.nt.xpenses.controllers
 import eu.nt.xpenses.IntegrationTestBase
 import eu.nt.xpenses.model.Expense
 import eu.nt.xpenses.model.ExpenseVerificationState
+import eu.nt.xpenses.model.OcrJob
+import eu.nt.xpenses.model.OcrJobStage
+import eu.nt.xpenses.model.OcrJobStatus
 import eu.nt.xpenses.model.Receipt
+import eu.nt.xpenses.repositories.OcrJobRepository
 import jakarta.persistence.EntityManager
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -17,6 +21,23 @@ class ExpenseControllerTest : IntegrationTestBase() {
 
     @Autowired
     private lateinit var entityManager: EntityManager
+
+    @Autowired
+    private lateinit var ocrJobRepository: OcrJobRepository
+
+    private fun associateCompletedOcrJob(expense: Expense) {
+        ocrJobRepository.saveAndFlush(
+            OcrJob(
+                user = expense.user,
+                status = OcrJobStatus.COMPLETED,
+                stage = OcrJobStage.RECEIPT,
+                filename = "review.png",
+                expenseId = expense.id,
+                receiptId = expense.receipts.firstOrNull()?.id,
+                completedAt = Instant.now(),
+            ),
+        )
+    }
 
     private fun saveTechExpense(): Expense {
         val tech = userRepository.findByUsername("tech1")!!
@@ -106,6 +127,7 @@ class ExpenseControllerTest : IntegrationTestBase() {
         expense.receipts.add(Receipt(expense = expense, filePath = "2026/06/review-receipt.png", originalName = "review-receipt.png"))
         expenseRepository.save(expense)
         entityManager.flush()
+        associateCompletedOcrJob(expense)
         entityManager.clear()
         val expectedVersion = expenseRepository.findById(expense.id!!).orElseThrow().version
         val cookie = authHelper.loginAs("tech1", "tech1")
@@ -159,6 +181,7 @@ class ExpenseControllerTest : IntegrationTestBase() {
         val expense = saveTechExpense().apply { verificationState = ExpenseVerificationState.PENDING }
         expenseRepository.save(expense)
         entityManager.flush()
+        associateCompletedOcrJob(expense)
         entityManager.clear()
         val currentVersion = expenseRepository.findById(expense.id!!).orElseThrow().version
         val cookie = authHelper.loginAs("tech1", "tech1")
@@ -234,6 +257,7 @@ class ExpenseControllerTest : IntegrationTestBase() {
             )
             expenseRepository.save(expense)
             entityManager.flush()
+            associateCompletedOcrJob(expense)
             val currentVersion = expense.version
 
             mockMvc.perform(
@@ -285,7 +309,7 @@ class ExpenseControllerTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `PATCH reviewable Expense changes invalidate prior verification`() {
+    fun `PATCH reviewable Expense changes preserve prior verification`() {
         val expense = saveTechExpense()
         val verifiedAt = Instant.parse("2026-06-01T12:00:00Z")
         expense.verificationState = ExpenseVerificationState.VERIFIED
@@ -303,14 +327,79 @@ class ExpenseControllerTest : IntegrationTestBase() {
                 .cookie(cookie)
         )
             .andExpect(status().isOk)
-            .andExpect(jsonPath("$.verification_state").value("PENDING"))
-            .andExpect(jsonPath("$.last_verified_at").exists())
+            .andExpect(jsonPath("$.verification_state").value("VERIFIED"))
+            .andExpect(jsonPath("$.last_verified_at").value(verifiedAt.toString()))
+            .andExpect(jsonPath("$.last_verified_by_user_id").value(expense.user!!.id))
 
         entityManager.flush()
         entityManager.clear()
         val persisted = expenseRepository.findById(expense.id!!).orElseThrow()
-        org.junit.jupiter.api.Assertions.assertEquals(ExpenseVerificationState.PENDING, persisted.verificationState)
+        org.junit.jupiter.api.Assertions.assertEquals(ExpenseVerificationState.VERIFIED, persisted.verificationState)
         org.junit.jupiter.api.Assertions.assertEquals(verifiedAt, persisted.lastVerifiedAt)
+        org.junit.jupiter.api.Assertions.assertEquals(expense.user!!.id, persisted.lastVerifiedBy?.id)
+    }
+
+    @Test
+    fun `PUT review rejects a second confirmation of an already verified expense`() {
+        val expense = saveTechExpense().apply {
+            verificationState = ExpenseVerificationState.VERIFIED
+            lastVerifiedAt = Instant.parse("2026-06-01T12:00:00Z")
+            lastVerifiedBy = user
+        }
+        expense.receipts.add(Receipt(expense = expense, filePath = "2026/06/verified.png", originalName = "verified.png"))
+        expenseRepository.save(expense)
+        entityManager.flush()
+        entityManager.clear()
+        val version = expenseRepository.findById(expense.id!!).orElseThrow().version
+        val cookie = authHelper.loginAs("tech1", "tech1")
+
+        mockMvc.perform(
+            put("/api/expenses/${expense.id}/review")
+                .header("Idempotency-Key", "review-again-${expense.id}")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"expected_version":$version,"values":{},"confirm":true}""")
+                .cookie(cookie)
+        ).andExpect(status().isConflict)
+
+        entityManager.clear()
+        val persisted = expenseRepository.findById(expense.id!!).orElseThrow()
+        org.junit.jupiter.api.Assertions.assertEquals(ExpenseVerificationState.VERIFIED, persisted.verificationState)
+        org.junit.jupiter.api.Assertions.assertEquals(version, persisted.version)
+        org.junit.jupiter.api.Assertions.assertEquals(Instant.parse("2026-06-01T12:00:00Z"), persisted.lastVerifiedAt)
+    }
+
+    @Test
+    fun `PUT review rejects manual expenses and pending expenses without an OCR source`() {
+        val cookie = authHelper.loginAs("tech1", "tech1")
+        val manualExpense = saveTechExpense()
+        entityManager.flush()
+        val manualVersion = manualExpense.version
+
+        mockMvc.perform(
+            put("/api/expenses/${manualExpense.id}/review")
+                .header("Idempotency-Key", "manual-review-${manualExpense.id}")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"expected_version":$manualVersion,"values":{},"confirm":true}""")
+                .cookie(cookie)
+        ).andExpect(status().isConflict)
+            .andExpect(jsonPath("$.detail").value("Initial OCR review is no longer pending"))
+
+        val pendingExpense = saveTechExpense().apply {
+            verificationState = ExpenseVerificationState.PENDING
+            receipts.add(Receipt(expense = this, filePath = "2026/06/no-job.png", originalName = "no-job.png"))
+        }
+        expenseRepository.save(pendingExpense)
+        entityManager.flush()
+        val pendingVersion = pendingExpense.version
+
+        mockMvc.perform(
+            put("/api/expenses/${pendingExpense.id}/review")
+                .header("Idempotency-Key", "orphan-review-${pendingExpense.id}")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"expected_version":$pendingVersion,"values":{},"confirm":true}""")
+                .cookie(cookie)
+        ).andExpect(status().isConflict)
+            .andExpect(jsonPath("$.detail").value("Expense is not linked to an active OCR source"))
     }
 
     @Test

@@ -17,7 +17,7 @@ A logged record of money spent, submitted and owned by a User regardless of role
 _Avoid_: entry, claim
 
 **Expense verification**:
-The owning User's explicit, server-acknowledged confirmation that an Expense's current reviewable values match its Receipt. It is independent of the Expense's financial status and is not financial approval.
+The owning User's explicit, server-acknowledged completion of the initial review of an OCR-created Expense. It is recorded once; later edits or Receipt changes do not reopen that review or claim that the changed values were checked. It is independent of the Expense's financial status and is not financial approval.
 _Avoid_: Expense approval, verified status
 
 **Original currency**:

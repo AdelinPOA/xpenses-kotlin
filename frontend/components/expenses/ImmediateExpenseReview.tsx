@@ -139,11 +139,13 @@ function sanitizeUrl(url: string): string {
 export default function ImmediateExpenseReview({
   expense: initialExpense,
   sourceId,
+  recoveringConfirmedOperation = false,
   onSourceUnavailableAction,
   onReloadAction,
 }: {
   expense: Expense;
   sourceId?: string | null;
+  recoveringConfirmedOperation?: boolean;
   onSourceUnavailableAction?: () => void;
   onReloadAction: () => Promise<Expense | null>;
 }) {
@@ -465,7 +467,7 @@ export default function ImmediateExpenseReview({
           <p className="mt-1 text-sm text-muted-foreground">{tr("subtitle")}</p>
         </div>
         <span className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-3 text-xs font-bold text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
-          <span className="h-2 w-2 rounded-full bg-amber-500" /> {tr("pending")}
+          <span className="h-2 w-2 rounded-full bg-amber-500" /> {recoveringConfirmedOperation ? tr("state_uncertain") : tr("pending")}
         </span>
       </div>
 

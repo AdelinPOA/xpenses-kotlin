@@ -36,6 +36,7 @@ export default function EditExpensePage({ params }: { params: Promise<{ id: stri
   const { user } = useAuth();
   const t = useTranslations("expenses");
   const [matchingOcrSource, setMatchingOcrSource] = useState(false);
+  const [recoveringConfirmedOperation, setRecoveringConfirmedOperation] = useState(false);
   const [ocrSourceUnavailable, setOcrSourceUnavailable] = useState(false);
   const [ocrSourceCheckPending, setOcrSourceCheckPending] = useState(false);
 
@@ -47,15 +48,16 @@ export default function EditExpensePage({ params }: { params: Promise<{ id: stri
   useEffect(() => {
     let active = true;
     setMatchingOcrSource(false);
+    setRecoveringConfirmedOperation(false);
     setOcrSourceUnavailable(false);
     setOcrSourceCheckPending(false);
-    if (
-      !ocrSourceId ||
-      !expense ||
-      !user?.id ||
-      expense.verification_state !== "PENDING" ||
-      expense.last_verified_at
-    ) return () => { active = false; };
+    const initialReviewPending = Boolean(
+      expense?.verification_state === "PENDING" && !expense.last_verified_at,
+    );
+    const serverAlreadyVerified = expense?.verification_state === "VERIFIED" && Boolean(expense.last_verified_at);
+    if (!ocrSourceId || !expense || !user?.id || (!initialReviewPending && !serverAlreadyVerified)) {
+      return () => { active = false; };
+    }
 
     setOcrSourceCheckPending(true);
     void listOcrSources(user.id)
@@ -66,14 +68,23 @@ export default function EditExpensePage({ params }: { params: Promise<{ id: stri
           Number.isSafeInteger(item.remoteJobId) &&
           (item.remoteJobId ?? 0) > 0,
         );
-        if (!source || !expense.receipts?.length) return false;
+        const hasUnresolvedConfirmedOperation = Boolean(source?.reviewOperation?.body.confirm);
+        if (
+          !source ||
+          !expense.receipts?.length ||
+          (serverAlreadyVerified && !hasUnresolvedConfirmedOperation)
+        ) return { matches: false, recovering: false };
         const { data: job } = await api.get(`/ocr/status/${source.remoteJobId}`);
         const status = String(job.status ?? "").toUpperCase();
-        return Number(job.expense_id) === expense.id &&
+        const matches = Number(job.expense_id) === expense.id &&
           ["COMPLETED", "PENDING", "PROCESSING", "RETRY_WAIT", "PAUSED"].includes(status);
+        return { matches, recovering: matches && serverAlreadyVerified && hasUnresolvedConfirmedOperation };
       })
-      .then((isOutstandingSource) => {
-        if (active) setMatchingOcrSource(isOutstandingSource);
+      .then(({ matches, recovering }) => {
+        if (active) {
+          setMatchingOcrSource(matches);
+          setRecoveringConfirmedOperation(recovering);
+        }
       })
       .catch(() => {
         if (active) setMatchingOcrSource(false);
@@ -93,7 +104,8 @@ export default function EditExpensePage({ params }: { params: Promise<{ id: stri
   );
   const showImmediateReview = Boolean(
     process.env.NEXT_PUBLIC_OCR_IMMEDIATE_REVIEW_ENABLED === "true" &&
-    expense && ocrReviewOutstanding && matchingOcrSource && !ocrSourceUnavailable,
+    expense && (ocrReviewOutstanding || recoveringConfirmedOperation) &&
+    matchingOcrSource && !ocrSourceUnavailable,
   );
   const returnToReportId = requestedReportId && expense?.report_id === requestedReportId
     ? requestedReportId
@@ -111,6 +123,7 @@ export default function EditExpensePage({ params }: { params: Promise<{ id: stri
         <ImmediateExpenseReview
           expense={expense}
           sourceId={ocrSourceId}
+          recoveringConfirmedOperation={recoveringConfirmedOperation}
           onSourceUnavailableAction={() => setOcrSourceUnavailable(true)}
           onReloadAction={async () => {
             const latest = await refetch();

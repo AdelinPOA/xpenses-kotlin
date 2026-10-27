@@ -376,8 +376,7 @@ test.describe("single receipt capture and immediate review (#49)", () => {
     await expect(page.getByText(/Saved on this device — not saved on the server/i)).toBeVisible();
     await page.goto(`/expenses/32/edit?ocr_source_id=${sourceId}`, { waitUntil: "load" });
     await expect(page.getByLabel(/Merchant/i)).toHaveValue("Other server merchant");
-    await page.getByRole("button", { name: "Confirm Expense", exact: true }).click();
-    await expect(page).toHaveURL(/\/expenses\?highlight=32$/);
+    await expect(page.getByRole("button", { name: "Confirm Expense", exact: true })).toHaveCount(0);
     await page.goto(originalUrl, { waitUntil: "load" });
     await expect(page.getByLabel(/Merchant/i)).toHaveValue("Retain first Expense correction");
   });

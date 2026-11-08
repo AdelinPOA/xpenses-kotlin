@@ -85,6 +85,7 @@
   "auth": {
     "login": {
       "error_invalid_credentials": "Invalid username or password",
+      "error_rate_limited": "Too many failed attempts. Please wait 1 minute before trying again.",
       "app_name": "xpenses",
       "subtitle": "Sign in to your account",
       "label_username": "Username",

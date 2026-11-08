@@ -27,6 +27,16 @@ test.describe("Login page", () => {
     await expect(page.getByText("Invalid username or password")).toBeVisible({ timeout: 8000 });
   });
 
+  test("shows rate limit error on 429", async ({ page }) => {
+    await page.route("**/api/auth/login", (route) => route.fulfill({ status: 429 }));
+    await page.goto("/login", { waitUntil: "load" });
+    await page.waitForTimeout(2000);
+    await page.locator('input[type="text"]').fill("mod1");
+    await page.locator('input[type="password"]').fill("pass");
+    await page.getByRole("button", { name: /sign in/i }).click();
+    await expect(page.getByText("Too many failed attempts. Please wait 1 minute before trying again.")).toBeVisible({ timeout: 8000 });
+  });
+
   test("redirects to dashboard on successful login", async ({ page }) => {
     await page.route("**/api/auth/login", (route) => route.fulfill({ json: MOCK_USER }));
     await page.context().addCookies([

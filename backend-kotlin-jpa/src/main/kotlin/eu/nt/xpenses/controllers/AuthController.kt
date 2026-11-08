@@ -36,6 +36,11 @@ class AuthController(
     @Value("\${jwt.refresh-expires-days:30}") private val refreshExpiresDays: Long,
     @Value("\${jwt.cookie.access-max-age-seconds:0}") private val accessCookieMaxAgeSeconds: Long
 ) {
+    companion object {
+        private const val DUMMY_BCRYPT_HASH =
+            "\$2a\$10\$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy"
+    }
+
     private val cookieMaxAgeSeconds: Long by lazy {
         if (accessCookieMaxAgeSeconds > 0) accessCookieMaxAgeSeconds else refreshExpiresDays * 86400
     }
@@ -46,9 +51,10 @@ class AuthController(
         @Valid @RequestBody request: LoginRequest,
         response: HttpServletResponse
     ): ResponseEntity<*> {
-        val user = userRepository.findByUsername(request.username)
+        val trimmedIdentifier = request.username.trim()
+        val user = userRepository.findByIdentifier(trimmedIdentifier).firstOrNull()
         if (user == null) {
-            passwordEncoder.matches(request.password, "\$2a\$10\$dummyHashThatIsLongEnoughSoBcryptDoesNotCrash")
+            passwordEncoder.matches(request.password, DUMMY_BCRYPT_HASH)
             return ResponseEntity.status(401).body(mapOf("detail" to "Invalid credentials"))
         }
 

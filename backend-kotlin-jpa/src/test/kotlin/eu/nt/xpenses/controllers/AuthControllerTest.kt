@@ -23,6 +23,30 @@ class AuthControllerTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `login with case-insensitive username and whitespace returns 200`() {
+        mockMvc.perform(
+            post("/api/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"username":"  Tech1  ","password":"tech1"}""")
+        )
+            .andExpect(status().isOk)
+            .andExpect(cookie().exists("access_token"))
+            .andExpect(jsonPath("$.username").value("tech1"))
+    }
+
+    @Test
+    fun `login with email returns 200`() {
+        mockMvc.perform(
+            post("/api/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"username":"ION.POPESCU@nt-automation.eu","password":"tech1"}""")
+        )
+            .andExpect(status().isOk)
+            .andExpect(cookie().exists("access_token"))
+            .andExpect(jsonPath("$.username").value("tech1"))
+    }
+
+    @Test
     fun `login with wrong password returns 401`() {
         mockMvc.perform(
             post("/api/auth/login")

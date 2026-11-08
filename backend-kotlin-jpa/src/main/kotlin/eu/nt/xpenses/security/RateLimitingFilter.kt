@@ -35,7 +35,7 @@ class RateLimitingFilter(
 
     // Rate limits (requests per 60-second window per client identity).
     private val limits = mapOf(
-        "/api/auth/login" to 5,
+        "/api/auth/login" to 15,
         "/api/auth/refresh" to 20,
         "/api/ocr/scan" to 10,
         "/api/expenses/scan" to 10,

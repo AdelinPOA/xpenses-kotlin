@@ -51,7 +51,7 @@ class RateLimitingFilterTest {
     fun shouldRateLimitLoginRequestsAfterLimitExceeded() {
         val filterChain = mock(jakarta.servlet.FilterChain::class.java)
 
-        repeat(5) {
+        repeat(15) {
             val (req, res) = login()
             filter.doFilter(req, res, filterChain)
             assertEquals(200, res.status)
@@ -90,7 +90,7 @@ class RateLimitingFilterTest {
     fun shouldAllowRequestsAgainAfterTheWindowExpires() {
         val filterChain = mock(jakarta.servlet.FilterChain::class.java)
 
-        repeat(5) {
+        repeat(15) {
             val (req, res) = login()
             filter.doFilter(req, res, filterChain)
             assertEquals(200, res.status)
@@ -111,7 +111,7 @@ class RateLimitingFilterTest {
     fun shouldRateLimitEachIpIndependently() {
         val filterChain = mock(jakarta.servlet.FilterChain::class.java)
 
-        repeat(5) {
+        repeat(15) {
             val (req, res) = login("192.168.1.100")
             filter.doFilter(req, res, filterChain)
             assertEquals(200, res.status)
@@ -130,7 +130,7 @@ class RateLimitingFilterTest {
     fun forwardedHeadersAreIgnoredWhenImmediatePeerIsNotTrusted() {
         val untrustedFilter = RateLimitingFilter(true, "", 100)
 
-        repeat(5) {
+        repeat(15) {
             assertNotEquals(
                 429,
                 request(untrustedFilter, "10.0.0.9", "198.51.100.$it").status
@@ -146,7 +146,7 @@ class RateLimitingFilterTest {
     fun trustedProxyMayProvideTheClientAddress() {
         val trustedFilter = RateLimitingFilter(true, "10.0.0.9", 100)
 
-        repeat(5) {
+        repeat(15) {
             request(trustedFilter, "10.0.0.9", "198.51.100.1")
         }
         assertNotEquals(
@@ -159,7 +159,7 @@ class RateLimitingFilterTest {
     fun similarPrefixesDoNotMatchAProtectedEndpoint() {
         val filterWithExactMatching = RateLimitingFilter(true, "", 100)
 
-        repeat(6) {
+        repeat(16) {
             assertNotEquals(
                 429,
                 request(filterWithExactMatching, "198.51.100.9", null, "/api/auth/login-extra").status

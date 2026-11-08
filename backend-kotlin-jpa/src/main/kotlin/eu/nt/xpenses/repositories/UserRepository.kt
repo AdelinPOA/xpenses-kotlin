@@ -18,6 +18,14 @@ interface UserRepository : JpaRepository<User, Int> {
         @Param("email") email: String,
     ): User?
 
+    @Query("""
+        SELECT u FROM User u 
+        WHERE LOWER(TRIM(u.username)) = LOWER(TRIM(:identifier)) 
+           OR (u.email IS NOT NULL AND LOWER(TRIM(u.email)) = LOWER(TRIM(:identifier)))
+        ORDER BY u.isActive DESC, u.id ASC
+    """)
+    fun findByIdentifier(@Param("identifier") identifier: String): List<User>
+
     fun findAllByAuthSourceAndIsActive(
         authSource: String,
         isActive: Boolean,

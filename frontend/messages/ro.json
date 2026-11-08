@@ -85,6 +85,7 @@
   "auth": {
     "login": {
       "error_invalid_credentials": "Nume de utilizator sau parolă invalidă",
+      "error_rate_limited": "Prea multe încercări. Vă rugăm să așteptați 1 minut înainte de a reîncerca.",
       "app_name": "xpenses",
       "subtitle": "Conectați-vă la contul dvs.",
       "label_username": "Nume de utilizator",

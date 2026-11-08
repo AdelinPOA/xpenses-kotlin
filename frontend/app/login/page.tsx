@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
+import axios from "axios";
 import { login } from "@/lib/auth";
 import { useAuth } from "@/components/AuthProvider";
 import Image from "next/image";
@@ -30,20 +31,34 @@ function LoginForm() {
   const { setUser } = useAuth();
   const t = useTranslations("auth.login");
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError("");
+
+    const form = e.currentTarget;
+    const formData = new FormData(form);
+    const submittedUsername = ((formData.get("username") as string) || username).trim();
+    const submittedPassword = (formData.get("password") as string) || password;
+
+    if (!submittedUsername || !submittedPassword) {
+      setError(t("error_invalid_credentials"));
+      return;
+    }
+
     setLoading(true);
     try {
-      const user = await login(username, password);
+      const user = await login(submittedUsername, submittedPassword);
       setUser(user);
       // Only allow in-app absolute paths — blocks open redirects like "//evil.com".
       const next = searchParams.get("next");
       router.push(next && next.startsWith("/") && !next.startsWith("//") ? next : "/dashboard");
-    } catch {
-      setError(t("error_invalid_credentials"));
-    } finally {
+    } catch (err: unknown) {
       setLoading(false);
+      if (axios.isAxiosError(err) && err.response?.status === 429) {
+        setError(t("error_rate_limited"));
+      } else {
+        setError(t("error_invalid_credentials"));
+      }
     }
   }
 

@@ -6,11 +6,14 @@ import eu.nt.xpenses.ingestion.DelegationDraft
 import eu.nt.xpenses.ingestion.ImapIngestionLedger
 import eu.nt.xpenses.ingestion.ProcessingClaim
 import eu.nt.xpenses.model.ExpenseReport
+import eu.nt.xpenses.model.User
 import eu.nt.xpenses.repositories.ExpenseReportRepository
 import eu.nt.xpenses.repositories.UserRepository
 import org.slf4j.LoggerFactory
+import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.web.server.ResponseStatusException
 import java.time.Instant
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -581,5 +584,53 @@ class EmailImportService(
             "active_parser" to if (useAi) "ai" else "local",
             "user_display_name" to user.displayName,
         )
+    }
+
+    @Transactional
+    fun importOrderForUser(
+        user: User,
+        bodyText: String,
+    ): ExpenseReport {
+        if (!user.isActive) {
+            throw ResponseStatusException(HttpStatus.FORBIDDEN, "User is inactive")
+        }
+
+        val config = ocrService.getOcrConfig()
+        if (!config.ocrEnabled || config.delegationModelChain.isEmpty()) {
+            throw ResponseStatusException(
+                HttpStatus.UNPROCESSABLE_ENTITY,
+                "Email AI parsing is disabled or no email model chain is configured"
+            )
+        }
+
+        val parsed = parseDelegationEmailWithModels(bodyText, config)
+            ?: throw ResponseStatusException(
+                HttpStatus.UNPROCESSABLE_ENTITY,
+                "No configured AI model returned a valid delegation result. No local fallback was used."
+            )
+
+        val report =
+            ExpenseReport(
+                title = parsed["title"]!!,
+                description = parsed["description"],
+                dateFrom = parsed["date_from"],
+                dateTo = parsed["date_to"],
+                status = "draft",
+                user = user,
+                kundenauftrag = parsed["kundenauftrag"]?.ifEmpty { null },
+                auftragsart = parsed["auftragsart"]?.ifEmpty { null },
+                positionstyp = parsed["positionstyp"]?.ifEmpty { null },
+                technplatzRaw = parsed["technplatz_raw"]?.ifEmpty { null },
+                technplatzLine = parsed["technplatz_line"]?.toBoolean() ?: false,
+                kundeCode = parsed["kunde_code"]?.ifEmpty { null },
+                kundeName = parsed["kunde_name"]?.ifEmpty { null },
+                adresse = parsed["adresse"]?.ifEmpty { null },
+                vorgang = parsed["vorgang"]?.ifEmpty { null },
+                arbeitsplatz = parsed["arbeitsplatz"]?.ifEmpty { null },
+                techniker = parsed["techniker"]?.ifEmpty { null },
+                createdAt = Instant.now(),
+                updatedAt = Instant.now(),
+            )
+        return expenseReportRepository.save(report)
     }
 }

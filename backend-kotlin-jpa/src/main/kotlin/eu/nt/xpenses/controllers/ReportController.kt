@@ -3,6 +3,7 @@ package eu.nt.xpenses.controllers
 import eu.nt.xpenses.dto.report.BulkStatusBody
 import eu.nt.xpenses.dto.report.BulkStatusFailure
 import eu.nt.xpenses.dto.report.BulkStatusResult
+import eu.nt.xpenses.dto.report.ImportOrderIn
 import eu.nt.xpenses.dto.report.RejectBody
 import eu.nt.xpenses.dto.report.ReportCreate
 import eu.nt.xpenses.dto.report.ReportOut
@@ -20,6 +21,7 @@ import eu.nt.xpenses.report.lifecycle.SubmitReportCommand
 import eu.nt.xpenses.repositories.ExpenseReportRepository
 import eu.nt.xpenses.services.mapper.ReportMapper
 import eu.nt.xpenses.services.Authorization
+import eu.nt.xpenses.services.EmailImportService
 import eu.nt.xpenses.services.ExportService
 import eu.nt.xpenses.services.PdfService
 import eu.nt.xpenses.services.StorageService
@@ -51,6 +53,7 @@ class ReportController(
     private val lifecycle: ExpenseReportLifecycle,
     private val notificationAdapter: ReportLifecycleNotificationAdapter,
     private val authorization: Authorization,
+    private val emailImportService: EmailImportService,
 ) {
     @GetMapping
     fun listReports(
@@ -123,6 +126,19 @@ class ReportController(
 
         val saved = expenseReportRepository.save(report)
         return ResponseEntity.status(HttpStatus.CREATED).body(reportMapper.mapReportToOut(saved))
+    }
+
+    @PostMapping("/import-order")
+    @Transactional
+    fun importOrder(
+        @Valid @RequestBody body: ImportOrderIn,
+        request: HttpServletRequest
+    ): ResponseEntity<ReportOut> {
+        val currentUser = request.getAttribute("currentUser") as? User
+            ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
+
+        val report = emailImportService.importOrderForUser(currentUser, body.bodyText)
+        return ResponseEntity.status(HttpStatus.CREATED).body(reportMapper.mapReportToOut(report))
     }
 
     @GetMapping("/{reportId}")

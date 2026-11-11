@@ -2,6 +2,8 @@ package eu.nt.xpenses.services
 
 import eu.nt.xpenses.ingestion.ImapIngestionLedger
 import eu.nt.xpenses.model.AppSetting
+import eu.nt.xpenses.model.ExpenseReport
+import eu.nt.xpenses.model.User
 import eu.nt.xpenses.repositories.AppSettingRepository
 import eu.nt.xpenses.repositories.CategoryRepository
 import eu.nt.xpenses.repositories.ExpenseReportRepository
@@ -10,15 +12,19 @@ import eu.nt.xpenses.repositories.OcrResultCacheRepository
 import eu.nt.xpenses.repositories.UserRepository
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.Test
 import org.mockito.ArgumentMatchers.any
 import org.mockito.ArgumentMatchers.anyString
 import org.mockito.Mockito.doAnswer
 import org.mockito.Mockito.mock
 import org.mockito.Mockito.`when`
+import org.springframework.http.HttpStatus
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.support.TransactionTemplate
+import org.springframework.web.server.ResponseStatusException
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.module.kotlin.jacksonMapperBuilder
 import java.util.Optional
@@ -39,10 +45,11 @@ class EmailImportServiceTest {
             TransactionTemplate(mock(PlatformTransactionManager::class.java)),
             client,
         )
+    private val expenseReportRepository = mock(ExpenseReportRepository::class.java)
     private val service =
         EmailImportService(
             mock(UserRepository::class.java),
-            mock(ExpenseReportRepository::class.java),
+            expenseReportRepository,
             ocrService,
             mapper,
             mock(ImapIngestionLedger::class.java),
@@ -217,5 +224,115 @@ class EmailImportServiceTest {
             assertEquals("Valid trip", result?.get("title"))
             assertEquals("2025-01-01", result?.get("date_from"))
         }
+    }
+
+    @Test
+    fun `importOrderForUser creates draft report attached to current user using AI parsing`() {
+        val user = User(
+            id = 42,
+            username = "tech1",
+            displayName = "Technician One",
+            email = "tech1@example.com",
+            role = "technician",
+            isActive = true
+        )
+
+        `when`(settingsRepository.findById("ocr_config")).thenReturn(
+            Optional.of(AppSetting("ocr_config", mapper.writeValueAsString(config)))
+        )
+        `when`(expenseReportRepository.save(any(ExpenseReport::class.java))).thenAnswer { invocation ->
+            invocation.arguments[0] as ExpenseReport
+        }
+
+        doAnswer {
+            """{"title":"AI Order: Machine Repair","date_from":"2026-05-10","date_to":"2026-05-12","description":"Fix machine","kundenauftrag":"8849201","kunde_name":"Acme Corp"}"""
+        }.`when`(client).complete(
+            any(OCRProviderConfig::class.java) ?: OCRProviderConfig("p", "p", "https://8.8.8.8/v1"),
+            anyString(),
+            anyString(),
+            any<Any?>(),
+        )
+
+        val report = service.importOrderForUser(user, "Auftrag 8849201\nSome email content")
+
+        assertEquals("AI Order: Machine Repair", report.title)
+        assertEquals("draft", report.status)
+        assertEquals(user, report.user)
+        assertEquals("8849201", report.kundenauftrag)
+        assertEquals("Acme Corp", report.kundeName)
+        assertEquals("2026-05-10", report.dateFrom)
+        assertEquals("2026-05-12", report.dateTo)
+    }
+
+    @Test
+    fun `importOrderForUser throws when AI is disabled and does not fall back to local parser`() {
+        val user = User(
+            id = 42,
+            username = "tech1",
+            displayName = "Technician One",
+            email = "tech1@example.com",
+            role = "technician",
+            isActive = true
+        )
+
+        val disabledConfig = config.copy(ocrEnabled = false)
+        `when`(settingsRepository.findById("ocr_config")).thenReturn(
+            Optional.of(AppSetting("ocr_config", mapper.writeValueAsString(disabledConfig)))
+        )
+
+        val ex = assertThrows<ResponseStatusException> {
+            service.importOrderForUser(user, orderEmail)
+        }
+        assertEquals(HttpStatus.UNPROCESSABLE_ENTITY, ex.statusCode)
+        assertTrue(ex.reason?.contains("AI parsing is disabled") == true)
+    }
+
+    @Test
+    fun `importOrderForUser throws when AI parsing returns null and does not fall back to local parser`() {
+        val user = User(
+            id = 42,
+            username = "tech1",
+            displayName = "Technician One",
+            email = "tech1@example.com",
+            role = "technician",
+            isActive = true
+        )
+
+        `when`(settingsRepository.findById("ocr_config")).thenReturn(
+            Optional.of(AppSetting("ocr_config", mapper.writeValueAsString(config)))
+        )
+
+        doAnswer {
+            "invalid json that fails parsing"
+        }.`when`(client).complete(
+            any(OCRProviderConfig::class.java) ?: OCRProviderConfig("p", "p", "https://8.8.8.8/v1"),
+            anyString(),
+            anyString(),
+            any<Any?>(),
+        )
+
+        // Even though orderEmail has valid local parse patterns, AI fails so it MUST NOT fall back
+        val ex = assertThrows<ResponseStatusException> {
+            service.importOrderForUser(user, orderEmail)
+        }
+        assertEquals(HttpStatus.UNPROCESSABLE_ENTITY, ex.statusCode)
+        assertTrue(ex.reason?.contains("No configured AI model returned a valid delegation result") == true)
+    }
+
+    @Test
+    fun `importOrderForUser throws when user is inactive`() {
+        val inactiveUser = User(
+            id = 42,
+            username = "tech1",
+            displayName = "Technician One",
+            email = "tech1@example.com",
+            role = "technician",
+            isActive = false
+        )
+
+        val ex = assertThrows<ResponseStatusException> {
+            service.importOrderForUser(inactiveUser, orderEmail)
+        }
+        assertEquals(HttpStatus.FORBIDDEN, ex.statusCode)
     }
 }

@@ -1,4 +1,5 @@
 import axios from "axios";
+import type { Report } from "./types/report";
 import {
   classifyAuthEndpointFailure,
   isAuthLoginRequest,
@@ -264,3 +265,11 @@ export async function downloadBlob(
   document.body.removeChild(a);
   setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
 }
+
+export async function importOrder(bodyText: string): Promise<Report> {
+  const { data } = await api.post<Report>("/reports/import-order", {
+    body_text: bodyText,
+  });
+  return data;
+}
+

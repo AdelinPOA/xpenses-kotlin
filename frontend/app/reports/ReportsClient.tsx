@@ -3,13 +3,13 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect, useRef, Suspense } from "react";
 import Link from "next/link";
-import api, { Report, downloadBlob, isPagedResponse, PagedResponse } from "@/lib/api";
+import api, { Report, downloadBlob, isPagedResponse, PagedResponse, importOrder } from "@/lib/api";
 import { reportKeys, dashboardKeys } from "@/lib/queryKeys";
 import AppShell from "@/components/layout/AppShell";
 import Badge from "@/components/ui/Badge";
 import EmptyState from "@/components/ui/EmptyState";
 import QueryErrorNotice from "@/components/ui/QueryErrorNotice";
-import { Plus, Trash2, Eye, Send, ChevronUp, ChevronDown, Search, Download, SlidersHorizontal, X } from "lucide-react";
+import { Plus, Trash2, Eye, Send, ChevronUp, ChevronDown, Search, Download, SlidersHorizontal, X, FileText, Loader2 } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/ToastProvider";
 import clsx from "clsx";
@@ -39,26 +39,53 @@ function ReportsPageContent() {
   const [exporting, setExporting] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
+  const [importText, setImportText] = useState("");
+  const [importError, setImportError] = useState<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const t = useTranslations("reports");
 
   const isPrivileged = user?.role === "chef_finance" || user?.role === "mod" || user?.role === "manager";
+
+  const importMutation = useMutation({
+    mutationFn: (bodyText: string) => importOrder(bodyText),
+    onSuccess: (newReport) => {
+      qc.invalidateQueries({ queryKey: reportKeys.all });
+      qc.invalidateQueries({ queryKey: dashboardKeys.all });
+      toast.success(t("import_order_success"));
+      setIsImportOpen(false);
+      setImportText("");
+      setImportError(null);
+      router.push(`/reports/${newReport.id}`);
+    },
+    onError: (err: unknown) => {
+      const axiosErr = err as { response?: { data?: { detail?: string; message?: string } } };
+      const message =
+        axiosErr?.response?.data?.detail ||
+        axiosErr?.response?.data?.message ||
+        t("import_order_error");
+      setImportError(message);
+    },
+  });
 
   useEffect(() => {
     const status = searchParams.get("status");
     if (status) setStatusFilter(status);
   }, [searchParams]);
 
-  useBodyScrollLock(confirmDeleteId !== null);
+  useBodyScrollLock(confirmDeleteId !== null || isImportOpen);
 
   useEffect(() => {
-    if (confirmDeleteId === null) return;
+    if (confirmDeleteId === null && !isImportOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setConfirmDeleteId(null);
+      if (e.key === "Escape") {
+        if (confirmDeleteId !== null) setConfirmDeleteId(null);
+        if (isImportOpen && !importMutation.isPending) setIsImportOpen(false);
+      }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [confirmDeleteId]);
+  }, [confirmDeleteId, isImportOpen, importMutation.isPending]);
 
   useEffect(() => {
     if (isPrivileged && user?.role === "manager") setShowAll(true);
@@ -212,6 +239,18 @@ function ReportsPageContent() {
               </>
             )}
           </div>
+          <button
+            type="button"
+            onClick={() => {
+              setImportText("");
+              setImportError(null);
+              setIsImportOpen(true);
+            }}
+            className="flex min-h-11 items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-sm font-medium rounded-lg cursor-pointer transition-colors"
+          >
+            <FileText className="w-4 h-4" />
+            {t("import_order")}
+          </button>
           <Link
             href="/reports/new"
             className="flex min-h-11 items-center gap-2 px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-hover w-fit"
@@ -546,6 +585,87 @@ function ReportsPageContent() {
                 className="w-full min-h-11 px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-lg transition-colors cursor-pointer text-center mt-1"
               >
                 {t("delete_cancel")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isImportOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="import-order-title"
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !importMutation.isPending) {
+              setIsImportOpen(false);
+            }
+          }}
+        >
+          <div className="bg-card rounded-xl border border-border shadow-xl max-w-lg w-full p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 id="import-order-title" className="text-lg font-bold text-foreground">
+                {t("import_order_modal_title")}
+              </h3>
+              <button
+                type="button"
+                disabled={importMutation.isPending}
+                onClick={() => setIsImportOpen(false)}
+                className="text-muted hover:text-foreground p-1 rounded-md transition-colors cursor-pointer"
+                aria-label={t("import_order_cancel")}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-sm text-muted">
+              {t("import_order_modal_desc")}
+            </p>
+
+            {importError && (
+              <div className="px-4 py-2.5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg text-sm text-red-700 dark:text-red-400">
+                {importError}
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              <textarea
+                value={importText}
+                onChange={(e) => {
+                  setImportText(e.target.value);
+                  if (importError) setImportError(null);
+                }}
+                disabled={importMutation.isPending}
+                rows={8}
+                placeholder={t("import_order_placeholder")}
+                className="w-full border rounded-lg px-3 py-2 text-xs font-mono bg-input border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200"
+                autoFocus
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                disabled={importMutation.isPending}
+                onClick={() => setIsImportOpen(false)}
+                className="min-h-10 px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-lg transition-colors cursor-pointer"
+              >
+                {t("import_order_cancel")}
+              </button>
+              <button
+                type="button"
+                disabled={importMutation.isPending || !importText.trim()}
+                onClick={() => importMutation.mutate(importText.trim())}
+                className="min-h-10 px-4 py-2 bg-primary hover:bg-primary-hover text-white text-sm font-semibold rounded-lg transition-colors cursor-pointer flex items-center gap-2 disabled:opacity-50 disabled:pointer-events-none"
+              >
+                {importMutation.isPending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>{t("import_order_submitting")}</span>
+                  </>
+                ) : (
+                  <span>{t("import_order_submit")}</span>
+                )}
               </button>
             </div>
           </div>

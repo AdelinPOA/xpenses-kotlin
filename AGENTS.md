@@ -24,5 +24,6 @@ For release, rollback or Git synchronization, read [HANDOFF.md](HANDOFF.md) firs
 ## Fast verification loop
 
 - **Frontend check**: `cd frontend && npm run typecheck && npm run i18n:check` (fast, avoids heavy `next build` memory/disk spikes).
+- **Frontend image builds**: Next.js inlines `NEXT_PUBLIC_*` flags at build time. Always ensure `NEXT_PUBLIC_OCR_IMMEDIATE_REVIEW_ENABLED=true` (via `--build-arg NEXT_PUBLIC_OCR_IMMEDIATE_REVIEW_ENABLED=true` or the Dockerfile default) so technician receipt capture review is not compiled out.
 - **Backend targeted test**: `cd backend-kotlin-jpa && ./gradlew test --tests <ClassName> --no-daemon` (executes targeted test suite).
 - **Database migrations**: Check latest version with `ls -1 backend-kotlin-jpa/src/main/resources/db/migration/ | sort -V | tail -n 1`. Never edit applied migrations; always add incremented `V{N}__` migrations.

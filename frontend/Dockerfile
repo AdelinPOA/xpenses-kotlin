@@ -4,7 +4,8 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm ci
 COPY . .
-ARG NEXT_PUBLIC_OCR_IMMEDIATE_REVIEW_ENABLED=false
+# Immediate OCR receipt review is enabled by default in production. Never default to false to prevent disabling capture review on technicians.
+ARG NEXT_PUBLIC_OCR_IMMEDIATE_REVIEW_ENABLED=true
 ENV NEXT_PUBLIC_OCR_IMMEDIATE_REVIEW_ENABLED=${NEXT_PUBLIC_OCR_IMMEDIATE_REVIEW_ENABLED}
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 RUN npm run build

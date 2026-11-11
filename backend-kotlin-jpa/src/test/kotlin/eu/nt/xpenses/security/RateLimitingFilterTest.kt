@@ -156,6 +156,92 @@ class RateLimitingFilterTest {
     }
 
     @Test
+    fun trustedProxySubnetMatchesCidrNotation() {
+        val cidrFilter = RateLimitingFilter(true, "172.16.0.0/12, 10.0.0.0/8", 100)
+
+        // 172.20.0.3 is inside 172.16.0.0/12; forwarded client IP should be respected
+        repeat(15) {
+            assertNotEquals(
+                429,
+                request(cidrFilter, "172.20.0.3", "198.51.100.1").status
+            )
+        }
+        assertEquals(
+            429,
+            request(cidrFilter, "172.20.0.3", "198.51.100.1").status
+        )
+        // Different forwarded IP through same proxy is not blocked
+        assertNotEquals(
+            429,
+            request(cidrFilter, "172.20.0.3", "198.51.100.2").status
+        )
+        // Peer outside CIDR subnet (e.g. 192.168.1.50) is untrusted; its forwarded header is ignored
+        repeat(15) {
+            assertNotEquals(
+                429,
+                request(cidrFilter, "192.168.1.50", "203.0.113.$it").status
+            )
+        }
+        assertEquals(
+            429,
+            request(cidrFilter, "192.168.1.50", "203.0.113.99").status
+        )
+    }
+
+    @Test
+    fun cloudflareConnectingIpHeaderTakesPriorityOverForwardedFor() {
+        val cfFilter = RateLimitingFilter(true, "172.16.0.0/12", 100)
+
+        repeat(15) {
+            request(cfFilter, "172.20.0.2", "198.51.100.99", "/api/auth/login", "203.0.113.50")
+        }
+        // 16th request with same CF-Connecting-IP is rate-limited
+        assertEquals(
+            429,
+            request(cfFilter, "172.20.0.2", "198.51.100.99", "/api/auth/login", "203.0.113.50").status
+        )
+        // Request with distinct CF-Connecting-IP but identical X-Forwarded-For is not blocked
+        assertNotEquals(
+            429,
+            request(cfFilter, "172.20.0.2", "198.51.100.99", "/api/auth/login", "203.0.113.51").status
+        )
+    }
+
+    @Test
+    fun malformedRemoteAddressDoesNotThrowAndIsTreatedAsUntrusted() {
+        val cidrFilter = RateLimitingFilter(true, "172.16.0.0/12", 100)
+
+        repeat(15) {
+            assertNotEquals(
+                429,
+                request(cidrFilter, "not-an-ip-address", "198.51.100.$it").status
+            )
+        }
+        // Client IP used for rate limiting is the raw remote address ("not-an-ip-address"), forwarded headers ignored
+        assertEquals(
+            429,
+            request(cidrFilter, "not-an-ip-address", "203.0.113.1").status
+        )
+    }
+
+    @Test
+    fun fallsBackToRealIpWhenCfConnectingIpAndForwardedForAreMissing() {
+        val trustedFilter = RateLimitingFilter(true, "172.16.0.1", 100)
+
+        repeat(15) {
+            request(trustedFilter, "172.16.0.1", null, "/api/auth/login", null, "198.51.100.42")
+        }
+        assertEquals(
+            429,
+            request(trustedFilter, "172.16.0.1", null, "/api/auth/login", null, "198.51.100.42").status
+        )
+        assertNotEquals(
+            429,
+            request(trustedFilter, "172.16.0.1", null, "/api/auth/login", null, "198.51.100.43").status
+        )
+    }
+
+    @Test
     fun similarPrefixesDoNotMatchAProtectedEndpoint() {
         val filterWithExactMatching = RateLimitingFilter(true, "", 100)
 
@@ -170,12 +256,16 @@ class RateLimitingFilterTest {
     private fun request(
         filter: RateLimitingFilter,
         remoteAddress: String,
-        forwardedFor: String?,
-        path: String = "/api/auth/login"
+        forwardedFor: String? = null,
+        path: String = "/api/auth/login",
+        cfConnectingIp: String? = null,
+        realIp: String? = null
     ): MockHttpServletResponse {
         val request = MockHttpServletRequest("POST", path)
         request.remoteAddr = remoteAddress
         forwardedFor?.let { request.addHeader("X-Forwarded-For", it) }
+        cfConnectingIp?.let { request.addHeader("CF-Connecting-IP", it) }
+        realIp?.let { request.addHeader("X-Real-IP", it) }
 
         val response = MockHttpServletResponse()
         filter.doFilter(request, response, mock(jakarta.servlet.FilterChain::class.java))

@@ -6,6 +6,7 @@ import jakarta.servlet.http.HttpServletResponse
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.HttpStatus
+import org.springframework.security.web.util.matcher.IpAddressMatcher
 import org.springframework.stereotype.Component
 import org.springframework.web.filter.OncePerRequestFilter
 
@@ -23,10 +24,10 @@ class RateLimitingFilter(
 ) : OncePerRequestFilter() {
 
     private val log = LoggerFactory.getLogger(RateLimitingFilter::class.java)
-    private val trustedProxies = trustedProxyAddresses.split(',')
+    private val trustedProxyMatchers: List<IpAddressMatcher> = trustedProxyAddresses.split(',')
         .map(String::trim)
         .filter(String::isNotEmpty)
-        .toSet()
+        .map { IpAddressMatcher(it) }
 
     companion object {
         private val EXPORT_REPORT_PATH = Regex("^/api/reports/\\d+/(pdf|receipts-zip)$")
@@ -80,11 +81,29 @@ class RateLimitingFilter(
     private fun matchesPath(path: String, configuredPath: String): Boolean =
         path == configuredPath || path.startsWith("$configuredPath/")
 
+    private fun isTrustedProxy(remoteAddress: String): Boolean {
+        if (remoteAddress.isBlank() || remoteAddress == "unknown") {
+            return false
+        }
+        return trustedProxyMatchers.any { matcher ->
+            try {
+                matcher.matches(remoteAddress)
+            } catch (_: IllegalArgumentException) {
+                false
+            }
+        }
+    }
+
     private fun extractClientIp(request: HttpServletRequest): String {
         val remoteAddress = request.remoteAddr?.trim().orEmpty().ifBlank { "unknown" }
-        if (remoteAddress !in trustedProxies) {
+        if (!isTrustedProxy(remoteAddress)) {
             // Forwarded headers are client-controlled unless the immediate peer is trusted.
             return remoteAddress
+        }
+
+        val cfConnectingIp = request.getHeader("CF-Connecting-IP")?.trim()
+        if (!cfConnectingIp.isNullOrBlank()) {
+            return cfConnectingIp
         }
 
         val forwardedAddress = request.getHeader("X-Forwarded-For")

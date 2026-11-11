@@ -22,8 +22,8 @@ cookie:
   secure: true
 
 rate-limiting:
-  # Empty means no forwarded headers are trusted; set this to the exact proxy IP(s).
-  trusted-proxies: ${TRUSTED_PROXY_ADDRESSES:}
+  # CIDR ranges or IPs of trusted reverse proxies/load balancers allowed to supply forwarded client IP headers.
+  trusted-proxies: ${TRUSTED_PROXY_ADDRESSES:127.0.0.1,172.16.0.0/12,10.0.0.0/8}
   max-tracked-keys: ${RATE_LIMITING_MAX_TRACKED_KEYS:10000}
   store: ${RATE_LIMITING_STORE:redis}
   fail-closed: ${RATE_LIMITING_FAIL_CLOSED:true}

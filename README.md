@@ -2,7 +2,7 @@
 
 Expense management for field-service teams. Technicians record expenses and receipts, submit expense reports, and track advances and mileage. Managers and `chef_finance` review, approve and reject reports; `chef_finance` alone can mark approved reports as paid. Moderators manage application settings and integrations.
 
-This is the consolidated project reference, updated for the **2026-10-21** capture/platform release and integration of pending local work. Read [HANDOFF.md](HANDOFF.md) for source-versus-production provenance, current verification and unresolved gates. The dated [2026-10-18 documentation review](docs/documentation-review/2026-10-18/README.md) remains historical evidence, not a current defect list or deployment certificate.
+This is the consolidated project reference, updated for the **2026-11-14** (`34aa5f8`) baseline. Read [HANDOFF.md](HANDOFF.md) for source-versus-production provenance, live deployment pointers, and verification snapshots.
 
 - [Architecture and source map](#architecture-and-source-map)
 - [Domain language](#domain-language)
@@ -10,7 +10,7 @@ This is the consolidated project reference, updated for the **2026-10-21** captu
 - [Configuration](#configuration)
 - [Verification and CI](#verification-and-ci)
 - [Current limitations](#current-limitations)
-- [Documentation review and history](#documentation-review-and-history)
+- [Historical archives](#historical-archives)
 
 Repository: [AdelinPOA/xpenses-kotlin](https://github.com/AdelinPOA/xpenses-kotlin). Production hostname used by repository configuration: `xpenses.nt-automation.cc`.
 
@@ -21,7 +21,7 @@ The backend is one Spring Boot application with shared PostgreSQL persistence. T
 | Area | Checked configuration | Source |
 | --- | --- | --- |
 | Backend | Kotlin 2.4.0; Spring Boot 4.1.1 / Spring Framework 7; Java toolchain 21; MVC, Security, JPA | [Gradle build](backend-kotlin-jpa/build.gradle.kts) |
-| Frontend | Next.js 16.3.8; React 19; TypeScript; Tailwind CSS 4; TanStack Query 5 | [package manifest](frontend/package.json), [lockfile](frontend/package-lock.json) |
+| Frontend | Next.js 16.4.3; React 19; TypeScript; Tailwind CSS 4; TanStack Query 5 | [package manifest](frontend/package.json), [lockfile](frontend/package-lock.json) |
 | Data | PostgreSQL 16; Redis 7.4 with append-only persistence | [Compose](docker-compose.yml) |
 | Schema | Flyway SQL; Hibernate `ddl-auto: validate`; batch fetch size 16 | [application configuration](backend-kotlin-jpa/src/main/resources/application.yml) |
 | Exports | PDF via OpenPDF/PDFBox; XLSX via Apache POI; CSV | [Gradle build](backend-kotlin-jpa/build.gradle.kts), [export service](backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/ExportService.kt) |
@@ -61,8 +61,8 @@ Report state transitions live in [ExpenseReportLifecycle](backend-kotlin-jpa/src
 ### Integrations
 
 - **AI workflows:** moderators configure providers/models and separate ordered chains for receipt OCR and delegation-email parsing at `/admin/ocr`. Provider/model chains are configurable; built-in inactive Gemini defaults remain for initial configuration. The integration accepts compatible multimodal Chat Completions providers through validated public HTTPS destinations. Keys use encrypted storage. Setup and limits: [AI administration guide](docs/ocr-model-management.md), [ADR-0006](docs/adr/0006-gui-managed-ai-provider-model-chains.md).
-- **Delegation email:** incoming Technician emails can create draft reports through a durable ingestion ledger. Committing the draft and source-message association is distinct from marking an IMAP message seen. Retry and acknowledgement behavior: [ADR-0003](docs/adr/0003-durable-technician-email-ingestion.md), [ingestion code](backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/ingestion/).
-- **Storage:** local and S3 providers exist behind [StorageService](backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/StorageService.kt). Context validation applies to receipt/signature/OCR-source APIs; insurance uses a separate upload path and does not inherit every check. Provider migration has persisted progress; see the backend verification report before relying on old migration findings.
+- **Delegation email & order import:** incoming Technician emails can create draft reports through a durable ingestion ledger, and the UI also supports pasting order/delegation text via `/api/reports/import-order` and `/import-order/preview` (with open-draft duplicate lookup by `kundenauftrag`). Committing the draft and source-message association is distinct from marking an IMAP message seen. Retry and acknowledgement behavior: [ADR-0003](docs/adr/0003-durable-technician-email-ingestion.md), [ingestion code](backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/ingestion/), [EmailImportService](backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/EmailImportService.kt).
+- **Storage:** local and S3 providers exist behind [StorageService](backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/StorageService.kt). `StorageContext` validation (`RECEIPT`, `SIGNATURE`, `OCR_SOURCE`) applies to receipt/signature/OCR-source APIs; [InsuranceController](backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/InsuranceController.kt) stores documents separately under `<userId>/insurance/`, validates allowed extensions on upload, and serves downloads with `SafeMediaType`, `X-Content-Type-Options: nosniff`, and forced `Content-Disposition: attachment`.
 - **FX:** [FxService](backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/FxService.kt) implements EUR identity, BNR-based conversion and per-currency margins, with provider fallbacks. RON conversion has no margin. Expense-specific rates and EUR amounts are stored; automatic rates approximate settlement unless actual debit information or a manual rate is supplied. [ADR-0001](docs/adr/0001-bnr-fx-rates-with-margin.md) records the policy; code remains the reference for provider fallback behavior.
 
 ## Domain language
@@ -154,7 +154,8 @@ The [Makefile](Makefile) also contains build/test/rebuild shortcuts. Its `test-h
 | `RATE_LIMITING_STORE` | Base configuration: `memory`; `prod`: `redis`. |
 | `RATE_LIMITING_FAIL_CLOSED` | Base configuration: false; `prod`: true. |
 | `RATE_LIMITING_MAX_TRACKED_KEYS` | 10,000 by default. |
-| `TRUSTED_PROXY_ADDRESSES` | Empty by default; used by the custom limiter. Framework forwarding is also enabled; ingress/filter interactions require runtime verification. |
+| `TRUSTED_PROXY_ADDRESSES` | Empty in base config; `prod` profile defaults to `127.0.0.1,172.16.0.0/12,10.0.0.0/8` (CIDR/IP list) for forwarded client IP headers. |
+| `OCR_SOURCE_CLEANUP_ENABLED` | `false` by default in Compose; opt-in retention cleanup of staged OCR source uploads. |
 | `SEED_DEMO_USERS` | false by default; enables demo initialization when the user table is empty. No production-profile refusal is implemented. |
 | `SWAGGER_ENABLED` | false by default. |
 | `COMPANY_NAME` | Display name in application configuration. |
@@ -167,7 +168,7 @@ The [Makefile](Makefile) also contains build/test/rebuild shortcuts. Its `test-h
 
 ### Migrations and backups
 
-The coordinated capture release adds V105 (Expense verification) and V106 (OCR acceptance/recovery) after V104 durable-save idempotency. Determine the next version from the directory when adding a migration; [HANDOFF.md](HANDOFF.md) separates source schema from verified production state.
+The latest schema migration is `V107__refresh_token_rotation_grace.sql` (following `V104` durable-save idempotency, `V105` expense verification, and `V106` OCR acceptance/recovery). Determine the next version from the directory when adding a migration; [HANDOFF.md](HANDOFF.md) tracks verified production schema state.
 
 ```bash
 ls -1 backend-kotlin-jpa/src/main/resources/db/migration/ | sort -V | tail -n 1
@@ -189,7 +190,7 @@ npm run test:lint-config
 npm run lint
 ```
 
-Typecheck, lint-coverage regressions and lint pass on the integrated source; translation parity covers **1,192 keys** in English and Romanian. Parity does not establish that every UI string is translated or accessible.
+Typecheck, lint-coverage regressions, and lint (`eslint . --max-warnings 0`) pass on the current source; translation parity covers **1,243 keys** in English and Romanian. Parity does not establish that every UI string is translated or accessible.
 
 For a backend change, select the affected test class:
 
@@ -200,7 +201,7 @@ cd backend-kotlin-jpa
 
 The optional root `package.json`/lockfile is a separate Playwright QA toolbox retained from local work, not the frontend application package. Install and run application checks under `frontend/`; the root QA dependency is development-only. The maintained [mobile QA skill](skills/mobile-pwa-qa/SKILL.md) describes its manual acceptance boundaries.
 
-The backend build includes JUnit/Spring Security tests and Testcontainers PostgreSQL support. Heavy checks belong in an isolated development or CI environment. [Playwright configuration](frontend/playwright.config.ts) defines mobile Chromium, mobile WebKit, tablet and desktop projects; generic browser tests block service workers by default, while dedicated VM/browser and authenticated offline cold-start suites explicitly exercise the real worker. Run serially on this host. These automated checks do not establish physical iPhone/Safari/PWA/keyboard/VoiceOver acceptance; #51 remains separate.
+The backend build includes JUnit/Spring Security tests and Testcontainers PostgreSQL support. Heavy checks belong in an isolated development or CI environment. [Playwright configuration](frontend/playwright.config.ts) defines mobile Chromium, mobile WebKit, tablet and desktop projects; generic browser tests block service workers by default, while dedicated VM/browser and authenticated offline cold-start suites explicitly exercise the real worker. Run serially on this host. These automated checks do not establish physical iPhone/Safari/PWA/keyboard/VoiceOver acceptance.
 
 [CI](.github/workflows/ci.yml) runs on pushes and PRs targeting `main`:
 
@@ -215,45 +216,16 @@ CI generates temporary credentials and tears down its disposable volumes. That c
 
 ## Current limitations
 
-These are source-supported gaps, not a list of reproduced production incidents. The [audit findings and disposition](docs/documentation-review/2026-10-18/README.md) separates confirmed mechanisms, contradicted/stale claims, runtime-dependent risks and product proposals. Detailed source evidence is in the [frontend review](docs/documentation-review/2026-10-18/frontend.md), [backend review](docs/documentation-review/2026-10-18/backend.md), and [operations review](docs/documentation-review/2026-10-18/operations.md).
+- **OCR source retention:** worker-lease recovery and opt-in source cleanup are distinct. `OCR_SOURCE_CLEANUP_ENABLED` stays `false` in production pending storage retention reconciliation; see [ocr-source-resume-and-retention.md](docs/contracts/ocr-source-resume-and-retention.md).
+- **Orphan cleanup:** [AppSettingsService](backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/AppSettingsService.kt) checks receipt, legacy expense, insurance, OCR source, and signature references and restricts deletion to receipt path patterns; scanning alone does not delete.
+- **Insurance upload validation:** [InsuranceController](backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/controllers/InsuranceController.kt) hardens downloads (`SafeMediaType`, `nosniff`, forced attachment), while uploads validate allowed extensions rather than file magic bytes.
+- **Bulk creation:** receipt-upload rollback cleanup exists, but the bulk flow creates an expense before separately attaching its receipt; attachment failure can leave a receiptless expense.
+- **Capture & offline queues:** OCR-source replay is owned by the [capture page](frontend/app/expenses/capture/page.tsx), while [global offline sync](frontend/components/OfflineSyncProvider.tsx) handles the manual queue ([ADR-0007](docs/adr/0007-durable-expense-save-idempotency.md)). Do not infer interchangeable queues across paths.
+- **Physical device acceptance:** automated Playwright suites cover emulated mobile Chromium/WebKit and service-worker regressions, not physical iPhone/Safari/VoiceOver hardware.
+- **Live DB demo/legacy accounts:** see [HANDOFF.md](HANDOFF.md#L48) for unmutated seeded/blank-email accounts in live PostgreSQL awaiting explicit owner approval.
 
-- **Orphan cleanup:** [AppSettingsService](backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/AppSettingsService.kt) derives candidates from receipt references while other stored file purposes exist. Cleaning can affect non-receipt files; scanning alone does not delete. No cleanup was run.
-- **Offline privacy/device acceptance:** current [query persistence](frontend/lib/queryPersister.ts), auth-generation fences and public-only [service worker](frontend/public/sw.js) supersede the old navigation-HTML caching description. Owner/session transitions have automated regressions; this is not a blanket security certification or physical-device pass. Recheck #58/#59/#51 before closing their remaining acceptance gates.
-- **Capture recovery:** OCR-source replay is owned by the [capture page](frontend/app/expenses/capture/page.tsx), while [global offline sync](frontend/components/OfflineSyncProvider.tsx) handles the manual queue. Manual saves use the [durable idempotency contract](docs/adr/0007-durable-expense-save-idempotency.md); capture has its own acceptance/review operations. Do not infer interchangeable queues or create replacement Expenses during recovery.
-- **OCR retention:** worker-lease recovery and opt-in source cleanup are distinct. Cleanup remains disabled in production pending #60 provenance/recoverability evidence; preserve the approved upload-based expiry and do not invent or repair historical sources without evidence. See the [current contract](docs/contracts/ocr-source-resume-and-retention.md).
-- **Bulk creation:** receipt-upload rollback cleanup exists, but the bulk flow creates an expense before separately attaching its receipt. Attachment failure can leave a receiptless expense; this is distinct from orphaned-file cleanup.
-- **Frontend correctness:** remaining query-key/date/locale concerns need focused current reproductions. Shared refresh/session-generation safeguards and response-loss recovery supersede the historical uncoordinated-refresh description. Keep dated source observations separate from proven current defects.
-- **UX gaps:** bulk review now has explicit uncertain-save/upload failure handling and known-ID recovery tests/evidence; #48/#51 still carry device acceptance limits. Search/dashboard-label observations in the dated audit require current verification; shared receipt-modal lifecycle remains #50. Do not plan implemented recovery/toast controls again as missing work.
-- **Domain and infrastructure:** privileged advance mutations still mix read-all and management checks; recall retains signature/rejection metadata; some transactional methods call FX/LDAP externally; lazy mapping warrants query measurement. Hibernate batching already exists, so the audit's asserted unbatched query counts are not established.
-- **HTTP/storage hardening:** some exception-to-4xx mappings and insurance magic-byte checks are absent; rate-limit coverage is endpoint-specific. `/api/expenses/bulk-upload` already has a limit. Proxy bypass, SQL counts, memory exhaustion, and actual public headers require focused runtime verification.
+GitHub Issues (`gh issue list`) are the task source of truth (`0` open issues as of the [HANDOFF.md](HANDOFF.md) snapshot).
 
-GitHub Issues are the task source of truth; this README does not assign new priorities from old audit scores. Historical items checked on 2026-10-18 included [mobile umbrella #45](https://github.com/AdelinPOA/xpenses-kotlin/issues/45), [contract #46](https://github.com/AdelinPOA/xpenses-kotlin/issues/46), [form/navigation #47](https://github.com/AdelinPOA/xpenses-kotlin/issues/47), [bulk review #48](https://github.com/AdelinPOA/xpenses-kotlin/issues/48), [capture verification #49](https://github.com/AdelinPOA/xpenses-kotlin/issues/49), [receipt viewer #50](https://github.com/AdelinPOA/xpenses-kotlin/issues/50), [real-device acceptance #51](https://github.com/AdelinPOA/xpenses-kotlin/issues/51), and [dependency tracking #54](https://github.com/AdelinPOA/xpenses-kotlin/issues/54). Recheck issue state before taking work: #46/#47/#49/#54/#56/#61/#62/#65 were subsequently closed; #45/#48/#50/#51/#57/#58/#59/#60 have distinct remaining scope. Tooling follow-up is #66/PR #67.
+## Historical archives
 
-## Documentation review and history
-
-The review covered all seven root Markdown files: README, AGENTS, CONTEXT, WIP, todo, FULL_APP_AUDIT and FULL_APP_AUDIT_VERIFICATION. Three independent GPT-6 Luna agents with maximum reasoning checked frontend, backend/domain, and operations claims. The consolidated reference retains source-backed behavior, separates proposals from implementation, and removes unsupported scores, performance estimates, invented defects, and production-success claims.
-
-Use the [reconciled audit findings](docs/documentation-review/2026-10-18/README.md) before planning fixes from either audit. The earlier audit verification corrects many false positives, but its historical environment observations and unperformed runtime checks remain bounded by its evidence. Documentation correction does not mean the supported application defects have been fixed.
-
-### Corrections to historical documents
-
-The [disposition tables](docs/documentation-review/2026-10-18/README.md#contradicted-or-stale-claims) explain why the alleged desktop wrapper, first-receipt-only view, first-page picker restriction, broken gzip backup and missing OCR worker recovery are not valid descriptions of the checked code. They also distinguish existing fixes from residual gaps, such as terminal OCR-source retention and account isolation in offline caches.
-
-The [WIP inventory](docs/documentation-review/2026-10-18/frontend.md#wip-inventory-accepted-plan-vs-current-implementation) records shipped and partial UX work. Neither the old WIP nor the audits should be imported wholesale as a current backlog.
-
-### Archive and evidence
-
-Original working-tree versions were preserved **byte for byte**, including the pre-existing local changes to `todo.md` and untracked audit verification. Their SHA-256 hashes are recorded in [SHA256SUMS](docs/archive/root-md-2026-10-18/SHA256SUMS). They live in [docs/archive/root-md-2026-10-18](docs/archive/root-md-2026-10-18/):
-
-- [Previous README](docs/archive/root-md-2026-10-18/README.before-consolidation.md)
-- [Previous CONTEXT glossary](docs/archive/root-md-2026-10-18/CONTEXT.md)
-- [WIP plan](docs/archive/root-md-2026-10-18/WIP.md)
-- [Legacy todo findings](docs/archive/root-md-2026-10-18/todo.md)
-- [Full audit](docs/archive/root-md-2026-10-18/FULL_APP_AUDIT.md)
-- [Earlier audit verification](docs/archive/root-md-2026-10-18/FULL_APP_AUDIT_VERIFICATION.md)
-
-**The archive is historical evidence, not current guidance.** Its original source paths/relative links refer to the repository root, before relocation; consult the current source links and disposition reports above. Its claims may be false or stale even when an old checkbox says “verified”. Historical audit dates, scores and runtime observations were not adopted as current facts.
-
-`AGENTS.md` remains in root because agents load it automatically. `CONTEXT.md` remains the separate canonical domain glossary, with verified wording corrections; its original snapshot is retained in the archive. Agent instructions and maintained guides point to the root glossary. Specialized guides, ADRs, accepted specifications and release records remain under `docs/` and `openspec/`; they are outside this root-file consolidation and are not globally re-certified by it.
-
-The dated 2026-10-18 review performed none of those runtime operations; its archived reports retain that boundary. Subsequent release/integration checks are documented separately in [HANDOFF.md](HANDOFF.md) and [docs/reviews](docs/reviews/). No physical-device or external-provider accuracy pass is claimed, and no destructive cleanup is authorized by these documents.
+Dated audits, superseded handoffs, and historical root-doc snapshots are retained only for provenance under [docs/archive/](docs/archive/) and [docs/documentation-review/2026-10-18/](docs/documentation-review/2026-10-18/). They are historical evidence, not current operational guidance. Specialized active docs remain under [docs/adr/](docs/adr/), [docs/contracts/](docs/contracts/), and [docs/designs/](docs/designs/).

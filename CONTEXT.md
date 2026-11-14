@@ -54,6 +54,9 @@ _Avoid_: pre-payment, avans
 A formal container grouping Expenses, Advances and MileageRecords for review and reimbursement in EUR. A draft may be empty; submission requires at least one Expense.
 _Avoid_: expense folder, expense pack, claim
 
+**MileageRecord**:
+A Technician's distance-based travel entry attached to an ExpenseReport, carrying an EUR amount (`amountEur`). Tracked alongside Expenses and included in the API report total, but excluded from the PDF report reimbursement summary.
+
 **Technician**:
 An employee who incurs and submits expenses, represented by a User with role `technician`. Exact bank-debit reimbursement is a policy goal; an automatically estimated FX rate alone does not establish the actual bank debit.
 _Avoid_: employee, worker, user
@@ -61,6 +64,9 @@ _Avoid_: employee, worker, user
 **Delegation email**:
 An incoming email from an active Technician that contains the information needed to create a draft ExpenseReport for a work assignment.
 _Avoid_: email import, incoming expense
+
+**Order import**:
+Manual UI flow (`POST /api/reports/import-order` and `/import-order/preview`) where pasted delegation/order text is parsed via the AI model chain to create or preview a draft ExpenseReport, checking existing open drafts by order number (`kundenauftrag`).
 
 **Rejected delegation email**:
 A delegation email that cannot be accepted because its sender or content is permanently invalid. It creates no ExpenseReport and requires explicit administrative retry if circumstances change.
@@ -85,8 +91,11 @@ The current durable step of an OcrJob: provider OCR, draft Expense creation, or 
 An opaque token and expiry held by one worker for one OcrJob stage. Database compare-and-set writes require the token, so an expired or stale worker cannot persist a result.
 
 **Storage context**:
-A domain categorization of stored files (`RECEIPT`, `SIGNATURE`, `OCR_SOURCE`) defining per-context rules: allowed file extensions, maximum payload size, magic-byte validation, and relative path construction.
+A domain categorization of stored files (`RECEIPT`, `SIGNATURE`, `OCR_SOURCE`) defining per-context rules: allowed file extensions, maximum payload size, magic-byte validation, and relative path construction. Insurance documents (`InsuranceFile`) are stored under a separate path outside this enum.
 _Avoid_: storage bucket, file category
+
+**InsuranceFile**:
+An insurance document uploaded by a manager or Moderator for a Technician (`<userId>/insurance/...`). Validated by allowed file extension on upload and served with `SafeMediaType`, `X-Content-Type-Options: nosniff`, and forced attachment disposition on download.
 
 **OCR service**:
 The service responsible for extracting purchase information from receipt uploads.

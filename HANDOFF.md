@@ -10,7 +10,7 @@ Historical checkpoints and superseded audits (`P2_HANDOFF.md`, `cve.md`, `plans/
 
 | Area | Provenance / boundary |
 | --- | --- |
-| Committed `origin/main` baseline | `304f14e` (includes `2459290`, `8727cf4` AI order import/OCR/token refresh/report creation hardening, and `304f14e` read-only JPA serialization fixes). |
+| Committed `origin/main` baseline | `34aa5f8` (includes `2459290`, `8727cf4` AI order import/OCR/token refresh/report creation hardening, `304f14e` read-only JPA serialization fixes, and `34aa5f8` P0–P3 audit remediation). |
 | Audit remediation rollout (`2026-11-14`) | Full P0-P3 audit fixes (insurance lazy-init & safe MIME/XSS download hardening, 409/413/400/405/415 exception mapping, LDAP/OCR cleanup/PDF-ZIP TX-over-I/O separation, `@Async` proxy split, CSRF logout enforcement, open-redirect & auth-image blob loading, UI error/confirm/i18n parity, `minimatch` override) — committed and pushed to `main`. |
 | Production backend | `xpenses-backend:audit-fixes-20261114` |
 | Production frontend | `xpenses-frontend:audit-fixes-20261114` (built with `NEXT_PUBLIC_OCR_IMMEDIATE_REVIEW_ENABLED=true`) |
@@ -45,5 +45,5 @@ Previous rollout artifacts remain preserved under `/root/xpenses-deployments/sta
 
 ## Remaining work
 
-- **Live DB accounts** (`general-todo.md` §3): Active seeded demo accounts (`tech1`, `manager1`, `cfo1`, `mod1`, `tech2`), test users (`test`, `test2`), active accounts with blank email (`cristi`, `bianca`), and potential email typos (`adelin.popesch@nt-automation.eu`, `tudore.vizireanu@nt-automation.eu`, duplicate inactive `Tudorel Vizireanu`) remain in live `users` pending explicit owner confirmation before modification/deactivation.
+- **Live DB accounts**: Active seeded demo accounts (`tech1`, `manager1`, `cfo1`, `mod1`, `tech2`), test users (`test`, `test2`), active accounts with blank email (`cristi`, `bianca`), and potential email typos (`adelin.popesch@nt-automation.eu`, `tudore.vizireanu@nt-automation.eu`, duplicate inactive `Tudorel Vizireanu`) remain in live `users` pending explicit owner confirmation before modification/deactivation.
 - **GitHub Issues**: All tracked issues (`#44`, `#45`, `#48`, `#50`, `#51`, `#57`, `#58`, `#59`, `#60`) are closed (`gh issue list --state open` = `0`); live ops guard still keeps `OCR_SOURCE_CLEANUP_ENABLED=false` in `.env` until storage retention reconciliation is verified in production.

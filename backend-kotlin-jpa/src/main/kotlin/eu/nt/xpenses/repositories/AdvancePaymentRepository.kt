@@ -1,6 +1,7 @@
 package eu.nt.xpenses.repositories
 
 import eu.nt.xpenses.model.AdvancePayment
+import org.springframework.data.jpa.repository.EntityGraph
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.stereotype.Repository
 
@@ -8,5 +9,6 @@ import org.springframework.stereotype.Repository
 interface AdvancePaymentRepository : JpaRepository<AdvancePayment, Int> {
     fun findAllByReportId(reportId: Int): List<AdvancePayment>
     fun findAllByUserId(userId: Int): List<AdvancePayment>
+    @EntityGraph(attributePaths = ["report", "user"])
     fun findAllByStatus(status: String): List<AdvancePayment>
 }

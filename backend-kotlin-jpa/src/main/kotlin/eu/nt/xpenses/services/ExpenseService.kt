@@ -1,5 +1,6 @@
 package eu.nt.xpenses.services
 
+import eu.nt.xpenses.config.SafeMediaType
 import eu.nt.xpenses.dto.expense.ExpenseCreate
 import eu.nt.xpenses.dto.expense.ExpenseOut
 import eu.nt.xpenses.dto.expense.ExpenseReviewRequest
@@ -26,7 +27,6 @@ import org.springframework.web.multipart.MultipartFile
 import org.springframework.web.server.ResponseStatusException
 import java.math.BigDecimal
 import java.math.RoundingMode
-import java.net.URLConnection
 import java.time.Instant
 import java.time.LocalDate
 
@@ -652,6 +652,12 @@ class ExpenseService(
 
     @Transactional(readOnly = true)
     fun getReceiptBytes(expenseId: Int, receiptId: Int?, currentUser: User): Pair<ByteArray, String> {
+        val (bytes, contentType, _) = getReceiptDownload(expenseId, receiptId, currentUser)
+        return Pair(bytes, contentType)
+    }
+
+    @Transactional(readOnly = true)
+    fun getReceiptDownload(expenseId: Int, receiptId: Int?, currentUser: User): Triple<ByteArray, String, String> {
         val expense = expenseRepository.findById(expenseId).orElseThrow {
             ResponseStatusException(HttpStatus.NOT_FOUND, "Expense not found")
         }
@@ -672,14 +678,14 @@ class ExpenseService(
             } catch (e: Exception) {
                 throw ResponseStatusException(HttpStatus.NOT_FOUND, "Receipt file not found")
             }
-            val contentType = URLConnection.guessContentTypeFromName(receipt.originalName ?: receipt.filePath)
-                ?: "application/octet-stream"
-            return Pair(bytes, contentType)
+            val effectiveName = receipt.originalName?.ifBlank { null } ?: receipt.filePath.substringAfterLast('/')
+            val contentType = SafeMediaType.resolveSafeMimeType(effectiveName)
+            return Triple(bytes, contentType, effectiveName)
         }
 
         val receipt = expense.receipts.minByOrNull { it.createdAt }
         if (receipt != null) {
-            return getReceiptBytes(expenseId, receipt.id!!, currentUser)
+            return getReceiptDownload(expenseId, receipt.id!!, currentUser)
         }
 
         val rPath = expense.receiptPath ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "No receipt found")
@@ -689,8 +695,9 @@ class ExpenseService(
             throw ResponseStatusException(HttpStatus.NOT_FOUND, "Receipt file not found")
         }
 
-        val contentType = URLConnection.guessContentTypeFromName(rPath) ?: "application/octet-stream"
-        return Pair(bytes, contentType)
+        val effectiveName = rPath.substringAfterLast('/')
+        val contentType = SafeMediaType.resolveSafeMimeType(effectiveName)
+        return Triple(bytes, contentType, effectiveName)
     }
 
     @Transactional(readOnly = true)

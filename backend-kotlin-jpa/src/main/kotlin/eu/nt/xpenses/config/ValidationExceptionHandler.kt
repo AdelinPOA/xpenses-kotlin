@@ -2,14 +2,21 @@ package eu.nt.xpenses.config
 
 import jakarta.validation.ConstraintViolationException
 import org.slf4j.LoggerFactory
+import org.springframework.dao.DataIntegrityViolationException
+import org.springframework.dao.OptimisticLockingFailureException
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.security.authorization.AuthorizationDeniedException
+import org.springframework.web.HttpMediaTypeNotSupportedException
+import org.springframework.web.HttpRequestMethodNotSupportedException
 import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.MissingServletRequestParameterException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
+import org.springframework.web.multipart.MaxUploadSizeExceededException
+import org.springframework.web.multipart.MultipartException
+import org.springframework.web.multipart.support.MissingServletRequestPartException
 import org.springframework.web.server.ResponseStatusException
 
 class FxMarginsValidationException(
@@ -55,8 +62,8 @@ class ValidationExceptionHandler {
 
     @ExceptionHandler(HttpMessageNotReadableException::class)
     fun handleHttpMessageNotReadableException(ex: HttpMessageNotReadableException): ResponseEntity<Map<String, String>> {
-        val message = "Malformed JSON request or invalid input format: ${ex.mostSpecificCause.message}"
-        return ResponseEntity.status(400).body(mapOf("detail" to message))
+        log.debug("Malformed request body: {}", ex.mostSpecificCause.message)
+        return ResponseEntity.status(400).body(mapOf("detail" to "Malformed JSON request or invalid input format"))
     }
 
     @ExceptionHandler(MissingServletRequestParameterException::class)
@@ -71,9 +78,46 @@ class ValidationExceptionHandler {
         return ResponseEntity.status(400).body(mapOf("detail" to message))
     }
 
+    @ExceptionHandler(OptimisticLockingFailureException::class)
+    fun handleOptimisticLockingFailure(ex: OptimisticLockingFailureException): ResponseEntity<Map<String, String>> {
+        log.debug("Optimistic locking conflict: {}", ex.message)
+        return ResponseEntity.status(409).body(
+            mapOf("detail" to "The record was modified by another request. Please refresh and try again.")
+        )
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException::class)
+    fun handleDataIntegrityViolation(ex: DataIntegrityViolationException): ResponseEntity<Map<String, String>> {
+        log.warn("Data integrity violation: {}", ex.mostSpecificCause.message)
+        return ResponseEntity.status(409).body(
+            mapOf("detail" to "Operation conflicts with existing data constraints.")
+        )
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException::class)
+    fun handleMaxUploadSizeExceeded(ex: MaxUploadSizeExceededException): ResponseEntity<Map<String, String>> {
+        return ResponseEntity.status(413).body(mapOf("detail" to "Uploaded file exceeds the maximum allowed size."))
+    }
+
+    @ExceptionHandler(MultipartException::class, MissingServletRequestPartException::class)
+    fun handleMultipartException(ex: Exception): ResponseEntity<Map<String, String>> {
+        log.debug("Multipart upload error: {}", ex.message)
+        return ResponseEntity.status(400).body(mapOf("detail" to "Invalid or incomplete multipart upload request."))
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException::class)
+    fun handleMethodNotSupported(ex: HttpRequestMethodNotSupportedException): ResponseEntity<Map<String, String>> {
+        return ResponseEntity.status(405).body(mapOf("detail" to "HTTP method '${ex.method}' is not supported for this endpoint."))
+    }
+
+    @ExceptionHandler(HttpMediaTypeNotSupportedException::class)
+    fun handleMediaTypeNotSupported(ex: HttpMediaTypeNotSupportedException): ResponseEntity<Map<String, String>> {
+        return ResponseEntity.status(415).body(mapOf("detail" to "Unsupported media type."))
+    }
+
     @ExceptionHandler(ResponseStatusException::class)
     fun handleResponseStatusException(ex: ResponseStatusException): ResponseEntity<Map<String, String>> {
-        return ResponseEntity.status(ex.statusCode).body(mapOf("detail" to (ex.reason ?: ex.message)))
+        return ResponseEntity.status(ex.statusCode).body(mapOf("detail" to (ex.reason ?: "Request failed")))
     }
 
     @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException::class)

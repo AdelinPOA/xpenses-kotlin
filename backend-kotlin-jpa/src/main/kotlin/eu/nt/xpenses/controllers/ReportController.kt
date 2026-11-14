@@ -406,7 +406,6 @@ class ReportController(
     }
 
     @GetMapping("/{reportId}/export")
-    @Transactional(readOnly = true)
     fun exportReportPdf(
         @PathVariable reportId: Int,
         request: HttpServletRequest
@@ -414,23 +413,44 @@ class ReportController(
         val currentUser = request.getAttribute("currentUser") as? User
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
 
-        val report = expenseReportRepository.findById(reportId).orElseThrow {
-            ResponseStatusException(HttpStatus.NOT_FOUND, "Report not found")
-        }
-
-        if (!authorization.canView(currentUser, report.user?.id)) {
-            throw ResponseStatusException(HttpStatus.FORBIDDEN, "Not your report")
-        }
-
-        val pdfBytes = pdfService.generateReportPdf(
-            report = report,
-            expenses = report.expenses.sortedBy { it.date },
-            advances = report.advances,
-            mileage = report.mileageRecords,
-            signer = report.signer
+        data class PdfInputs(
+            val report: ExpenseReport,
+            val expenses: List<Expense>,
+            val advances: List<AdvancePayment>,
+            val mileage: List<MileageRecord>,
+            val signer: User?
         )
 
-        val safeTitle = report.title.filter { it.isLetterOrDigit() || it in listOf('-', '_', ' ') }.trim().replace(" ", "_")
+        val inputs = readTx.execute {
+            val report = expenseReportRepository.findById(reportId).orElseThrow {
+                ResponseStatusException(HttpStatus.NOT_FOUND, "Report not found")
+            }
+            if (!authorization.canView(currentUser, report.user?.id)) {
+                throw ResponseStatusException(HttpStatus.FORBIDDEN, "Not your report")
+            }
+            // Eagerly materialize lazy associations inside the read transaction so
+            // PDF rendering and receipt storage I/O do not hold a DB connection.
+            report.user?.displayName
+            report.user?.email
+            val signer = report.signer?.also { s -> s.displayName; s.signaturePath }
+            val expenses = report.expenses.sortedBy { it.date }.onEach { e ->
+                e.category?.name
+                e.receipts.size
+            }
+            val advances = report.advances.toList()
+            val mileage = report.mileageRecords.toList()
+            PdfInputs(report, expenses, advances, mileage, signer)
+        } ?: throw ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Transaction failed")
+
+        val pdfBytes = pdfService.generateReportPdf(
+            report = inputs.report,
+            expenses = inputs.expenses,
+            advances = inputs.advances,
+            mileage = inputs.mileage,
+            signer = inputs.signer
+        )
+
+        val safeTitle = inputs.report.title.filter { it.isLetterOrDigit() || it in listOf('-', '_', ' ') }.trim().replace(" ", "_")
         val filename = "report_${reportId}_${if (safeTitle.length > 40) safeTitle.take(40) else safeTitle}.pdf"
 
         return ResponseEntity.ok()
@@ -440,7 +460,6 @@ class ReportController(
     }
 
     @GetMapping("/{reportId}/receipts-zip")
-    @Transactional(readOnly = true)
     fun downloadReceiptsZip(
         @PathVariable reportId: Int,
         request: HttpServletRequest
@@ -448,44 +467,61 @@ class ReportController(
         val currentUser = request.getAttribute("currentUser") as? User
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
 
-        val report = expenseReportRepository.findById(reportId).orElseThrow {
-            ResponseStatusException(HttpStatus.NOT_FOUND, "Report not found")
-        }
+        data class ReceiptZipEntry(
+            val filePath: String,
+            val date: String,
+            val namePart: String
+        )
+        data class ZipInputs(
+            val reportTitle: String,
+            val entries: List<ReceiptZipEntry>
+        )
 
-        if (!authorization.canView(currentUser, report.user?.id)) {
-            throw ResponseStatusException(HttpStatus.FORBIDDEN, "Not your report")
-        }
+        val zipInputs = readTx.execute {
+            val report = expenseReportRepository.findById(reportId).orElseThrow {
+                ResponseStatusException(HttpStatus.NOT_FOUND, "Report not found")
+            }
+            if (!authorization.canView(currentUser, report.user?.id)) {
+                throw ResponseStatusException(HttpStatus.FORBIDDEN, "Not your report")
+            }
+            val entries = report.expenses.sortedBy { it.date }.flatMap { expense ->
+                val namePart = expense.merchant ?: expense.description ?: "expense_${expense.id}"
+                expense.receipts.map { receipt ->
+                    ReceiptZipEntry(
+                        filePath = receipt.filePath,
+                        date = expense.date,
+                        namePart = namePart
+                    )
+                }
+            }
+            ZipInputs(report.title, entries)
+        } ?: throw ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Transaction failed")
 
         val zipStream = ByteArrayOutputStream()
         ZipOutputStream(zipStream).use { zos ->
             val seen = mutableMapOf<String, Int>()
-            val expensesSorted = report.expenses.sortedBy { it.date }
 
-            for (expense in expensesSorted) {
-                for (receipt in expense.receipts) {
-                    try {
-                        val bytes = storageService.downloadFile(receipt.filePath)
-                        val ext = receipt.filePath.substringAfterLast(".", "")
+            for (entry in zipInputs.entries) {
+                try {
+                    val bytes = storageService.downloadFile(entry.filePath)
+                    val ext = entry.filePath.substringAfterLast(".", "")
 
-                        val date = expense.date
-                        val namePart = expense.merchant ?: expense.description ?: "expense_${expense.id}"
-                        val baseName = "${date}_$namePart".replace(" ", "_").replace("/", "-")
-                        var arcName = if (ext.isNotEmpty()) "$baseName.$ext" else baseName
+                    val baseName = "${entry.date}_${entry.namePart}".replace(" ", "_").replace("/", "-")
+                    var arcName = if (ext.isNotEmpty()) "$baseName.$ext" else baseName
 
-                        val count = seen[arcName]
-                        if (count != null) {
-                            seen[arcName] = count + 1
-                            arcName = if (ext.isNotEmpty()) "${baseName}_${count + 1}.$ext" else "${baseName}_${count + 1}"
-                        } else {
-                            seen[arcName] = 1
-                        }
-
-                        val zipEntry = ZipEntry(arcName)
-                        zos.putNextEntry(zipEntry)
-                        zos.write(bytes)
-                        zos.closeEntry()
-                    } catch (e: Exception) {
+                    val count = seen[arcName]
+                    if (count != null) {
+                        seen[arcName] = count + 1
+                        arcName = if (ext.isNotEmpty()) "${baseName}_${count + 1}.$ext" else "${baseName}_${count + 1}"
+                    } else {
+                        seen[arcName] = 1
                     }
+
+                    val zipEntry = ZipEntry(arcName)
+                    zos.putNextEntry(zipEntry)
+                    zos.write(bytes)
+                    zos.closeEntry()
+                } catch (_: Exception) {
                 }
             }
         }
@@ -495,7 +531,7 @@ class ReportController(
             throw ResponseStatusException(HttpStatus.NOT_FOUND, "No receipts found for this report")
         }
 
-        val safeTitle = report.title.filter { it.isLetterOrDigit() || it in listOf('-', '_', ' ') }.trim().replace(" ", "_")
+        val safeTitle = zipInputs.reportTitle.filter { it.isLetterOrDigit() || it in listOf('-', '_', ' ') }.trim().replace(" ", "_")
         val filename = "receipts_${reportId}_${if (safeTitle.length > 40) safeTitle.take(40) else safeTitle}.zip"
 
         return ResponseEntity.ok()

@@ -52,6 +52,12 @@ export default function UsersClient() {
     email: "",
   });
   const [createError, setCreateError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const extractDetail = (err: unknown) => {
+    const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+    return detail || t("failed_update_user");
+  };
 
   const isPrivileged = currentUser?.role === "mod" || currentUser?.role === "manager" || currentUser?.role === "chef_finance";
   const canEdit = currentUser?.role === "mod";
@@ -68,17 +74,29 @@ export default function UsersClient() {
     mutationFn: ({ id, role }: { id: number; role: User["role"] }) =>
       api.put(`/users/${id}/role`, { role }),
     onSuccess: () => {
+      setActionError(null);
       qc.invalidateQueries({ queryKey: userKeys.all });
     },
+    onError: (err) => setActionError(extractDetail(err)),
   });
 
   const activeMutation = useMutation({
     mutationFn: ({ id, is_active }: { id: number; is_active: boolean }) =>
       api.put(`/users/${id}/active`, { is_active }),
     onSuccess: () => {
+      setActionError(null);
       qc.invalidateQueries({ queryKey: userKeys.all });
     },
+    onError: (err) => setActionError(extractDetail(err)),
   });
+
+  const handleToggleActive = (target: User) => {
+    if (target.is_active && !window.confirm(t("confirm_deactivate_user", { name: target.display_name }))) {
+      return;
+    }
+    setActionError(null);
+    activeMutation.mutate({ id: target.id, is_active: !target.is_active });
+  };
 
   const createMutation = useMutation({
     mutationFn: (data: CreateUserForm) =>
@@ -100,7 +118,7 @@ export default function UsersClient() {
       if (status === 409) {
         setCreateError(t("username_taken"));
       } else if (status === 400) {
-        setCreateError("Invalid role");
+        setCreateError(t("invalid_role"));
       } else {
         setCreateError(t("failed_create_user"));
       }
@@ -137,7 +155,7 @@ export default function UsersClient() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">{t("users_heading")}</h1>
           <p className="text-muted text-sm mt-1">
-            {canEdit ? t("users_description") : "Directory roster of company staff"}
+            {canEdit ? t("users_description") : t("directory_roster")}
           </p>
         </div>
         {canEdit && (
@@ -150,6 +168,12 @@ export default function UsersClient() {
           </button>
         )}
       </div>
+
+      {actionError && (
+        <p role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-400">
+          {actionError}
+        </p>
+      )}
 
       {showCreateForm && (
         <div className="mb-6 bg-card rounded-xl shadow-sm p-6 border border-border">
@@ -284,13 +308,14 @@ export default function UsersClient() {
                         )}
                         <select
                           value={u.role}
-                          disabled={!canEdit || isSelf || roleMutation.isPending}
-                          onChange={(e) =>
+                          disabled={!canEdit || isSelf || (roleMutation.isPending && roleMutation.variables?.id === u.id)}
+                          onChange={(e) => {
+                            setActionError(null);
                             roleMutation.mutate({
                               id: u.id,
                               role: e.target.value as User["role"],
-                            })
-                          }
+                            });
+                          }}
                           className="text-base sm:text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-2 py-1 bg-input dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-300 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {ROLE_OPTIONS.map((role) => (
@@ -302,13 +327,11 @@ export default function UsersClient() {
                       </div>
                       {canEdit ? (
                         <button
-                          onClick={() =>
-                            activeMutation.mutate({ id: u.id, is_active: !u.is_active })
-                          }
-                          disabled={isSelf || activeMutation.isPending}
+                          onClick={() => handleToggleActive(u)}
+                          disabled={isSelf || (activeMutation.isPending && activeMutation.variables?.id === u.id)}
                           title={
                             isSelf
-                              ? "Cannot deactivate yourself"
+                              ? t("cannot_deactivate_self")
                               : u.is_active
                               ? t("deactivate_user")
                               : t("activate_user")
@@ -365,13 +388,14 @@ export default function UsersClient() {
                         <td className="px-4 py-3">
                           <select
                             value={u.role}
-                            disabled={!canEdit || isSelf || roleMutation.isPending}
-                            onChange={(e) =>
+                            disabled={!canEdit || isSelf || (roleMutation.isPending && roleMutation.variables?.id === u.id)}
+                            onChange={(e) => {
+                              setActionError(null);
                               roleMutation.mutate({
                                 id: u.id,
                                 role: e.target.value as User["role"],
-                              })
-                            }
+                              });
+                            }}
                             className="text-base sm:text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-2 py-1 bg-input dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-300 disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             {ROLE_OPTIONS.map((role) => (
@@ -408,13 +432,11 @@ export default function UsersClient() {
                         <td className="px-4 py-3 text-center">
                           {canEdit ? (
                             <button
-                              onClick={() =>
-                                activeMutation.mutate({ id: u.id, is_active: !u.is_active })
-                              }
-                              disabled={isSelf || activeMutation.isPending}
+                              onClick={() => handleToggleActive(u)}
+                              disabled={isSelf || (activeMutation.isPending && activeMutation.variables?.id === u.id)}
                               title={
                                 isSelf
-                                  ? "Cannot deactivate yourself"
+                                  ? t("cannot_deactivate_self")
                                   : u.is_active
                                   ? t("deactivate_user")
                                   : t("activate_user")

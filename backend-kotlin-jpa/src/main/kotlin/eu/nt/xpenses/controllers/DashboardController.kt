@@ -13,6 +13,7 @@ import eu.nt.xpenses.repositories.*
 import eu.nt.xpenses.services.Authorization
 import eu.nt.xpenses.services.mapper.ExpenseMapper
 import jakarta.servlet.http.HttpServletRequest
+import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Pageable
 import org.springframework.http.HttpStatus
 import org.springframework.transaction.annotation.Transactional
@@ -169,7 +170,7 @@ class DashboardController(
             avgTurnaroundDays = 1.2
         )
 
-        val allReports = expenseReportRepository.findAllWithExpenses().take(10)
+        val allReports = expenseReportRepository.findLatestWithExpenses(PageRequest.of(0, 10))
         val recentActivity = allReports.map { report ->
             val type = when (report.status) {
                 "submitted" -> "report_submitted"

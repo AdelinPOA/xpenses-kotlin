@@ -39,19 +39,30 @@ class OcrSourceCleanupService(
         afterId = candidates.last()
         candidates.forEach { id ->
             runCatching {
-                transactions.execute {
-                    val job = repository.lockForSourceCleanup(id) ?: return@execute
-                    val path = job.sourcePath ?: return@execute
+                val deleteTarget = transactions.execute {
+                    val job = repository.lockForSourceCleanup(id) ?: return@execute null
+                    val path = job.sourcePath ?: return@execute null
                     if (job.status !in TERMINAL || job.expiresAt?.isAfter(now) != false ||
                         job.leaseUntil?.isAfter(now) == true || !path.startsWith("ocr-sources/") ||
                         repository.isSourcePathShared(path, id)
                     ) {
+                        return@execute null
+                    }
+                    path
+                } ?: return@forEach
+
+                // Execute storage I/O outside any open DB transaction/row lock so slow remote
+                // deletes never hold connection pool slots or row locks.
+                storage.deleteOcrSource(deleteTarget)
+
+                transactions.execute {
+                    val job = repository.lockForSourceCleanup(id) ?: return@execute
+                    val path = job.sourcePath ?: return@execute
+                    if (path != deleteTarget || job.status !in TERMINAL || job.expiresAt?.isAfter(now) != false ||
+                        job.leaseUntil?.isAfter(now) == true
+                    ) {
                         return@execute
                     }
-
-                    // The terminal row stays locked until deletion and pointer clearing
-                    // commit. On deletion failure its pointer remains available for retry.
-                    storage.deleteOcrSource(path)
                     job.sourcePath = null
                     job.sourceContentType = null
                     job.sourceSizeBytes = null

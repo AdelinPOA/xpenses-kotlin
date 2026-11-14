@@ -49,9 +49,20 @@ function LoginForm() {
     try {
       const user = await login(submittedUsername, submittedPassword);
       setUser(user);
-      // Only allow in-app absolute paths — blocks open redirects like "//evil.com".
+      // Only allow relative same-origin paths — blocks //evil.com and /\evil.com.
       const next = searchParams.get("next");
-      router.push(next && next.startsWith("/") && !next.startsWith("//") ? next : "/dashboard");
+      let safeNext = "/dashboard";
+      if (next && next.startsWith("/") && !next.startsWith("//") && !next.startsWith("/\\")) {
+        try {
+          const parsed = new URL(next, "http://localhost");
+          if (parsed.origin === "http://localhost") {
+            safeNext = parsed.pathname + parsed.search + parsed.hash;
+          }
+        } catch {
+          safeNext = "/dashboard";
+        }
+      }
+      router.push(safeNext);
     } catch (err: unknown) {
       setLoading(false);
       if (axios.isAxiosError(err) && err.response?.status === 429) {

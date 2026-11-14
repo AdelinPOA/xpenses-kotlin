@@ -30,6 +30,12 @@ export default function GlobalAdvancesPage() {
   const [payAmount, setPayAmount] = useState("");
   const [payCurrency, setPayCurrency] = useState("EUR");
   const [payDate, setPayDate] = useState("");
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const extractDetail = (err: unknown) => {
+    const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+    return detail || t("action_failed");
+  };
 
   const { data: pending = [], isLoading } = useQuery<PendingAdvance[]>({
     queryKey: advanceKeys.pending(),
@@ -37,6 +43,7 @@ export default function GlobalAdvancesPage() {
   });
 
   const invalidate = () => {
+    setActionError(null);
     qc.invalidateQueries({ queryKey: advanceKeys.all });
     qc.invalidateQueries({ queryKey: reportKeys.all });
   };
@@ -52,12 +59,14 @@ export default function GlobalAdvancesPage() {
       setPayCurrency("EUR");
       setPayDate("");
     },
+    onError: (err) => setActionError(extractDetail(err)),
   });
 
   const rejectAdvance = useMutation({
     mutationFn: ({ reportId, advanceId }: { reportId: number; advanceId: number }) =>
       api.post(`/reports/${reportId}/advances/${advanceId}/reject`, { reason: "" }),
     onSuccess: invalidate,
+    onError: (err) => setActionError(extractDetail(err)),
   });
 
   const handlePay = () => {
@@ -87,6 +96,12 @@ export default function GlobalAdvancesPage() {
         <h1 className="text-2xl font-bold text-foreground">{t("heading")}</h1>
         <p className="text-sm text-muted mt-1">{t("subtitle")}</p>
       </div>
+
+      {actionError && (
+        <p role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-400">
+          {actionError}
+        </p>
+      )}
 
       {isLoading ? (
         <p className="text-muted-foreground text-sm">{tc("loading")}</p>

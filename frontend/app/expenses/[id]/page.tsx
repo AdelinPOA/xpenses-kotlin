@@ -12,6 +12,7 @@ import api, { Expense, downloadBlob, API_BASE_URL } from "@/lib/api";
 import { expenseKeys } from "@/lib/queryKeys";
 import { formatAmount, formatEur, formatDate } from "@/lib/format";
 import ReceiptLightbox from "@/components/expenses/ReceiptLightbox";
+import AuthorizedImage from "@/components/expenses/AuthorizedImage";
 import clsx from "clsx";
 
 export default function ExpenseDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -202,7 +203,7 @@ export default function ExpenseDetailPage({ params }: { params: Promise<{ id: st
                           >
                             {isImage && (
                               <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted/20 border border-border shrink-0">
-                                <img
+                                <AuthorizedImage
                                   src={receiptUrl}
                                   alt=""
                                   className="w-full h-full object-cover group-hover:scale-105 transition-transform"

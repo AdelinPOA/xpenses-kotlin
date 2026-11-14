@@ -7,6 +7,11 @@ export async function serverFetch<T>(
 ): Promise<T> {
   const cookieStore = await cookies();
   const allCookies = cookieStore.getAll();
+  const hasAccessToken = Boolean(cookieStore.get("access_token")?.value);
+
+  if (!hasAccessToken) {
+    throw new Error("Skipping SSR prefetch: no access token cookie");
+  }
 
   const INTERNAL_API_URL = process.env.INTERNAL_API_URL || "http://backend:8080/api";
 

@@ -8,19 +8,29 @@ import java.math.RoundingMode
 
 @Component
 class ReportLifecycleNotificationAdapter(
-    private val userRepository: UserRepository,
-    private val emailSettingsService: EmailSettingsService
+    private val asyncNotifier: AsyncReportLifecycleNotifier
 ) {
     fun dispatch(events: List<ExpenseReportLifecycleEvent>) {
         for (event in events) {
             when (event) {
-                is ExpenseReportLifecycleEvent.ReportSubmitted -> notifySubmitted(event)
-                is ExpenseReportLifecycleEvent.ReportApproved -> notifyApproved(event)
-                is ExpenseReportLifecycleEvent.ReportRejected -> notifyRejected(event)
-                is ExpenseReportLifecycleEvent.ReportPaid -> notifyPaid(event)
+                is ExpenseReportLifecycleEvent.ReportSubmitted -> asyncNotifier.notifySubmitted(event)
+                is ExpenseReportLifecycleEvent.ReportApproved -> asyncNotifier.notifyApproved(event)
+                is ExpenseReportLifecycleEvent.ReportRejected -> asyncNotifier.notifyRejected(event)
+                is ExpenseReportLifecycleEvent.ReportPaid -> asyncNotifier.notifyPaid(event)
             }
         }
     }
+}
+
+/**
+ * Separate Spring bean so @Async calls from ReportLifecycleNotificationAdapter
+ * execute through the AOP proxy on the async task executor rather than self-invoking synchronously.
+ */
+@Component
+class AsyncReportLifecycleNotifier(
+    private val userRepository: UserRepository,
+    private val emailSettingsService: EmailSettingsService
+) {
 
     @Async
     fun notifySubmitted(event: ExpenseReportLifecycleEvent.ReportSubmitted) {

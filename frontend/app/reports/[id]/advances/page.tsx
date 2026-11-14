@@ -28,7 +28,13 @@ export default function AdvancesPage({ params }: { params: Promise<{ id: string 
   const [payAmount, setPayAmount] = useState("");
   const [payCurrency, setPayCurrency] = useState("EUR");
   const [payDate, setPayDate] = useState("");
+  const [actionError, setActionError] = useState<string | null>(null);
   const t = useTranslations("reports");
+
+  const extractDetail = (err: unknown) => {
+    const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+    return detail || t("advances_error_action");
+  };
 
   const { data: report, isLoading } = useQuery<Report>({
     queryKey: reportKeys.detail(reportId),
@@ -36,6 +42,7 @@ export default function AdvancesPage({ params }: { params: Promise<{ id: string 
   });
 
   const invalidate = () => {
+    setActionError(null);
     qc.invalidateQueries({ queryKey: reportKeys.detail(reportId) });
     qc.invalidateQueries({ queryKey: advanceKeys.all });
   };
@@ -51,12 +58,21 @@ export default function AdvancesPage({ params }: { params: Promise<{ id: string 
       setDate("");
       setDescription("");
     },
+    onError: (err) => setActionError(extractDetail(err)),
   });
 
   const deleteAdvance = useMutation({
     mutationFn: (advanceId: number) => api.delete(`/reports/${id}/advances/${advanceId}`),
     onSuccess: invalidate,
+    onError: (err) => setActionError(extractDetail(err)),
   });
+
+  const confirmDeleteAdvance = (advanceId: number) => {
+    if (window.confirm(t("advances_confirm_delete"))) {
+      setActionError(null);
+      deleteAdvance.mutate(advanceId);
+    }
+  };
 
   const payAdvance = useMutation({
     mutationFn: ({ advanceId, ...body }: { advanceId: number; amount: number; currency: string; date: string }) =>
@@ -68,12 +84,14 @@ export default function AdvancesPage({ params }: { params: Promise<{ id: string 
       setPayCurrency("EUR");
       setPayDate("");
     },
+    onError: (err) => setActionError(extractDetail(err)),
   });
 
   const rejectAdvance = useMutation({
     mutationFn: ({ advanceId, reason }: { advanceId: number; reason: string }) =>
       api.post(`/reports/${id}/advances/${advanceId}/reject`, { reason }),
     onSuccess: invalidate,
+    onError: (err) => setActionError(extractDetail(err)),
   });
 
   const handleAdd = () => {
@@ -121,6 +139,12 @@ export default function AdvancesPage({ params }: { params: Promise<{ id: string 
         </div>
         <p className="text-sm text-muted mt-1">{report.title}</p>
       </div>
+
+      {actionError && (
+        <p role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-400">
+          {actionError}
+        </p>
+      )}
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
@@ -294,17 +318,17 @@ export default function AdvancesPage({ params }: { params: Promise<{ id: string 
                         </>
                       )}
                       {a.status === "requested" && isOwner && (
-                        <button onClick={() => deleteAdvance.mutate(a.id)} className="text-slate-400 hover:text-red-500">
+                        <button type="button" onClick={() => confirmDeleteAdvance(a.id)} disabled={deleteAdvance.isPending} className="text-slate-400 hover:text-red-500 disabled:opacity-40 disabled:cursor-not-allowed">
                           <Trash2 className="w-4 h-4" />
                         </button>
                       )}
                       {a.status === "paid" && report.status === "draft" && (isOwner || isPrivileged) && (
-                        <button onClick={() => deleteAdvance.mutate(a.id)} className="text-slate-400 hover:text-red-500">
+                        <button type="button" onClick={() => confirmDeleteAdvance(a.id)} disabled={deleteAdvance.isPending} className="text-slate-400 hover:text-red-500 disabled:opacity-40 disabled:cursor-not-allowed">
                           <Trash2 className="w-4 h-4" />
                         </button>
                       )}
                       {a.status === "rejected" && isOwner && (
-                        <button onClick={() => deleteAdvance.mutate(a.id)} className="text-slate-400 hover:text-red-500">
+                        <button type="button" onClick={() => confirmDeleteAdvance(a.id)} disabled={deleteAdvance.isPending} className="text-slate-400 hover:text-red-500 disabled:opacity-40 disabled:cursor-not-allowed">
                           <Trash2 className="w-4 h-4" />
                         </button>
                       )}
@@ -361,24 +385,25 @@ export default function AdvancesPage({ params }: { params: Promise<{ id: string 
                               </button>
                               <button
                                 onClick={() => rejectAdvance.mutate({ advanceId: a.id, reason: "" })}
-                                className="text-xs px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700"
+                                disabled={rejectAdvance.isPending}
+                                className="text-xs px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
                               >
                             {t("advances_reject")}
                               </button>
                             </>
                           )}
                           {a.status === "requested" && isOwner && (
-                            <button onClick={() => deleteAdvance.mutate(a.id)} className="text-slate-400 hover:text-red-500">
+                            <button type="button" onClick={() => confirmDeleteAdvance(a.id)} disabled={deleteAdvance.isPending} className="text-slate-400 hover:text-red-500 disabled:opacity-40 disabled:cursor-not-allowed">
                               <Trash2 className="w-4 h-4" />
                             </button>
                           )}
                           {a.status === "paid" && report.status === "draft" && (isOwner || isPrivileged) && (
-                            <button onClick={() => deleteAdvance.mutate(a.id)} className="text-slate-400 hover:text-red-500">
+                            <button type="button" onClick={() => confirmDeleteAdvance(a.id)} disabled={deleteAdvance.isPending} className="text-slate-400 hover:text-red-500 disabled:opacity-40 disabled:cursor-not-allowed">
                               <Trash2 className="w-4 h-4" />
                             </button>
                           )}
                           {a.status === "rejected" && isOwner && (
-                            <button onClick={() => deleteAdvance.mutate(a.id)} className="text-slate-400 hover:text-red-500">
+                            <button type="button" onClick={() => confirmDeleteAdvance(a.id)} disabled={deleteAdvance.isPending} className="text-slate-400 hover:text-red-500 disabled:opacity-40 disabled:cursor-not-allowed">
                               <Trash2 className="w-4 h-4" />
                             </button>
                           )}
@@ -397,7 +422,7 @@ export default function AdvancesPage({ params }: { params: Promise<{ id: string 
       {payingId && (
         <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50 rounded-xl p-4 mt-4">
           <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">
-            {t("advances_set_payment")}#{payingId}:
+            {t("advances_set_payment")}{payingId}:
           </p>
           <div className="flex flex-col sm:flex-row gap-3">
             <input

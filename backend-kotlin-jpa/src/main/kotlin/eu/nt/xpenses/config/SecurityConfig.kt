@@ -84,7 +84,7 @@ class SecurityConfig(
     fun csrfOriginRefererFilter(): OncePerRequestFilter {
         val log = LoggerFactory.getLogger("csrfOriginRefererFilter")
         val skipPaths = setOf(
-            "/api/auth/login", "/api/auth/logout", "/api/auth/refresh",
+            "/api/auth/login", "/api/auth/refresh",
             "/api/health", "/error",
             "/actuator/health", "/actuator/info"
         )

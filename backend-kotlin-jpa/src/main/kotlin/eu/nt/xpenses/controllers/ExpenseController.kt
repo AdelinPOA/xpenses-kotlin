@@ -1,5 +1,6 @@
 package eu.nt.xpenses.controllers
 
+import eu.nt.xpenses.config.SafeMediaType
 import eu.nt.xpenses.dto.expense.ExpenseCreate
 import eu.nt.xpenses.dto.expense.ExpenseOut
 import eu.nt.xpenses.dto.expense.ExpenseReviewRequest
@@ -179,9 +180,11 @@ class ExpenseController(
         val currentUser =
             request.getAttribute("currentUser") as? User
                 ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
-        val (bytes, contentType) = expenseService.getReceiptBytes(expenseId, receiptId, currentUser)
+        val (bytes, contentType, filename) = expenseService.getReceiptDownload(expenseId, receiptId, currentUser)
         return ResponseEntity
             .ok()
+            .header(HttpHeaders.CONTENT_DISPOSITION, SafeMediaType.safeDisposition(filename, contentType).toString())
+            .header("X-Content-Type-Options", "nosniff")
             .contentType(MediaType.parseMediaType(contentType))
             .body(bytes)
     }
@@ -194,9 +197,11 @@ class ExpenseController(
         val currentUser =
             request.getAttribute("currentUser") as? User
                 ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
-        val (bytes, contentType) = expenseService.getReceiptBytes(expenseId, null, currentUser)
+        val (bytes, contentType, filename) = expenseService.getReceiptDownload(expenseId, null, currentUser)
         return ResponseEntity
             .ok()
+            .header(HttpHeaders.CONTENT_DISPOSITION, SafeMediaType.safeDisposition(filename, contentType).toString())
+            .header("X-Content-Type-Options", "nosniff")
             .contentType(MediaType.parseMediaType(contentType))
             .body(bytes)
     }

@@ -136,6 +136,8 @@ export default function SettingsClient() {
   const [isTesting, setIsTesting] = useState(false);
   const [providersSaveSuccess, setProvidersSaveSuccess] = useState(false);
   const [providersSaveError, setProvidersSaveError] = useState("");
+  const [ratesError, setRatesError] = useState("");
+  const [allowanceError, setAllowanceError] = useState("");
 
   useEffect(() => {
     if (rates) {
@@ -171,13 +173,27 @@ export default function SettingsClient() {
   const updateRates = useMutation({
     mutationFn: (data: Record<string, number>) =>
       api.patch("/settings/mileage-rates", data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: settingsKeys.all }),
+    onSuccess: () => {
+      setRatesError("");
+      qc.invalidateQueries({ queryKey: settingsKeys.all });
+    },
+    onError: (err: unknown) => {
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      setRatesError(detail || t("failed_save"));
+    },
   });
 
   const updateAllowance = useMutation({
     mutationFn: (data: { daily_allowance_rate: number }) =>
       api.patch("/settings/daily-allowance-rate", data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: settingsKeys.dailyAllowanceRate() }),
+    onSuccess: () => {
+      setAllowanceError("");
+      qc.invalidateQueries({ queryKey: settingsKeys.dailyAllowanceRate() });
+    },
+    onError: (err: unknown) => {
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      setAllowanceError(detail || t("failed_save"));
+    },
   });
 
   const updateFxMargins = useMutation<FxMargins, AxiosError<ApiValidationError>, { margins: Record<string, number>; default_margin: number }>({
@@ -284,13 +300,21 @@ export default function SettingsClient() {
     const health = parseFloat(healthRate) / 100;
     const incomeTax = parseFloat(incomeTaxRate) / 100;
     const deduction = parseFloat(taxDeduction);
-    if ([btVal, consumption, price, pension, health, incomeTax, deduction].some(Number.isNaN) || btVal <= 0 || consumption <= 0 || price < 0 || pension < 0 || health < 0 || incomeTax < 0 || deduction < 0) return;
+    if ([btVal, consumption, price, pension, health, incomeTax, deduction].some(Number.isNaN) || btVal <= 0 || consumption <= 0 || price < 0 || pension < 0 || health < 0 || incomeTax < 0 || deduction < 0) {
+      setRatesError(t("invalid_rates_input"));
+      return;
+    }
+    setRatesError("");
     updateRates.mutate({ mileage_rate_before_tax: btVal, fuel_consumption_l_per_100km: consumption, fuel_price_ron_per_liter: price, pension_rate: pension, health_rate: health, income_tax_rate: incomeTax, tax_deduction_eur: deduction });
   };
 
   const handleSaveAllowance = () => {
     const val = parseFloat(dailyRate);
-    if (isNaN(val) || val < 0) return;
+    if (isNaN(val) || val < 0) {
+      setAllowanceError(t("invalid_allowance_input"));
+      return;
+    }
+    setAllowanceError("");
     updateAllowance.mutate({ daily_allowance_rate: val });
   };
 
@@ -393,7 +417,10 @@ export default function SettingsClient() {
               {updateRates.isPending ? t("saving") : t("save")}
             </button>
 
-            {updateRates.isSuccess && (
+            {ratesError && (
+              <p role="alert" className="text-sm text-red-600 dark:text-red-400">{ratesError}</p>
+            )}
+            {updateRates.isSuccess && !ratesError && (
               <p className="text-sm text-emerald-600 dark:text-emerald-400">{t("config_saved")}</p>
             )}
           </div>
@@ -430,7 +457,10 @@ export default function SettingsClient() {
               {updateAllowance.isPending ? t("saving") : t("save")}
             </button>
 
-            {updateAllowance.isSuccess && (
+            {allowanceError && (
+              <p role="alert" className="text-sm text-red-600 dark:text-red-400">{allowanceError}</p>
+            )}
+            {updateAllowance.isSuccess && !allowanceError && (
               <p className="text-sm text-emerald-600 dark:text-emerald-400">{t("config_saved")}</p>
             )}
           </div>

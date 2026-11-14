@@ -32,6 +32,7 @@ export default function CategoriesPage() {
   const [showNew, setShowNew] = useState(false);
   const [form, setForm] = useState<FormState>({ name: "", limit_amount: "" });
   const [error, setError] = useState("");
+  const [actionError, setActionError] = useState("");
 
   const { data: categories, isLoading } = useQuery<Category[]>({
     queryKey: categoryKeys.list(),
@@ -55,19 +56,35 @@ export default function CategoriesPage() {
       setEditId(null);
       setForm({ name: "", limit_amount: "" });
       setError("");
+      setActionError("");
     },
     onError: (e: any) => setError(e.response?.data?.detail ?? t("save_failed")),
   });
 
   const deactivate = useMutation({
     mutationFn: (id: number) => api.delete(`/categories/${id}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: categoryKeys.all }),
+    onSuccess: () => {
+      setActionError("");
+      qc.invalidateQueries({ queryKey: categoryKeys.all });
+    },
+    onError: (e: unknown) => {
+      const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      setActionError(detail ?? t("deactivate_failed"));
+    },
   });
+
+  const confirmDeactivate = (cat: Category) => {
+    if (window.confirm(t("confirm_deactivate", { name: cat.name }))) {
+      setActionError("");
+      deactivate.mutate(cat.id);
+    }
+  };
 
   const startEdit = (cat: Category) => {
     setEditId(cat.id);
     setForm({ name: cat.name, limit_amount: cat.limit_amount?.toString() ?? "" });
     setShowNew(false);
+    setError("");
   };
 
   const cancelEdit = () => {
@@ -103,13 +120,19 @@ export default function CategoriesPage() {
           <p className="text-muted text-sm mt-1">{t("subtitle")}</p>
         </div>
         <button
-          onClick={() => { setShowNew(true); setEditId(null); setForm({ name: "", limit_amount: "" }); }}
+          onClick={() => { setShowNew(true); setEditId(null); setForm({ name: "", limit_amount: "" }); setError(""); }}
           className="flex items-center gap-2 px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-hover"
         >
           <Plus className="w-4 h-4" />
           {t("new_category")}
         </button>
       </div>
+
+      {actionError && (
+        <p role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-400">
+          {actionError}
+        </p>
+      )}
 
       {(showNew || editId !== null) && (
         <div className="bg-card rounded-xl shadow-sm p-6 mb-6 max-w-md">
@@ -178,7 +201,7 @@ export default function CategoriesPage() {
                       <Pencil className="w-4 h-4 text-muted-foreground hover:text-blue-600" />
                     </button>
                     {cat.is_active && (
-                      <button onClick={() => deactivate.mutate(cat.id)} disabled={deactivate.isPending}>
+                      <button type="button" onClick={() => confirmDeactivate(cat)} disabled={deactivate.isPending} className="disabled:opacity-40 disabled:cursor-not-allowed">
                         <X className="w-4 h-4 text-muted-foreground hover:text-red-500" />
                       </button>
                     )}
@@ -212,7 +235,7 @@ export default function CategoriesPage() {
                             <Pencil className="w-4 h-4 text-muted-foreground hover:text-blue-600" />
                           </button>
                           {cat.is_active && (
-                            <button onClick={() => deactivate.mutate(cat.id)} disabled={deactivate.isPending}>
+                            <button type="button" onClick={() => confirmDeactivate(cat)} disabled={deactivate.isPending} className="disabled:opacity-40 disabled:cursor-not-allowed">
                               <X className="w-4 h-4 text-muted-foreground hover:text-red-500" />
                             </button>
                           )}

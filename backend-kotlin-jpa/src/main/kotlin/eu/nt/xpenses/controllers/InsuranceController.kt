@@ -1,6 +1,7 @@
 package eu.nt.xpenses.controllers
 
 import com.fasterxml.jackson.annotation.JsonProperty
+import eu.nt.xpenses.config.SafeMediaType
 import eu.nt.xpenses.model.InsuranceFile
 import eu.nt.xpenses.model.User
 import eu.nt.xpenses.repositories.InsuranceFileRepository
@@ -21,7 +22,6 @@ import org.springframework.web.multipart.MultipartFile
 import org.springframework.web.server.ResponseStatusException
 import org.slf4j.LoggerFactory
 import java.io.File
-import java.nio.charset.StandardCharsets
 import java.time.Instant
 
 @RestController
@@ -35,6 +35,7 @@ class InsuranceController(
 ) {
     private val logger = LoggerFactory.getLogger(InsuranceController::class.java)
     @GetMapping
+    @Transactional(readOnly = true)
     fun listFiles(
         @RequestParam(value = "all", required = false, defaultValue = "false") all: Boolean,
         request: HttpServletRequest
@@ -52,6 +53,7 @@ class InsuranceController(
     }
 
     @GetMapping("/{fileId}")
+    @Transactional(readOnly = true)
     fun getFile(
         @PathVariable fileId: Int,
         request: HttpServletRequest
@@ -104,37 +106,44 @@ class InsuranceController(
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "File type .$ext not allowed. Accepted: ${allowedExtensions.joinToString()}")
         }
 
-        val targetUser = userRepository.findById(userId).orElseThrow {
+        // Verify target user exists before writing uploaded bytes to storage.
+        userRepository.findById(userId).orElseThrow {
             ResponseStatusException(HttpStatus.NOT_FOUND, "Target user not found")
         }
 
         val relativePath = "$userId/insurance/${Instant.now().epochSecond}_$originalName"
+        storageService.uploadFile(relativePath, upload.bytes)
 
         val now = Instant.now()
-        val saved = transactionTemplate.execute {
-            storageService.uploadFile(relativePath, upload.bytes)
-            val txTargetUser = userRepository.findById(userId).orElseThrow {
-                ResponseStatusException(HttpStatus.NOT_FOUND, "Target user not found")
-            }
-            val txCurrentUser = userRepository.findById(currentUser.id!!).orElseThrow {
-                ResponseStatusException(HttpStatus.NOT_FOUND, "Current user not found")
-            }
-            val insuranceFile = InsuranceFile(
-                user = txTargetUser,
-                title = title.trim(),
-                description = description?.trim()?.ifBlank { null },
-                filePath = relativePath,
-                fileName = originalName,
-                fileSize = upload.size,
-                fileType = resolveSafeMimeType(originalName),
-                uploadedBy = txCurrentUser,
-                createdAt = now,
-                updatedAt = now
-            )
-            insuranceFileRepository.save(insuranceFile)
-        } ?: throw ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Transaction failed")
+        val created = try {
+            transactionTemplate.execute {
+                val txTargetUser = userRepository.findById(userId).orElseThrow {
+                    ResponseStatusException(HttpStatus.NOT_FOUND, "Target user not found")
+                }
+                val txCurrentUser = userRepository.findById(currentUser.id!!).orElseThrow {
+                    ResponseStatusException(HttpStatus.NOT_FOUND, "Current user not found")
+                }
+                val insuranceFile = InsuranceFile(
+                    user = txTargetUser,
+                    title = title.trim(),
+                    description = description?.trim()?.ifBlank { null },
+                    filePath = relativePath,
+                    fileName = originalName,
+                    fileSize = upload.size,
+                    fileType = SafeMediaType.resolveSafeMimeType(originalName),
+                    uploadedBy = txCurrentUser,
+                    createdAt = now,
+                    updatedAt = now
+                )
+                val saved = insuranceFileRepository.save(insuranceFile)
+                mapToOut(saved)
+            } ?: throw ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Transaction failed")
+        } catch (ex: Exception) {
+            deleteStorageQuietly(relativePath)
+            throw ex
+        }
 
-        return ResponseEntity.status(HttpStatus.CREATED).body(mapToOut(saved))
+        return ResponseEntity.status(HttpStatus.CREATED).body(created)
     }
 
     @GetMapping("/{fileId}/download")
@@ -146,25 +155,25 @@ class InsuranceController(
         val currentUser = request.getAttribute("currentUser") as? User
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
 
-        val file = insuranceFileRepository.findById(fileId).orElseThrow {
-            ResponseStatusException(HttpStatus.NOT_FOUND, "File not found")
-        }
+        val metadata = transactionTemplate.execute {
+            val file = insuranceFileRepository.findById(fileId).orElseThrow {
+                ResponseStatusException(HttpStatus.NOT_FOUND, "File not found")
+            }
+            if (!authorization.canView(currentUser, file.user?.id)) {
+                throw ResponseStatusException(HttpStatus.FORBIDDEN, "Not your file")
+            }
+            Pair(file.filePath, file.fileName?.ifBlank { null } ?: "document")
+        } ?: throw ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Transaction failed")
 
-        if (!authorization.canView(currentUser, file.user?.id)) {
-            throw ResponseStatusException(HttpStatus.FORBIDDEN, "Not your file")
-        }
-
+        val (filePath, effectiveFileName) = metadata
         val bytes = try {
-            storageService.downloadFile(file.filePath)
+            storageService.downloadFile(filePath)
         } catch (e: Exception) {
             throw ResponseStatusException(HttpStatus.NOT_FOUND, "File not found on storage")
         }
 
-        val effectiveFileName = file.fileName?.ifBlank { null } ?: "document"
-        val safeMimeType = resolveSafeMimeType(effectiveFileName)
-        val contentDisposition = ContentDisposition.attachment()
-            .filename(effectiveFileName, StandardCharsets.UTF_8)
-            .build()
+        val safeMimeType = SafeMediaType.resolveSafeMimeType(effectiveFileName)
+        val contentDisposition = SafeMediaType.safeDisposition(effectiveFileName, safeMimeType, forceAttachment = true)
 
         return ResponseEntity.ok()
             .header(HttpHeaders.CONTENT_DISPOSITION, contentDisposition.toString())
@@ -195,6 +204,10 @@ class InsuranceController(
             filePath
         } ?: throw ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Transaction failed")
 
+        deleteStorageQuietly(path)
+    }
+
+    private fun deleteStorageQuietly(path: String) {
         try {
             storageService.deleteFile(path)
         } catch (e: Exception) {
@@ -217,26 +230,6 @@ class InsuranceController(
         createdAt = f.createdAt,
         updatedAt = f.updatedAt
     )
-
-    companion object {
-        private val EXTENSION_MIME_MAP = mapOf(
-            "pdf" to "application/pdf",
-            "jpg" to "image/jpeg",
-            "jpeg" to "image/jpeg",
-            "png" to "image/png",
-            "doc" to "application/msword",
-            "docx" to "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            "xls" to "application/vnd.ms-excel",
-            "xlsx" to "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            "txt" to "text/plain",
-            "csv" to "text/csv",
-        )
-
-        fun resolveSafeMimeType(fileName: String): String {
-            val ext = fileName.substringAfterLast('.', "").lowercase()
-            return EXTENSION_MIME_MAP[ext] ?: "application/octet-stream"
-        }
-    }
 }
 
 data class InsuranceFileOut(

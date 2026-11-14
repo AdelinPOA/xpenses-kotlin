@@ -4,6 +4,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { X, ZoomIn, ZoomOut, RotateCcw, Download } from "lucide-react";
 import { useTranslations } from "next-intl";
 import clsx from "clsx";
+import AuthorizedImage from "@/components/expenses/AuthorizedImage";
 
 interface Props {
   isOpen: boolean;
@@ -210,7 +211,7 @@ export default function ReceiptLightbox({
         onTouchEnd={handleTouchEnd}
         onDoubleClick={handleDoubleTap}
       >
-        <img
+        <AuthorizedImage
           src={imageUrl}
           alt={title || "Receipt"}
           draggable={false}

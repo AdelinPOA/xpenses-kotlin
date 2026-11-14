@@ -49,11 +49,11 @@ Priority companion: see [important-todo.md](important-todo.md) for the urgent AI
 
 ---
 
-## 4. Open Tracked GitHub Issues (P1/P2)
+## 4. Tracked GitHub Issues (Closed on GitHub — Historical Reference)
 
-- [ ] **`#58` / `#59`**: PWA service worker cache isolation and safe offline cold-start on iPhone.
-- [ ] **`#57` / `#60`**: Orphan receipt cleanup & OCR source retention reconciliation (`OCR_SOURCE_CLEANUP_ENABLED` must stay `false` until resolved).
-- [ ] **`#48` / `#45` / `#50` / `#51`**: Mobile bulk review row error feedback, fullscreen receipt viewer, and iPhone acceptance gate (`#44`).
+- [x] **`#58` / `#59`**: PWA service worker cache isolation and safe offline cold-start on iPhone.
+- [x] **`#57` / `#60`**: Orphan receipt cleanup & OCR source retention reconciliation *(keep `OCR_SOURCE_CLEANUP_ENABLED=false` in live `.env` unless explicitly enabled after storage audit)*.
+- [x] **`#48` / `#45` / `#50` / `#51`**: Mobile bulk review row error feedback, fullscreen receipt viewer, and iPhone acceptance gate (`#44`).
 
 ---
 

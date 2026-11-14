@@ -70,8 +70,22 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
 
   const deleteMileage = useMutation({
     mutationFn: (mileageId: number) => api.delete(`/reports/${id}/mileage/${mileageId}`),
-    onSuccess: invalidate,
+    onSuccess: () => {
+      setFormError(null);
+      invalidate();
+    },
+    onError: (e: unknown) => {
+      const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      setFormError(detail ?? t("mileage_error_delete"));
+    },
   });
+
+  const confirmDeleteMileage = (mileageId: number) => {
+    if (window.confirm(t("mileage_confirm_delete"))) {
+      setFormError(null);
+      deleteMileage.mutate(mileageId);
+    }
+  };
 
   const handleAdd = () => {
     setFormError(null);
@@ -327,18 +341,23 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
                   <div className="flex items-center justify-between mt-3">
                     <div className="flex items-center gap-3 text-xs text-muted-foreground">
                       <span className="text-blue-600 dark:text-blue-400 font-medium">{formatDuration(m.duration_minutes)}</span>
-                      <span>Gross: {formatAmount(m.amount_before_tax, "EUR")}</span>
+                      <span>{t("mileage_gross_prefix")} {formatAmount(m.amount_before_tax, "EUR")}</span>
                     </div>
                     {report.status === "draft" && (
-                      <button onClick={() => deleteMileage.mutate(m.id)} className="text-slate-400 hover:text-red-500">
+                      <button
+                        type="button"
+                        onClick={() => confirmDeleteMileage(m.id)}
+                        disabled={deleteMileage.isPending}
+                        className="text-slate-400 hover:text-red-500 disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
                         <Trash2 className="w-4 h-4" />
                       </button>
                     )}
                   </div>
                   {m.fuel_cost_eur != null && (
                     <details className="mt-2 text-xs text-muted-foreground">
-                      <summary className="cursor-pointer">Calculation details</summary>
-                      <p className="mt-1">Fuel: {m.fuel_cost_eur.toFixed(2)} EUR · Taxable: {(m.taxable_amount ?? 0).toFixed(2)} EUR · Withholding: {(m.withholding_amount ?? 0).toFixed(2)} EUR</p>
+                      <summary className="cursor-pointer">{t("mileage_calc_details")}</summary>
+                      <p className="mt-1">{t("mileage_calc_fuel")}: {m.fuel_cost_eur.toFixed(2)} EUR · {t("mileage_calc_taxable")}: {(m.taxable_amount ?? 0).toFixed(2)} EUR · {t("mileage_calc_withholding")}: {(m.withholding_amount ?? 0).toFixed(2)} EUR</p>
                     </details>
                   )}
                 </div>
@@ -392,7 +411,12 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
                       <td className="px-4 py-3 text-right text-xs text-muted-foreground">{m.fuel_cost_eur != null ? `${m.fuel_cost_eur.toFixed(2)} EUR` : "—"}</td>
                       {report.status === "draft" && (
                         <td className="px-4 py-3 text-right">
-                          <button onClick={() => deleteMileage.mutate(m.id)} className="text-slate-400 hover:text-red-500">
+                          <button
+                            type="button"
+                            onClick={() => confirmDeleteMileage(m.id)}
+                            disabled={deleteMileage.isPending}
+                            className="text-slate-400 hover:text-red-500 disabled:opacity-40 disabled:cursor-not-allowed"
+                          >
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </td>

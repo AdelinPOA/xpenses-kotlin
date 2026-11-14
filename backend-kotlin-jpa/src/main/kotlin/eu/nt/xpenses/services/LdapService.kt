@@ -9,7 +9,7 @@ import eu.nt.xpenses.repositories.AppSettingRepository
 import eu.nt.xpenses.repositories.RefreshTokenRepository
 import eu.nt.xpenses.repositories.UserRepository
 import org.springframework.stereotype.Service
-import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionTemplate
 import java.time.Instant
 import java.util.*
 import javax.naming.Context
@@ -43,7 +43,8 @@ class LdapService(
     private val userRepository: UserRepository,
     private val refreshTokenRepository: RefreshTokenRepository,
     private val cryptoService: CryptoService,
-    private val objectMapper: ObjectMapper
+    private val objectMapper: ObjectMapper,
+    private val transactionTemplate: TransactionTemplate
 ) {
     private val validRoles = setOf("technician", "manager", "chef_finance", "mod")
 
@@ -136,39 +137,41 @@ class LdapService(
         }
     }
 
-    @Transactional
+    private data class LdapDirectoryEntry(
+        val username: String,
+        val email: String,
+        val displayName: String,
+        val role: String,
+        val usedDefault: Boolean
+    )
+
     fun syncUsers(config: LdapConfig): Map<String, Int> {
         if (!config.enabled) {
             throw IllegalArgumentException("LDAP is not enabled")
         }
+
+        // Perform network LDAP bind and directory search outside any DB transaction
+        // so socket latency never holds PostgreSQL connections open.
+        val entries = mutableListOf<LdapDirectoryEntry>()
+        val directoryUsernames = mutableSetOf<String>()
         val ctx = bindServiceAccount(config)
         try {
             val searchControls = SearchControls().apply {
                 searchScope = SearchControls.SUBTREE_SCOPE
                 returningAttributes = arrayOf(config.attrUsername, config.attrEmail, config.attrDisplayName, config.attrRole)
             }
-            
+
             val results = ctx.search(config.baseDn, config.userFilter, searchControls)
-            val stats = mutableMapOf(
-                "created" to 0,
-                "updated" to 0,
-                "deactivated" to 0,
-                "skipped" to 0,
-                "default_role_assigned" to 0
-            )
-            val directoryUsernames = mutableSetOf<String>()
-            val now = Instant.now()
-            
             try {
                 while (results.hasMore()) {
                     val entry = results.next()
                     val username = getAttributeValue(entry.attributes.get(config.attrUsername))
                     if (username.isEmpty()) continue
-                    
+
                     directoryUsernames.add(username)
                     val email = getAttributeValue(entry.attributes.get(config.attrEmail))
                     val displayName = getAttributeValue(entry.attributes.get(config.attrDisplayName))
-                    
+
                     val rolesAttr = entry.attributes.get(config.attrRole)
                     val groups = mutableListOf<String>()
                     if (rolesAttr != null) {
@@ -178,48 +181,64 @@ class LdapService(
                     }
                     val role = mapRole(groups, config.roleMap, config.defaultRole)
                     val usedDefault = role == config.defaultRole
-                    
-                    val user = userRepository.findByUsername(username)
-                    if (user == null) {
-                        val newUser = User(
-                            username = username,
-                            displayName = displayName.ifEmpty { username },
-                            email = email.ifEmpty { null },
-                            passwordHash = null,
-                            authSource = "ldap",
-                            role = role,
-                            isActive = true,
-                            createdAt = now,
-                            updatedAt = now
-                        )
-                        userRepository.save(newUser)
-                        stats["created"] = stats["created"]!! + 1
-                        if (usedDefault) {
-                            stats["default_role_assigned"] = stats["default_role_assigned"]!! + 1
-                        }
-                    } else if (user.authSource == "local") {
-                        stats["skipped"] = stats["skipped"]!! + 1
-                    } else {
-                        val changed = user.displayName != displayName ||
-                                user.email != email ||
-                                user.role != role ||
-                                !user.isActive
-                        
-                        if (changed) {
-                            user.displayName = displayName.ifEmpty { user.displayName }
-                            user.email = email.ifEmpty { user.email }
-                            user.role = role
-                            user.isActive = true
-                            user.updatedAt = now
-                            userRepository.save(user)
-                            stats["updated"] = stats["updated"]!! + 1
-                        }
-                    }
+                    entries.add(LdapDirectoryEntry(username, email, displayName, role, usedDefault))
                 }
             } finally {
                 try { results.close() } catch (_: Exception) {}
             }
-            
+        } finally {
+            try { ctx.close() } catch (_: Exception) {}
+        }
+
+        return transactionTemplate.execute {
+            val stats = mutableMapOf(
+                "created" to 0,
+                "updated" to 0,
+                "deactivated" to 0,
+                "skipped" to 0,
+                "default_role_assigned" to 0
+            )
+            val now = Instant.now()
+
+            for (entry in entries) {
+                val user = userRepository.findByUsername(entry.username)
+                if (user == null) {
+                    val newUser = User(
+                        username = entry.username,
+                        displayName = entry.displayName.ifEmpty { entry.username },
+                        email = entry.email.ifEmpty { null },
+                        passwordHash = null,
+                        authSource = "ldap",
+                        role = entry.role,
+                        isActive = true,
+                        createdAt = now,
+                        updatedAt = now
+                    )
+                    userRepository.save(newUser)
+                    stats["created"] = stats["created"]!! + 1
+                    if (entry.usedDefault) {
+                        stats["default_role_assigned"] = stats["default_role_assigned"]!! + 1
+                    }
+                } else if (user.authSource == "local") {
+                    stats["skipped"] = stats["skipped"]!! + 1
+                } else {
+                    val changed = user.displayName != entry.displayName ||
+                        user.email != entry.email ||
+                        user.role != entry.role ||
+                        !user.isActive
+
+                    if (changed) {
+                        user.displayName = entry.displayName.ifEmpty { user.displayName }
+                        user.email = entry.email.ifEmpty { user.email }
+                        user.role = entry.role
+                        user.isActive = true
+                        user.updatedAt = now
+                        userRepository.save(user)
+                        stats["updated"] = stats["updated"]!! + 1
+                    }
+                }
+            }
+
             // Deactivate LDAP users no longer in the directory
             val ldapUsers = userRepository.findAllByAuthSourceAndIsActive("ldap", true)
             for (ldapUser in ldapUsers) {
@@ -231,11 +250,9 @@ class LdapService(
                     stats["deactivated"] = stats["deactivated"]!! + 1
                 }
             }
-            
-            return stats
-        } finally {
-            try { ctx.close() } catch (_: Exception) {}
-        }
+
+            stats
+        } ?: emptyMap()
     }
 
     fun authenticateLdap(username: String, password: String, config: LdapConfig): Boolean {

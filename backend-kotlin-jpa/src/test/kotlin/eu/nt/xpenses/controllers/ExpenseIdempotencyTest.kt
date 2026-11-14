@@ -511,4 +511,48 @@ class ExpenseIdempotencyTest : IntegrationTestBase() {
             ).andExpect(status().is4xxClientError)
         assertEquals(0L, jdbc.queryForObject("SELECT count(*) FROM expense_reports WHERE title = ?", Long::class.java, "$prefix:rollback"))
     }
+
+    @Test
+    fun `reports list, detail, search, and lifecycle submit serialize attached receipts cleanly under open-in-view false`() {
+        val cookie = authHelper.loginAs("tech1", "tech1")
+        val expenseJson = postExpense(null)
+        val expenseId = mapper.readTree(expenseJson)["id"].asInt()
+        mockMvc
+            .perform(multipart("/api/expenses/$expenseId/receipts").file(file()).cookie(cookie))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.length()").value(1))
+
+        val createdReport =
+            mockMvc
+                .perform(
+                    post("/api/reports")
+                        .cookie(cookie)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""{"title":"$prefix:lazycheck","date_from":"2026-06-10","date_to":"2026-06-10","currency":"EUR","expense_ids":[$expenseId]}"""),
+                ).andExpect(status().isCreated)
+                .andExpect(jsonPath("$.expenses[0].receipts.length()").value(1))
+                .andReturn()
+                .response.contentAsString
+        val reportId = mapper.readTree(createdReport)["id"].asInt()
+
+        mockMvc
+            .perform(get("/api/reports").cookie(cookie))
+            .andExpect(status().isOk)
+        mockMvc
+            .perform(get("/api/reports?page=0&size=20").cookie(cookie))
+            .andExpect(status().isOk)
+        mockMvc
+            .perform(get("/api/reports/$reportId").cookie(cookie))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.expenses[0].receipts.length()").value(1))
+        mockMvc
+            .perform(get("/api/search").param("q", "$prefix:lazycheck").cookie(cookie))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.reports[0].expenses[0].receipts.length()").value(1))
+        mockMvc
+            .perform(post("/api/reports/$reportId/submit").cookie(cookie))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.status").value("submitted"))
+            .andExpect(jsonPath("$.expenses[0].receipts.length()").value(1))
+    }
 }

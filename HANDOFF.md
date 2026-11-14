@@ -12,7 +12,7 @@ Historical checkpoints and superseded audits (`P2_HANDOFF.md`, `cve.md`, `plans/
 | --- | --- |
 | Committed `origin/main` baseline | `2459290` (includes `23b0df8` review edits, `7d3a19f` auth login/rate-limit hardening, `b151269` AI order import base, `3d44cb9` CIDR/Cloudflare trusted proxies, `2459290` immediate OCR review flag default). |
 | Local workspace rollout (`2026-11-14`) | AI Import Order (`Import` & `Import & Review` + structured JSON schema / retry fixes) + Expense OCR hardening (parallel bulk OCR, `REQUIRES_NEW` cache/FX upserts, `important-todo.md`) + Stabilization fixes (`general-todo.md`: refresh token rotation grace window `V107`, cross-tab single-flight refresh, atomic `POST /api/reports` with `expense_ids` & `Idempotency-Key`, `open-in-view: false`, `FxRateInput` reset, blank/invalid email guard). *(Pending commit & push to `main`.)* |
-| Production backend | `xpenses-backend:stabilize-20261114` |
+| Production backend | `xpenses-backend:stabilize-20261114-2` |
 | Production frontend | `xpenses-frontend:stabilize-20261114` (built with `NEXT_PUBLIC_OCR_IMMEDIATE_REVIEW_ENABLED=true`) |
 | Production schema | `V107` (`V107__refresh_token_rotation_grace.sql`) applied cleanly on live `postgres:16-alpine`; existing `xpenses-db` and `xpenses-redis` containers and volumes preserved. |
 

@@ -9,6 +9,7 @@ import eu.nt.xpenses.services.mapper.ExpenseMapper
 import eu.nt.xpenses.services.mapper.ReportMapper
 import jakarta.servlet.http.HttpServletRequest
 import org.springframework.http.HttpStatus
+import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.bind.annotation.*
 import org.springframework.web.server.ResponseStatusException
 
@@ -22,6 +23,7 @@ class SearchController(
     private val authorization: Authorization,
 ) {
     @GetMapping
+    @Transactional(readOnly = true)
     fun search(
         @RequestParam(value = "q", required = false) query: String?,
         @RequestParam(value = "all", required = false, defaultValue = "false") all: Boolean,

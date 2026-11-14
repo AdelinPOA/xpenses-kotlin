@@ -32,6 +32,7 @@ class AdvanceController(
 ) {
 
     @GetMapping("/api/reports/{reportId}/advances")
+    @Transactional(readOnly = true)
     fun listAdvances(
         @PathVariable reportId: Int,
         request: HttpServletRequest
@@ -356,6 +357,7 @@ class AdvanceController(
     }
 
     @GetMapping("/api/advances/pending")
+    @Transactional(readOnly = true)
     fun listPendingAdvances(request: HttpServletRequest): List<PendingAdvanceOut> {
         val currentUser = request.getAttribute("currentUser") as? User
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")

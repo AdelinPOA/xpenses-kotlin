@@ -53,6 +53,7 @@ class MileageController(
     }
 
     @GetMapping
+    @Transactional(readOnly = true)
     fun listMileage(
         @PathVariable reportId: Int,
         request: HttpServletRequest

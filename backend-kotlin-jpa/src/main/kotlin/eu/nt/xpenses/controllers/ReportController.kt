@@ -64,7 +64,16 @@ class ReportController(
 ) {
     private val reportType = object : TypeReference<ReportOut>() {}
     private val createTx = TransactionTemplate(transactionManager)
+    private val readTx = TransactionTemplate(transactionManager).apply { isReadOnly = true }
+
+    private fun toReportOut(report: ExpenseReport): ReportOut =
+        readTx.execute {
+            val managed = report.id?.let { expenseReportRepository.findById(it).orElse(null) } ?: report
+            reportMapper.mapReportToOut(managed)
+        }
+
     @GetMapping
+    @Transactional(readOnly = true)
     fun listReports(
         @RequestParam(value = "status", required = false) status: String?,
         @RequestParam(value = "all", required = false, defaultValue = "false") all: Boolean,
@@ -183,10 +192,11 @@ class ReportController(
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
 
         val report = emailImportService.importOrderForUser(currentUser, body.bodyText)
-        return ResponseEntity.status(HttpStatus.CREATED).body(reportMapper.mapReportToOut(report))
+        return ResponseEntity.status(HttpStatus.CREATED).body(toReportOut(report))
     }
 
     @GetMapping("/{reportId}")
+    @Transactional(readOnly = true)
     fun getReport(
         @PathVariable reportId: Int,
         request: HttpServletRequest
@@ -269,7 +279,7 @@ class ReportController(
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
         val outcome = lifecycle.attach(reportId, AttachExpensesCommand(body.expenseIds), currentUser)
         notificationAdapter.dispatch(outcome.events)
-        return reportMapper.mapReportToOut(outcome.report)
+        return toReportOut(outcome.report)
     }
 
     @PostMapping("/{reportId}/submit")
@@ -282,7 +292,7 @@ class ReportController(
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
         val outcome = lifecycle.submit(reportId, SubmitReportCommand(body?.expenseIds), currentUser)
         notificationAdapter.dispatch(outcome.events)
-        return reportMapper.mapReportToOut(outcome.report)
+        return toReportOut(outcome.report)
     }
 
     @PostMapping("/{reportId}/recall")
@@ -294,7 +304,7 @@ class ReportController(
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
         val outcome = lifecycle.recall(reportId, currentUser)
         notificationAdapter.dispatch(outcome.events)
-        return reportMapper.mapReportToOut(outcome.report)
+        return toReportOut(outcome.report)
     }
 
     @PostMapping("/{reportId}/pay")
@@ -306,7 +316,7 @@ class ReportController(
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
         val outcome = lifecycle.pay(reportId, currentUser)
         notificationAdapter.dispatch(outcome.events)
-        return reportMapper.mapReportToOut(outcome.report)
+        return toReportOut(outcome.report)
     }
 
     @PostMapping("/{reportId}/approve")
@@ -318,7 +328,7 @@ class ReportController(
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
         val outcome = lifecycle.approve(reportId, currentUser)
         notificationAdapter.dispatch(outcome.events)
-        return reportMapper.mapReportToOut(outcome.report)
+        return toReportOut(outcome.report)
     }
 
     @PostMapping("/{reportId}/reject")
@@ -332,7 +342,7 @@ class ReportController(
         val reason = body?.reason ?: ""
         val outcome = lifecycle.reject(reportId, RejectReportCommand(reason), currentUser)
         notificationAdapter.dispatch(outcome.events)
-        return reportMapper.mapReportToOut(outcome.report)
+        return toReportOut(outcome.report)
     }
 
     /**
@@ -392,10 +402,11 @@ class ReportController(
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
         val outcome = lifecycle.sign(reportId, currentUser)
         notificationAdapter.dispatch(outcome.events)
-        return reportMapper.mapReportToOut(outcome.report)
+        return toReportOut(outcome.report)
     }
 
     @GetMapping("/{reportId}/export")
+    @Transactional(readOnly = true)
     fun exportReportPdf(
         @PathVariable reportId: Int,
         request: HttpServletRequest
@@ -429,6 +440,7 @@ class ReportController(
     }
 
     @GetMapping("/{reportId}/receipts-zip")
+    @Transactional(readOnly = true)
     fun downloadReceiptsZip(
         @PathVariable reportId: Int,
         request: HttpServletRequest
@@ -493,6 +505,7 @@ class ReportController(
     }
 
     @GetMapping("/export")
+    @Transactional(readOnly = true)
     fun exportReports(
         @RequestParam(value = "format", required = false, defaultValue = "csv") format: String,
         @RequestParam(value = "status", required = false) status: String?,
@@ -566,6 +579,7 @@ class ReportController(
     }
 
     @GetMapping("/{reportId}/export-csv")
+    @Transactional(readOnly = true)
     fun exportReportExpenses(
         @PathVariable reportId: Int,
         @RequestParam(value = "format", required = false, defaultValue = "csv") format: String,

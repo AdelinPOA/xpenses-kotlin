@@ -3,6 +3,14 @@
 import api from "./api";
 import type { OCRScanResult } from "./types/expense";
 
+/** Ensures compressed JPEG blobs carry a matching .jpg filename extension. */
+export function compressedUploadName(originalName: string, blob: Blob): string {
+  if (blob.type === "image/jpeg" && !/\.(jpe?g)$/i.test(originalName)) {
+    return `${originalName.replace(/\.[^.]+$/, "")}.jpg`;
+  }
+  return originalName;
+}
+
 /** Compresses image receipts client-side (max 1600px JPEG) before upload. */
 export async function compressImage(file: File): Promise<Blob | File> {
   const isImage =
@@ -256,7 +264,7 @@ export async function scanReceipt(
       const compressedBlob = await compressImage(file);
       if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
       const fd = new FormData();
-      fd.append("file", compressedBlob, file.name);
+      fd.append("file", compressedBlob, compressedUploadName(file.name, compressedBlob));
       if (opts.reportId !== undefined) {
         fd.append("report_id", String(opts.reportId));
       }

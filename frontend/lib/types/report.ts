@@ -148,3 +148,43 @@ export interface EmailSimulationIn {
   body_text: string;
   parser?: "local" | "ai" | "gemini" | null;
 }
+
+export interface ImportOrderPreview {
+  title: string;
+  description: string;
+  date_from: string;
+  date_to: string;
+  currency: string;
+  kundenauftrag?: string | null;
+  auftragsart?: string | null;
+  positionstyp?: string | null;
+  technplatz_raw?: string | null;
+  technplatz_line?: boolean;
+  kunde_code?: string | null;
+  kunde_name?: string | null;
+  adresse?: string | null;
+  vorgang?: string | null;
+  arbeitsplatz?: string | null;
+  techniker?: string | null;
+  existing_draft_report_id?: number | null;
+  existing_draft_report_title?: string | null;
+}
+
+export interface ReportCreatePayload {
+  title: string;
+  description?: string | null;
+  date_from?: string | null;
+  date_to?: string | null;
+  currency?: string;
+  kundenauftrag?: string | null;
+  auftragsart?: string | null;
+  positionstyp?: string | null;
+  technplatz_raw?: string | null;
+  technplatz_line?: boolean;
+  kunde_code?: string | null;
+  kunde_name?: string | null;
+  adresse?: string | null;
+  vorgang?: string | null;
+  arbeitsplatz?: string | null;
+  techniker?: string | null;
+}

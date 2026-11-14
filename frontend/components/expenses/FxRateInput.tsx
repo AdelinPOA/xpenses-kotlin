@@ -46,6 +46,16 @@ export default function FxRateInput({
   const [debitAmount, setDebitAmount] = useState("");
   const [debitTouched, setDebitTouched] = useState(false);
   const wasActive = useRef(false);
+  const prevCurrency = useRef(currency);
+
+  useEffect(() => {
+    if (prevCurrency.current === currency) return;
+    prevCurrency.current = currency;
+    setDebitTouched(false);
+    setDebitAmount("");
+    setRateValue("");
+    setDebitCurrency((prev) => (prev === currency ? "EUR" : prev));
+  }, [currency]);
 
   // Seed the raw-rate field only when the editor opens, so parent updates from
   // the effective rate callback do not overwrite a value while the user types.

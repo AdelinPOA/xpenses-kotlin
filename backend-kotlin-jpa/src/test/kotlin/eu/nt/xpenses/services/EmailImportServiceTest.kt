@@ -335,4 +335,68 @@ class EmailImportServiceTest {
         }
         assertEquals(HttpStatus.FORBIDDEN, ex.statusCode)
     }
+
+    @Test
+    fun `parseDelegationEmailWithModels unwraps markdown JSON fences, normalizes European dates, and enriches blank metadata`() {
+        doAnswer {
+            """
+            Here is the extracted order:
+            ```json
+            {
+              "title": "ACME GmbH - Cooling Tower Service",
+              "date_from": "18.10.2026",
+              "date_to": "",
+              "description": "Service visit",
+              "kundenauftrag": "905652178"
+            }
+            ```
+            """.trimIndent()
+        }.`when`(client).complete(
+            any(OCRProviderConfig::class.java) ?: config.providers.first(),
+            anyString(),
+            anyString(),
+            any<Any?>(),
+        )
+
+        val parsed = service.parseDelegationEmailWithModels(orderEmail, config)!!
+
+        assertEquals("ACME GmbH - Cooling Tower Service", parsed["title"])
+        assertEquals("2026-10-18", parsed["date_from"])
+        assertEquals("2026-10-18", parsed["date_to"])
+        assertEquals("905652178", parsed["kundenauftrag"])
+        assertTrue(parsed["description"]!!.startsWith("Order nr: 905652178"))
+        assertFalse(parsed["kunde_name"].isNullOrBlank())
+    }
+
+    @Test
+    fun `previewOrderForUser flags existing draft report with matching kundenauftrag`() {
+        val user = User(
+            id = 42,
+            username = "tech1",
+            displayName = "Technician One",
+            email = "tech1@example.com",
+            role = "technician",
+            isActive = true
+        )
+        `when`(settingsRepository.findById("ocr_config")).thenReturn(
+            Optional.of(AppSetting("ocr_config", mapper.writeValueAsString(config)))
+        )
+        doAnswer {
+            """{"title":"Order: 905652178","date_from":"2026-10-18","date_to":"2026-10-19","description":"Service","kundenauftrag":"905652178"}"""
+        }.`when`(client).complete(
+            any(OCRProviderConfig::class.java) ?: config.providers.first(),
+            anyString(),
+            anyString(),
+            any<Any?>(),
+        )
+        `when`(expenseReportRepository.findFirstByUserIdAndKundenauftragAndStatusOrderByIdDesc(42, "905652178", "draft"))
+            .thenReturn(ExpenseReport(id = 77, title = "Existing Draft", user = user, kundenauftrag = "905652178"))
+
+        val preview = service.previewOrderForUser(user, orderEmail)
+
+        assertEquals("Order: 905652178", preview.title)
+        assertEquals("905652178", preview.kundenauftrag)
+        assertEquals(77, preview.existingDraftReportId)
+        assertEquals("Existing Draft", preview.existingDraftReportTitle)
+    }
 }

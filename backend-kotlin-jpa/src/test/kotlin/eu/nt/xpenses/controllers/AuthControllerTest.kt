@@ -102,4 +102,59 @@ class AuthControllerTest : IntegrationTestBase() {
             .andExpect(jsonPath("$.role").value("manager"))
             .andExpect(jsonPath("$.password_hash").doesNotExist())
     }
+
+    @Test
+    fun `logging in on a second device preserves the first device refresh token`() {
+        val login1 =
+            mockMvc.perform(
+                post("/api/auth/login")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""{"username":"tech1","password":"tech1"}""")
+            )
+                .andExpect(status().isOk)
+                .andReturn()
+        val refreshCookie1 = login1.response.getCookie("refresh_token")!!
+
+        // Second login for same user should not revoke first device's session.
+        mockMvc.perform(
+            post("/api/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"username":"tech1","password":"tech1"}""")
+        ).andExpect(status().isOk)
+
+        mockMvc.perform(post("/api/auth/refresh").cookie(refreshCookie1))
+            .andExpect(status().isOk)
+            .andExpect(cookie().exists("access_token"))
+            .andExpect(cookie().exists("refresh_token"))
+    }
+
+    @Test
+    fun `concurrent refresh replay within grace window succeeds without invalidating session`() {
+        val login =
+            mockMvc.perform(
+                post("/api/auth/login")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""{"username":"tech1","password":"tech1"}""")
+            )
+                .andExpect(status().isOk)
+                .andReturn()
+        val originalRefreshCookie = login.response.getCookie("refresh_token")!!
+
+        val firstRefresh =
+            mockMvc.perform(post("/api/auth/refresh").cookie(originalRefreshCookie))
+                .andExpect(status().isOk)
+                .andReturn()
+        val newestAccessCookie = firstRefresh.response.getCookie("access_token")!!
+
+        // Duplicate concurrent request still carrying originalRefreshCookie within 30s grace window succeeds.
+        mockMvc.perform(post("/api/auth/refresh").cookie(originalRefreshCookie))
+            .andExpect(status().isOk)
+            .andExpect(cookie().exists("access_token"))
+            .andExpect(cookie().exists("refresh_token"))
+
+        // And the user's tokenVersion was not bumped, so newestAccessCookie still authenticates /me.
+        mockMvc.perform(get("/api/auth/me").cookie(newestAccessCookie))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.username").value("tech1"))
+    }
 }

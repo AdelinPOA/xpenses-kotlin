@@ -184,9 +184,22 @@ class EmailSettingsService(
 
     @Async
     fun sendEmail(toEmail: String, subject: String, content: String) {
+        val trimmedRecipient = toEmail.trim()
+        if (trimmedRecipient.isEmpty()) {
+            log.debug("Skipping email notification '{}': recipient address is blank", subject)
+            return
+        }
+        val recipientAddress =
+            try {
+                InternetAddress(trimmedRecipient, true).apply { validate() }
+            } catch (e: Exception) {
+                log.warn("Skipping email notification '{}' due to invalid recipient address '{}'", subject, trimmedRecipient)
+                return
+            }
+
         val config = getSmtpConfig()
         if (!config.emailsEnabled) {
-            log.info("Email disabled. Would have sent to {}: {}", toEmail, subject)
+            log.info("Email disabled. Would have sent to {}: {}", trimmedRecipient, subject)
             return
         }
 
@@ -208,7 +221,7 @@ class EmailSettingsService(
         try {
             val message = MimeMessage(session).apply {
                 setFrom(InternetAddress(config.smtpFrom))
-                setRecipient(Message.RecipientType.TO, InternetAddress(toEmail))
+                setRecipient(Message.RecipientType.TO, recipientAddress)
                 this.subject = subject
                 setText(content)
             }
@@ -221,9 +234,9 @@ class EmailSettingsService(
             } else {
                 Transport.send(message)
             }
-            log.info("Email successfully sent to {}: {}", toEmail, subject)
+            log.info("Email successfully sent to {}: {}", trimmedRecipient, subject)
         } catch (e: Exception) {
-            log.error("Failed to send email to {}: {}", toEmail, e.message)
+            log.error("Failed to send email to {}: {}", trimmedRecipient, e.message)
         }
     }
 }

@@ -1,4 +1,4 @@
-import api, { User } from "./api";
+import api, { refreshSessionSingleFlight, User } from "./api";
 
 export async function login(username: string, password: string): Promise<User> {
   const { data } = await api.post("/auth/login", { username, password });
@@ -10,7 +10,7 @@ export async function logout(): Promise<void> {
 }
 
 export async function refreshTokens(): Promise<void> {
-  await api.post("/auth/refresh");
+  await refreshSessionSingleFlight({ proactive: true });
 }
 
 export async function getMe(): Promise<User> {

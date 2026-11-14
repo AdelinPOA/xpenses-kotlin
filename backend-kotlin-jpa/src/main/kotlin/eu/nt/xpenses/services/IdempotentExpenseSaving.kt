@@ -68,6 +68,17 @@ class IdempotentExpenseSaving(
         }
     }
 
+    /** Pre-check cached bulk expense result so idempotent replays skip redundant OCR calls. */
+    fun lookupBulkCreate(
+        fileIndex: Int,
+        source: Map<String, Any>,
+        user: User,
+        key: String?,
+    ): ExpenseOut? {
+        if (key == null) return null
+        return identities.lookup(user.id!!, "bulk-expense:$fileIndex", key, identities.hash(source), expenseType)
+    }
+
     /** Fingerprint the original source, NOT nondeterministic OCR/FX output. */
     fun bulkCreate(
         fileIndex: Int,

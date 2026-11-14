@@ -2,6 +2,7 @@ package eu.nt.xpenses.services
 
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.module.kotlin.readValue
+import eu.nt.xpenses.dto.report.ImportOrderPreviewOut
 import eu.nt.xpenses.ingestion.DelegationDraft
 import eu.nt.xpenses.ingestion.ImapIngestionLedger
 import eu.nt.xpenses.ingestion.ProcessingClaim
@@ -347,13 +348,43 @@ class EmailImportService(
                 parseDelegationModelResponse(response) != null
             } ?: return null
         val parsed = parseDelegationModelResponse(json) ?: return null
-        val orderNumber = DelegationEmailText.orderNumber(normalizedText) ?: parsed["kundenauftrag"].orEmpty()
-        if (orderNumber.isBlank()) return parsed
-        val description = parsed.getValue("description")
+        val localEnrichment = parseDelegationEmailLocal(normalizedText)
+        val merged =
+            parsed.toMutableMap().apply {
+                if (localEnrichment != null) {
+                    val enrichKeys =
+                        listOf(
+                            "auftragsart",
+                            "positionstyp",
+                            "technplatz_raw",
+                            "technplatz_line",
+                            "kunde_code",
+                            "kunde_name",
+                            "adresse",
+                            "vorgang",
+                            "arbeitsplatz",
+                            "techniker",
+                        )
+                    for (key in enrichKeys) {
+                        val current = this[key].orEmpty().trim()
+                        val localValue = localEnrichment[key].orEmpty().trim()
+                        if (key == "technplatz_line") {
+                            if (current != "true" && localValue == "true") {
+                                this[key] = "true"
+                            }
+                        } else if (current.isEmpty() && localValue.isNotEmpty()) {
+                            this[key] = localValue
+                        }
+                    }
+                }
+            }
+        val orderNumber = DelegationEmailText.orderNumber(normalizedText) ?: merged["kundenauftrag"].orEmpty()
+        if (orderNumber.isBlank()) return merged
+        val description = merged.getValue("description")
         val orderPrefix =
             Regex("(?i)^(?:Order(?: nr\\.?| number| no\\.?)?|Kundenauftrag|Auftrag)\\s*:\\s*${Regex.escape(orderNumber)}[ \\t]*[;\\n]?\\s*")
         val details = description.replaceFirst(orderPrefix, "")
-        return parsed +
+        return merged +
             mapOf(
                 "kundenauftrag" to orderNumber,
                 "description" to listOf("Order nr: $orderNumber", details).filter { it.isNotBlank() }.joinToString("\n"),
@@ -362,34 +393,31 @@ class EmailImportService(
 
     private fun parseDelegationModelResponse(response: String): Map<String, String>? =
         try {
-            val result: Map<String, Any?> = objectMapper.readValue(response)
+            val cleanedJson = AiJsonSanitizer.extractJsonObject(response)
+            val result: Map<String, Any?> = objectMapper.readValue(cleanedJson)
             val title = (result["title"] as? String)?.trim()?.takeIf { it.isNotEmpty() } ?: return null
-            val description = result["description"] as? String ?: return null
-            val dateFrom = result["date_from"] as? String
-            val dateTo = result["date_to"] as? String
-            if (dateFrom == null || dateTo == null ||
-                !Pattern.matches("^\\d{4}-\\d{2}-\\d{2}$", dateFrom) ||
-                !Pattern.matches("^\\d{4}-\\d{2}-\\d{2}$", dateTo)
-            ) {
-                return null
-            }
+            val description = (result["description"] as? String)?.trim() ?: ""
+            val rawDateFrom = (result["date_from"] as? String)?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+            val dateFrom = parseDateFlexible(rawDateFrom) ?: return null
+            val rawDateTo = (result["date_to"] as? String)?.trim()?.takeIf { it.isNotEmpty() }
+            val dateTo = if (rawDateTo == null) dateFrom else (parseDateFlexible(rawDateTo) ?: return null)
             if (LocalDate.parse(dateTo).isBefore(LocalDate.parse(dateFrom))) return null
             mapOf(
                 "title" to title.take(200),
                 "date_from" to dateFrom,
                 "date_to" to dateTo,
-                "description" to description.trim(),
-                "kundenauftrag" to (result["kundenauftrag"]?.toString() ?: ""),
-                "auftragsart" to (result["auftragsart"]?.toString() ?: ""),
-                "positionstyp" to (result["positionstyp"]?.toString() ?: ""),
-                "technplatz_raw" to (result["technplatz_raw"]?.toString() ?: ""),
-                "technplatz_line" to (result["technplatz_line"]?.toString() ?: "false"),
-                "kunde_code" to (result["kunde_code"]?.toString() ?: ""),
-                "kunde_name" to (result["kunde_name"]?.toString() ?: ""),
-                "adresse" to (result["adresse"]?.toString() ?: ""),
-                "vorgang" to (result["vorgang"]?.toString() ?: ""),
-                "arbeitsplatz" to (result["arbeitsplatz"]?.toString() ?: ""),
-                "techniker" to (result["techniker"]?.toString() ?: ""),
+                "description" to description,
+                "kundenauftrag" to (result["kundenauftrag"]?.toString()?.trim() ?: ""),
+                "auftragsart" to (result["auftragsart"]?.toString()?.trim() ?: ""),
+                "positionstyp" to (result["positionstyp"]?.toString()?.trim() ?: ""),
+                "technplatz_raw" to (result["technplatz_raw"]?.toString()?.trim() ?: ""),
+                "technplatz_line" to (result["technplatz_line"]?.toString()?.trim() ?: "false"),
+                "kunde_code" to (result["kunde_code"]?.toString()?.trim() ?: ""),
+                "kunde_name" to (result["kunde_name"]?.toString()?.trim() ?: ""),
+                "adresse" to (result["adresse"]?.toString()?.trim() ?: ""),
+                "vorgang" to (result["vorgang"]?.toString()?.trim() ?: ""),
+                "arbeitsplatz" to (result["arbeitsplatz"]?.toString()?.trim() ?: ""),
+                "techniker" to (result["techniker"]?.toString()?.trim() ?: ""),
             )
         } catch (_: Exception) {
             null
@@ -586,29 +614,45 @@ class EmailImportService(
         )
     }
 
-    @Transactional
+    fun previewOrderForUser(
+        user: User,
+        bodyText: String,
+    ): ImportOrderPreviewOut {
+        val parsed = parseOrderForUser(user, bodyText)
+        val orderNumber = parsed["kundenauftrag"]?.ifEmpty { null }
+        val existingDraft =
+            orderNumber?.let { orderNo ->
+                user.id?.let { uid ->
+                    expenseReportRepository.findFirstByUserIdAndKundenauftragAndStatusOrderByIdDesc(uid, orderNo, "draft")
+                }
+            }
+        return ImportOrderPreviewOut(
+            title = parsed.getValue("title"),
+            description = parsed["description"].orEmpty(),
+            dateFrom = parsed.getValue("date_from"),
+            dateTo = parsed.getValue("date_to"),
+            currency = "EUR",
+            kundenauftrag = orderNumber,
+            auftragsart = parsed["auftragsart"]?.ifEmpty { null },
+            positionstyp = parsed["positionstyp"]?.ifEmpty { null },
+            technplatzRaw = parsed["technplatz_raw"]?.ifEmpty { null },
+            technplatzLine = parsed["technplatz_line"]?.toBoolean() ?: false,
+            kundeCode = parsed["kunde_code"]?.ifEmpty { null },
+            kundeName = parsed["kunde_name"]?.ifEmpty { null },
+            adresse = parsed["adresse"]?.ifEmpty { null },
+            vorgang = parsed["vorgang"]?.ifEmpty { null },
+            arbeitsplatz = parsed["arbeitsplatz"]?.ifEmpty { null },
+            techniker = parsed["techniker"]?.ifEmpty { null },
+            existingDraftReportId = existingDraft?.id,
+            existingDraftReportTitle = existingDraft?.title,
+        )
+    }
+
     fun importOrderForUser(
         user: User,
         bodyText: String,
     ): ExpenseReport {
-        if (!user.isActive) {
-            throw ResponseStatusException(HttpStatus.FORBIDDEN, "User is inactive")
-        }
-
-        val config = ocrService.getOcrConfig()
-        if (!config.ocrEnabled || config.delegationModelChain.isEmpty()) {
-            throw ResponseStatusException(
-                HttpStatus.UNPROCESSABLE_ENTITY,
-                "Email AI parsing is disabled or no email model chain is configured"
-            )
-        }
-
-        val parsed = parseDelegationEmailWithModels(bodyText, config)
-            ?: throw ResponseStatusException(
-                HttpStatus.UNPROCESSABLE_ENTITY,
-                "No configured AI model returned a valid delegation result. No local fallback was used."
-            )
-
+        val parsed = parseOrderForUser(user, bodyText)
         val report =
             ExpenseReport(
                 title = parsed["title"]!!,
@@ -632,5 +676,28 @@ class EmailImportService(
                 updatedAt = Instant.now(),
             )
         return expenseReportRepository.save(report)
+    }
+
+    private fun parseOrderForUser(
+        user: User,
+        bodyText: String,
+    ): Map<String, String> {
+        if (!user.isActive) {
+            throw ResponseStatusException(HttpStatus.FORBIDDEN, "User is inactive")
+        }
+
+        val config = ocrService.getOcrConfig()
+        if (!config.ocrEnabled || config.delegationModelChain.isEmpty()) {
+            throw ResponseStatusException(
+                HttpStatus.UNPROCESSABLE_ENTITY,
+                "Email AI parsing is disabled or no email model chain is configured"
+            )
+        }
+
+        return parseDelegationEmailWithModels(bodyText, config)
+            ?: throw ResponseStatusException(
+                HttpStatus.UNPROCESSABLE_ENTITY,
+                "No configured AI model returned a valid delegation result. No local fallback was used."
+            )
     }
 }

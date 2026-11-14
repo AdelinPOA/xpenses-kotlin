@@ -97,6 +97,7 @@ class ExpenseIdempotencyTest : IntegrationTestBase() {
             jdbc.update("DELETE FROM expenses WHERE id = ?", id)
         }
         jdbc.update("DELETE FROM expense_save_requests WHERE request_key LIKE ?", "$prefix%")
+        jdbc.update("DELETE FROM expense_reports WHERE title LIKE ?", "$prefix%")
     }
 
     @Test
@@ -454,5 +455,60 @@ class ExpenseIdempotencyTest : IntegrationTestBase() {
             .perform(
                 multipart("/api/expenses/bulk-upload").file(file("changed.png")).cookie(cookie).header("Idempotency-Key", "$prefix:bulk"),
             ).andExpect(status().isConflict)
+    }
+
+    @Test
+    fun `report create with expense_ids and Idempotency-Key replays atomically and rolls back invalid attach`() {
+        val cookie = authHelper.loginAs("tech1", "tech1")
+        val expenseJson = postExpense(null)
+        val expenseId = mapper.readTree(expenseJson)["id"].asInt()
+        val reportKey = "$prefix:report-create"
+        val payload = """{"title":"$prefix:atomic","currency":"EUR","expense_ids":[$expenseId]}"""
+
+        val first =
+            mockMvc
+                .perform(
+                    post("/api/reports")
+                        .cookie(cookie)
+                        .header("Idempotency-Key", reportKey)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload),
+                ).andExpect(status().isCreated)
+                .andExpect(jsonPath("$.expenses.length()").value(1))
+                .andReturn()
+                .response.contentAsString
+        val reportId = mapper.readTree(first)["id"].asInt()
+
+        val replay =
+            mockMvc
+                .perform(
+                    post("/api/reports")
+                        .cookie(cookie)
+                        .header("Idempotency-Key", reportKey)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload),
+                ).andExpect(status().isCreated)
+                .andReturn()
+                .response.contentAsString
+        assertEquals(reportId, mapper.readTree(replay)["id"].asInt())
+        assertEquals(1L, jdbc.queryForObject("SELECT count(*) FROM expense_reports WHERE title = ?", Long::class.java, "$prefix:atomic"))
+
+        mockMvc
+            .perform(
+                post("/api/reports")
+                    .cookie(cookie)
+                    .header("Idempotency-Key", reportKey)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""{"title":"$prefix:changed","currency":"EUR","expense_ids":[$expenseId]}"""),
+            ).andExpect(status().isConflict)
+
+        mockMvc
+            .perform(
+                post("/api/reports")
+                    .cookie(cookie)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""{"title":"$prefix:rollback","currency":"EUR","expense_ids":[999999999]}"""),
+            ).andExpect(status().is4xxClientError)
+        assertEquals(0L, jdbc.queryForObject("SELECT count(*) FROM expense_reports WHERE title = ?", Long::class.java, "$prefix:rollback"))
     }
 }

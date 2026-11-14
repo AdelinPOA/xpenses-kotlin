@@ -124,6 +124,11 @@ function harness(uploadResult) {
           return { categoryKeys: { list: () => [] }, expenseKeys: { all: [] } };
         if (name === "@/lib/useBodyScrollLock")
           return { useBodyScrollLock() {} };
+        if (name === "@/lib/receiptCapture")
+          return {
+            compressImage: async (file) => file,
+            compressedUploadName: (fileName) => fileName,
+          };
         if (name === "lucide-react")
           return new Proxy({}, { get: (_, name) => name });
         return require(name);
@@ -167,7 +172,7 @@ function harness(uploadResult) {
       return tree;
     },
     async settle() {
-      for (let i = 0; i < 8; i++) await Promise.resolve();
+      for (let i = 0; i < 20; i++) await Promise.resolve();
     },
   };
   return h;

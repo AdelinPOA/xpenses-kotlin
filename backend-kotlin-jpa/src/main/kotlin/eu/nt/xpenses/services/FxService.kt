@@ -5,20 +5,31 @@ import eu.nt.xpenses.model.FxRate
 import eu.nt.xpenses.repositories.AppSettingRepository
 import eu.nt.xpenses.repositories.FxRateRepository
 import eu.nt.xpenses.services.fx.FxRateProvider
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Service
+import org.springframework.transaction.PlatformTransactionManager
+import org.springframework.transaction.TransactionDefinition
+import org.springframework.transaction.support.TransactionTemplate
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.time.Instant
 import java.time.LocalDate
 
 @Service
-class FxService(
+class FxService @Autowired constructor(
     private val fxRateRepository: FxRateRepository,
     private val appSettingRepository: AppSettingRepository,
     private val objectMapper: ObjectMapper,
-    private val fxRateProvider: FxRateProvider
+    private val fxRateProvider: FxRateProvider,
+    private val transactionManager: PlatformTransactionManager? = null,
 ) {
+    constructor(
+        fxRateRepository: FxRateRepository,
+        appSettingRepository: AppSettingRepository,
+        objectMapper: ObjectMapper,
+        fxRateProvider: FxRateProvider,
+    ) : this(fxRateRepository, appSettingRepository, objectMapper, fxRateProvider, null)
     private val defaultMargins = mapOf(
         "EUR" to BigDecimal("0.02"),
         "USD" to BigDecimal("0.025"),
@@ -52,14 +63,31 @@ class FxService(
             rate = rate,
             fetchedAt = Instant.now()
         )
-        try {
-            fxRateRepository.save(candidate)
-        } catch (exception: DataIntegrityViolationException) {
-            return fxRateRepository.findByFromCurrencyAndToCurrencyAndRateDate(currency, "EUR", date)?.rate
-                ?: throw exception
-        }
+        persistCachedRate(currency, date, candidate)?.let { return it }
 
         return rate
+    }
+
+    private fun persistCachedRate(currency: String, date: String, candidate: FxRate): BigDecimal? {
+        val writeAction = {
+            fxRateRepository.save(candidate)
+        }
+        return try {
+            val tm = transactionManager
+            if (tm != null) {
+                TransactionTemplate(tm).apply {
+                    propagationBehavior = TransactionDefinition.PROPAGATION_REQUIRES_NEW
+                }.execute {
+                    writeAction()
+                }
+            } else {
+                writeAction()
+            }
+            null
+        } catch (exception: DataIntegrityViolationException) {
+            fxRateRepository.findByFromCurrencyAndToCurrencyAndRateDate(currency, "EUR", date)?.rate
+                ?: throw exception
+        }
     }
 
     fun convert(amount: BigDecimal, fromCurrency: String, date: String): BigDecimal {

@@ -11,6 +11,7 @@ import api, {
   type Category,
 } from "@/lib/api";
 import { expenseKeys, categoryKeys } from "@/lib/queryKeys";
+import { compressImage, compressedUploadName } from "@/lib/receiptCapture";
 import { useBodyScrollLock } from "@/lib/useBodyScrollLock";
 
 interface BulkReviewDrawerProps {
@@ -144,14 +145,27 @@ export default function BulkReviewDrawer({
     setUploadErrors([]);
     setCloseBlocked(false);
     updateRows(() => []);
-    const form = new FormData();
-    files.forEach((file) => form.append("files", file));
     // Never automatically retry an ambiguous batch. Known-ID recovery below only attaches a Receipt.
-    api
-      .post<BulkUploadResult>("/expenses/bulk-upload", form, {
-        headers: { "Idempotency-Key": batchKey.current },
+    Promise.all(
+      files.map(async (file) => {
+        const compressed = await compressImage(file);
+        return {
+          blob: compressed,
+          name: compressedUploadName(file.name, compressed),
+        };
+      }),
+    )
+      .then((prepared) => {
+        if (!uploadedRef.current) return null;
+        const form = new FormData();
+        prepared.forEach(({ blob, name }) => form.append("files", blob, name));
+        return api.post<BulkUploadResult>("/expenses/bulk-upload", form, {
+          headers: { "Idempotency-Key": batchKey.current },
+        });
       })
-      .then(({ data }) => {
+      .then((response) => {
+        if (!response) return;
+        const { data } = response;
         updateRows(() =>
           data.created.map((expense) => ({
             expense,
@@ -578,9 +592,14 @@ function BulkExpenseRow({
   const inputClass =
     "w-full min-w-0 min-h-11 px-3 py-2 text-base rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary";
   const id = (field: Field) => `bulk-${expense.id}-${field}`;
+  const needsReview = !Number(values.amount) || Number(values.amount) <= 0;
   return (
     <div
-      className="rounded-xl border border-border bg-slate-50 dark:bg-slate-800/50 p-3 sm:p-4 space-y-3"
+      className={`rounded-xl border p-3 sm:p-4 space-y-3 ${
+        needsReview
+          ? "border-amber-500 bg-amber-50/40 dark:bg-amber-950/20"
+          : "border-border bg-slate-50 dark:bg-slate-800/50"
+      }`}
       data-expense-id={expense.id}
     >
       <div className="flex items-center gap-3">

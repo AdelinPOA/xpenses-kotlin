@@ -66,6 +66,11 @@ interface ExpenseReportRepository : JpaRepository<ExpenseReport, Int> {
 
     fun countByStatus(status: String): Long
     fun countByUserIdAndStatus(userId: Int, status: String): Long
+    fun findFirstByUserIdAndKundenauftragAndStatusOrderByIdDesc(
+        userId: Int,
+        kundenauftrag: String,
+        status: String,
+    ): ExpenseReport?
 
     @Query("SELECT r.status, COUNT(r) FROM ExpenseReport r WHERE (:userId IS NULL OR r.user.id = :userId) GROUP BY r.status")
     fun countByStatusGrouped(@Param("userId") userId: Int?): List<Array<Any>>

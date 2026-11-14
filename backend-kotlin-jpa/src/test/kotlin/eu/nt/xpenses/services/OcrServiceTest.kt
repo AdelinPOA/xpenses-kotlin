@@ -111,7 +111,7 @@ class OcrServiceTest {
         assertEquals("test-key", config.providers.single().apiKey)
         assertEquals("gemini-31-flash-lite", config.receiptModelChain.first())
         assertEquals(4, config.receiptModelChain.size)
-        assertEquals(listOf("gemini-31-flash-lite"), config.delegationModelChain)
+        assertEquals(config.receiptModelChain, config.delegationModelChain)
         assertTrue(config.models.all { it.active && it.tested })
     }
 
@@ -652,5 +652,101 @@ class OcrServiceTest {
         assertNull(result["amount"])
         assertEquals("Unsupported or invalid file format detected via magic bytes", result["provider_error"])
         verify(ocrResultCacheRepository, never()).acquireScanLock(anyString())
+    }
+
+    @Test
+    fun `scanReceipt strips markdown fences and normalizes European numbers, currency aliases, and dates`() {
+        val fencedJson =
+            """
+            ```json
+            {
+              "merchant": "OMV Petrom",
+              "amount": "123,45",
+              "currency": "lei",
+              "tax_amount": "19,71",
+              "tax_rate": "19",
+              "date": "15.05.2025",
+              "description": "Fuel refill",
+              "raw_text": "OMV TOTAL 123,45 LEI"
+            }
+            ```
+            """.trimIndent()
+        `when`(
+            compatibleClient.complete(
+                any(OCRProviderConfig::class.java) ?: OCRProviderConfig("provider", "provider", "https://api.example.com/v1"),
+                anyString(),
+                anyString(),
+                any<Any?>(),
+            ),
+        ).thenReturn(fencedJson)
+
+        val result = ocrService.scanReceipt(fakeBytes, filename)
+
+        assertEquals(123.45, result["amount"])
+        assertEquals("RON", result["currency"])
+        assertEquals("2025-05-15", result["date"])
+        assertEquals(19.71, result["tax_amount"])
+        assertEquals("OMV Petrom", result["merchant"])
+        verify(ocrResultCacheRepository).save(any(OcrResultCache::class.java))
+    }
+
+    @Test
+    fun `scanReceipt uses magic bytes for image MIME type even when filename extension disagrees`() {
+        val pngMagicBytes = byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A) + "png payload".toByteArray()
+        var capturedUrl = ""
+        doAnswer { invocation ->
+            val parts = invocation.arguments[3] as List<*>
+            val imagePart = parts.filterIsInstance<Map<*, *>>().firstOrNull { it["type"] == "image_url" }
+            val urlMap = imagePart?.get("image_url") as? Map<*, *>
+            capturedUrl = urlMap?.get("url")?.toString().orEmpty()
+            objectMapper.writeValueAsString(geminiResult(42.0, "PNG Shop", "2025-06-01"))
+        }.`when`(compatibleClient).complete(
+            any(OCRProviderConfig::class.java) ?: OCRProviderConfig("provider", "provider", "https://api.example.com/v1"),
+            anyString(),
+            anyString(),
+            any<Any?>(),
+        )
+
+        val result = ocrService.scanReceipt(pngMagicBytes, "misnamed.jpg")
+
+        assertEquals(42.0, result["amount"])
+        assertTrue(capturedUrl.startsWith("data:image/png;base64,"))
+    }
+
+    @Test
+    fun `scanReceipt flags transient_failure when all models fail due to transport errors`() {
+        `when`(
+            compatibleClient.complete(
+                any(OCRProviderConfig::class.java) ?: OCRProviderConfig("provider", "provider", "https://api.example.com/v1"),
+                anyString(),
+                anyString(),
+                any<Any?>(),
+            ),
+        ).thenThrow(ProviderTransportException("AI provider returned HTTP 503"))
+
+        val result = ocrService.scanReceipt(fakeBytes, filename)
+
+        assertNull(result["amount"])
+        assertEquals(true, result["transient_failure"])
+        verify(ocrResultCacheRepository, never()).save(any(OcrResultCache::class.java))
+    }
+
+    @Test
+    fun `scanReceipt survives concurrent cache write DataIntegrityViolationException`() {
+        `when`(
+            compatibleClient.complete(
+                any(OCRProviderConfig::class.java) ?: OCRProviderConfig("provider", "provider", "https://api.example.com/v1"),
+                anyString(),
+                anyString(),
+                any<Any?>(),
+            ),
+        ).thenReturn(objectMapper.writeValueAsString(geminiResult(18.0, "Race Cafe", "2025-06-02")))
+        `when`(ocrResultCacheRepository.save(any(OcrResultCache::class.java)))
+            .thenThrow(org.springframework.dao.DataIntegrityViolationException("duplicate key"))
+
+        val result = ocrService.scanReceipt(fakeBytes, filename)
+
+        assertEquals(18.0, result["amount"])
+        assertEquals("Race Cafe", result["merchant"])
     }
 }

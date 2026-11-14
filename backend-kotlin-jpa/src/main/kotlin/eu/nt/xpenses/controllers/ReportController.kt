@@ -4,6 +4,7 @@ import eu.nt.xpenses.dto.report.BulkStatusBody
 import eu.nt.xpenses.dto.report.BulkStatusFailure
 import eu.nt.xpenses.dto.report.BulkStatusResult
 import eu.nt.xpenses.dto.report.ImportOrderIn
+import eu.nt.xpenses.dto.report.ImportOrderPreviewOut
 import eu.nt.xpenses.dto.report.RejectBody
 import eu.nt.xpenses.dto.report.ReportCreate
 import eu.nt.xpenses.dto.report.ReportOut
@@ -24,6 +25,7 @@ import eu.nt.xpenses.services.Authorization
 import eu.nt.xpenses.services.EmailImportService
 import eu.nt.xpenses.services.ExportService
 import eu.nt.xpenses.services.PdfService
+import eu.nt.xpenses.services.SaveIdempotencyService
 import eu.nt.xpenses.services.StorageService
 import jakarta.servlet.http.HttpServletRequest
 import org.springframework.http.ContentDisposition
@@ -31,9 +33,12 @@ import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
+import org.springframework.transaction.PlatformTransactionManager
+import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionTemplate
 import org.springframework.web.bind.annotation.*
 import org.springframework.web.server.ResponseStatusException
-import org.springframework.transaction.annotation.Transactional
+import tools.jackson.core.type.TypeReference
 import jakarta.validation.Valid
 import java.io.ByteArrayOutputStream
 import java.time.Instant
@@ -54,7 +59,11 @@ class ReportController(
     private val notificationAdapter: ReportLifecycleNotificationAdapter,
     private val authorization: Authorization,
     private val emailImportService: EmailImportService,
+    private val idempotency: SaveIdempotencyService,
+    transactionManager: PlatformTransactionManager,
 ) {
+    private val reportType = object : TypeReference<ReportOut>() {}
+    private val createTx = TransactionTemplate(transactionManager)
     @GetMapping
     fun listReports(
         @RequestParam(value = "status", required = false) status: String?,
@@ -104,32 +113,68 @@ class ReportController(
     }
 
     @PostMapping
-    @Transactional
     fun createReport(
         @Valid @RequestBody body: ReportCreate,
         request: HttpServletRequest
     ): ResponseEntity<ReportOut> {
         val currentUser = request.getAttribute("currentUser") as? User
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
+        val key = idempotency.validateKey(request.getHeader("Idempotency-Key"))
+        val action = {
+            val report = ExpenseReport(
+                user = currentUser,
+                title = body.title.trim(),
+                description = body.description?.trim()?.ifEmpty { null },
+                dateFrom = body.dateFrom?.trim()?.ifEmpty { null },
+                dateTo = body.dateTo?.trim()?.ifEmpty { null },
+                currency = body.currency.uppercase(),
+                status = "draft",
+                kundenauftrag = body.kundenauftrag?.trim()?.ifEmpty { null },
+                auftragsart = body.auftragsart?.trim()?.ifEmpty { null },
+                positionstyp = body.positionstyp?.trim()?.ifEmpty { null },
+                technplatzRaw = body.technplatzRaw?.trim()?.ifEmpty { null },
+                technplatzLine = body.technplatzLine,
+                kundeCode = body.kundeCode?.trim()?.ifEmpty { null },
+                kundeName = body.kundeName?.trim()?.ifEmpty { null },
+                adresse = body.adresse?.trim()?.ifEmpty { null },
+                vorgang = body.vorgang?.trim()?.ifEmpty { null },
+                arbeitsplatz = body.arbeitsplatz?.trim()?.ifEmpty { null },
+                techniker = body.techniker?.trim()?.ifEmpty { null },
+                createdAt = Instant.now(),
+                updatedAt = Instant.now()
+            )
+            val saved = expenseReportRepository.save(report)
+            val finalReport =
+                if (!body.expenseIds.isNullOrEmpty()) {
+                    lifecycle.attach(saved.id!!, AttachExpensesCommand(body.expenseIds), currentUser).report
+                } else {
+                    saved
+                }
+            reportMapper.mapReportToOut(finalReport)
+        }
+        val created =
+            if (key != null) {
+                idempotency.execute(currentUser.id!!, "report-create", key, idempotency.hash(body), reportType) {
+                    action()
+                }
+            } else {
+                createTx.execute { action() }
+            }
+        return ResponseEntity.status(HttpStatus.CREATED).body(created)
+    }
 
-        val report = ExpenseReport(
-            user = currentUser,
-            title = body.title,
-            description = body.description,
-            dateFrom = body.dateFrom,
-            dateTo = body.dateTo,
-            currency = body.currency.uppercase(),
-            status = "draft",
-            createdAt = Instant.now(),
-            updatedAt = Instant.now()
-        )
+    @PostMapping("/import-order/preview")
+    fun previewImportOrder(
+        @Valid @RequestBody body: ImportOrderIn,
+        request: HttpServletRequest
+    ): ImportOrderPreviewOut {
+        val currentUser = request.getAttribute("currentUser") as? User
+            ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
 
-        val saved = expenseReportRepository.save(report)
-        return ResponseEntity.status(HttpStatus.CREATED).body(reportMapper.mapReportToOut(saved))
+        return emailImportService.previewOrderForUser(currentUser, body.bodyText)
     }
 
     @PostMapping("/import-order")
-    @Transactional
     fun importOrder(
         @Valid @RequestBody body: ImportOrderIn,
         request: HttpServletRequest

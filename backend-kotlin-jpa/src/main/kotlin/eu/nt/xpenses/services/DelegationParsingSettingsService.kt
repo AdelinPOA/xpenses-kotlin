@@ -21,9 +21,9 @@ data class DelegationParsingConfig(
     val outputInstructions: String = DEFAULT_OUTPUT_INSTRUCTIONS,
 ) {
     companion object {
-        const val DEFAULT_INSTRUCTIONS = """Extract the business trip from the work order, not from forwarding headers or signatures.
+        const val DEFAULT_INSTRUCTIONS = """Locate the service/work order table or delegation block inside forwarded email threads and ignore reply/forwarding headers, disclaimers and email signatures.
 Map Kundenauftrag or Auftrag to kundenauftrag (the order number); preserve leading zeros.
-Map Starttermin and Endtermin to the trip dates. Map Kunde to customer code and name.
+Map Starttermin (or earliest work date) to date_from and Endtermin (or latest work date, or date_from for single-day orders) to date_to. Map Kunde to customer code and name.
 Read all address continuation lines, but exclude telephone, email and contact sections.
 Translate German task, operation and workplace descriptions into English. Preserve customer names,
 people's names, postal addresses, technical identifiers and order codes without inventing details."""

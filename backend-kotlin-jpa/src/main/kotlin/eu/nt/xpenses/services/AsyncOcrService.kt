@@ -163,6 +163,9 @@ class AsyncOcrService(
         return try {
             val bytes = storageService.downloadFile(sourcePath)
             val result = ocrService.scanReceipt(bytes, job.filename)
+            if (result["transient_failure"] == true) {
+                throw TransientOcrProviderException(result["provider_error"]?.toString() ?: "Transient OCR provider failure")
+            }
             val errorCode = if (result["amount"] == null) "OCR_PARTIAL" else null
             ocrJobRepository.completeOcrStage(
                 jobId,
@@ -350,6 +353,7 @@ class AsyncOcrService(
 
     private class LeaseLostException : IllegalStateException("OCR lease was lost")
     private class ManualCategoryUnavailableException : IllegalStateException()
+    private class TransientOcrProviderException(message: String) : RuntimeException(message)
 
     companion object {
         private const val MAX_ATTEMPTS = 3

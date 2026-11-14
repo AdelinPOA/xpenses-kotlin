@@ -37,6 +37,7 @@ class AuthController(
     @Value("\${jwt.cookie.access-max-age-seconds:0}") private val accessCookieMaxAgeSeconds: Long
 ) {
     companion object {
+        private const val REFRESH_ROTATION_GRACE_SECONDS = 30L
         private const val DUMMY_BCRYPT_HASH =
             "\$2a\$10\$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy"
     }
@@ -82,13 +83,15 @@ class AuthController(
             return ResponseEntity.status(400).body(mapOf("detail" to "Unsupported auth source"))
         }
 
+        val now = Instant.now()
         val accessToken = tokenProvider.createAccessToken(user.id!!, user.username, user.role, user.tokenVersion)
         val rawRefreshToken = tokenProvider.createRefreshToken()
         val hashedRefreshToken = tokenProvider.hashRefreshToken(rawRefreshToken)
 
-        refreshTokenRepository.deleteByUserId(user.id!!)
+        // Retain active tokens on other devices while pruning expired/past-grace rows.
+        refreshTokenRepository.deleteExpiredAndRotated(user.id!!, now, now.minusSeconds(REFRESH_ROTATION_GRACE_SECONDS))
 
-        val tokenExpiry = Instant.now().plus(refreshExpiresDays, ChronoUnit.DAYS)
+        val tokenExpiry = now.plus(refreshExpiresDays, ChronoUnit.DAYS)
         refreshTokenRepository.save(
             RefreshToken(
                 user = user,
@@ -112,33 +115,18 @@ class AuthController(
         val refreshTokenCookie = cookies?.find { it.name == "refresh_token" }
             ?: return ResponseEntity.status(401).body(mapOf("detail" to "No refresh token"))
 
+        val now = Instant.now()
         val rawToken = refreshTokenCookie.value
         val hashedToken = tokenProvider.hashRefreshToken(rawToken)
 
-        val storedToken = refreshTokenRepository.findByTokenHash(hashedToken)
+        val storedToken = refreshTokenRepository.findByTokenHashForUpdate(hashedToken)
         if (storedToken == null) {
-            val accessTokenCookie = cookies.find { it.name == "access_token" }
-            if (accessTokenCookie != null) {
-                try {
-                    val claims = tokenProvider.decodeAccessToken(accessTokenCookie.value)
-                    if (claims != null) {
-                        userRepository.findById(claims.userId).ifPresent { user ->
-                            user.tokenVersion++
-                            userRepository.save(user)
-                            refreshTokenRepository.deleteByUserId(user.id!!)
-                        }
-                    }
-                } catch (_: Exception) {}
-            }
             clearAuthCookies(response)
             return ResponseEntity.status(401).body(mapOf("detail" to "Invalid refresh token"))
         }
 
-        if (storedToken.expiresAt.isBefore(Instant.now())) {
-            val user = storedToken.user
-            user.tokenVersion++
-            userRepository.save(user)
-            refreshTokenRepository.deleteByUserId(user.id!!)
+        if (storedToken.expiresAt.isBefore(now)) {
+            refreshTokenRepository.delete(storedToken)
             clearAuthCookies(response)
             return ResponseEntity.status(401).body(mapOf("detail" to "Refresh token expired"))
         }
@@ -152,7 +140,23 @@ class AuthController(
             return ResponseEntity.status(403).body(mapOf("detail" to "Account deactivated"))
         }
 
-        refreshTokenRepository.delete(storedToken)
+        val rotatedAt = storedToken.rotatedAt
+        if (rotatedAt != null) {
+            val graceCutoff = now.minusSeconds(REFRESH_ROTATION_GRACE_SECONDS)
+            if (rotatedAt.isBefore(graceCutoff)) {
+                // Replay of an already-rotated token outside the concurrent race window.
+                user.tokenVersion++
+                userRepository.save(user)
+                refreshTokenRepository.deleteByUserId(user.id!!)
+                clearAuthCookies(response)
+                return ResponseEntity.status(401).body(mapOf("detail" to "Invalid refresh token"))
+            }
+        } else {
+            storedToken.rotatedAt = now
+            refreshTokenRepository.save(storedToken)
+        }
+
+        refreshTokenRepository.deleteExpiredAndRotated(user.id!!, now, now.minusSeconds(REFRESH_ROTATION_GRACE_SECONDS))
 
         val newAccessToken = tokenProvider.createAccessToken(user.id!!, user.username, user.role, user.tokenVersion)
         val newRawRefreshToken = tokenProvider.createRefreshToken()
@@ -162,7 +166,7 @@ class AuthController(
             RefreshToken(
                 user = user,
                 tokenHash = newHashedRefreshToken,
-                expiresAt = Instant.now().plus(refreshExpiresDays, ChronoUnit.DAYS)
+                expiresAt = now.plus(refreshExpiresDays, ChronoUnit.DAYS)
             )
         )
 

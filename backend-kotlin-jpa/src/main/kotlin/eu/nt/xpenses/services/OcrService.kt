@@ -15,7 +15,9 @@ import eu.nt.xpenses.repositories.OcrResultCacheRepository
 import org.apache.pdfbox.Loader
 import org.apache.pdfbox.rendering.PDFRenderer
 import org.slf4j.LoggerFactory
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Service
+import org.springframework.transaction.TransactionDefinition
 import org.springframework.transaction.support.TransactionTemplate
 import java.awt.Color
 import java.awt.Font
@@ -23,7 +25,10 @@ import java.awt.image.BufferedImage
 import java.io.ByteArrayOutputStream
 import java.math.BigDecimal
 import java.time.Instant
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import java.util.Base64
+import java.util.Locale
 import java.util.regex.Pattern
 import javax.imageio.ImageIO
 
@@ -295,7 +300,7 @@ class OcrService(
             providers = listOf(OCRProviderConfig(GEMINI_PROVIDER_ID, "Google Gemini", GEMINI_BASE_URL, apiKey, apiKey.isNotBlank())),
             models = models,
             receiptModelChain = chain,
-            delegationModelChain = listOf(chain.first()),
+            delegationModelChain = chain,
         )
     }
 
@@ -324,7 +329,7 @@ class OcrService(
             geminiApiKey = "",
             passwordSet = apiKey.isNotBlank(),
             receiptModelChain = receiptChain,
-            delegationModelChain = listOf(selectedModel),
+            delegationModelChain = receiptChain,
         )
     }
 
@@ -484,6 +489,8 @@ class OcrService(
         }
 
         val errors = mutableListOf<String>()
+        var transportFailures = 0
+        var bestPartial: Map<String, Any?>? = null
         val finalResult =
             models.firstNotNullOfOrNull { (provider, model) ->
                 try {
@@ -491,23 +498,48 @@ class OcrService(
                     if (isUsableOcrResult(attempt)) {
                         attempt + mapOf("provider_used" to provider.name, "model_used" to model.modelId)
                     } else {
+                        if (bestPartial == null && hasPartialOcrSignal(attempt)) {
+                            bestPartial = attempt + mapOf("provider_used" to provider.name, "model_used" to model.modelId)
+                        }
                         errors.add("${model.displayName} returned no usable amount")
                         null
                     }
+                } catch (e: ProviderTransportException) {
+                    transportFailures++
+                    errors.add("${model.displayName}: ${e.message}")
+                    log.warn("OCR model transport failure for {} ({})", model.id, e.message)
+                    null
                 } catch (e: Exception) {
                     errors.add("${model.displayName} failed to return a valid OCR result")
-                    log.warn("OCR model attempt failed for {}", model.id)
+                    log.warn("OCR model attempt failed for {} ({})", model.id, e.javaClass.simpleName)
                     null
                 }
             }
 
-        val result = finalResult ?: errorResult(errors.joinToString("; ").ifBlank { "All configured OCR models failed" })
+        val combinedError = errors.joinToString("; ").ifBlank { "All configured OCR models failed" }
+        val result =
+            finalResult ?: run {
+                val partial = bestPartial
+                if (partial != null) {
+                    partial.toMutableMap().apply {
+                        val existingWarnings = (this["warnings"] as? List<*>)?.mapNotNull { it?.toString() }.orEmpty()
+                        this["warnings"] = (existingWarnings + combinedError).distinct()
+                        this["provider_error"] = combinedError
+                    }
+                } else {
+                    errorResult(combinedError).toMutableMap().apply {
+                        if (transportFailures == models.size && models.isNotEmpty()) {
+                            this["transient_failure"] = true
+                        }
+                    }
+                }
+            }
         transactionTemplate.execute {
             preparation.comparisonId?.let { comparisonId ->
                 updateGeminiComparison(comparisonId, result)
-                if (isUsableOcrResult(result)) saveCacheResult(sha256, cacheModel, result)
             }
         }
+        if (isUsableOcrResult(result)) saveCacheResult(sha256, cacheModel, result)
 
         return result.toMutableMap().apply {
             preparation.comparisonId?.let { put("comparison_id", it) }
@@ -558,7 +590,7 @@ class OcrService(
                 if (isValidResponse(response)) return response
                 log.warn("AI model returned an invalid result: {}", model.id)
             } catch (e: Exception) {
-                log.warn("AI model attempt failed for {} ({})", model.id, e.javaClass.simpleName)
+                log.warn("AI model attempt failed for {} ({}): {}", model.id, e.javaClass.simpleName, e.message)
             }
         }
         return null
@@ -599,6 +631,16 @@ class OcrService(
             .digest(bytes)
             .joinToString("") { "%02x".format(it) }
 
+    private fun hasPartialOcrSignal(result: Map<String, Any?>): Boolean =
+        listOf("merchant", "date", "raw_text", "description", "amount").any { key ->
+            val value = result[key]
+            when (value) {
+                is String -> value.isNotBlank()
+                is Number -> value.toDouble().isFinite()
+                else -> value != null
+            }
+        }
+
     private fun isUsableOcrResult(result: Map<String, Any?>): Boolean {
         val amount = (result["amount"] as? Number)?.toDouble() ?: return false
         val currency = result["currency"] as? String ?: return false
@@ -612,23 +654,24 @@ class OcrService(
         model: OCRModelConfig,
         categories: List<Category>,
     ): Map<String, Any?> {
-        val extension = filename.substringAfterLast('.', "").lowercase()
-        val mimeType =
-            when (extension) {
-                "png" -> "image/png"
-                "webp" -> "image/webp"
-                else -> "image/jpeg"
-            }
+        val (isPdf, mimeType) = detectDocumentType(fileBytes, filename)
         val categoryOptions = categories.joinToString(", ") { "${it.id}: ${it.name}" }
         val prompt =
             """
-            Analyze this receipt, bill, invoice, or ticket. Return a JSON object with these keys:
-            merchant (string), amount (number), currency (three-letter ISO code), tax_amount (number or null),
-            tax_rate (number or null), date (YYYY-MM-DD or null), raw_text (full transcription),
-            category_id (integer from [$categoryOptions] or null), and description (short human-friendly summary).
-            Return null for fields that cannot be identified. The amount is required for a usable receipt result.
+            Analyze this receipt, bill, invoice, or ticket (including Romanian, German, or English receipts).
+            Return a single valid JSON object with these keys:
+            - merchant (string or null): store/vendor name
+            - amount (number or null): FINAL total amount paid/payable (never subtotal, cash tendered, or change returned; convert comma decimals like 123,45 to 123.45)
+            - currency (3-letter uppercase ISO 4217 code or null, e.g. EUR, RON, USD, GBP; convert LEI/Lei to RON, € to EUR)
+            - tax_amount (number or null): total VAT/TVA/tax amount
+            - tax_rate (number or null): VAT/tax percentage as a number (e.g. 19 for 19%)
+            - date (YYYY-MM-DD string or null): receipt/invoice issue date
+            - raw_text (string): key visible text transcription
+            - category_id (integer from [$categoryOptions] or null)
+            - description (string or null): short human-friendly expense summary (max 80 chars)
+            Return raw JSON only without markdown fences. Return null for fields that cannot be identified.
             """.trimIndent()
-        val imagePages = if (extension == "pdf") renderPdfPages(fileBytes) else listOf(fileBytes to mimeType)
+        val imagePages = if (isPdf) renderPdfPages(fileBytes) else listOf(fileBytes to mimeType)
         val imageContent =
             buildList<Any> {
                 add(mapOf("type" to "text", "text" to "Read the attached receipt document pages and extract the requested fields."))
@@ -642,22 +685,22 @@ class OcrService(
                 }
             }
         val textResponse = compatibleClient.complete(provider, model.modelId, prompt, imageContent)
-        val result: Map<String, Any?> = objectMapper.readValue(textResponse)
+        val result: Map<String, Any?> = objectMapper.readValue(AiJsonSanitizer.extractJsonObject(textResponse))
         val warnings = mutableListOf<String>()
-        val amount = (result["amount"] as? Number)?.toDouble()?.takeIf { it.isFinite() }
+        val amount = normalizeOcrNumber(result["amount"])
         if (amount == null) warnings.add("Could not extract amount")
 
-        val extractedDate = result["date"] as? String
-        val date = extractedDate?.takeIf { Pattern.matches("^\\d{4}-\\d{2}-\\d{2}$", it) }
+        val extractedDate = result["date"]?.toString()?.trim()?.takeIf { it.isNotEmpty() }
+        val date = normalizeOcrDate(extractedDate)
         if (extractedDate != null && date == null) warnings.add("Extracted date format is invalid")
         if (date == null) warnings.add("Could not extract date")
 
-        val merchant = result["merchant"] as? String
-        if (merchant.isNullOrEmpty()) warnings.add("Could not extract merchant")
-        val currency = (result["currency"] as? String)?.uppercase()?.trim()
-        val taxAmount = (result["tax_amount"] as? Number)?.toDouble()
-        val taxRate = (result["tax_rate"] as? Number)?.toDouble()
-        val requestedCategoryId = (result["category_id"] as? Number)?.toInt()
+        val merchant = (result["merchant"] as? String)?.trim()?.takeIf { it.isNotEmpty() }
+        if (merchant == null) warnings.add("Could not extract merchant")
+        val currency = normalizeCurrency(result["currency"] as? String)
+        val taxAmount = normalizeOcrNumber(result["tax_amount"])
+        val taxRate = normalizeOcrNumber(result["tax_rate"])
+        val requestedCategoryId = result["category_id"].toIntOrNull()
         val categoryId = requestedCategoryId?.takeIf { id -> categories.any { it.id == id } }
 
         return mapOf(
@@ -668,11 +711,108 @@ class OcrService(
             "date" to date,
             "merchant" to merchant,
             "category_id" to categoryId,
-            "description" to result["description"],
+            "description" to (result["description"] as? String)?.trim()?.takeIf { it.isNotEmpty() },
             "raw_text" to (result["raw_text"] ?: ""),
             "confidence" to 1.0,
             "warnings" to warnings,
         )
+    }
+
+    private fun detectDocumentType(
+        bytes: ByteArray,
+        filename: String,
+    ): Pair<Boolean, String> {
+        if (bytes.size >= 4 &&
+            bytes[0] == 0x25.toByte() &&
+            bytes[1] == 0x50.toByte() &&
+            bytes[2] == 0x44.toByte() &&
+            bytes[3] == 0x46.toByte()
+        ) {
+            return true to "application/pdf"
+        }
+        if (bytes.size >= 4 &&
+            bytes[0] == 0x89.toByte() &&
+            bytes[1] == 0x50.toByte() &&
+            bytes[2] == 0x4E.toByte() &&
+            bytes[3] == 0x47.toByte()
+        ) {
+            return false to "image/png"
+        }
+        if (bytes.size >= 12 &&
+            bytes[0] == 0x52.toByte() &&
+            bytes[1] == 0x49.toByte() &&
+            bytes[2] == 0x46.toByte() &&
+            bytes[3] == 0x46.toByte() &&
+            bytes[8] == 0x57.toByte() &&
+            bytes[9] == 0x45.toByte() &&
+            bytes[10] == 0x42.toByte() &&
+            bytes[11] == 0x50.toByte()
+        ) {
+            return false to "image/webp"
+        }
+        if (bytes.size >= 3 &&
+            bytes[0] == 0xFF.toByte() &&
+            bytes[1] == 0xD8.toByte() &&
+            bytes[2] == 0xFF.toByte()
+        ) {
+            return false to "image/jpeg"
+        }
+        return when (filename.substringAfterLast('.', "").lowercase()) {
+            "pdf" -> true to "application/pdf"
+            "png" -> false to "image/png"
+            "webp" -> false to "image/webp"
+            else -> false to "image/jpeg"
+        }
+    }
+
+    private fun normalizeCurrency(raw: String?): String? {
+        val cleaned = raw?.trim()?.uppercase(Locale.ROOT)?.takeIf { it.isNotEmpty() } ?: return null
+        return when (cleaned) {
+            "LEI", "LEU", "ROL", "RON" -> "RON"
+            "€", "EURO" -> "EUR"
+            "$", "US$" -> "USD"
+            "£" -> "GBP"
+            else -> cleaned.takeIf { Pattern.matches("^[A-Z]{3}$", it) }
+        }
+    }
+
+    private fun normalizeOcrNumber(raw: Any?): Double? =
+        when (raw) {
+            is Number -> raw.toDouble().takeIf { it.isFinite() }
+            is String -> {
+                val stripped = raw.trim().replace(Regex("[^0-9,.-]"), "")
+                if (stripped.isEmpty()) {
+                    null
+                } else {
+                    val normalized =
+                        if (stripped.contains(',') && !stripped.contains('.')) {
+                            stripped.replace(',', '.')
+                        } else if (stripped.contains(',') && stripped.contains('.')) {
+                            // 1.234,56 -> 1234.56 vs 1,234.56 -> 1234.56
+                            if (stripped.lastIndexOf(',') > stripped.lastIndexOf('.')) {
+                                stripped.replace(".", "").replace(',', '.')
+                            } else {
+                                stripped.replace(",", "")
+                            }
+                        } else {
+                            stripped
+                        }
+                    normalized.toDoubleOrNull()?.takeIf { it.isFinite() }
+                }
+            }
+            else -> null
+        }
+
+    private fun normalizeOcrDate(raw: String?): String? {
+        val text = raw?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+        if (Pattern.matches("^\\d{4}-\\d{2}-\\d{2}$", text)) {
+            return runCatching { LocalDate.parse(text).toString() }.getOrNull()
+        }
+        for (pattern in listOf("dd.MM.yyyy", "dd/MM/yyyy", "dd-MM-yyyy", "yyyy/MM/dd", "d.M.yyyy", "d/M/yyyy")) {
+            val parsed = runCatching { LocalDate.parse(text, DateTimeFormatter.ofPattern(pattern)) }.getOrNull()
+            if (parsed != null) return parsed.toString()
+        }
+        return null
     }
 
     private fun renderPdfPages(pdfBytes: ByteArray): List<Pair<ByteArray, String>> {
@@ -682,7 +822,10 @@ class OcrService(
             if (pdf.numberOfPages > pageCount) log.warn("OCR PDF has {} pages; processing the first {}", pdf.numberOfPages, pageCount)
             val renderer = PDFRenderer(pdf)
             return (0 until pageCount).map { pageIndex ->
-                val image = renderer.renderImage(pageIndex, 1f)
+                val mediaBox = pdf.getPage(pageIndex).mediaBox
+                val maxDimension = maxOf(mediaBox.width, mediaBox.height).coerceAtLeast(1f)
+                val scale = (1800f / maxDimension).coerceIn(1.5f, 2.5f)
+                val image = renderer.renderImage(pageIndex, scale)
                 val png =
                     ByteArrayOutputStream().use { output ->
                         ImageIO.write(image, "png", output)
@@ -716,15 +859,46 @@ class OcrService(
         model: String,
         result: Map<String, Any?>,
     ) {
-        val cache =
-            OcrResultCache(
-                sha256 = sha256,
-                provider = CACHE_PROVIDER,
-                model = model,
-                contractVersion = CACHE_CONTRACT_VERSION,
-                resultJson = objectMapper.writeValueAsString(result),
-            )
-        ocrResultCacheRepository.save(cache)
+        val serialized = objectMapper.writeValueAsString(result)
+        val saveBlock: () -> Unit = {
+            val existing =
+                ocrResultCacheRepository
+                    .findBySha256AndProviderAndModelAndContractVersion(
+                        sha256,
+                        CACHE_PROVIDER,
+                        model,
+                        CACHE_CONTRACT_VERSION,
+                    ).orElse(null)
+            if (existing != null) {
+                existing.resultJson = serialized
+                existing.lastUsedAt = Instant.now()
+                ocrResultCacheRepository.save(existing)
+            } else {
+                ocrResultCacheRepository.save(
+                    OcrResultCache(
+                        sha256 = sha256,
+                        provider = CACHE_PROVIDER,
+                        model = model,
+                        contractVersion = CACHE_CONTRACT_VERSION,
+                        resultJson = serialized,
+                    ),
+                )
+            }
+        }
+        try {
+            val tm = transactionTemplate.transactionManager
+            if (tm != null) {
+                TransactionTemplate(tm).apply {
+                    propagationBehavior = TransactionDefinition.PROPAGATION_REQUIRES_NEW
+                }.execute {
+                    saveBlock()
+                }
+            } else {
+                saveBlock()
+            }
+        } catch (e: DataIntegrityViolationException) {
+            log.debug("OCR cache row already populated concurrently for hash {}", sha256)
+        }
     }
 
     private fun normalizeCachedResult(

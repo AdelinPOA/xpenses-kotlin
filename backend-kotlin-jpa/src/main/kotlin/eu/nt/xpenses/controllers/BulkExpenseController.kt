@@ -22,6 +22,8 @@ import org.springframework.web.multipart.MultipartFile
 import org.springframework.web.server.ResponseStatusException
 import java.math.BigDecimal
 import java.time.LocalDate
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.Executors
 
 @RestController
 @RequestMapping("/api/expenses")
@@ -34,7 +36,15 @@ class BulkExpenseController(
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     private val currencyRegex = Regex("^[A-Z]{3}$")
+    private val dateRegex = Regex("^\\d{4}-\\d{2}-\\d{2}$")
     private val allowedExtensions = setOf("jpg", "jpeg", "png", "pdf", "webp")
+
+    private data class ValidatedBulkFile(
+        val index: Int,
+        val file: MultipartFile,
+        val filename: String,
+        val bytes: ByteArray,
+    )
 
     @PostMapping("/bulk-upload")
     fun bulkUploadExpenses(
@@ -70,6 +80,7 @@ class BulkExpenseController(
         val created = mutableListOf<ExpenseOut>()
         val errors = mutableListOf<BulkUploadError>()
         val today = LocalDate.now().toString()
+        val validFiles = mutableListOf<ValidatedBulkFile>()
 
         for ((index, file) in files.withIndex()) {
             val filename = file.originalFilename ?: "receipt"
@@ -87,23 +98,65 @@ class BulkExpenseController(
                 errors.add(BulkUploadError(filename, "Unsupported or invalid file format detected via magic bytes", fileIndex = index))
                 continue
             }
+            validFiles.add(ValidatedBulkFile(index, file, filename, fileBytes))
+        }
+
+        val filesNeedingOcr =
+            if (key != null && sources != null) {
+                validFiles.filter { item ->
+                    saving.lookupBulkCreate(item.index, sources[item.index], currentUser, key) == null
+                }
+            } else {
+                validFiles
+            }
+
+        val ocrResultsByIndex: Map<Int, Map<String, Any?>> =
+            if (filesNeedingOcr.isEmpty()) {
+                emptyMap()
+            } else if (filesNeedingOcr.size == 1) {
+                val single = filesNeedingOcr.single()
+                mapOf(single.index to runOcrSafely(single.bytes, single.filename))
+            } else {
+                val pool = Executors.newFixedThreadPool(minOf(4, filesNeedingOcr.size))
+                try {
+                    filesNeedingOcr
+                        .map { item ->
+                            item.index to
+                                CompletableFuture.supplyAsync(
+                                    { runOcrSafely(item.bytes, item.filename) },
+                                    pool,
+                                )
+                        }.associate { (idx, future) -> idx to future.join() }
+                } finally {
+                    pool.shutdown()
+                }
+            }
+
+        for (item in validFiles) {
+            val index = item.index
+            val file = item.file
+            val filename = item.filename
+            val ocrResult = ocrResultsByIndex[index].orEmpty()
 
             val expenseOut =
                 try {
                     saving.bulkCreate(index, sources?.get(index) ?: saving.manifest(listOf(file)).single(), currentUser, key) {
-                        val ocrResult: Map<String, Any?> =
-                            try {
-                                ocrService.scanReceipt(fileBytes, filename)
-                            } catch (e: Exception) {
-                                log.warn("OCR failed for $filename: ${e.message}")
-                                emptyMap()
-                            }
                         val amount =
                             (ocrResult["amount"] as? Number)
                                 ?.let { BigDecimal.valueOf(it.toDouble()) } ?: BigDecimal.ZERO
                         val currency =
                             (ocrResult["currency"] as? String)
                                 ?.takeIf { it.matches(currencyRegex) } ?: "EUR"
+                        val extractedDate =
+                            (ocrResult["date"] as? String)
+                                ?.takeIf { it.matches(dateRegex) } ?: today
+                        val fallbackDescription =
+                            when {
+                                ocrResult.isEmpty() -> "OCR failed — please fill manually"
+                                amount == BigDecimal.ZERO && ocrResult["provider_error"] != null ->
+                                    "OCR partial/failed — please review"
+                                else -> null
+                            }
                         ExpenseCreate(
                             categoryId = ocrResult["category_id"] as? Int,
                             reportId = null,
@@ -112,10 +165,8 @@ class BulkExpenseController(
                             taxAmount =
                                 (ocrResult["tax_amount"] as? Number)
                                     ?.let { BigDecimal.valueOf(it.toDouble()) } ?: BigDecimal.ZERO,
-                            date = (ocrResult["date"] as? String) ?: today,
-                            description =
-                                (ocrResult["description"] as? String)
-                                    ?: if (ocrResult.isEmpty()) "OCR failed — please fill manually" else null,
+                            date = extractedDate,
+                            description = (ocrResult["description"] as? String) ?: fallbackDescription,
                             merchant = ocrResult["merchant"] as? String,
                             rawOcrText = ocrResult["raw_text"] as? String,
                         )
@@ -159,4 +210,15 @@ class BulkExpenseController(
 
         return ResponseEntity.ok(BulkUploadResult(created, errors))
     }
+
+    private fun runOcrSafely(
+        fileBytes: ByteArray,
+        filename: String,
+    ): Map<String, Any?> =
+        try {
+            ocrService.scanReceipt(fileBytes, filename)
+        } catch (e: Exception) {
+            log.warn("OCR failed for {}: {}", filename, e.message)
+            emptyMap()
+        }
 }

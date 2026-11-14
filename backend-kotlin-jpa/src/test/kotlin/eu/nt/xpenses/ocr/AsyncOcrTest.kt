@@ -234,4 +234,38 @@ class AsyncOcrTest {
 
         verify(ocrService).scanReceipt(fakeData, "receipt.jpg")
     }
+
+    @Test
+    fun `transient_failure result triggers retry instead of promoting zero-amount expense`() {
+        val fakeData = "fake data".toByteArray()
+        `when`(storageService.downloadFile("ocr-sources/1_receipt.jpg")).thenReturn(fakeData)
+        `when`(ocrService.scanReceipt(fakeData, "receipt.jpg")).thenReturn(
+            mapOf(
+                "amount" to null,
+                "currency" to null,
+                "provider_error" to "AI provider returned HTTP 503",
+                "transient_failure" to true,
+            ),
+        )
+        job.attemptCount = 1
+
+        asyncOcrService.processOcr(1)
+
+        verify(ocrJobRepository).recordTransientFailure(
+            eq(1),
+            anyString(),
+            anyObject(Instant.now()),
+            eq("OCR_PROCESSING_RETRY") ?: "OCR_PROCESSING_RETRY",
+            anyString(),
+            anyObject(Instant.now()),
+        )
+        verify(ocrJobRepository, never()).completeOcrStage(
+            anyInt(),
+            anyString(),
+            anyString(),
+            any(),
+            anyObject(Instant.now()),
+        )
+        verifyNoInteractions(expenseRepository)
+    }
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import api, { Expense, CURRENCIES } from "@/lib/api";
@@ -23,6 +23,7 @@ function NewReportContent() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [currency, setCurrency] = useState("EUR");
   const [error, setError] = useState("");
+  const submitKeyRef = useRef<string | null>(null);
   const t = useTranslations("reports");
 
   const isDirty = () => {
@@ -72,24 +73,33 @@ function NewReportContent() {
     }
   }, [draftExpenses, selectedIds]);
 
+  useEffect(() => {
+    submitKeyRef.current = null;
+  }, [title, description, dateFrom, dateTo, currency, selectedIds]);
+
   const create = useMutation({
     mutationFn: async () => {
-      const report = await api
-        .post("/reports", {
-          title,
-          description: description || null,
-          date_from: dateFrom || null,
-          date_to: dateTo || null,
-          currency,
-        })
-        .then((r) => r.data);
-
-      if (selectedIds.size > 0) {
-        await api.post(`/reports/${report.id}/attach`, {
-          expense_ids: Array.from(selectedIds),
-        });
+      if (!submitKeyRef.current) {
+        submitKeyRef.current =
+          typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+            ? crypto.randomUUID()
+            : `report-${Date.now()}-${Math.random().toString(36).slice(2)}`;
       }
-      return report;
+      const expenseIds = selectedIds.size > 0 ? Array.from(selectedIds) : undefined;
+      return api
+        .post(
+          "/reports",
+          {
+            title,
+            description: description || null,
+            date_from: dateFrom || null,
+            date_to: dateTo || null,
+            currency,
+            expense_ids: expenseIds,
+          },
+          { headers: { "Idempotency-Key": submitKeyRef.current } }
+        )
+        .then((r) => r.data);
     },
     onSuccess: (report) => {
       clearDirty();

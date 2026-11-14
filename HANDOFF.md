@@ -1,49 +1,49 @@
-# Current handoff — 2026-10-21
+# Current handoff — 2026-11-14
 
 ## Start here
 
-Canonical source is GitHub `main`: [AdelinPOA/xpenses-kotlin](https://github.com/AdelinPOA/xpenses-kotlin). GitHub issues are the task source of truth. Read `AGENTS.md`, `frontend/AGENTS.md`, the glossary `CONTEXT.md` and relevant ADRs. Communicate concisely in Romanian.
+Canonical source is GitHub `main`: [AdelinPOA/xpenses-kotlin](https://github.com/AdelinPOA/xpenses-kotlin). GitHub issues are the task source of truth. Read [`AGENTS.md`](AGENTS.md), [`CONTEXT.md`](CONTEXT.md), and relevant ADRs under [`docs/adr/`](docs/adr/).
 
-The maintainer requested all pending local work integrated into main and fully documented. The [integration record](docs/reviews/2026-10-21-main-integration.md) identifies every source group, preserved snapshot and conflict decision. The earlier [P2 handoff](P2_HANDOFF.md) and 2026-10-18 audit are historical, not current execution instructions.
+Historical checkpoints and superseded audits (`P2_HANDOFF.md`, `cve.md`, `plans/p2-follow-up.md`, `.planning/`, `docs/astra-production-audit/`, `docs/gpt6-astra-production-audit-prompt.md`, `docs/mobile-ui-remediation-plan.md`) were archived on `2026-11-14` under [`docs/archive/2026-11-14-superseded/`](docs/archive/2026-11-14-superseded/). Earlier integration history remains in [`docs/reviews/2026-10-21-main-integration.md`](docs/reviews/2026-10-21-main-integration.md).
 
 ## Source versus production
 
 | Area | Provenance / boundary |
 | --- | --- |
-| Capture/review and platform | PR #64 merged as `3f9c87f`; application repairs `b88817c`, Boot4 migration `bdc0565`, security patches `343ec37`, first-visit login/iOS fixes `7244f58`. |
-| Verification tooling | PR #67 merged as `2d040a59`, source `2bee93d`. Real TypeScript lint, fail-closed restart harness and pinned/least-permission CI. |
-| Previously local work | Snapshot `33aff88`, reconciled with current source; seven Kotlin test-formatting changes `02f3baf`; bulk/mobile evidence, documentation consolidation, QA tooling and pi-lens config are accounted for in the integration record. |
-| Production backend | `xpenses-backend:boot4-343ec37`, patched Boot4/Framework7/Jackson3/Tomcat11 runtime. |
-| Production frontend | `xpenses-frontend:capture-7244f58`, immediate review enabled. |
-| Production schema | V105 and V106 applied successfully after V104; original database/Redis containers retained. |
+| Committed `origin/main` baseline | `2459290` (includes `23b0df8` review edits, `7d3a19f` auth login/rate-limit hardening, `b151269` AI order import base, `3d44cb9` CIDR/Cloudflare trusted proxies, `2459290` immediate OCR review flag default). |
+| Local workspace rollout (`2026-11-14`) | AI Import Order (`Import` & `Import & Review` + structured JSON schema / retry fixes) + Expense OCR hardening (parallel bulk OCR, `REQUIRES_NEW` cache/FX upserts, `important-todo.md`) + Stabilization fixes (`general-todo.md`: refresh token rotation grace window `V107`, cross-tab single-flight refresh, atomic `POST /api/reports` with `expense_ids` & `Idempotency-Key`, `open-in-view: false`, `FxRateInput` reset, blank/invalid email guard). *(Pending commit & push to `main`.)* |
+| Production backend | `xpenses-backend:stabilize-20261114` |
+| Production frontend | `xpenses-frontend:stabilize-20261114` (built with `NEXT_PUBLIC_OCR_IMMEDIATE_REVIEW_ENABLED=true`) |
+| Production schema | `V107` (`V107__refresh_token_rotation_grace.sql`) applied cleanly on live `postgres:16-alpine`; existing `xpenses-db` and `xpenses-redis` containers and volumes preserved. |
 
-Source commits after those image revisions are **not automatically deployed**. This main synchronization does not authorize a new release, overwrite live data or enable cleanup. Check actual image labels/configuration and current source before any later deployment.
+Source changes not yet committed/pushed to `origin/main` live in `/root/xpenses-kotlin` and are deployed via the private release directory below.
 
-## Verification references
+## Verification snapshot (2026-11-14)
 
-- Capture/platform source qualification: [CI39544399462](https://github.com/AdelinPOA/xpenses-kotlin/actions/runs/39544399462), all jobs successful. Post-merge [CI39606456538](https://github.com/AdelinPOA/xpenses-kotlin/actions/runs/39606456538) also succeeded.
-- Tooling qualification: [CI39614606952](https://github.com/AdelinPOA/xpenses-kotlin/actions/runs/39614606952), all jobs successful, including real disposable authenticated capture and backend restart.
-- Integration-specific results and exact final CI are recorded in the integration PR/record. Check GitHub rather than assuming a pending run is green.
-- Detailed evidence: [capture/release repair](docs/reviews/2026-10-21-capture-release-repair.md), [Boot4 compatibility](docs/reviews/2026-10-21-boot4-migration.md), [lint/CI safety](docs/reviews/2026-10-21-pi-lens-follow-up.md), [bulk/mobile evidence](docs/ux/mobile-ios-review/issue-48/EVIDENCE.md), [capture before/after](docs/ux/mobile-ios-review/issue-49/EVIDENCE.md).
-- Browser emulation and mocked synthetic receipts are not physical iPhone acceptance. No production business records are used as test fixtures.
+- Backend full suite (`./gradlew test --no-daemon`): `59` suites, `387` tests, `0` skipped, `0` failures, `0` errors (running with `spring.jpa.open-in-view: false`).
+- Frontend checks (`cd frontend && npm run typecheck && npm run i18n:check && npm run lint`): clean (`1222` i18n keys matched across `en.json` and `ro.json`; `eslint . --max-warnings 0` exited `0`).
+- Frontend Node regression suites:
+  - `npm run test:auth:unit`: `5/5` passed
+  - `npm run test:lint-config`: `5/5` passed
+  - `npm run test:service-worker:unit`: `9/9` passed
+  - `node --test tests/queryPersister.test.cjs tests/expenses/*.test.cjs`: `45/45` passed
+- Live production smoke checks after rollout (`xpenses-backend:stabilize-20261114` / `xpenses-frontend:stabilize-20261114`):
+  - `http://127.0.0.1:8001/api/health` and `https://xpenses.nt-automation.cc/api/health`: `{"status":"ok"}`
+  - `http://127.0.0.1:3001/login`: `HTTP 200`
+  - Unauthenticated `POST /api/reports/import-order/preview`: `HTTP 401`
+  - Flyway schema version: `107`, `OCR_SOURCE_CLEANUP_ENABLED=false`
 
 ## Operations and protected evidence
 
-The live host is `xpenses.nt-automation.cc`. Current operational pointer: `/root/xpenses-deployments/current` → `repair-20261020/`. Read `RELEASE.md`, `OPERATIONS.txt`, `deploy.yml`, `rollback.yml`, and `latest-backup.path` there for exact private backup/image/rollback details. Integration backup/plan: `/root/xpenses-deployments/integrate-main-20261021/`.
+The live host is `xpenses.nt-automation.cc`. Current operational pointer: `/root/xpenses-deployments/current` -> `/root/xpenses-deployments/stabilize-20261114`.
+Previous rollout artifacts remain preserved under `/root/xpenses-deployments/ocr-import-20261114` (which is also the rollback target in `stabilize-20261114/rollback.yml`). Pre-deploy DB dump: `/root/xpenses-deployments/stabilize-20261114/backups/pre-deploy.sql.gz`.
 
-The coordinated release took fresh DB/files backups, checked archives, actually restored the DB privately and rehearsed additive migrations before installation. Public login/API health and unauthorized guest behavior passed; live business counts were unchanged. Runtime snapshots, env files, employee data and backup contents remain private and must never be committed or quoted publicly.
-
-**OCR cleanup stays disabled.** Issue #60 still needs source-provenance/recoverability evidence. Never repair historical pointers speculatively. Prefer a frontend-only rollback retaining the patched backend; never reverse applied migrations or restore an old full DB over newer writes merely to revert code. Keep old immutable images.
-
-Check `free -h` and `df -h / /tmp` before heavy work: `/tmp` is a separate RAM disk. Large worktrees/cache/backups belong on disk under `/root`. Run serial browser checks and Gradle with `--no-daemon`; never stop the production Compose stack or delete its persistent volumes. CI teardown commands apply only on disposable CI runners.
+- **OCR cleanup stays disabled** (`OCR_SOURCE_CLEANUP_ENABLED=false`) pending `#60`.
+- **Host guardrails**: Check `free -h` and `df -h / /tmp` before builds; run Gradle with `--no-daemon`; build Docker images sequentially; never run `docker compose down` or `make down`, and never delete `pgdata`, `redisdata`, or `xpenses-data`.
+- Runtime `.env`, DB backups, and user PII remain outside Git.
 
 ## Remaining work
 
-- #45 remains the mobile tracking parent; #50 receipt-modal inspection/accessibility and #51 real iPhone/Safari/PWA/keyboard/camera/VoiceOver require their own acceptance.
-- #48 bulk evidence is integrated, but this does not claim its physical-device gate passed. Keep issue status aligned with its actual remaining acceptance.
-- #57/#58/#59 and #60 have independent cleanup/privacy/offline acceptance boundaries; read current issues before acting. Historical source mechanisms and old audit claims are not automatically current incidents.
-- #49/#54/#56/#61/#62/#65 are integrated fixes. Dependabot76 was fixed automatically, not dismissed. #66 tracks the verified tooling follow-up merged through PR67.
-
-## Next session
-
-Confirm `git status`, `git rev-parse HEAD`, `git rev-parse origin/main`, current CI and actual deployed image labels. After this integration, do not treat old worktree tips or cached pi-lens findings on those paths as canonical main. Do not prune worktrees, delete backups or reset local work merely to make status appear clean.
+- **Git sync**: Stage, review, commit, and push the `2026-11-14` workspace changes (`important-todo.md` + `general-todo.md` fixes and doc archival) to `origin/main` when ready.
+- **Live DB demo accounts** (`general-todo.md` §3): Active seeded accounts (`tech1`, `manager1`, `cfo1`, `mod1`, `tech2`) and active accounts with blank email (`cristi`, `bianca`) exist in live `users`; awaiting maintainer decision before deactivating demo users.
+- **Open tracked GitHub issues**: `#58`/`#59` (PWA/SW offline cold-start on iPhone), `#57`/`#60` (orphan receipt & OCR cleanup reconciliation), `#45`/`#48`/`#50`/`#51` (mobile receipt inspection & physical iPhone acceptance gates).

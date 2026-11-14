@@ -18,8 +18,10 @@ import org.springframework.web.client.body
 import java.net.Inet4Address
 import java.net.Inet6Address
 import java.net.InetAddress
+import java.net.SocketTimeoutException
 import java.net.URI
 import java.net.UnknownHostException
+import java.net.http.HttpTimeoutException
 
 /** Minimal OpenAI Chat Completions adapter; every connection uses the public-address DNS policy. */
 @Service
@@ -90,18 +92,46 @@ class OpenAiCompatibleClient private constructor(
         systemPrompt: String,
         userContent: Any?,
     ): String {
+        val endpoint =
+            try {
+                chatCompletionsEndpoint(provider.baseUrl)
+            } catch (e: IllegalArgumentException) {
+                throw ProviderTransportException(e.message ?: "Provider URL is invalid")
+            }
+        return try {
+            executeCompletion(endpoint, provider, modelId, systemPrompt, userContent, includeResponseFormat = true)
+        } catch (e: ProviderRejectionException) {
+            if (e.statusCode == 400 || e.statusCode == 422) {
+                executeCompletion(endpoint, provider, modelId, systemPrompt, userContent, includeResponseFormat = false)
+            } else {
+                throw ProviderTransportException("AI provider HTTP ${e.statusCode}")
+            }
+        }
+    }
+
+    private fun executeCompletion(
+        endpoint: URI,
+        provider: OCRProviderConfig,
+        modelId: String,
+        systemPrompt: String,
+        userContent: Any?,
+        includeResponseFormat: Boolean,
+    ): String {
         try {
-            val endpoint = chatCompletionsEndpoint(provider.baseUrl)
             val payload =
-                mapOf(
-                    "model" to modelId,
-                    "messages" to
+                buildMap<String, Any> {
+                    put("model", modelId)
+                    put(
+                        "messages",
                         listOf(
                             mapOf("role" to "system", "content" to systemPrompt),
                             mapOf("role" to "user", "content" to userContent),
                         ),
-                    "response_format" to mapOf("type" to "json_object"),
-                )
+                    )
+                    if (includeResponseFormat) {
+                        put("response_format", mapOf("type" to "json_object"))
+                    }
+                }
             val request =
                 transport.client
                     .post()
@@ -115,7 +145,11 @@ class OpenAiCompatibleClient private constructor(
                     // Do not let RestClient construct exceptions containing response bodies or URLs.
                     // Redirects are not followed and are failures, not parseable success responses.
                     .onStatus({ !it.is2xxSuccessful }) { _, error ->
-                        throw ProviderTransportException("AI provider HTTP ${error.statusCode.value()}")
+                        val status = error.statusCode.value()
+                        if (includeResponseFormat && (status == 400 || status == 422)) {
+                            throw ProviderRejectionException(status)
+                        }
+                        throw ProviderTransportException("AI provider HTTP $status")
                     }.body<Map<String, Any?>>() ?: throw ProviderTransportException("AI provider returned an invalid response")
             val choices = response["choices"] as? List<*> ?: throw ProviderTransportException("AI provider returned an invalid response")
             val choice = choices.firstOrNull() as? Map<*, *> ?: throw ProviderTransportException("AI provider returned an invalid response")
@@ -128,13 +162,28 @@ class OpenAiCompatibleClient private constructor(
                 }
             if (text.isBlank()) throw ProviderTransportException("AI provider returned an invalid response")
             return text
+        } catch (e: ProviderRejectionException) {
+            throw e
         } catch (e: ProviderTransportException) {
             throw e
-        } catch (_: Exception) {
+        } catch (e: Exception) {
             // Deliberately omit the cause: SSL/network/parser exceptions can contain credentials,
             // URLs, or arbitrary provider content and must not escape through logging or callers.
+            if (isTimeout(e)) {
+                throw ProviderTransportException("AI provider request timed out")
+            }
             throw ProviderTransportException("AI provider connection or response failed")
         }
+    }
+
+    private fun isTimeout(error: Throwable?): Boolean {
+        var current = error
+        var depth = 0
+        while (current != null && depth++ < 8) {
+            if (current is SocketTimeoutException || current is HttpTimeoutException) return true
+            current = current.cause
+        }
+        return false
     }
 
     fun validateBaseUrl(baseUrl: String): URI = chatCompletionsEndpoint(baseUrl)
@@ -178,6 +227,27 @@ class OpenAiCompatibleClient private constructor(
 internal class ProviderTransportException(
     message: String,
 ) : IllegalStateException(message)
+
+private class ProviderRejectionException(
+    val statusCode: Int,
+) : RuntimeException()
+
+internal object AiJsonSanitizer {
+    private val fenceStart = Regex("^```(?:json)?\\s*", RegexOption.IGNORE_CASE)
+    private val fenceEnd = Regex("\\s*```$")
+
+    fun extractJsonObject(raw: String): String {
+        var text = raw.trim()
+        text = text.replaceFirst(fenceStart, "").replaceFirst(fenceEnd, "").trim()
+        val firstBrace = text.indexOf('{')
+        val lastBrace = text.lastIndexOf('}')
+        return if (firstBrace >= 0 && lastBrace > firstBrace) {
+            text.substring(firstBrace, lastBrace + 1)
+        } else {
+            text
+        }
+    }
+}
 
 /** The connection operator consumes these exact validated addresses; no second unguarded lookup. */
 internal class PublicAddressDnsResolver(

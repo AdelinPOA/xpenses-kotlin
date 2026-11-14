@@ -1,5 +1,10 @@
 import axios from "axios";
-import type { Report } from "./types/report";
+import type {
+  ImportOrderPreview,
+  Report,
+  ReportCreatePayload,
+} from "./types/report";
+export type { ImportOrderPreview, ReportCreatePayload } from "./types/report";
 import {
   classifyAuthEndpointFailure,
   isAuthLoginRequest,
@@ -21,14 +26,67 @@ const api = axios.create({
   withCredentials: true,
 });
 
-let isRefreshing = false;
+const AUTH_REFRESH_LOCK_NAME = "xpenses_auth_refresh";
+const LAST_REFRESH_AT_KEY = "xpenses_last_auth_refresh_at";
+let refreshPromise: Promise<void> | null = null;
 // Once the refresh endpoint definitively rejects the session, later resource
 // 401s from requests already in flight must not start another refresh cycle.
 let refreshRejected = false;
-let failedQueue: Array<{
-  resolve: (token: string) => void;
-  reject: (error: unknown) => void;
-}> = [];
+
+function readLastRefreshAt(): number {
+  if (typeof window === "undefined") return 0;
+  try {
+    const raw = Number(window.localStorage.getItem(LAST_REFRESH_AT_KEY) || "0");
+    return Number.isFinite(raw) ? raw : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function writeLastRefreshAt(ts: number): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(LAST_REFRESH_AT_KEY, String(ts));
+  } catch {
+    // Best-effort cross-tab hint.
+  }
+}
+
+export function refreshSessionSingleFlight(options?: {
+  proactive?: boolean;
+}): Promise<void> {
+  if (refreshRejected) {
+    const err = new Error("Session refresh rejected");
+    markAuthFailure(err, "terminal");
+    return Promise.reject(err);
+  }
+  if (refreshPromise) return refreshPromise;
+
+  const proactive = Boolean(options?.proactive);
+  const startedAt = Date.now();
+
+  const runInsideLock = async (): Promise<void> => {
+    const lastRefreshAt = readLastRefreshAt();
+    if (proactive && Date.now() - lastRefreshAt < 60_000) return;
+    if (!proactive && lastRefreshAt >= startedAt) return;
+
+    await api.post("/auth/refresh");
+    refreshRejected = false;
+    writeLastRefreshAt(Date.now());
+  };
+
+  refreshPromise = (async () => {
+    if (typeof navigator !== "undefined" && navigator.locks?.request) {
+      await navigator.locks.request(AUTH_REFRESH_LOCK_NAME, runInsideLock);
+    } else {
+      await runInsideLock();
+    }
+  })().finally(() => {
+    refreshPromise = null;
+  });
+
+  return refreshPromise;
+}
 
 function notifyTerminalAuthFailure(): void {
   if (typeof window === "undefined") return;
@@ -40,17 +98,6 @@ function notifyTerminalAuthFailure(): void {
     );
   }
 }
-
-const processQueue = (error: unknown, token: string | null = null) => {
-  failedQueue.forEach((prom) => {
-    if (token) {
-      prom.resolve(token);
-    } else {
-      prom.reject(error);
-    }
-  });
-  failedQueue = [];
-};
 
 api.interceptors.response.use(
   (response) => {
@@ -96,22 +143,10 @@ api.interceptors.response.use(
       !isAuthLoginRequest(requestUrl)
     ) {
       if (refreshRejected) return Promise.reject(error);
-      if (isRefreshing) {
-        originalRequest._retry = true;
-        return new Promise((resolve, reject) => {
-          failedQueue.push({ resolve, reject });
-        })
-          .then(() => api(originalRequest))
-          .catch((err) => Promise.reject(err));
-      }
-
       originalRequest._retry = true;
-      isRefreshing = true;
 
       try {
-        await api.post("/auth/refresh");
-        refreshRejected = false;
-        processQueue(null, "refreshed");
+        await refreshSessionSingleFlight();
         return api(originalRequest);
       } catch (refreshError) {
         const refreshStatus = (
@@ -122,10 +157,7 @@ api.interceptors.response.use(
           "transient";
         markAuthFailure(refreshError, failureKind);
         if (failureKind === "terminal") refreshRejected = true;
-        processQueue(refreshError, null);
         return Promise.reject(refreshError);
-      } finally {
-        isRefreshing = false;
       }
     }
     return Promise.reject(error);
@@ -270,6 +302,25 @@ export async function importOrder(bodyText: string): Promise<Report> {
   const { data } = await api.post<Report>("/reports/import-order", {
     body_text: bodyText,
   });
+  return data;
+}
+
+export async function previewImportOrder(
+  bodyText: string,
+): Promise<ImportOrderPreview> {
+  const { data } = await api.post<ImportOrderPreview>(
+    "/reports/import-order/preview",
+    {
+      body_text: bodyText,
+    },
+  );
+  return data;
+}
+
+export async function createReport(
+  payload: ReportCreatePayload,
+): Promise<Report> {
+  const { data } = await api.post<Report>("/reports", payload);
   return data;
 }
 

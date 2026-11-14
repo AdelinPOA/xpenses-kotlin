@@ -21,5 +21,8 @@ class RefreshToken(
     var expiresAt: Instant,
 
     @Column(name = "created_at", nullable = false)
-    var createdAt: Instant = Instant.now()
+    var createdAt: Instant = Instant.now(),
+
+    @Column(name = "rotated_at")
+    var rotatedAt: Instant? = null
 )

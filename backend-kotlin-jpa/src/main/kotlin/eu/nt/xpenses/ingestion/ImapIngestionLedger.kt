@@ -15,20 +15,24 @@ class ImapIngestionLedger(
 ) {
     @Transactional
     fun claim(messageKey: String, now: Instant = Instant.now()): ClaimDecision {
-        val row = findForUpdate(messageKey)
+        var row = findForUpdate(messageKey)
         if (row == null) {
             val token = UUID.randomUUID()
-            jdbcTemplate.update(
+            val inserted = jdbcTemplate.update(
                 """
                 INSERT INTO imap_ingestion_messages
                     (message_key, status, attempts, claimed_at, claim_token, created_at)
                 VALUES (?, 'CLAIMED', 1, ?, ?, NOW())
+                ON CONFLICT (message_key) DO NOTHING
                 """.trimIndent(),
                 messageKey,
                 sqlTimestamp(now),
                 token
             )
-            return ClaimDecision.Process(ProcessingClaim(messageKey, token, 1))
+            if (inserted == 1) {
+                return ClaimDecision.Process(ProcessingClaim(messageKey, token, 1))
+            }
+            row = findForUpdate(messageKey) ?: return ClaimDecision.Skip
         }
 
         return when (row.status) {
@@ -59,7 +63,7 @@ class ImapIngestionLedger(
             }
 
             IngestionStatus.FAILED -> {
-                if (!isDue(row.nextAttemptAt, now)) {
+                if (row.attempts >= MAX_ATTEMPTS || !isDue(row.nextAttemptAt, now)) {
                     ClaimDecision.Skip
                 } else {
                     reclaimProcessing(row, messageKey, now)
@@ -67,7 +71,7 @@ class ImapIngestionLedger(
             }
 
             IngestionStatus.CLAIMED -> {
-                if (row.claimedAt != null && row.claimedAt.isAfter(now.minus(CLAIM_LEASE))) {
+                if (row.attempts >= MAX_ATTEMPTS || (row.claimedAt != null && row.claimedAt.isAfter(now.minus(CLAIM_LEASE)))) {
                     ClaimDecision.Skip
                 } else {
                     reclaimProcessing(row, messageKey, now)
@@ -197,6 +201,7 @@ class ImapIngestionLedger(
                last_error, rejection_reason, next_attempt_at, claimed_at
           FROM imap_ingestion_messages
          ORDER BY created_at DESC
+         LIMIT 100
         """.trimIndent()
     ) { rs, _ ->
         RecoveryItem(
@@ -318,6 +323,7 @@ class ImapIngestionLedger(
 
     private companion object {
         val CLAIM_LEASE: Duration = Duration.ofMinutes(15)
+        const val MAX_ATTEMPTS = 10
     }
 }
 

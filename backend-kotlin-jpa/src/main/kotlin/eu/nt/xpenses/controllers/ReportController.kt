@@ -28,6 +28,7 @@ import eu.nt.xpenses.services.PdfService
 import eu.nt.xpenses.services.SaveIdempotencyService
 import eu.nt.xpenses.services.StorageService
 import jakarta.servlet.http.HttpServletRequest
+import org.slf4j.LoggerFactory
 import org.springframework.http.ContentDisposition
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
@@ -65,6 +66,7 @@ class ReportController(
     private val reportType = object : TypeReference<ReportOut>() {}
     private val createTx = TransactionTemplate(transactionManager)
     private val readTx = TransactionTemplate(transactionManager).apply { isReadOnly = true }
+    private val log = LoggerFactory.getLogger(ReportController::class.java)
 
     private fun toReportOut(report: ExpenseReport): ReportOut =
         readTx.execute {
@@ -94,7 +96,9 @@ class ReportController(
         val targetUid: Int? = if (all && authorization.canViewAll(currentUser)) userId else (userId ?: currentUser.id)
 
         return if (page != null) {
-            val pageable = org.springframework.data.domain.PageRequest.of(page, size)
+            val clampedPage = page.coerceAtLeast(0)
+            val clampedSize = size.coerceIn(1, 100)
+            val pageable = org.springframework.data.domain.PageRequest.of(clampedPage, clampedSize)
             val result = expenseReportRepository.findAllWithFiltersPaged(targetUid, status, pageable)
             PagedResponse(
                 data = result.content.map { reportMapper.mapReportToOut(it) },
@@ -440,7 +444,7 @@ class ReportController(
             val advances = report.advances.toList()
             val mileage = report.mileageRecords.toList()
             PdfInputs(report, expenses, advances, mileage, signer)
-        } ?: throw ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Transaction failed")
+        }
 
         val pdfBytes = pdfService.generateReportPdf(
             report = inputs.report,
@@ -495,7 +499,7 @@ class ReportController(
                 }
             }
             ZipInputs(report.title, entries)
-        } ?: throw ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Transaction failed")
+        }
 
         val zipStream = ByteArrayOutputStream()
         ZipOutputStream(zipStream).use { zos ->
@@ -506,7 +510,12 @@ class ReportController(
                     val bytes = storageService.downloadFile(entry.filePath)
                     val ext = entry.filePath.substringAfterLast(".", "")
 
-                    val baseName = "${entry.date}_${entry.namePart}".replace(" ", "_").replace("/", "-")
+                    val safeNamePart = entry.namePart
+                        .replace(Regex("[^a-zA-Z0-9._-]"), "_")
+                        .take(60)
+                        .ifBlank { "receipt" }
+                    val safeDate = entry.date.replace(Regex("[^a-zA-Z0-9._-]"), "_")
+                    val baseName = "${safeDate}_$safeNamePart"
                     var arcName = if (ext.isNotEmpty()) "$baseName.$ext" else baseName
 
                     val count = seen[arcName]
@@ -521,7 +530,8 @@ class ReportController(
                     zos.putNextEntry(zipEntry)
                     zos.write(bytes)
                     zos.closeEntry()
-                } catch (_: Exception) {
+                } catch (e: Exception) {
+                    log.warn("Failed to add receipt '{}' to zip for report {}: {}", entry.filePath, reportId, e.message)
                 }
             }
         }

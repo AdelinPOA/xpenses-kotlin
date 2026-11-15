@@ -98,7 +98,7 @@ class AsyncOcrService(
                 }
             })
             true
-        } ?: false
+        }
         return cancelled
     }
 
@@ -115,10 +115,21 @@ class AsyncOcrService(
 
             val leaseToken = UUID.randomUUID().toString()
             val now = Instant.now()
-            val leaseUntil = now.plusSeconds(60)
+            val leaseUntil = now.plusSeconds(300)
+            val isExpiredProcessing = snapshot.status == OcrJobStatus.PROCESSING &&
+                snapshot.leaseUntil?.let { !it.isAfter(now) } == true
+            if (isExpiredProcessing && snapshot.attemptCount >= MAX_ATTEMPTS) {
+                ocrJobRepository.recordExpiredLeasePermanentFailure(
+                    jobId,
+                    snapshot.leaseToken ?: "",
+                    "OCR_LEASE_EXPIRED",
+                    "Max attempts exceeded",
+                    now
+                )
+                return
+            }
             val claimed = when {
-                snapshot.status == OcrJobStatus.PROCESSING &&
-                    snapshot.leaseUntil != null && !snapshot.leaseUntil!!.isAfter(now) ->
+                isExpiredProcessing ->
                     ocrJobRepository.reclaimExpired(
                         jobId, snapshot.stage, leaseToken, leaseUntil, now
                     ) == 1
@@ -207,10 +218,10 @@ class AsyncOcrService(
             }
         }
 
-        val user = job.user ?: return false
         val expenseId = transactionTemplate.execute {
             val current = ocrJobRepository.findById(jobId).orElse(null) ?: return@execute null
             if (current.status != OcrJobStatus.PROCESSING || current.leaseToken != leaseToken) return@execute null
+            val user = current.user ?: return@execute null
 
             val manualCompletion = result["manual_completion"] == true
             val category = decimal(result["category_id"])?.toInt()?.let { categoryId ->
@@ -252,8 +263,10 @@ class AsyncOcrService(
             val saved = expenseRepository.saveAndFlush(expense)
             decimal(result["comparison_id"])?.toInt()?.let { comparisonId ->
                 ocrComparisonRepository.findById(comparisonId).orElse(null)?.let { comparison ->
-                    comparison.expense = saved
-                    ocrComparisonRepository.save(comparison)
+                    if (comparison.expense == null) {
+                        comparison.expense = saved
+                        ocrComparisonRepository.save(comparison)
+                    }
                 }
             }
             val updated = ocrJobRepository.completeExpenseStage(
@@ -280,6 +293,7 @@ class AsyncOcrService(
             throw exception
         }
 
+        var missingExpense = false
         try {
             val promotedReceiptId = transactionTemplate.execute {
                 val current = ocrJobRepository.findById(jobId).orElse(null)
@@ -287,7 +301,14 @@ class AsyncOcrService(
                 if (current.status != OcrJobStatus.PROCESSING || current.leaseToken != leaseToken) {
                     throw LeaseLostException()
                 }
-                val expense = expenseRepository.findById(expenseId).orElseThrow()
+                val expense = expenseRepository.findById(expenseId).orElse(null)
+                if (expense == null) {
+                    current.user?.id?.let { userId ->
+                        ocrJobRepository.cancelClaimed(jobId, userId, Instant.now())
+                    }
+                    missingExpense = true
+                    return@execute null
+                }
                 val now = Instant.now()
                 val receipt = receiptRepository.saveAndFlush(
                     Receipt(
@@ -305,6 +326,11 @@ class AsyncOcrService(
                     }
                 })
                 receipt.id
+            }
+            if (missingExpense) {
+                deleteQuietly(receiptPath)
+                deleteQuietly(sourcePath)
+                return false
             }
             if (promotedReceiptId == null) throw LeaseLostException()
             return true

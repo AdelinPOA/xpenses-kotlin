@@ -61,7 +61,7 @@ class DelegationParsingControllerTest {
         withMvc { mvc ->
             val read = mvc.perform(get("/api/settings/imap/parsing")).andExpect(status().isOk).andReturn()
             val readJson = mapper.readTree(read.response.contentAsString)
-            assertEquals(settings.outputInstructions, readJson["output_instructions"].asText())
+            assertEquals(settings.outputInstructions, readJson["output_instructions"].asString())
             assertFalse(readJson.has("outputInstructions"))
             assertEquals(setOf("instructions", "examples", "output_instructions"), readJson.propertyNames().toSet())
 
@@ -179,11 +179,11 @@ class DelegationParsingControllerTest {
                     .andReturn()
             val json = mapper.readTree(response.response.contentAsString)
             assertTrue(json["success"].asBoolean())
-            assertEquals("local", json["active_parser"].asText())
+            assertEquals("local", json["active_parser"].asString())
             assertFalse(json.has("activeParser"))
-            assertEquals("00042", json["parsed"]["kundenauftrag"].asText())
+            assertEquals("00042", json["parsed"]["kundenauftrag"].asString())
             assertTrue(json["warnings"].isArray)
-            assertTrue(json["warnings"][0].asText().contains("does not translate"))
+            assertTrue(json["warnings"][0].asString().contains("does not translate"))
         }
         verify(emailService).parseDelegationEmailLocal(body)
         verifyNoMoreInteractions(emailService)

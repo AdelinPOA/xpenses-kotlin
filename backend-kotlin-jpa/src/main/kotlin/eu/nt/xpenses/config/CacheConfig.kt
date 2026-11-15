@@ -20,7 +20,6 @@ class CacheConfig {
         val cacheManager = provider.cacheManager
         
         val caches = mapOf(
-            "rate-limit-cache" to Duration(TimeUnit.HOURS, 1),
             "storage-config-cache" to Duration(TimeUnit.MINUTES, 5)
         )
         for ((name, expiry) in caches) {

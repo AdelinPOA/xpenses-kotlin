@@ -89,4 +89,4 @@ springdoc:
     enabled: ${SWAGGER_ENABLED:false}
 
 server:
-  forward-headers-strategy: framework
+  forward-headers-strategy: none

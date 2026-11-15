@@ -11,8 +11,10 @@ import eu.nt.xpenses.model.*
 import eu.nt.xpenses.report.review.ReviewQueueReader
 import eu.nt.xpenses.repositories.*
 import eu.nt.xpenses.services.Authorization
+import eu.nt.xpenses.services.FxService
 import eu.nt.xpenses.services.mapper.ExpenseMapper
 import jakarta.servlet.http.HttpServletRequest
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Pageable
 import org.springframework.http.HttpStatus
@@ -20,12 +22,14 @@ import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.bind.annotation.*
 import org.springframework.web.server.ResponseStatusException
 import java.math.BigDecimal
+import java.time.Duration
 import java.time.LocalDate
 import java.time.ZoneOffset
+import kotlin.math.round
 
 @RestController
 @RequestMapping("/api/dashboard")
-class DashboardController(
+class DashboardController @Autowired constructor(
     private val expenseRepository: ExpenseRepository,
     private val expenseReportRepository: ExpenseReportRepository,
     private val categoryRepository: CategoryRepository,
@@ -33,6 +37,7 @@ class DashboardController(
     private val expenseMapper: ExpenseMapper,
     private val authorization: Authorization,
     private val reviewQueueReader: ReviewQueueReader,
+    private val fxService: FxService? = null,
 ) {
 
     @GetMapping
@@ -60,9 +65,9 @@ class DashboardController(
         val expenseCountMonth = spendByCategoryRows.sumOf { (it[3] as Number).toInt() }
 
         val latestReports = if (isOrgWide) {
-            expenseReportRepository.findLatestWithExpenses(Pageable.ofSize(1))
+            expenseReportRepository.findLatestWithExpenses(Pageable.ofSize(5))
         } else {
-            expenseReportRepository.findLatestByUserIdWithExpenses(uid, Pageable.ofSize(1))
+            expenseReportRepository.findLatestByUserIdWithExpenses(uid, Pageable.ofSize(5))
         }
         val lastReportWithExpenses = latestReports.firstOrNull { it.expenses.isNotEmpty() }
         val totalLastReportEur = lastReportWithExpenses?.let { report ->
@@ -138,19 +143,37 @@ class DashboardController(
             acc.add(report.totalAmountEur)
         }
 
+        val todayStr = LocalDate.now(ZoneOffset.UTC).toString()
         val requestedAdvances = advancePaymentRepository.findAllByStatus("requested")
-        val pendingAdvancesTotalEur = requestedAdvances.fold(BigDecimal.ZERO) { acc, adv ->
-            acc.add(adv.requestedAmount ?: adv.amountEur)
+        val pendingAdvanceItems = requestedAdvances.map { adv ->
+            val reqAmount = adv.requestedAmount
+            val reqCurrency = (adv.requestedCurrency ?: adv.currencyOriginal).uppercase()
+            val amountEur = if (reqAmount != null) {
+                if (reqCurrency == "EUR" || fxService == null) {
+                    reqAmount
+                } else {
+                    runCatching { fxService?.convert(reqAmount, reqCurrency, todayStr) }
+                        .getOrNull()
+                        ?: adv.amountEur.takeIf { it.signum() > 0 }
+                        ?: reqAmount
+                }
+            } else {
+                adv.amountEur
+            }
+            adv to amountEur
+        }
+        val pendingAdvancesTotalEur = pendingAdvanceItems.fold(BigDecimal.ZERO) { acc, (_, amountEur) ->
+            acc.add(amountEur)
         }
 
-        val pendingAdvanceSummaries = requestedAdvances.map { adv ->
+        val pendingAdvanceSummaries = pendingAdvanceItems.map { (adv, amountEur) ->
             PendingAdvanceSummary(
                 id = adv.id!!,
                 reportId = adv.report.id!!,
                 reportTitle = adv.report.title,
                 userId = adv.user.id!!,
                 userName = adv.user.displayName,
-                amountEur = adv.requestedAmount ?: adv.amountEur,
+                amountEur = amountEur,
                 description = adv.description,
                 status = adv.status,
                 createdAt = adv.createdAt.toString()
@@ -161,16 +184,25 @@ class DashboardController(
         val monthStart = String.format("%d-%02d-01", now.year, now.monthValue)
         val monthlyTeamSpendEur = expenseRepository.sumAmountEurByDateFrom(monthStart)
 
+        val allReports = expenseReportRepository.findLatestWithExpenses(PageRequest.of(0, 10))
+        val turnaroundDurationsDays = allReports
+            .filter { it.submittedAt != null && it.approvedAt != null }
+            .map { Duration.between(it.submittedAt, it.approvedAt).toMinutes().coerceAtLeast(0L) / 1440.0 }
+        val avgTurnaroundDays = if (turnaroundDurationsDays.isNotEmpty()) {
+            round(turnaroundDurationsDays.average() * 10.0) / 10.0
+        } else {
+            1.2
+        }
+
         val kpis = ManagerKpis(
             pendingReportsCount = pendingReportSummaries.size,
             pendingReportsTotalEur = pendingReportsTotalEur,
             pendingAdvancesCount = requestedAdvances.size,
             pendingAdvancesTotalEur = pendingAdvancesTotalEur,
             monthlyTeamSpendEur = monthlyTeamSpendEur,
-            avgTurnaroundDays = 1.2
+            avgTurnaroundDays = avgTurnaroundDays
         )
 
-        val allReports = expenseReportRepository.findLatestWithExpenses(PageRequest.of(0, 10))
         val recentActivity = allReports.map { report ->
             val type = when (report.status) {
                 "submitted" -> "report_submitted"

@@ -158,7 +158,7 @@ class OcrService(
             validateConfig(updated)
             saveOcrConfigLocked(updated, previous)
             getOcrConfig()
-        } ?: throw IllegalStateException("Unable to save OCR configuration")
+        }
 
     fun saveOcrConfig(config: OCRConfig) {
         validateConfig(config)
@@ -447,7 +447,7 @@ class OcrService(
                             ScanPreparation(
                                 sha256 = sha256,
                                 cacheModel = cacheModel,
-                                comparisonId = savedComparison.id,
+                                comparisonId = savedComparison?.id,
                                 cachedResult = normalized,
                             )
                         } else {
@@ -460,7 +460,7 @@ class OcrService(
                 cachedPreparation ?: run {
                     val comparison =
                         OcrComparison(
-                            receiptFilename = filename,
+                            receiptFilename = filename.take(255),
                             provider = comparisonProvider,
                             sha256 = sha256,
                             createdAt = Instant.now(),
@@ -479,7 +479,7 @@ class OcrService(
                         cachedResult = null,
                     )
                 }
-            } ?: throw IllegalStateException("Unable to prepare OCR scan")
+            }
 
         preparation.cachedResult?.let { cached ->
             log.info("OCR result cache hit for hash: {}", sha256)
@@ -560,7 +560,7 @@ class OcrService(
         try {
             val amount = (result["amount"] as? Number)?.let { BigDecimal.valueOf(it.toDouble()) }
             val date = result["date"] as? String
-            val merchant = result["merchant"] as? String
+            val merchant = (result["merchant"] as? String)?.take(255)
             val categoryId = result["category_id"] as? Int
             val error = result["provider_error"] as? String
             val usedProvider = result["provider_used"]?.let { "$it/${result["model_used"]}".take(50) }
@@ -687,7 +687,7 @@ class OcrService(
         val textResponse = compatibleClient.complete(provider, model.modelId, prompt, imageContent)
         val result: Map<String, Any?> = objectMapper.readValue(AiJsonSanitizer.extractJsonObject(textResponse))
         val warnings = mutableListOf<String>()
-        val amount = normalizeOcrNumber(result["amount"])
+        val amount = normalizeOcrNumber(result["amount"])?.takeIf { it in 0.0..99_999_999.99 }
         if (amount == null) warnings.add("Could not extract amount")
 
         val extractedDate = result["date"]?.toString()?.trim()?.takeIf { it.isNotEmpty() }
@@ -695,7 +695,7 @@ class OcrService(
         if (extractedDate != null && date == null) warnings.add("Extracted date format is invalid")
         if (date == null) warnings.add("Could not extract date")
 
-        val merchant = (result["merchant"] as? String)?.trim()?.takeIf { it.isNotEmpty() }
+        val merchant = (result["merchant"] as? String)?.trim()?.takeIf { it.isNotEmpty() }?.take(255)
         if (merchant == null) warnings.add("Could not extract merchant")
         val currency = normalizeCurrency(result["currency"] as? String)
         val taxAmount = normalizeOcrNumber(result["tax_amount"])
@@ -824,7 +824,7 @@ class OcrService(
             return (0 until pageCount).map { pageIndex ->
                 val mediaBox = pdf.getPage(pageIndex).mediaBox
                 val maxDimension = maxOf(mediaBox.width, mediaBox.height).coerceAtLeast(1f)
-                val scale = (1800f / maxDimension).coerceIn(1.5f, 2.5f)
+                val scale = (1800f / maxDimension).coerceIn(0.1f, 2.5f)
                 val image = renderer.renderImage(pageIndex, scale)
                 val png =
                     ByteArrayOutputStream().use { output ->
@@ -841,18 +841,21 @@ class OcrService(
         provider: String,
         sha256: String,
         result: Map<String, Any?>,
-    ): OcrComparison =
-        ocrComparisonRepository.save(
-            OcrComparison(
-                receiptFilename = filename,
-                provider = listOfNotNull(result["provider_used"], result["model_used"]).joinToString("/").ifBlank { provider }.take(50),
-                sha256 = sha256,
-                geminiAmount = result["amount"].toBigDecimalOrNull(),
-                geminiDate = result["date"]?.toString(),
-                geminiMerchant = result["merchant"]?.toString(),
-                geminiCategoryId = result["category_id"].toIntOrNull(),
-            ),
-        )
+    ): OcrComparison? =
+        runCatching {
+            ocrComparisonRepository.save(
+                OcrComparison(
+                    receiptFilename = filename.take(255),
+                    provider = listOfNotNull(result["provider_used"], result["model_used"]).joinToString("/").ifBlank { provider }.take(50),
+                    sha256 = sha256,
+                    geminiAmount = result["amount"].toBigDecimalOrNull(),
+                    geminiDate = result["date"]?.toString(),
+                    geminiMerchant = result["merchant"]?.toString()?.take(255),
+                    geminiCategoryId = result["category_id"].toIntOrNull(),
+                ),
+            )
+        }.onFailure { log.warn("Failed to save OCR comparison record: {}", it.message) }
+            .getOrNull()
 
     private fun saveCacheResult(
         sha256: String,

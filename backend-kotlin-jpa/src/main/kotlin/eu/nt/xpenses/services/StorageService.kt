@@ -21,6 +21,8 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.support.TransactionTemplate
 import org.springframework.web.server.ResponseStatusException
 import java.io.File
+import java.net.URI
+import java.net.UnknownHostException
 import java.time.Instant
 import java.util.concurrent.Executor
 
@@ -70,13 +72,14 @@ open class StorageService(
     private val transactionTemplate: TransactionTemplate,
     private val migrationStateStore: eu.nt.xpenses.services.storage.StorageMigrationStateStore = eu.nt.xpenses.services.storage.NoopStorageMigrationStateStore,
     @Value("\${storage.location:/app/data/receipts}") private val defaultReceiptsDir: String = "/app/data/receipts",
-) {
+) : AutoCloseable {
     companion object {
         private const val MAX_FILE_SIZE = 50 * 1024 * 1024
     }
 
     private val logger = LoggerFactory.getLogger(StorageService::class.java)
     private val cryptoInfo = "xpenses-storage-settings"
+    private val dnsResolver = PublicAddressDnsResolver()
 
     private val migrationEngine = StorageMigrationEngine(executor, migrationStateStore)
 
@@ -92,8 +95,14 @@ open class StorageService(
         setupProviders(config)
     }
 
+    override fun close() {
+        remoteProvider?.let { runCatching { it.close() } }
+        remoteProvider = null
+    }
+
     private fun setupProviders(config: StorageConfigDto) {
-        val localDir = config.local?.path ?: defaultReceiptsDir
+        val previousRemote = remoteProvider
+        val localDir = config.local?.path?.takeIf { it.isNotBlank() } ?: defaultReceiptsDir
         val localProvider = LocalStorageProvider(localDir)
 
         when (config.providerType) {
@@ -121,13 +130,16 @@ open class StorageService(
                 activeProvider = localProvider
             }
         }
+        if (previousRemote != null && previousRemote !== remoteProvider) {
+            runCatching { previousRemote.close() }
+        }
     }
 
     private fun createProvider(
         providerType: String,
         config: StorageConfigDto,
     ): StorageProvider {
-        val localDir = config.local?.path ?: defaultReceiptsDir
+        val localDir = config.local?.path?.takeIf { it.isNotBlank() } ?: defaultReceiptsDir
         return when (providerType) {
             "s3" -> {
                 val s3Config = config.s3
@@ -179,6 +191,59 @@ open class StorageService(
         return data
     }
 
+    fun validateConfig(configData: StorageConfigDto) {
+        val localPath = configData.local?.path
+        if (!localPath.isNullOrBlank()) {
+            val canonicalTarget =
+                try {
+                    File(localPath).canonicalFile.toPath()
+                } catch (_: Exception) {
+                    throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid local storage path")
+                }
+            val defaultBase = File(defaultReceiptsDir).canonicalFile
+            val defaultAllowed = defaultBase.parentFile?.takeIf { it.parentFile != null } ?: defaultBase
+            val allowedRoots = listOfNotNull(
+                File("/app/data").canonicalFile.toPath(),
+                defaultAllowed.toPath(),
+                System.getProperty("java.io.tmpdir")?.takeIf { it.isNotBlank() }?.let { File(it).canonicalFile.toPath() },
+            )
+            if (allowedRoots.none { canonicalTarget.startsWith(it) }) {
+                throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Local storage path is outside allowed directories")
+            }
+        }
+
+        val endpoint = configData.s3?.endpoint?.takeIf { it.isNotBlank() }
+        if (endpoint != null) {
+            val uri =
+                try {
+                    URI(endpoint)
+                } catch (_: Exception) {
+                    throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid S3 endpoint URL")
+                }
+            val scheme = uri.scheme?.lowercase()
+            if (scheme !in setOf("http", "https") || !uri.userInfo.isNullOrEmpty() || uri.query != null || uri.fragment != null) {
+                throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid S3 endpoint URL")
+            }
+            if (uri.port != -1 && uri.port !in 1..65535) {
+                throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid S3 endpoint port")
+            }
+            val host = uri.host?.takeIf { it.isNotBlank() }
+                ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "S3 endpoint must include a host")
+            val normalizedHost = host.lowercase()
+            if (normalizedHost == "localhost" || normalizedHost.endsWith(".localhost") ||
+                normalizedHost.endsWith(".local") || normalizedHost.endsWith(".internal") ||
+                normalizedHost == "metadata" || normalizedHost.startsWith("metadata.")
+            ) {
+                throw ResponseStatusException(HttpStatus.BAD_REQUEST, "S3 endpoint host is not allowed")
+            }
+            try {
+                dnsResolver.resolve(host)
+            } catch (_: UnknownHostException) {
+                throw ResponseStatusException(HttpStatus.BAD_REQUEST, "S3 endpoint host is not allowed or cannot be resolved")
+            }
+        }
+    }
+
     @CacheEvict("storage-config-cache", allEntries = true)
     fun saveStorageConfig(configData: StorageConfigDto) {
         val maskedPatterns = listOf("••••••••", "****", "········", "————")
@@ -207,6 +272,8 @@ open class StorageService(
             )
         }
 
+        validateConfig(configData)
+
         // Create deep copy for encryption
         val jsonStr = objectMapper.writeValueAsString(configData)
         val data: StorageConfigDto = objectMapper.readValue(jsonStr, StorageConfigDto::class.java)
@@ -231,7 +298,7 @@ open class StorageService(
 
     fun getLocalPath(relativePath: String): String {
         val config = getStorageConfig()
-        val localDir = config.local?.path ?: defaultReceiptsDir
+        val localDir = config.local?.path?.takeIf { it.isNotBlank() } ?: defaultReceiptsDir
         if (config.providerType == "local") {
             val target = StoragePathResolver.resolve(File(localDir), relativePath)
             target.parentFile?.mkdirs()
@@ -300,7 +367,7 @@ open class StorageService(
         entityId: Int,
     ): String {
         if (upload.bytes.size > context.maxSizeInBytes) {
-            throw ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, "File exceeds size limit")
+            throw ResponseStatusException(HttpStatus.CONTENT_TOO_LARGE, "File exceeds size limit")
         }
 
         val rawFilename = java.io.File(upload.originalFilename).name
@@ -332,7 +399,7 @@ open class StorageService(
         relativePath: String,
         content: ByteArray,
     ) {
-        if (content.size > MAX_FILE_SIZE) throw ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, "File too large")
+        if (content.size > MAX_FILE_SIZE) throw ResponseStatusException(HttpStatus.CONTENT_TOO_LARGE, "File too large")
 
         // Always write to local cache/storage first
         val config = getStorageConfig()
@@ -413,8 +480,10 @@ open class StorageService(
     }
 
     fun testConnection(configData: StorageConfigDto): Map<String, Any?> {
-        val provider = createProvider(configData.providerType, configData)
-        return provider.testConnection()
+        validateConfig(configData)
+        return createProvider(configData.providerType, configData).use { provider ->
+            provider.testConnection()
+        }
     }
 
     private fun decryptField(encrypted: String?): String? {
@@ -465,51 +534,63 @@ open class StorageService(
                 .toString()
         val oldProvider = createProvider(oldConfig.providerType, oldConfig)
         val newProvider = createProvider(newConfig.providerType, newConfig)
-
-        val statusSetting =
-            AppSetting(
-                key = "storage_migration_status",
-                value =
-                    objectMapper.writeValueAsString(
-                        mapOf(
-                            "job_id" to jobId,
-                            "status" to "running",
-                            "total_files" to filePaths.size,
-                            "migrated_files" to 0,
-                            "failed_files" to 0,
-                            "errors" to emptyList<String>(),
-                        ),
-                    ),
-                updatedAt = Instant.now(),
-            )
-        appSettingRepository.save(statusSetting)
-
-        migrationEngine.executeMigrationAsync(oldProvider, newProvider, filePaths, jobId = jobId) { result, isComplete ->
-            transactionTemplate.execute {
-                val statusStr =
-                    if (isComplete) {
-                        if (result.failedFiles == 0) "completed" else "failed"
-                    } else {
-                        "running"
-                    }
-
-                appSettingRepository.save(
-                    AppSetting(
-                        key = "storage_migration_status",
-                        value =
-                            objectMapper.writeValueAsString(
-                                mapOf(
-                                    "status" to statusStr,
-                                    "total_files" to result.totalFiles,
-                                    "migrated_files" to result.migratedFiles,
-                                    "failed_files" to result.failedFiles,
-                                    "errors" to result.errors,
-                                ),
+        try {
+            val statusSetting =
+                AppSetting(
+                    key = "storage_migration_status",
+                    value =
+                        objectMapper.writeValueAsString(
+                            mapOf(
+                                "job_id" to jobId,
+                                "status" to "running",
+                                "total_files" to filePaths.size,
+                                "migrated_files" to 0,
+                                "failed_files" to 0,
+                                "errors" to emptyList<String>(),
                             ),
-                        updatedAt = Instant.now(),
-                    ),
+                        ),
+                    updatedAt = Instant.now(),
                 )
+            appSettingRepository.save(statusSetting)
+
+            migrationEngine.executeMigrationAsync(oldProvider, newProvider, filePaths, jobId = jobId) { result, isComplete ->
+                try {
+                    transactionTemplate.execute {
+                        val statusStr =
+                            if (isComplete) {
+                                if (result.failedFiles == 0) "completed" else "failed"
+                            } else {
+                                "running"
+                            }
+
+                        appSettingRepository.save(
+                            AppSetting(
+                                key = "storage_migration_status",
+                                value =
+                                    objectMapper.writeValueAsString(
+                                        mapOf(
+                                            "status" to statusStr,
+                                            "total_files" to result.totalFiles,
+                                            "migrated_files" to result.migratedFiles,
+                                            "failed_files" to result.failedFiles,
+                                            "errors" to result.errors,
+                                        ),
+                                    ),
+                                updatedAt = Instant.now(),
+                            ),
+                        )
+                    }
+                } finally {
+                    if (isComplete) {
+                        runCatching { oldProvider.close() }
+                        runCatching { newProvider.close() }
+                    }
+                }
             }
+        } catch (exception: Exception) {
+            runCatching { oldProvider.close() }
+            runCatching { newProvider.close() }
+            throw exception
         }
     }
 }

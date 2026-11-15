@@ -471,48 +471,62 @@ export default function AuthProvider({
   ]);
 
   const logout = useCallback(async () => {
-    clearProactiveRefresh();
-    authDisabled.current = true;
-    authRequestId.current++;
-    authGeneration.current++;
-    setSessionVerified(false);
-    const localOwnerId = currentUserId.current ?? null;
-    const sharedIdentity =
-      typeof window === "undefined"
-        ? { ownerId: null, marker: null }
-        : readStoredIdentityMarker(localStorage);
-    const stillOwnsSharedIdentity = sharedIdentity.ownerId === localOwnerId;
-    const expectedIdentity = stillOwnsSharedIdentity
-      ? sharedIdentity
-      : {
-          ownerId: localOwnerId,
-          marker: localIdentityMarker.current ?? null,
-        };
-    const purge = commitUser(null, { expectedIdentity });
-    await Promise.all([
-      purge,
-      stillOwnsSharedIdentity
-        ? apiLogout().catch(() => {
-            // Continue client cleanup even if network logout fails.
-          })
-        : Promise.resolve(),
-    ]);
-    if (typeof window !== "undefined") {
-      if ("caches" in window) {
-        try {
-          const keys = await caches.keys();
-          await Promise.all(
-            cachesToPurgeOnLogout(keys).map((key) => caches.delete(key)),
-          );
-        } catch {
-          // Ignore cache deletion errors
+    try {
+      clearProactiveRefresh();
+      authDisabled.current = true;
+      authRequestId.current++;
+      authGeneration.current++;
+      setSessionVerified(false);
+      const localOwnerId = currentUserId.current ?? null;
+      const sharedIdentity =
+        typeof window === "undefined"
+          ? { ownerId: null, marker: null }
+          : readStoredIdentityMarker(localStorage);
+      const stillOwnsSharedIdentity = sharedIdentity.ownerId === localOwnerId;
+      const expectedIdentity = stillOwnsSharedIdentity
+        ? sharedIdentity
+        : {
+            ownerId: localOwnerId,
+            marker: localIdentityMarker.current ?? null,
+          };
+      const purge = commitUser(null, { expectedIdentity });
+      await Promise.all([
+        purge,
+        stillOwnsSharedIdentity
+          ? apiLogout().catch(() => {
+              // Continue client cleanup even if network logout fails.
+            })
+          : Promise.resolve(),
+      ]);
+      if (typeof window !== "undefined") {
+        if ("caches" in window) {
+          try {
+            const keys = await caches.keys();
+            await Promise.all(
+              cachesToPurgeOnLogout(keys).map((key) => caches.delete(key)),
+            );
+          } catch {
+            // Ignore cache deletion errors
+          }
+        }
+        if (navigator.serviceWorker?.controller) {
+          navigator.serviceWorker.controller.postMessage({ type: "CLEAR_CACHE" });
         }
       }
-      if (navigator.serviceWorker?.controller) {
-        navigator.serviceWorker.controller.postMessage({ type: "CLEAR_CACHE" });
+      router.push("/login");
+    } finally {
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.removeItem("xpenses_offline_sync_status");
+        } catch {
+          // Ignore storage removal errors
+        }
+        if (typeof indexedDB !== "undefined") {
+          indexedDB.deleteDatabase("xpenses-offline");
+          indexedDB.deleteDatabase("xpenses-ocr-sources");
+        }
       }
     }
-    router.push("/login");
   }, [router, clearProactiveRefresh, commitUser, setSessionVerified]);
 
   // Neutral loading state while the initial session check runs. If a cached

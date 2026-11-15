@@ -88,10 +88,11 @@ class SaveIdempotencyService(
                         userId,
                         operation,
                         key,
-                    )!!
+                    )
                 checkHash(row.first, hash)
-                if (row.second != null) {
-                    mapper.readValue(row.second, type)
+                val existingResponse = row.second
+                if (existingResponse != null) {
+                    mapper.readValue(existingResponse, type)
                 } else {
                     val result = action()
                     jdbc.update(

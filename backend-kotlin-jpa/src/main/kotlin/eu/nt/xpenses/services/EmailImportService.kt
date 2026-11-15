@@ -431,7 +431,6 @@ class EmailImportService(
         return parseDelegationEmailLocal(text)
     }
 
-    @Transactional
     fun processIncomingEmail(
         fromAddress: String,
         bodyText: String,
@@ -439,6 +438,10 @@ class EmailImportService(
         var emailClean = fromAddress.trim()
         if (emailClean.contains("<") && emailClean.contains(">")) {
             emailClean = emailClean.substringAfter("<").substringBefore(">").trim()
+        }
+        if (emailClean.isBlank()) {
+            log.info("Email import skipped: sender email address is blank")
+            return false
         }
 
         val user = userRepository.findByEmail(emailClean)
@@ -506,6 +509,10 @@ class EmailImportService(
         if (emailClean.contains("<") && emailClean.contains(">")) {
             emailClean = emailClean.substringAfter("<").substringBefore(">").trim()
         }
+        if (emailClean.isBlank()) {
+            log.info("Email import skipped: sender email address is blank")
+            return null
+        }
         val user = userRepository.findByEmail(emailClean)
         if (user == null) {
             log.info("Email import skipped: no user found with email {}", emailClean)
@@ -518,7 +525,6 @@ class EmailImportService(
         return user
     }
 
-    @Transactional
     fun simulateIncomingEmail(
         fromAddress: String,
         bodyText: String,
@@ -527,6 +533,13 @@ class EmailImportService(
         var emailClean = fromAddress.trim()
         if (emailClean.contains("<") && emailClean.contains(">")) {
             emailClean = emailClean.substringAfter("<").substringBefore(">").trim()
+        }
+        if (emailClean.isBlank()) {
+            return mapOf(
+                "success" to false,
+                "error" to "Sender email address is blank",
+                "parsed" to null,
+            )
         }
 
         val user = userRepository.findByEmail(emailClean)
@@ -689,14 +702,14 @@ class EmailImportService(
         val config = ocrService.getOcrConfig()
         if (!config.ocrEnabled || config.delegationModelChain.isEmpty()) {
             throw ResponseStatusException(
-                HttpStatus.UNPROCESSABLE_ENTITY,
+                HttpStatus.UNPROCESSABLE_CONTENT,
                 "Email AI parsing is disabled or no email model chain is configured"
             )
         }
 
         return parseDelegationEmailWithModels(bodyText, config)
             ?: throw ResponseStatusException(
-                HttpStatus.UNPROCESSABLE_ENTITY,
+                HttpStatus.UNPROCESSABLE_CONTENT,
                 "No configured AI model returned a valid delegation result. No local fallback was used."
             )
     }

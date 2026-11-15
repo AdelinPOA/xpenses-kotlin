@@ -20,7 +20,7 @@ class JavaMailMailboxAdapter(
         val config = emailSettingsService.getImapConfig()
         if (!config.enabled || config.imapHost.isBlank() || config.imapUser.isBlank()) return emptyList()
         return withFolder(config) { folder ->
-            folder.search(FlagTerm(Flags(Flags.Flag.SEEN), false)).map(::toInboundEmail)
+            folder.search(FlagTerm(Flags(Flags.Flag.SEEN), false)).take(25).map(::toInboundEmail)
         }
     }
 
@@ -48,7 +48,9 @@ class JavaMailMailboxAdapter(
                 val id = messageKey.removePrefix("message-id:")
                 folder.search(HeaderTerm("Message-ID", id)).firstOrNull()
             } else {
-                folder.messages.firstOrNull { ImapMessageKey.from(it) == messageKey }
+                folder.search(FlagTerm(Flags(Flags.Flag.SEEN), false))
+                    .firstOrNull { ImapMessageKey.from(it) == messageKey }
+                    ?: folder.messages.firstOrNull { ImapMessageKey.from(it) == messageKey }
             } ?: throw IllegalArgumentException("IMAP message not found: $messageKey")
             message.setFlag(Flags.Flag.SEEN, true)
             Unit
@@ -59,8 +61,14 @@ class JavaMailMailboxAdapter(
         val properties = Properties().apply {
             put("mail.imap.connectiontimeout", "10000")
             put("mail.imap.timeout", "10000")
+            put("mail.imap.writetimeout", "10000")
             put("mail.imap.starttls.enable", "true")
             put("mail.imap.ssl.enable", (config.imapPort == 993).toString())
+            put("mail.imap.ssl.checkserveridentity", "true")
+            put("mail.imaps.connectiontimeout", "10000")
+            put("mail.imaps.timeout", "10000")
+            put("mail.imaps.writetimeout", "10000")
+            put("mail.imaps.ssl.checkserveridentity", "true")
         }
         val session = Session.getInstance(properties)
         val protocol = if (config.imapPort == 993) "imaps" else "imap"
@@ -75,9 +83,13 @@ class JavaMailMailboxAdapter(
             return action(folder)
         } finally {
             try {
-                folder?.close(false)
+                if (folder?.isOpen == true) folder.close(false)
+            } catch (_: Exception) {
             } finally {
-                store?.close()
+                try {
+                    store?.close()
+                } catch (_: Exception) {
+                }
             }
         }
     }

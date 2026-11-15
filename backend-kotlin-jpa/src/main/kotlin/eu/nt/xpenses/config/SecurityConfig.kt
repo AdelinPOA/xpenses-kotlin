@@ -56,7 +56,7 @@ class SecurityConfig(
                     .requestMatchers("/error").permitAll()
                     .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                     .requestMatchers("/actuator/**").hasRole("mod")
-                    .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
+                    .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").hasRole("mod")
                     .requestMatchers("/api/settings/ocr/**").hasRole("mod")
                     .requestMatchers("/api/settings/ldap/**").hasRole("mod")
                     .requestMatchers("/api/settings/imap/**").hasRole("mod")

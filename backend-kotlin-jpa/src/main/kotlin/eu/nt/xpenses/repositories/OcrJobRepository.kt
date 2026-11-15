@@ -98,6 +98,8 @@ interface OcrJobRepository : JpaRepository<OcrJob, Int> {
             SET result_json = :resultJson,
                 stage = 'EXPENSE',
                 status = 'PENDING',
+                attempt_count = 0,
+                next_attempt_at = NULL,
                 error_code = COALESCE(:errorCode, error_code),
                 lease_token = NULL,
                 lease_until = NULL,
@@ -126,6 +128,8 @@ interface OcrJobRepository : JpaRepository<OcrJob, Int> {
             SET expense_id = :expenseId,
                 stage = 'RECEIPT',
                 status = 'PENDING',
+                attempt_count = 0,
+                next_attempt_at = NULL,
                 lease_token = NULL,
                 lease_until = NULL,
                 error_code = COALESCE(:errorCode, error_code),
@@ -183,7 +187,7 @@ interface OcrJobRepository : JpaRepository<OcrJob, Int> {
                 updated_at = :now
             WHERE id = :jobId
               AND user_id = :userId
-              AND status IN ('PENDING', 'RETRY_WAIT', 'PROCESSING')
+              AND status IN ('PENDING', 'RETRY_WAIT', 'PROCESSING', 'PAUSED')
             """,
         nativeQuery = true,
     )
@@ -269,11 +273,35 @@ interface OcrJobRepository : JpaRepository<OcrJob, Int> {
             WHERE id = :jobId
               AND status = 'PROCESSING'
               AND lease_token = :leaseToken
-              AND lease_until > :now
             """,
         nativeQuery = true,
     )
     fun recordPermanentFailure(
+        @Param("jobId") jobId: Int,
+        @Param("leaseToken") leaseToken: String,
+        @Param("errorCode") errorCode: String,
+        @Param("errorMessage") errorMessage: String?,
+        @Param("now") now: Instant,
+    ): Int
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Transactional
+    @Query(
+        value = """
+            UPDATE ocr_jobs
+            SET status = 'PERMANENT_FAILURE',
+                error_code = :errorCode,
+                error_message = :errorMessage,
+                lease_token = NULL,
+                lease_until = NULL,
+                updated_at = :now
+            WHERE id = :jobId
+              AND status = 'PROCESSING'
+              AND (lease_token = :leaseToken OR lease_until <= :now)
+            """,
+        nativeQuery = true,
+    )
+    fun recordExpiredLeasePermanentFailure(
         @Param("jobId") jobId: Int,
         @Param("leaseToken") leaseToken: String,
         @Param("errorCode") errorCode: String,
@@ -323,7 +351,6 @@ interface OcrJobRepository : JpaRepository<OcrJob, Int> {
             WHERE id = :jobId
               AND status = 'PROCESSING'
               AND lease_token = :leaseToken
-              AND lease_until > :now
             """,
         nativeQuery = true,
     )

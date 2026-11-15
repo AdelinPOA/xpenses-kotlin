@@ -13,6 +13,7 @@ import { expenseKeys } from "@/lib/queryKeys";
 import { formatAmount, formatEur, formatDate } from "@/lib/format";
 import ReceiptLightbox from "@/components/expenses/ReceiptLightbox";
 import AuthorizedImage from "@/components/expenses/AuthorizedImage";
+import { useToast } from "@/components/ToastProvider";
 import clsx from "clsx";
 
 export default function ExpenseDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -20,6 +21,7 @@ export default function ExpenseDetailPage({ params }: { params: Promise<{ id: st
   const router = useRouter();
   const t = useTranslations("expenses");
   const tc = useTranslations("common");
+  const toast = useToast();
   const [lightboxImage, setLightboxImage] = useState<{ url: string; title: string; onDownload?: () => void } | null>(null);
 
   const { data: expense, isLoading, error } = useQuery<Expense>({
@@ -29,7 +31,9 @@ export default function ExpenseDetailPage({ params }: { params: Promise<{ id: st
 
   const handleDownload = async (receiptId: number, originalName: string | null) => {
     const filename = originalName || `receipt-${receiptId}.jpg`;
-    await downloadBlob(`/expenses/${id}/receipts/${receiptId}`, {}, filename);
+    await downloadBlob(`/expenses/${id}/receipts/${receiptId}`, {}, filename).catch(
+      () => toast.error(t("export_failed")),
+    );
   };
 
   const handleBack = () => {

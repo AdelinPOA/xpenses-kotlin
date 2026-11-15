@@ -62,3 +62,7 @@ export function formatDate(date: Date | string): string {
     day: "2-digit",
   }).format(d);
 }
+
+export function parseLocaleNumber(raw: string): number {
+  return Number.parseFloat(raw.trim().replace(",", "."));
+}

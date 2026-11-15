@@ -215,6 +215,8 @@ class ExpenseController(
         @RequestParam(value = "from", required = false) fromDate: String?,
         @RequestParam(value = "to", required = false) toDate: String?,
         @RequestParam(value = "all", required = false, defaultValue = "false") all: Boolean,
+        @RequestParam(value = "q", required = false) q: String?,
+        @RequestParam(value = "verification_state", required = false) verificationState: ExpenseVerificationState?,
         request: HttpServletRequest,
     ): ResponseEntity<ByteArray> {
         val currentUser =
@@ -231,7 +233,8 @@ class ExpenseController(
                 fromDate,
                 toDate,
                 all,
-                null,
+                q,
+                verificationState,
             )
 
         val headers =

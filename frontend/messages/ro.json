@@ -211,7 +211,8 @@
     "bulk_reject_reason": "Motivul respingerii acestor rapoarte",
     "receipts_count": "Chitanțe: {count}",
     "no_receipts_in_report": "Acest raport nu are chitanțe atașate",
-    "notifications_count": "Notificări ({count})"
+    "notifications_count": "Notificări ({count})",
+    "export_failed": "Export eșuat. Vă rugăm să încercați din nou."
   },
   "offline": {
     "banner_offline": "Offline — modificările se sincronizează automat",
@@ -1133,7 +1134,8 @@
     "file_uploaded": "Fișier încărcat",
     "upload_failed": "Încărcare eșuată",
     "file_deleted": "Fișier șters",
-    "delete_failed": "Ștergere eșuată"
+    "delete_failed": "Ștergere eșuată",
+    "download_failed": "Descărcarea a eșuat. Vă rugăm să încercați din nou."
   },
   "capture": {
     "title": "Fotografiază o chitanță",

@@ -385,8 +385,7 @@ class AppSettingsController(
     @PreAuthorize("hasRole('mod')")
     fun readStorageSettings(): ResponseEntity<StorageConfigDto> {
         val config = storageService.getStorageConfig()
-        appSettingsService.maskStorageSecrets(config)
-        return ResponseEntity.ok(config)
+        return ResponseEntity.ok(appSettingsService.maskStorageSecrets(config))
     }
 
     @PatchMapping("/storage")
@@ -396,8 +395,7 @@ class AppSettingsController(
         @RequestParam(name = "migrate_existing", defaultValue = "false") migrateExisting: Boolean,
     ): ResponseEntity<StorageConfigDto> {
         val updated = appSettingsService.updateStorageSettings(body, migrateExisting)
-        appSettingsService.maskStorageSecrets(updated)
-        return ResponseEntity.ok(updated)
+        return ResponseEntity.ok(appSettingsService.maskStorageSecrets(updated))
     }
 
     @PostMapping("/storage/test")

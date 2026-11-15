@@ -13,7 +13,17 @@ interface UserRepository : JpaRepository<User, Int> {
 
     fun findByUsername(username: String): User?
 
-    @Query("SELECT u FROM User u WHERE LOWER(u.email) = LOWER(:email)")
+    @Query(
+        value = """
+            SELECT * FROM users
+            WHERE email IS NOT NULL
+              AND TRIM(email) <> ''
+              AND LOWER(TRIM(email)) = LOWER(TRIM(:email))
+            ORDER BY is_active DESC, id ASC
+            LIMIT 1
+        """,
+        nativeQuery = true
+    )
     fun findByEmail(
         @Param("email") email: String,
     ): User?

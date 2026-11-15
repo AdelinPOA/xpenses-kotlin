@@ -43,6 +43,10 @@ export function useFormGuard(isDirty: () => boolean, message: string) {
           window.history.pushState({ formGuard: true }, "", window.location.href);
           return;
         }
+        clearedRef.current = true;
+        dirtyRef.current = false;
+        hasPushedStateRef.current = false;
+        window.history.back();
       }
     };
 
@@ -71,6 +75,7 @@ export function useFormGuard(isDirty: () => boolean, message: string) {
   const clearDirty = useCallback(() => {
     clearedRef.current = true;
     dirtyRef.current = false;
+    hasPushedStateRef.current = false;
   }, []);
 
   return { clearDirty };

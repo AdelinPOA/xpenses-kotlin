@@ -129,6 +129,11 @@ function harness(uploadResult) {
             compressImage: async (file) => file,
             compressedUploadName: (fileName) => fileName,
           };
+        if (name === "./AuthorizedImage")
+          return {
+            __esModule: true,
+            default: (props) => React.createElement("img", props),
+          };
         if (name === "lucide-react")
           return new Proxy({}, { get: (_, name) => name });
         return require(name);

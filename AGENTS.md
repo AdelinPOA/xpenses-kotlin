@@ -27,3 +27,8 @@ For release, rollback or Git synchronization, read [HANDOFF.md](HANDOFF.md) firs
 - **Frontend image builds**: Next.js inlines `NEXT_PUBLIC_*` flags at build time. Always ensure `NEXT_PUBLIC_OCR_IMMEDIATE_REVIEW_ENABLED=true` (via `--build-arg NEXT_PUBLIC_OCR_IMMEDIATE_REVIEW_ENABLED=true` or the Dockerfile default) so technician receipt capture review is not compiled out.
 - **Backend targeted test**: `cd backend-kotlin-jpa && ./gradlew test --tests <ClassName> --no-daemon` (executes targeted test suite).
 - **Database migrations**: Check latest version with `ls -1 backend-kotlin-jpa/src/main/resources/db/migration/ | sort -V | tail -n 1`. Never edit applied migrations; always add incremented `V{N}__` migrations.
+
+## Automatic Pre-Commit Reconciliation
+
+- `.githooks/pre-commit` (enabled via `git config core.hooksPath .githooks`) runs `python3 scripts/reconcile.py reconcile`, stages `README.md`, and enforces `python3 scripts/reconcile.py audit`.
+- Do not manually edit lines inside `<!-- BEGIN:XPENSES_AUTOSYNC:TELEMETRY -->` … `<!-- END:XPENSES_AUTOSYNC:TELEMETRY -->` in `README.md`.

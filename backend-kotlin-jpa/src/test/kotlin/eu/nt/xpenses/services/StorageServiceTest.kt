@@ -138,7 +138,7 @@ class StorageServiceTest {
             assertThrows<ResponseStatusException> {
                 storageService.storeFile(StorageContext.RECEIPT, upload, entityId = 42)
             }
-        assertEquals(HttpStatus.PAYLOAD_TOO_LARGE, ex.statusCode)
+        assertEquals(HttpStatus.CONTENT_TOO_LARGE, ex.statusCode)
     }
 
     @Test
@@ -167,7 +167,7 @@ class StorageServiceTest {
             assertThrows<ResponseStatusException> {
                 storageService.storeFile(StorageContext.SIGNATURE, upload, entityId = 99)
             }
-        assertEquals(HttpStatus.PAYLOAD_TOO_LARGE, ex.statusCode)
+        assertEquals(HttpStatus.CONTENT_TOO_LARGE, ex.statusCode)
     }
 
     @Test

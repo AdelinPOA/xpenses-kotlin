@@ -13,6 +13,7 @@ import api, {
 import { expenseKeys, categoryKeys } from "@/lib/queryKeys";
 import { compressImage, compressedUploadName } from "@/lib/receiptCapture";
 import { useBodyScrollLock } from "@/lib/useBodyScrollLock";
+import AuthorizedImage from "./AuthorizedImage";
 
 interface BulkReviewDrawerProps {
   files: File[];
@@ -115,6 +116,7 @@ export default function BulkReviewDrawer({
   const running = useRef(new Set<number>());
   const uploadingRef = useRef(false);
   const receiptRetryRef = useRef(false);
+  const preparedFilesRef = useRef<Map<number, { blob: Blob; name: string }>>(new Map());
   useBodyScrollLock(isOpen);
 
   const updateRows = useCallback((update: (rows: RowState[]) => RowState[]) => {
@@ -138,6 +140,7 @@ export default function BulkReviewDrawer({
     if (!files.length || uploadedRef.current) return;
     uploadedRef.current = true;
     batchKey.current = crypto.randomUUID();
+    preparedFilesRef.current.clear();
     uploadingRef.current = true;
     setUploading(true);
     setUploadFailed(false);
@@ -147,12 +150,14 @@ export default function BulkReviewDrawer({
     updateRows(() => []);
     // Never automatically retry an ambiguous batch. Known-ID recovery below only attaches a Receipt.
     Promise.all(
-      files.map(async (file) => {
+      files.map(async (file, index) => {
         const compressed = await compressImage(file);
-        return {
+        const entry = {
           blob: compressed,
           name: compressedUploadName(file.name, compressed),
         };
+        preparedFilesRef.current.set(index, entry);
+        return entry;
       }),
     )
       .then((prepared) => {
@@ -358,9 +363,19 @@ export default function BulkReviewDrawer({
       return;
     receiptRetryRef.current = true;
     setReceiptRetrying(error.expense_id);
-    const form = new FormData();
-    form.append("files", files[error.file_index]);
+    const sourceFile = files[error.file_index];
     try {
+      let prepared = preparedFilesRef.current.get(error.file_index);
+      if (!prepared) {
+        const compressed = await compressImage(sourceFile);
+        prepared = {
+          blob: compressed,
+          name: compressedUploadName(sourceFile.name, compressed),
+        };
+        preparedFilesRef.current.set(error.file_index, prepared);
+      }
+      const form = new FormData();
+      form.append("files", prepared.blob, prepared.name);
       await api.post(`/expenses/${error.expense_id}/receipts`, form, {
         headers: {
           "Idempotency-Key": `${batchKey.current}:receipt:${error.file_index}`,
@@ -604,7 +619,7 @@ function BulkExpenseRow({
     >
       <div className="flex items-center gap-3">
         {receiptUrl ? (
-          <img
+          <AuthorizedImage
             src={receiptUrl}
             alt={t("table_receipt")}
             className="w-14 h-14 object-cover rounded-lg border border-border shrink-0"

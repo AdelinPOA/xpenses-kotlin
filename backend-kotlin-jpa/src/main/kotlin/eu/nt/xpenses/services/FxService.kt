@@ -32,7 +32,7 @@ class FxService @Autowired constructor(
     ) : this(fxRateRepository, appSettingRepository, objectMapper, fxRateProvider, null)
     private val defaultMargins = mapOf(
         "EUR" to BigDecimal("0.02"),
-        "USD" to BigDecimal("0.025"),
+        "USD" to BigDecimal("0.02"),
         "GBP" to BigDecimal("0.02"),
         "CHF" to BigDecimal("0.02"),
         "*" to BigDecimal("0.02")

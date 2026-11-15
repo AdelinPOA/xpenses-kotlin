@@ -241,7 +241,7 @@ function ExpensesPageContent() {
     isFetching: expensesFetching,
     refetch: refetchExpenses,
   } = useQuery<Expense[] | PagedResponse<Expense>>({
-    queryKey: [...expenseKeys.all, "list", paramsForRequest],
+    queryKey: expenseKeys.list(paramsForRequest),
     queryFn: () =>
       api.get("/expenses", { params: paramsForRequest }).then((r) => r.data),
   });
@@ -397,11 +397,13 @@ function ExpensesPageContent() {
         onDragOver={handleDragOver}
         onDrop={handleDrop}
       >
-        <BulkReviewDrawer
-          files={bulkFiles}
-          isOpen={showBulkDrawer}
-          onClose={() => setShowBulkDrawer(false)}
-        />
+        {showBulkDrawer && (
+          <BulkReviewDrawer
+            files={bulkFiles}
+            isOpen={showBulkDrawer}
+            onClose={() => setShowBulkDrawer(false)}
+          />
+        )}
 
         <div className="mb-4 flex items-center justify-between gap-3">
           <div className="min-w-0">

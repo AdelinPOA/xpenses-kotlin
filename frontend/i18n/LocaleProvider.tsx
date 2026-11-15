@@ -71,6 +71,8 @@ export default function LocaleProvider({ children }: { children: React.ReactNode
     }
   }, [user?.language, setLocale]);
 
+  setCurrentLocale(locale);
+
   useEffect(() => {
     setCurrentLocale(locale);
     document.documentElement.lang = locale;

@@ -160,7 +160,7 @@ class OcrRecoveryControllerTest : IntegrationTestBase() {
         val persisted = ocrJobRepository.findById(job.id!!).orElseThrow()
         val manualResult = ObjectMapper().readTree(persisted.resultJson)
         assertEquals(0, BigDecimal("25.50").compareTo(manualResult["amount"].decimalValue()))
-        assertEquals("Manual Shop", manualResult["merchant"].asText())
+        assertEquals("Manual Shop", manualResult["merchant"].asString())
         assertNull(manualResult.get("raw_text"))
         assertEquals(1, actionRepository.count())
     }

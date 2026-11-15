@@ -1,8 +1,11 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Camera } from "lucide-react";
 import { useTranslations } from "next-intl";
- import clsx from "clsx";
+import clsx from "clsx";
+import api, { API_BASE_URL } from "@/lib/api";
+import AuthorizedImage from "./AuthorizedImage";
 
 interface ReceiptItem {
   key: string;
@@ -29,12 +32,52 @@ interface Props {
   sanitizeUrl: (url: string) => string;
 }
 
+function isProtectedApiUrl(url: string): boolean {
+  return url.startsWith("/api/") || url.startsWith(`${API_BASE_URL}/`);
+}
+
+function toApiRequestPath(url: string): string {
+  if (url.startsWith(`${API_BASE_URL}/`)) return url.slice(API_BASE_URL.length);
+  if (url.startsWith("/api/")) return url.slice(4);
+  return url;
+}
+
 export default function ReceiptPreview({
   items, activeItem, zoom, position, isDraggingImage, activeReceiptKey,
   onSelectItem, onZoomIn, onZoomOut, onReset,
   onPointerDown, onPointerMove, onPointerUp, sanitizeUrl,
 }: Props) {
   const t = useTranslations("expenses");
+  const [pdfBlobState, setPdfBlobState] = useState<{ source: string; blobUrl: string } | null>(null);
+
+  const remotePdfUrl =
+    activeItem?.isPdf && isProtectedApiUrl(activeItem.url) ? activeItem.url : null;
+
+  useEffect(() => {
+    if (!remotePdfUrl) return;
+    let cancelled = false;
+    let createdUrl: string | null = null;
+    api
+      .get<Blob>(toApiRequestPath(remotePdfUrl), { responseType: "blob" })
+      .then((res) => {
+        if (cancelled) return;
+        createdUrl = URL.createObjectURL(res.data);
+        setPdfBlobState({ source: remotePdfUrl, blobUrl: createdUrl });
+      })
+      .catch(() => {
+        if (!cancelled) setPdfBlobState(null);
+      });
+    return () => {
+      cancelled = true;
+      if (createdUrl) URL.revokeObjectURL(createdUrl);
+    };
+  }, [remotePdfUrl]);
+
+  const pdfSrc = remotePdfUrl
+    ? pdfBlobState?.source === remotePdfUrl
+      ? pdfBlobState.blobUrl
+      : ""
+    : sanitizeUrl(activeItem?.url ?? "");
 
   return (
     <div className="w-full lg:flex-1 lg:sticky lg:top-6 bg-card rounded-xl shadow-sm border border-border-subtle/80 p-4 sm:p-6 flex flex-col min-h-[220px] lg:min-h-[450px] self-stretch">
@@ -91,7 +134,7 @@ export default function ReceiptPreview({
                 onPointerUp={onPointerUp}
                 onPointerCancel={onPointerUp}
               >
-                <img
+                <AuthorizedImage
                   src={activeItem.url}
                   alt={activeItem.name}
                   style={{
@@ -117,7 +160,7 @@ export default function ReceiptPreview({
               <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/50 rounded-lg p-3 text-center">
                 <p className="text-xs text-blue-800 dark:text-blue-200 mb-2">{t("pdf_not_loading")}</p>
                 <a
-                  href={sanitizeUrl(activeItem.url)}
+                  href={pdfSrc || sanitizeUrl(activeItem.url)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex min-h-11 items-center gap-1.5 px-3 py-1.5 bg-primary hover:bg-primary-hover text-white text-xs font-semibold rounded-md transition-colors cursor-pointer"
@@ -125,7 +168,9 @@ export default function ReceiptPreview({
                   {t("open_pdf")}
                 </a>
               </div>
-              <iframe src={sanitizeUrl(activeItem.url)} className="hidden lg:block w-full flex-1 rounded-lg border border-border min-h-[350px]" title={t("pdf_iframe")} />
+              {pdfSrc && (
+                <iframe src={pdfSrc} className="hidden lg:block w-full flex-1 rounded-lg border border-border min-h-[350px]" title={t("pdf_iframe")} />
+              )}
             </div>
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center p-6 border border-dashed border-slate-300 dark:border-slate-700 rounded-lg text-slate-400">

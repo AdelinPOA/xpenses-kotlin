@@ -7,6 +7,7 @@ import AppShell from "@/components/layout/AppShell";
 import { ArrowLeft, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
+import AuthorizedImage from "@/components/expenses/AuthorizedImage";
 
 const SignaturePad = dynamic(() => import("@/components/signature/SignaturePad"), {
   ssr: false,
@@ -97,7 +98,7 @@ export default function SignaturePage() {
               {t("current_signature")}
             </p>
             <div className="border border-border rounded-lg p-4 bg-slate-50 dark:bg-slate-800 inline-block mb-4">
-              <img
+              <AuthorizedImage
                 src={`${API_BASE_URL}/users/me/signature?${cacheBuster}`}
                 alt={t("your_signature")}
                 className="max-h-40 max-w-full"

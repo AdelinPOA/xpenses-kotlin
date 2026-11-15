@@ -1,6 +1,7 @@
 package eu.nt.xpenses.repositories
 
 import eu.nt.xpenses.model.OcrComparison
+import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
@@ -11,8 +12,11 @@ import java.math.BigDecimal
 
 @Repository
 interface OcrComparisonRepository : JpaRepository<OcrComparison, Int> {
-    @Query("SELECT o FROM OcrComparison o LEFT JOIN FETCH o.expense ORDER BY o.createdAt DESC")
+    @Query("SELECT o FROM OcrComparison o LEFT JOIN FETCH o.expense e LEFT JOIN FETCH e.category ORDER BY o.createdAt DESC")
     fun findAllOrdered(): List<OcrComparison>
+
+    @Query("SELECT o FROM OcrComparison o LEFT JOIN FETCH o.expense e LEFT JOIN FETCH e.category ORDER BY o.createdAt DESC")
+    fun findAllOrdered(pageable: Pageable): List<OcrComparison>
 
     @Query("SELECT o FROM OcrComparison o LEFT JOIN FETCH o.expense WHERE o.sha256 = :sha256 ORDER BY CASE WHEN o.expense IS NOT NULL THEN 1 WHEN o.geminiAmount IS NOT NULL THEN 2 ELSE 3 END ASC, o.id DESC")
     fun findBestCachedComparison(@Param("sha256") sha256: String): List<OcrComparison>

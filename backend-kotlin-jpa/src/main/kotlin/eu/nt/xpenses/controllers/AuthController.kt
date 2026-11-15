@@ -7,7 +7,9 @@ import eu.nt.xpenses.model.RefreshToken
 import eu.nt.xpenses.model.User
 import eu.nt.xpenses.repositories.RefreshTokenRepository
 import eu.nt.xpenses.repositories.UserRepository
+import eu.nt.xpenses.security.InMemoryRateLimitStore
 import eu.nt.xpenses.security.JwtTokenProvider
+import eu.nt.xpenses.security.RateLimitStore
 import eu.nt.xpenses.services.LdapService
 import eu.nt.xpenses.services.LDAPBindException
 import eu.nt.xpenses.services.LDAPUnavailableException
@@ -34,10 +36,14 @@ class AuthController(
     private val ldapService: LdapService,
     @Value("\${cookie.secure:false}") private val cookieSecure: Boolean,
     @Value("\${jwt.refresh-expires-days:30}") private val refreshExpiresDays: Long,
-    @Value("\${jwt.cookie.access-max-age-seconds:0}") private val accessCookieMaxAgeSeconds: Long
+    @Value("\${jwt.cookie.access-max-age-seconds:0}") private val accessCookieMaxAgeSeconds: Long,
+    @Value("\${rate-limiting.enabled:true}") private val rateLimitingEnabled: Boolean = true,
+    private val rateLimitStore: RateLimitStore = InMemoryRateLimitStore()
 ) {
     companion object {
         private const val REFRESH_ROTATION_GRACE_SECONDS = 30L
+        private const val ACCOUNT_LOGIN_LIMIT = 15
+        private const val ACCOUNT_LOGIN_WINDOW_MILLIS = 60_000L
         private const val DUMMY_BCRYPT_HASH =
             "\$2a\$10\$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy"
     }
@@ -53,6 +59,19 @@ class AuthController(
         response: HttpServletResponse
     ): ResponseEntity<*> {
         val trimmedIdentifier = request.username.trim()
+        if (rateLimitingEnabled && trimmedIdentifier.isNotEmpty()) {
+            val accountKey = "rl:login:user:${trimmedIdentifier.lowercase()}"
+            val count = rateLimitStore.record(
+                key = accountKey,
+                limit = ACCOUNT_LOGIN_LIMIT,
+                windowMillis = ACCOUNT_LOGIN_WINDOW_MILLIS,
+                nowMillis = System.currentTimeMillis()
+            )
+            if (count > ACCOUNT_LOGIN_LIMIT) {
+                return ResponseEntity.status(429).body(mapOf("detail" to "Rate limit exceeded. Please try again later."))
+            }
+        }
+
         val user = userRepository.findByIdentifier(trimmedIdentifier).firstOrNull()
         if (user == null) {
             passwordEncoder.matches(request.password, DUMMY_BCRYPT_HASH)
@@ -60,6 +79,7 @@ class AuthController(
         }
 
         if (!user.isActive) {
+            passwordEncoder.matches(request.password, user.passwordHash ?: DUMMY_BCRYPT_HASH)
             return ResponseEntity.status(403).body(mapOf("detail" to "Account deactivated"))
         }
 
@@ -74,9 +94,9 @@ class AuthController(
             }
             try {
                 ldapService.authenticateLdap(request.username, request.password, ldapConfig)
-            } catch (e: LDAPUnavailableException) {
+            } catch (_: LDAPUnavailableException) {
                 return ResponseEntity.status(503).body(mapOf("detail" to "LDAP server unavailable"))
-            } catch (e: LDAPBindException) {
+            } catch (_: LDAPBindException) {
                 return ResponseEntity.status(401).body(mapOf("detail" to "Invalid credentials"))
             }
         } else {

@@ -96,8 +96,10 @@ class EmailSettingsService(
                 put("mail.smtp.socketFactory.port", "465")
                 put("mail.smtp.socketFactory.class", "javax.net.ssl.SSLSocketFactory")
             }
-            put("mail.smtp.connectiontimeout", "5000")
-            put("mail.smtp.timeout", "5000")
+            put("mail.smtp.connectiontimeout", "10000")
+            put("mail.smtp.timeout", "10000")
+            put("mail.smtp.writetimeout", "10000")
+            put("mail.smtp.ssl.checkserveridentity", "true")
         }
 
         val session = Session.getInstance(props)
@@ -111,9 +113,12 @@ class EmailSettingsService(
 
             if (config.smtpUser.isNotEmpty()) {
                 val transport = session.getTransport("smtp")
-                transport.connect(config.smtpHost, config.smtpPort, config.smtpUser, config.smtpPass)
-                transport.sendMessage(message, message.allRecipients)
-                transport.close()
+                try {
+                    transport.connect(config.smtpHost, config.smtpPort, config.smtpUser, config.smtpPass)
+                    transport.sendMessage(message, message.allRecipients)
+                } finally {
+                    runCatching { transport.close() }
+                }
             } else {
                 Transport.send(message)
             }
@@ -164,21 +169,37 @@ class EmailSettingsService(
 
     fun testImapConnection(config: ImapConfig): Map<String, Any> {
         val props = Properties().apply {
-            put("mail.imap.connectiontimeout", "5000")
-            put("mail.imap.timeout", "5000")
+            put("mail.imap.connectiontimeout", "10000")
+            put("mail.imap.timeout", "10000")
+            put("mail.imap.writetimeout", "10000")
+            put("mail.imap.ssl.checkserveridentity", "true")
+            put("mail.imaps.connectiontimeout", "10000")
+            put("mail.imaps.timeout", "10000")
+            put("mail.imaps.writetimeout", "10000")
+            put("mail.imaps.ssl.checkserveridentity", "true")
         }
         val session = Session.getInstance(props)
+        val protocol = if (config.imapPort == 993) "imaps" else "imap"
+        var store: jakarta.mail.Store? = null
+        var folder: jakarta.mail.Folder? = null
         return try {
-            val protocol = if (config.imapPort == 993) "imaps" else "imap"
-            val store = session.getStore(protocol)
+            store = session.getStore(protocol)
             store.connect(config.imapHost, config.imapPort, config.imapUser, config.imapPass)
-            val folder = store.getFolder(config.imapFolder)
+            folder = store.getFolder(config.imapFolder)
             folder.open(jakarta.mail.Folder.READ_ONLY)
-            folder.close(false)
-            store.close()
             mapOf("success" to true, "message" to "Successfully connected and selected folder.")
         } catch (e: Exception) {
             mapOf("success" to false, "message" to (e.message ?: e.toString()))
+        } finally {
+            try {
+                if (folder?.isOpen == true) folder.close(false)
+            } catch (_: Exception) {
+            } finally {
+                try {
+                    store?.close()
+                } catch (_: Exception) {
+                }
+            }
         }
     }
 
@@ -213,8 +234,10 @@ class EmailSettingsService(
                 put("mail.smtp.socketFactory.port", "465")
                 put("mail.smtp.socketFactory.class", "javax.net.ssl.SSLSocketFactory")
             }
-            put("mail.smtp.connectiontimeout", "5000")
-            put("mail.smtp.timeout", "5000")
+            put("mail.smtp.connectiontimeout", "10000")
+            put("mail.smtp.timeout", "10000")
+            put("mail.smtp.writetimeout", "10000")
+            put("mail.smtp.ssl.checkserveridentity", "true")
         }
 
         val session = Session.getInstance(props)
@@ -228,9 +251,12 @@ class EmailSettingsService(
 
             if (config.smtpUser.isNotEmpty()) {
                 val transport = session.getTransport("smtp")
-                transport.connect(config.smtpHost, config.smtpPort, config.smtpUser, config.smtpPass)
-                transport.sendMessage(message, message.allRecipients)
-                transport.close()
+                try {
+                    transport.connect(config.smtpHost, config.smtpPort, config.smtpUser, config.smtpPass)
+                    transport.sendMessage(message, message.allRecipients)
+                } finally {
+                    runCatching { transport.close() }
+                }
             } else {
                 Transport.send(message)
             }

@@ -55,7 +55,7 @@ class DelegationParsingSettingsServiceTest {
 
         assertEquals(setOf("delegation_parsing_config"), stored.keys)
         val json = mapper.readTree(stored.getValue("delegation_parsing_config").value)
-        assertEquals(config.outputInstructions, json["output_instructions"].asText())
+        assertEquals(config.outputInstructions, json["output_instructions"].asString())
         assertFalse(json.has("outputInstructions"))
         assertEquals(config, mapper.readValue<DelegationParsingConfig>(json.toString()))
         verify(repository).save(stored.getValue("delegation_parsing_config"))

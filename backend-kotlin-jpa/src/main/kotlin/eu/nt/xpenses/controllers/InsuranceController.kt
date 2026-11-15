@@ -9,8 +9,6 @@ import eu.nt.xpenses.repositories.UserRepository
 import eu.nt.xpenses.services.Authorization
 import eu.nt.xpenses.services.StorageService
 import jakarta.servlet.http.HttpServletRequest
-import jakarta.servlet.http.HttpServletResponse
-import org.springframework.http.ContentDisposition
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
@@ -23,6 +21,7 @@ import org.springframework.web.server.ResponseStatusException
 import org.slf4j.LoggerFactory
 import java.io.File
 import java.time.Instant
+import java.util.UUID
 
 @RestController
 @RequestMapping("/api/insurance")
@@ -111,8 +110,19 @@ class InsuranceController(
             ResponseStatusException(HttpStatus.NOT_FOUND, "Target user not found")
         }
 
-        val relativePath = "$userId/insurance/${Instant.now().epochSecond}_$originalName"
-        storageService.uploadFile(relativePath, upload.bytes)
+        val payloadBytes = upload.bytes
+        val expectedMagicMime = when (ext) {
+            "pdf" -> setOf("application/pdf")
+            "jpg", "jpeg" -> setOf("image/jpeg")
+            "png" -> setOf("image/png")
+            else -> null
+        }
+        if (expectedMagicMime != null) {
+            storageService.validateMagicBytes(payloadBytes, expectedMagicMime)
+        }
+
+        val relativePath = "$userId/insurance/${Instant.now().epochSecond}_${UUID.randomUUID()}_$originalName"
+        storageService.uploadFile(relativePath, payloadBytes)
 
         val now = Instant.now()
         val created = try {
@@ -137,7 +147,7 @@ class InsuranceController(
                 )
                 val saved = insuranceFileRepository.save(insuranceFile)
                 mapToOut(saved)
-            } ?: throw ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Transaction failed")
+            }
         } catch (ex: Exception) {
             deleteStorageQuietly(relativePath)
             throw ex
@@ -149,8 +159,7 @@ class InsuranceController(
     @GetMapping("/{fileId}/download")
     fun downloadFile(
         @PathVariable fileId: Int,
-        request: HttpServletRequest,
-        response: HttpServletResponse
+        request: HttpServletRequest
     ): ResponseEntity<ByteArray> {
         val currentUser = request.getAttribute("currentUser") as? User
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
@@ -163,7 +172,7 @@ class InsuranceController(
                 throw ResponseStatusException(HttpStatus.FORBIDDEN, "Not your file")
             }
             Pair(file.filePath, file.fileName?.ifBlank { null } ?: "document")
-        } ?: throw ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Transaction failed")
+        }
 
         val (filePath, effectiveFileName) = metadata
         val bytes = try {
@@ -202,7 +211,7 @@ class InsuranceController(
             val filePath = file.filePath
             insuranceFileRepository.delete(file)
             filePath
-        } ?: throw ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Transaction failed")
+        }
 
         deleteStorageQuietly(path)
     }

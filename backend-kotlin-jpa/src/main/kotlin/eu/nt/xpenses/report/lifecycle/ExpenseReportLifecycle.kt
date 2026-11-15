@@ -30,8 +30,10 @@ class ExpenseReportLifecycle(
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "At least one expense is required")
         }
 
-        attachDraftExpenses(report, command.expenseIds, actor, Instant.now())
-        report.updatedAt = Instant.now()
+        val now = Instant.now()
+        attachDraftExpenses(report, command.expenseIds, actor, now)
+        report.totalAmount = report.expenses.fold(BigDecimal.ZERO) { acc, e -> acc.add(e.amountEur) }
+        report.updatedAt = now
         return ExpenseReportLifecycleOutcome(reportRepository.save(report))
     }
 
@@ -50,6 +52,9 @@ class ExpenseReportLifecycle(
         val updatedReport = loadReport(reportId, "Report not found after refresh")
         if (updatedReport.expenses.isEmpty()) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "No expenses attached to this report")
+        }
+        if (updatedReport.expenses.any { it.amountOriginal.signum() <= 0 }) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "All report expenses must have a positive amount")
         }
 
         updateExpenseStatuses(updatedReport.expenses, ExpenseReportLifecycleState.SUBMITTED, now)
@@ -86,6 +91,9 @@ class ExpenseReportLifecycle(
         val now = Instant.now()
         report.status = ExpenseReportLifecycleState.DRAFT.value
         report.submittedAt = null
+        report.signer = null
+        report.signedAt = null
+        report.totalAmount = report.expenses.fold(BigDecimal.ZERO) { acc, e -> acc.add(e.amountEur) }
         report.updatedAt = now
         updateExpenseStatuses(report.expenses, ExpenseReportLifecycleState.DRAFT, now)
 
@@ -140,6 +148,8 @@ class ExpenseReportLifecycle(
 
         val now = Instant.now()
         report.status = ExpenseReportLifecycleState.REJECTED.value
+        report.signer = null
+        report.signedAt = null
         report.rejectedBy = actor
         report.rejectedAt = now
         report.rejectedReason = command.reason
@@ -220,6 +230,9 @@ class ExpenseReportLifecycle(
         val report = loadReport(reportId)
         requireOwner(report, actor, "Only the owner can delete a report")
         requireState(report, ExpenseReportLifecycleState.DRAFT, "Only draft reports can be deleted")
+        if (report.advances.any { it.status == "paid" }) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot delete report with paid advances")
+        }
 
         val now = Instant.now()
         val expensesList = report.expenses.toList()

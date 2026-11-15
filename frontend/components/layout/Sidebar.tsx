@@ -48,12 +48,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
   const sidebarRef = useRef<HTMLElement>(null);
   useBodyScrollLock(open);
 
-  const [isDesktop, setIsDesktop] = useState(() => {
-    if (typeof window !== "undefined") {
-      return window.innerWidth >= 1024;
-    }
-    return false;
-  });
+  const [isDesktop, setIsDesktop] = useState(false);
 
   useEffect(() => {
     const mql = window.matchMedia("(min-width: 1024px)");

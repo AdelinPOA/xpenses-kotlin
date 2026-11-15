@@ -653,58 +653,71 @@ class PdfService(
         val imageReceipts = mutableListOf<String>()
         val imgExtensions = setOf("jpg", "jpeg", "png", "webp", "gif")
         for (expense in expenses) {
-            for (receipt in expense.receipts) {
-                val ext = receipt.filePath.substringAfterLast(".", "").lowercase()
-                if (ext in imgExtensions) {
-                    imageReceipts.add(receipt.filePath)
+            if (expense.receipts.isNotEmpty()) {
+                for (receipt in expense.receipts) {
+                    val ext = receipt.filePath.substringAfterLast(".", "").lowercase()
+                    if (ext in imgExtensions) {
+                        imageReceipts.add(receipt.filePath)
+                    }
+                }
+            } else {
+                val legacyPath = expense.receiptPath
+                if (!legacyPath.isNullOrBlank()) {
+                    val ext = legacyPath.substringAfterLast(".", "").lowercase()
+                    if (ext in imgExtensions) {
+                        imageReceipts.add(legacyPath)
+                    }
                 }
             }
         }
 
         if (imageReceipts.isNotEmpty()) {
-            document.newPage()
-            document.add(Paragraph("ATTACHED RECEIPTS", fontBold))
-            document.add(Paragraph(" ", fontSmall))
-
             val imgTable = PdfPTable(2)
             imgTable.widthPercentage = 100f
             imgTable.setWidths(floatArrayOf(50f, 50f))
+            var addedCells = 0
 
             for (rPath in imageReceipts) {
                 try {
-                    val localPath = storageService.getLocalPath(rPath)
-                    val file = File(localPath)
-                    if (file.exists()) {
-                        val img = Image.getInstance(file.absolutePath)
-                        img.scaleToFit(240f, 320f)
+                    val bytes = storageService.downloadFile(rPath)
+                    val img = Image.getInstance(bytes)
+                    img.scaleToFit(240f, 320f)
 
-                        val cell = PdfPCell()
-                        cell.border = Rectangle.BOX
-                        cell.borderColor = java.awt.Color(226, 232, 240)
-                        cell.setPadding(10f)
-                        cell.horizontalAlignment = Element.ALIGN_CENTER
-                        cell.verticalAlignment = Element.ALIGN_MIDDLE
-                        cell.addElement(img)
+                    val cell = PdfPCell()
+                    cell.border = Rectangle.BOX
+                    cell.borderColor = java.awt.Color(226, 232, 240)
+                    cell.setPadding(10f)
+                    cell.horizontalAlignment = Element.ALIGN_CENTER
+                    cell.verticalAlignment = Element.ALIGN_MIDDLE
+                    cell.addElement(img)
 
-                        // Add short caption
-                        cell.addElement(Paragraph(file.name, fontSmall))
-                        imgTable.addCell(cell)
-                    }
+                    // Add short caption
+                    val displayName = rPath.substringAfterLast('/').substringAfterLast('\\').ifBlank { rPath }
+                    cell.addElement(Paragraph(displayName, fontSmall))
+                    imgTable.addCell(cell)
+                    addedCells++
                 } catch (e: Exception) {
                     log.warn("Failed to load receipt image at {}: {}", rPath, e.message)
                     val cell = PdfPCell(Phrase("[Image Load Error: $rPath]", fontSmall))
                     imgTable.addCell(cell)
+                    addedCells++
                 }
             }
 
-            // Fill empty cell if odd number of images
-            if (imageReceipts.size % 2 != 0) {
-                val emptyCell = PdfPCell()
-                emptyCell.border = Rectangle.NO_BORDER
-                imgTable.addCell(emptyCell)
-            }
+            if (addedCells > 0) {
+                document.newPage()
+                document.add(Paragraph("ATTACHED RECEIPTS", fontBold))
+                document.add(Paragraph(" ", fontSmall))
 
-            document.add(imgTable)
+                // Fill empty cell if odd number of cells
+                if (addedCells % 2 != 0) {
+                    val emptyCell = PdfPCell()
+                    emptyCell.border = Rectangle.NO_BORDER
+                    imgTable.addCell(emptyCell)
+                }
+
+                document.add(imgTable)
+            }
         }
 
         document.close()

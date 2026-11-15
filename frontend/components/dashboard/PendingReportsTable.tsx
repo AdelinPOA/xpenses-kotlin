@@ -561,7 +561,9 @@ export default function PendingReportsTable({
       )}
 
       {/* Inline receipt viewer (Phase 3.1) */}
-      <ReportReceiptsDrawer reportId={receiptsReportId} onClose={() => setReceiptsReportId(null)} />
+      {receiptsReportId !== null && (
+        <ReportReceiptsDrawer reportId={receiptsReportId} onClose={() => setReceiptsReportId(null)} />
+      )}
     </>
   );
 }

@@ -9,7 +9,7 @@ import AppShell from "@/components/layout/AppShell";
 import { useAuth } from "@/components/AuthProvider";
 import EmptyState from "@/components/ui/EmptyState";
 import { Plus, Pencil, X } from "lucide-react";
-import { formatEur } from "@/lib/format";
+import { formatEur, parseLocaleNumber } from "@/lib/format";
 import { useTranslations } from "next-intl";
 
 function formatLimit(limit: number | null, noLimitLabel: string) {
@@ -45,7 +45,7 @@ export default function CategoriesPage() {
     mutationFn: () => {
       const payload = {
         name: form.name,
-        limit_amount: form.limit_amount ? parseFloat(form.limit_amount) : null,
+        limit_amount: form.limit_amount ? parseLocaleNumber(form.limit_amount) : null,
       };
       if (editId !== null) return api.patch(`/categories/${editId}`, payload);
       return api.post("/categories", payload);

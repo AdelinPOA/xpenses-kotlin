@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.server.ResponseStatusException
 import java.math.BigDecimal
+import java.time.format.DateTimeParseException
 
 @RestController
 @RequestMapping("/api/fx")
@@ -30,8 +31,11 @@ class FxController(
     ): ResponseEntity<Map<String, Any>> {
         val rate: BigDecimal = try {
             fxService.getRate(from, date)
-        } catch (e: IllegalArgumentException) {
-            throw ResponseStatusException(HttpStatus.BAD_REQUEST, e.message)
+        } catch (e: Exception) {
+            if (e is IllegalArgumentException || e is DateTimeParseException) {
+                throw ResponseStatusException(HttpStatus.BAD_REQUEST, e.message)
+            }
+            throw e
         }
         return ResponseEntity.ok(
             mapOf(

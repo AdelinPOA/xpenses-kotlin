@@ -120,8 +120,8 @@ class OcrCatalogIntegrationTest {
         assertTrue(migrated["providers"][0]["api_key_set"].asBoolean())
         assertFalse(migrated.toString().contains(SYNTHETIC_KEY))
         assertFalse(migrated["providers"][0].has("api_key"))
-        val providerId = migrated["providers"][0]["id"].asText()
-        val existingPrimary = migrated["receipt_model_chain"][0].asText()
+        val providerId = migrated["providers"][0]["id"].asString()
+        val existingPrimary = migrated["receipt_model_chain"][0].asString()
         val originalDelegation = migrated["delegation_model_chain"].deepCopy()
         val patchBody = editableSettings(migrated)
         patchBody
@@ -138,7 +138,7 @@ class OcrCatalogIntegrationTest {
         assertFalse(saved["models"].last()["tested"].asBoolean())
         assertTrue(saved["providers"][0]["api_key_set"].asBoolean())
         val persisted = objectMapper.readTree(repository.findById("ocr_config").orElseThrow().value)
-        val storedToken = persisted["providers"][0]["api_key"].asText()
+        val storedToken = persisted["providers"][0]["api_key"].asString()
         assertNotEquals(SYNTHETIC_KEY, storedToken)
         assertEquals(SYNTHETIC_KEY, cryptoService.decrypt(storedToken, "xpenses-ai-provider-$providerId"))
 
@@ -168,7 +168,7 @@ class OcrCatalogIntegrationTest {
         activatedBody.putArray("receipt_model_chain").add("integration-vision").add(existingPrimary)
         val activated = patchSettings(activatedBody)
         assertTrue(activated["models"].last()["active"].asBoolean())
-        assertEquals(listOf("integration-vision", existingPrimary), activated["receipt_model_chain"].values().map { it.asText() })
+        assertEquals(listOf("integration-vision", existingPrimary), activated["receipt_model_chain"].values().map { it.asString() })
         assertEquals(originalDelegation, activated["delegation_model_chain"])
 
         // A separate HTTP read proves the transaction committed; secrets remain write-only after migration.

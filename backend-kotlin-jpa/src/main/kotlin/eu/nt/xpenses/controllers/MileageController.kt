@@ -86,7 +86,7 @@ class MileageController(
         }
 
         if (body.endTime.isBefore(body.startTime) || body.endTime == body.startTime) {
-            throw ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "end_time must be after start_time")
+            throw ResponseStatusException(HttpStatus.UNPROCESSABLE_CONTENT, "end_time must be after start_time")
         }
 
         val distanceBd = BigDecimal.valueOf(body.distanceKm)
@@ -167,19 +167,33 @@ class MileageController(
         if (body.endTime != null) rec.endTime = body.endTime
 
         if (rec.endTime.isBefore(rec.startTime) || rec.endTime == rec.startTime) {
-            throw ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "end_time must be after start_time")
+            throw ResponseStatusException(HttpStatus.UNPROCESSABLE_CONTENT, "end_time must be after start_time")
         }
 
-        if (body.distanceKm != null) {
+        val distanceChanged = body.distanceKm != null
+        val dateChanged = businessDate(rec.startTime) != previousBusinessDate
+        if (distanceChanged) {
             rec.distanceKm = body.distanceKm
-            val distanceBd = BigDecimal.valueOf(body.distanceKm)
-            recalculate(rec, distanceBd)
         }
 
-        if (businessDate(rec.startTime) != previousBusinessDate) {
-            if (rec.fuelConsumptionLitersPer100Km != null) recalculate(rec, BigDecimal.valueOf(rec.distanceKm))
-            else {
-                rec.fxRate = resolveFxRate(rec.startTime)
+        if (distanceChanged || dateChanged) {
+            val hasFuelFields = rec.fuelConsumptionLitersPer100Km != null &&
+                rec.fuelPriceRonPerLiter != null &&
+                rec.pensionRate != null &&
+                rec.healthRate != null &&
+                rec.incomeTaxRate != null &&
+                rec.taxDeductionEur != null
+            if (hasFuelFields) {
+                recalculate(rec, BigDecimal.valueOf(rec.distanceKm))
+            } else {
+                if (dateChanged) {
+                    rec.fxRate = resolveFxRate(rec.startTime)
+                }
+                if (distanceChanged) {
+                    val distanceBd = BigDecimal.valueOf(rec.distanceKm)
+                    rec.amountBeforeTax = rec.rateBeforeTax.multiply(distanceBd).setScale(2, RoundingMode.HALF_UP)
+                    rec.amountOriginal = rec.rateAfterTax.multiply(distanceBd).setScale(2, RoundingMode.HALF_UP)
+                }
                 rec.amountEur = rec.amountOriginal.multiply(rec.fxRate).setScale(2, RoundingMode.HALF_UP)
             }
         }

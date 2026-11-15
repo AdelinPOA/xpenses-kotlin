@@ -2,7 +2,6 @@ package eu.nt.xpenses.services.fx
 
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.module.kotlin.readValue
-import eu.nt.xpenses.model.AppSetting
 import eu.nt.xpenses.repositories.AppSettingRepository
 import org.slf4j.LoggerFactory
 import org.springframework.http.client.JdkClientHttpRequestFactory
@@ -12,8 +11,8 @@ import java.math.BigDecimal
 import java.math.RoundingMode
 import java.net.http.HttpClient
 import java.time.Duration
-import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneOffset
 import javax.xml.parsers.DocumentBuilderFactory
 
 enum class FxRateSource {
@@ -102,9 +101,9 @@ class HttpFxRateProvider(
                 ?: return null
 
             val payload = objectMapper.readTree(response)
-            val sourceDate = payload["date"]?.asText()?.let(LocalDate::parse) ?: return null
-            val rate = payload["rate"]?.asText()?.let { BigDecimal(it) }
-                ?: payload["rates"]?.get("EUR")?.asText()?.let { BigDecimal(it) }
+            val sourceDate = payload["date"]?.asString()?.let(LocalDate::parse) ?: return null
+            val rate = payload["rate"]?.asString()?.let { BigDecimal(it) }
+                ?: payload["rates"]?.get("EUR")?.asString()?.let { BigDecimal(it) }
                 ?: return null
             require(sourceDate <= requestedDate) { "Provider returned a future FX source date" }
             require(rate.signum() > 0) { "Provider returned a non-positive FX rate" }
@@ -119,10 +118,13 @@ class HttpFxRateProvider(
         val curLower = currency.lowercase().trim()
         val encodedCurLower = java.net.URLEncoder.encode(curLower, "UTF-8")
 
-        val urls = listOf(
-            "https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@$requestedDate/v1/currencies/$encodedCurLower.min.json",
-            "https://latest.currency-api.pages.dev/v1/currencies/$encodedCurLower.min.json"
-        )
+        val urls = buildList {
+            add("https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@$requestedDate/v1/currencies/$encodedCurLower.min.json")
+            add("https://$requestedDate.currency-api.pages.dev/v1/currencies/$encodedCurLower.min.json")
+            if (requestedDate >= LocalDate.now(ZoneOffset.UTC).minusDays(1)) {
+                add("https://latest.currency-api.pages.dev/v1/currencies/$encodedCurLower.min.json")
+            }
+        }
 
         for (url in urls) {
             try {
@@ -219,7 +221,7 @@ internal object CurrencyApiRateProvider {
             return null
         } ?: return null
 
-        val dateText = payload["date"]?.asText()
+        val dateText = payload["date"]?.asString()
         val sourceDate = dateText?.takeIf { it.isNotBlank() }?.let {
             try {
                 LocalDate.parse(it)
@@ -227,9 +229,10 @@ internal object CurrencyApiRateProvider {
                 null
             }
         } ?: requestedDate
+        require(sourceDate <= requestedDate) { "Provider returned a future FX source date" }
 
         val rates = payload[curLower] ?: return null
-        val eurRateText = rates.get("eur")?.asText() ?: return null
+        val eurRateText = rates.get("eur")?.asString() ?: return null
         val rate = try {
             BigDecimal(eurRateText)
         } catch (_: Exception) {

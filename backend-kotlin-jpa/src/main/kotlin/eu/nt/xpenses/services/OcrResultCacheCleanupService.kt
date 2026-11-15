@@ -5,7 +5,6 @@ import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
-import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 
@@ -18,7 +17,6 @@ class OcrResultCacheCleanupService(
     private val log = LoggerFactory.getLogger(OcrResultCacheCleanupService::class.java)
 
     @Scheduled(fixedDelayString = "\${ocr.cache.cleanup-interval:86400000}")
-    @Transactional
     fun deleteExpiredEntries() {
         val cutoff = Instant.now().minus(retentionDays, ChronoUnit.DAYS)
         var deleted = 0

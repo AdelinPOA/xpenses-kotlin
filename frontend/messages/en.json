@@ -211,7 +211,8 @@
     "bulk_reject_reason": "Reason for rejecting these reports",
     "receipts_count": "{count} receipt(s)",
     "no_receipts_in_report": "This report has no attached receipts",
-    "notifications_count": "Notifications ({count})"
+    "notifications_count": "Notifications ({count})",
+    "export_failed": "Export failed. Please try again."
   },
   "offline": {
     "banner_offline": "Offline — changes will sync automatically",
@@ -1133,7 +1134,8 @@
     "file_uploaded": "File uploaded",
     "upload_failed": "Upload failed",
     "file_deleted": "File deleted",
-    "delete_failed": "Delete failed"
+    "delete_failed": "Delete failed",
+    "download_failed": "Download failed. Please try again."
   },
   "capture": {
     "title": "Capture a receipt",

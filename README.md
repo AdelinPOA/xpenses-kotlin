@@ -4,15 +4,42 @@ Expense management for field-service teams. Technicians record expenses and rece
 
 This is the consolidated project reference, updated for the **2026-11-14** (`34aa5f8`) baseline. Read [HANDOFF.md](HANDOFF.md) for source-versus-production provenance, live deployment pointers, and verification snapshots.
 
+- [System Overview](#system-overview)
+- [Subdirectories & System Boundaries](#subdirectories--system-boundaries)
 - [Architecture and source map](#architecture-and-source-map)
 - [Domain language](#domain-language)
+- [Global Invariants](#global-invariants)
+- [Global Side Effects](#global-side-effects)
 - [Development and deployment](#development-and-deployment)
 - [Configuration](#configuration)
+- [System Verification](#system-verification)
 - [Verification and CI](#verification-and-ci)
 - [Current limitations](#current-limitations)
 - [Historical archives](#historical-archives)
 
 Repository: [AdelinPOA/xpenses-kotlin](https://github.com/AdelinPOA/xpenses-kotlin). Production hostname used by repository configuration: `xpenses.nt-automation.cc`.
+
+<!-- BEGIN:XPENSES_AUTOSYNC:TELEMETRY -->
+| Telemetry Metric | Live Repository State |
+|---|---|
+| **Git Baseline** | `main` @ `947ada5` |
+| **Flyway Migrations** | 39 scripts (latest: `V107__refresh_token_rotation_grace.sql`) |
+| **Backend Controllers** | 19 `*Controller.kt` files |
+| **Frontend Routes** | 31 Next.js `page.tsx` routes |
+| **Compose Services** | `db`, `redis`, `backend`, `frontend` |
+<!-- END:XPENSES_AUTOSYNC:TELEMETRY -->
+
+## System Overview
+
+Xpenses is a two-tier expense management system composed of a Spring Boot 4.1.1 / Kotlin 2.4.0 JPA backend (`backend-kotlin-jpa`), a Next.js 16.4.3 / React 19 App Router PWA frontend (`frontend`), and operational/CI verification utilities (`scripts`). PostgreSQL 16 (Flyway-managed, `V1`–`V107`) serves as the durable relational store, Redis 7.4 provides optional distributed rate-limiting storage, and local filesystem or S3-compatible object storage holds receipts, signatures, insurance files, and staged OCR uploads. Asynchronous workflows include bounded-lease OCR job processing (`OCR` → `EXPENSE` → `RECEIPT`) and durable IMAP technician delegation email ingestion.
+
+## Subdirectories & System Boundaries
+
+- [backend-kotlin-jpa](./backend-kotlin-jpa/README.md) — Spring Boot / Kotlin JPA backend (`/api/**` REST controllers, security/JWT/rate limiting, Flyway SQL migrations `V1`–`V107`, report lifecycle, IMAP ingestion ledger, FX providers, local/S3 storage, and async OCR services)
+- [frontend](./frontend/README.md) — Next.js App Router PWA frontend (route pages, feature components, `next-intl` `en`/`ro` localization, single-flight Axios/SSR transport, IndexedDB offline/OCR queues, and v9 Service Worker)
+- [scripts](./scripts/README.md) — Operational and CI verification scripts (`backup-db.sh`, `check-format-currency.mjs`, `check-i18n-parity.mjs`, `check-npm-audit.mjs`, `run_graphify_full.py`, `verify-ocr-restart.py`)
+- [skills/mobile-pwa-qa](./skills/mobile-pwa-qa/SKILL.md) — Manual mobile/PWA QA checklist and acceptance boundaries
+- `docs/`, `openspec/`, `roadmap/` — Architecture decision records (`docs/adr/`), verification contracts (`docs/contracts/`), designs, OpenSpec specs, and historical archives (documentation-only; no source code contracts)
 
 ## Architecture and source map
 
@@ -72,6 +99,19 @@ The canonical project glossary lives in [CONTEXT.md](CONTEXT.md). It defines Exp
 The API report mapper computes reimbursement as expenses + allowance + mileage − paid advances; the PDF summary uses its separately documented mileage exclusion. See [ReportMapper](backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/mapper/ReportMapper.kt).
 
 The glossary is grounded in [models](backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/model/), [FX service](backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/FxService.kt), [PDF service](backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/PdfService.kt), [OCR service](backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/AsyncOcrService.kt), and [ingestion ADR](docs/adr/0003-durable-technician-email-ingestion.md). Detailed qualifications are in the [backend documentation review](docs/documentation-review/2026-10-18/backend.md).
+
+## Global Invariants
+
+- **Authentication, CSRF & Role Boundaries:** Stateless `HttpOnly` JWT cookies (`access_token`, `refresh_token`) with `tokenVersion` checks, single-flight frontend refresh (`xpenses_auth_refresh` Web Lock), Origin/Referer enforcement on non-idempotent API mutations, and endpoint-specific RBAC across `technician`, `manager`, `chef_finance`, and `mod` (self-approval/payment blocked).
+- **Financial & Lifecycle Integrity:** PostgreSQL `NUMERIC` columns and Flyway `CHECK` constraints enforce non-negative monetary amounts (`expenses`, `advance_payments`, `mileage_records`), positive FX rates, soft-delete filtering (`deleted = false`), optimistic `@Version` locking, and strict `ExpenseReport` state transitions (`draft` → `submitted` → `approved` / `rejected` → `paid`, with recall to `draft`).
+- **Idempotency & Durable Leases:** Expense save/review, OCR scan/actions, and report creation use `Idempotency-Key` request-hash verification; async OCR (`ocr_jobs`), IMAP ingestion (`imap_ingestion_messages`), frontend offline queues (`xpenses-offline`), and OCR source queues (`xpenses-ocr-sources`) enforce fenced leases and owner scoping.
+- **Storage & Edge Security:** Local and S3 storage reject path escapes/symlinks and enforce MIME/extension/magic-byte checks (`SafeMediaType`, `nosniff`); frontend CSP and v9 Service Worker isolate `/api*`, `/_next*`, and owner-verified IndexedDB caches.
+
+## Global Side Effects
+
+- **PostgreSQL & Redis:** Backend mutates Flyway-managed PostgreSQL tables (including `pg_advisory_xact_lock` and `PESSIMISTIC_WRITE` locks) and executes Redis Lua scripts (`INCR`/`PEXPIRE`) for rate limiting when enabled.
+- **Filesystem & Object Storage:** Backend writes/reads/deletes receipt, signature, insurance, and staged OCR source files in local `/app/data` or S3; frontend persists owner-scoped snapshots and queues in IndexedDB (`xpenses-cache`, `xpenses-offline`, `xpenses-ocr-sources`) and CacheStorage (`xpenses-v9`).
+- **External Integrations & Background Jobs:** Outbound HTTP/HTTPS calls to AI OCR/parsing endpoints (validated public DNS IPs), FX providers (Frankfurter, BNR XML, Currency API), SMTP, IMAPS/STARTTLS, and LDAP/LDAPS, alongside `@Scheduled` IMAP polling and OCR recovery/cleanup tasks.
 
 ## Development and deployment
 
@@ -177,6 +217,14 @@ ls -1 backend-kotlin-jpa/src/main/resources/db/migration/ | sort -V | tail -n 1
 Add incremented migrations; preserve applied migrations. Hibernate schema validation is enabled. Flyway `validate-on-migrate` is false in the base configuration and true in `prod` and `ci`; `baseline-on-migrate` is true in base and false in those profiles. Schema validation and migration-history validation are different mechanisms.
 
 [scripts/backup-db.sh](scripts/backup-db.sh) uses `set -euo pipefail` and `pg_dump -Fc`, with `BACKUP_DIR`, `DB_CONTAINER`, `DB_USER`, `DB_NAME`, and `RETENTION_DAYS` overrides. It backs up the database only and prunes old matching dumps; it does not back up uploaded files. The 2026-10-21 coordinated release separately backed up database and uploaded files, verified the archives, and actually restored the database and rehearsed additive migrations in isolation. Private backup paths/rollback commands stay in the host operations directory referenced by [HANDOFF.md](HANDOFF.md); never publish their contents. Off-host coverage and scheduling are not inferred from this rehearsal.
+
+## System Verification
+
+- Run (Frontend fast checks): `cd frontend && npm run typecheck && npm run i18n:check && npm run lint`
+- Run (Frontend unit checks): `cd frontend && npm run test:lint-config && npm run test:auth:unit && npm run test:service-worker:unit`
+- Run (Backend targeted test): `cd backend-kotlin-jpa && ./gradlew test --tests '<ClassName>' --no-daemon`
+- Run (Backend full suite in isolated/CI env): `cd backend-kotlin-jpa && ./gradlew test --no-daemon`
+- Run (Scripts unit tests): `node --test scripts/check-i18n-parity.test.mjs scripts/check-npm-audit.test.mjs`
 
 ## Verification and CI
 

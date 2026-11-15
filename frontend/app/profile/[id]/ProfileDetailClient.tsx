@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import api, { User, Report } from "@/lib/api";
+import { reportKeys } from "@/lib/queryKeys";
+import { useBodyScrollLock } from "@/lib/useBodyScrollLock";
 import AppShell from "@/components/layout/AppShell";
 import { useAuth } from "@/components/AuthProvider";
 import Badge from "@/components/ui/Badge";
@@ -46,10 +48,21 @@ export default function ProfileDetailClient() {
 
   // Query specific report details for modal
   const { data: activeReport, isLoading: loadingActiveReport } = useQuery<Report>({
-    queryKey: ["reports", "detail", selectedReportId],
+    queryKey: reportKeys.detail(selectedReportId ?? 0),
     queryFn: () => api.get(`/reports/${selectedReportId}`).then((r) => r.data),
     enabled: !!selectedReportId,
   });
+
+  useBodyScrollLock(selectedReportId !== null);
+
+  useEffect(() => {
+    if (selectedReportId === null) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSelectedReportId(null);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedReportId]);
 
   const profileUser = isSelf ? currentUser : targetUser;
   const isLoading = (!isSelf && loadingUser) || loadingReports;
@@ -240,8 +253,17 @@ export default function ProfileDetailClient() {
 
       {/* Report Summary Modal */}
       {selectedReportId && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-card rounded-xl shadow-lg border border-border max-w-2xl w-full max-h-[85vh] flex flex-col">
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+          onClick={() => setSelectedReportId(null)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={t("report_summary")}
+            className="bg-card rounded-xl shadow-lg border border-border max-w-2xl w-full max-h-[85vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between px-6 py-4 border-b border-border-subtle">
               <h3 className="text-base font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
                 <FileText className="w-5 h-5 text-blue-500" />

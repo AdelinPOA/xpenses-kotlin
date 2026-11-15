@@ -62,7 +62,7 @@ class AdvanceController(
 
         val report = reportOwnership.verifyOwnership(reportId, currentUser)
         val isOwner = report.user?.id == currentUser.id
-        val isPrivileged = authorization.canViewAll(currentUser)
+        val isPrivileged = authorization.canManage(currentUser)
 
         val now = Instant.now()
 
@@ -147,7 +147,7 @@ class AdvanceController(
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
 
         val report = reportOwnership.verifyOwnership(reportId, currentUser)
-        val isPrivileged = authorization.canViewAll(currentUser)
+        val isPrivileged = authorization.canManage(currentUser)
         if (!isPrivileged && report.user?.id != currentUser.id) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Only the report owner can modify advance payments")
         }
@@ -161,6 +161,10 @@ class AdvanceController(
 
         if (adv.report.id != reportId) {
             throw ResponseStatusException(HttpStatus.NOT_FOUND, "Advance payment not in this report")
+        }
+
+        if (!isPrivileged && adv.paidBy != null) {
+            throw ResponseStatusException(HttpStatus.FORBIDDEN, "Only managers can modify paid advances")
         }
 
         // A request has no payment amount/rate/date yet. Editing it must not
@@ -231,7 +235,11 @@ class AdvanceController(
         }
 
         val isOwner = report.user?.id == currentUser.id
-        val isPrivileged = authorization.canViewAll(currentUser)
+        val isPrivileged = authorization.canManage(currentUser)
+
+        if (!isPrivileged && adv.paidBy != null) {
+            throw ResponseStatusException(HttpStatus.FORBIDDEN, "Only managers can delete paid advances")
+        }
 
         if (adv.status == "requested") {
             if (!isOwner) {
@@ -241,7 +249,7 @@ class AdvanceController(
             if (report.status != "draft") {
                 throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Can only delete paid advances on draft reports")
             }
-            if (!isOwner && !isPrivileged) {
+            if (!isPrivileged) {
                 throw ResponseStatusException(HttpStatus.FORBIDDEN, "Not authorized")
             }
         } else if (adv.status == "rejected") {
@@ -279,6 +287,10 @@ class AdvanceController(
 
         if (adv.report.id != reportId) {
             throw ResponseStatusException(HttpStatus.NOT_FOUND, "Advance payment not in this report")
+        }
+
+        if (report.user?.id == currentUser.id || adv.user.id == currentUser.id) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot pay or reject your own advance")
         }
 
         if (adv.status != "requested") {
@@ -323,7 +335,7 @@ class AdvanceController(
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "Not authorized")
         }
 
-        reportOwnership.verifyOwnership(reportId, currentUser)
+        val report = reportOwnership.verifyOwnership(reportId, currentUser)
 
         val adv = advancePaymentRepository.findById(advanceId).orElseThrow {
             ResponseStatusException(HttpStatus.NOT_FOUND, "Advance payment not found")
@@ -331,6 +343,10 @@ class AdvanceController(
 
         if (adv.report.id != reportId) {
             throw ResponseStatusException(HttpStatus.NOT_FOUND, "Advance payment not in this report")
+        }
+
+        if (report.user?.id == currentUser.id || adv.user.id == currentUser.id) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot pay or reject your own advance")
         }
 
         if (adv.status != "requested") {

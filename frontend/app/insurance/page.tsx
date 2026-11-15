@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import api, { InsuranceFile, User, downloadBlob } from "@/lib/api";
 import { insuranceKeys } from "@/lib/queryKeys";
 import AppShell from "@/components/layout/AppShell";
@@ -10,6 +10,7 @@ import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/ToastProvider";
 import { Download, Trash2, Shield, FileText, Upload } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { useBodyScrollLock } from "@/lib/useBodyScrollLock";
 
 export default function InsurancePage() {
   const { user } = useAuth();
@@ -68,13 +69,24 @@ export default function InsurancePage() {
     onError: () => toast.error(t("delete_failed")),
   });
 
-  function resetForm() {
+  const resetForm = useCallback(() => {
     setShowUpload(false);
     setFormTitle("");
     setFormDescription("");
     setFormFile(null);
     setFormUserId("");
-  }
+  }, []);
+
+  useBodyScrollLock(showUpload);
+
+  useEffect(() => {
+    if (!showUpload) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") resetForm();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [showUpload, resetForm]);
 
   function handleUpload(e: React.FormEvent) {
     e.preventDefault();
@@ -83,7 +95,11 @@ export default function InsurancePage() {
   }
 
   function handleDownload(file: InsuranceFile) {
-    downloadBlob(`/insurance/${file.id}/download`, {}, file.file_name || "document");
+    void downloadBlob(
+      `/insurance/${file.id}/download`,
+      {},
+      file.file_name || "document",
+    ).catch(() => toast.error(t("download_failed")));
   }
 
   function formatSize(bytes: number | null): string {
@@ -137,7 +153,13 @@ export default function InsurancePage() {
         <>
           <div className="fixed inset-0 bg-black/40 z-40" onClick={resetForm} />
           <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
-            <div className="bg-card rounded-xl shadow-xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label={t("upload_heading")}
+              className="bg-card rounded-xl shadow-xl w-full max-w-md"
+              onClick={(e) => e.stopPropagation()}
+            >
               <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
                 <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
                   <Upload className="w-5 h-5 text-emerald-500" /> {t("upload_heading")}

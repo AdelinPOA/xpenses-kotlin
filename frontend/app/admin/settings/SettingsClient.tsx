@@ -10,6 +10,7 @@ import { Settings, Save, ArrowUp, ArrowDown, Globe, CheckCircle2, AlertCircle, P
 import { useTranslations } from "next-intl";
 import type { AxiosError } from "axios";
 import type { MobileUiConfig } from "@/lib/types/admin";
+import { parseLocaleNumber } from "@/lib/format";
 
 function MobileUiSettingsCard() {
   const qc = useQueryClient();
@@ -293,13 +294,13 @@ export default function SettingsClient() {
   };
 
   const handleSaveRates = () => {
-    const btVal = parseFloat(bt);
-    const consumption = parseFloat(fuelConsumption);
-    const price = parseFloat(fuelPrice);
-    const pension = parseFloat(pensionRate) / 100;
-    const health = parseFloat(healthRate) / 100;
-    const incomeTax = parseFloat(incomeTaxRate) / 100;
-    const deduction = parseFloat(taxDeduction);
+    const btVal = parseLocaleNumber(bt);
+    const consumption = parseLocaleNumber(fuelConsumption);
+    const price = parseLocaleNumber(fuelPrice);
+    const pension = parseLocaleNumber(pensionRate) / 100;
+    const health = parseLocaleNumber(healthRate) / 100;
+    const incomeTax = parseLocaleNumber(incomeTaxRate) / 100;
+    const deduction = parseLocaleNumber(taxDeduction);
     if ([btVal, consumption, price, pension, health, incomeTax, deduction].some(Number.isNaN) || btVal <= 0 || consumption <= 0 || price < 0 || pension < 0 || health < 0 || incomeTax < 0 || deduction < 0) {
       setRatesError(t("invalid_rates_input"));
       return;
@@ -309,7 +310,7 @@ export default function SettingsClient() {
   };
 
   const handleSaveAllowance = () => {
-    const val = parseFloat(dailyRate);
+    const val = parseLocaleNumber(dailyRate);
     if (isNaN(val) || val < 0) {
       setAllowanceError(t("invalid_allowance_input"));
       return;
@@ -324,7 +325,7 @@ export default function SettingsClient() {
     const normalizedKeys = new Set<string>();
     for (const [currency, rawValue] of Object.entries(fxMargins)) {
       const key = currency.trim().toUpperCase();
-      const value = Number(rawValue);
+      const value = parseLocaleNumber(rawValue);
       if (normalizedKeys.has(key)) errors[`margins.${currency}`] = t("fx_margin_duplicate");
       normalizedKeys.add(key);
       if (!Number.isFinite(value) || value < 0 || value > 100) errors[`margins.${currency}`] = t("fx_margin_range");
@@ -332,7 +333,7 @@ export default function SettingsClient() {
       if (Number.isFinite(value) && value >= 0 && value <= 100 && key !== "RON") values[key] = value;
       if (key === "RON" && value === 0) values[key] = value;
     }
-    const defaultValue = Number(fxDefaultMargin);
+    const defaultValue = parseLocaleNumber(fxDefaultMargin);
     if (!Number.isFinite(defaultValue) || defaultValue < 0 || defaultValue > 100) {
       errors.defaultMargin = t("fx_margin_range");
     }

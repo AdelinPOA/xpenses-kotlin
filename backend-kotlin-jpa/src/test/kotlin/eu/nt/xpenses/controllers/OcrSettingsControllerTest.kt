@@ -43,11 +43,11 @@ class OcrSettingsControllerTest {
         val response = controller.readOcrSettings().body!!
         val json = ObjectMapper().valueToTree<tools.jackson.databind.JsonNode>(response)
 
-        assertEquals("provider-1", json["providers"][0]["id"].asText())
+        assertEquals("provider-1", json["providers"][0]["id"].asString())
         assertTrue(json["providers"][0]["api_key_set"].asBoolean())
         assertFalse(json.toString().contains("secret-api-key"))
-        assertEquals(listOf("receipt-model"), json["receipt_model_chain"].values().map { it.asText() })
-        assertEquals(listOf("email-model"), json["delegation_model_chain"].values().map { it.asText() })
+        assertEquals(listOf("receipt-model"), json["receipt_model_chain"].values().map { it.asString() })
+        assertEquals(listOf("email-model"), json["delegation_model_chain"].values().map { it.asString() })
     }
 
     @Test
@@ -74,8 +74,8 @@ class OcrSettingsControllerTest {
         val json = ObjectMapper().valueToTree<tools.jackson.databind.JsonNode>(response.body)
         assertFalse(json.toString().contains("secret-api-key"))
         assertTrue(json["providers"][0]["api_key_set"].asBoolean())
-        assertEquals(listOf("receipt-model"), json["receipt_model_chain"].values().map { it.asText() })
-        assertEquals(listOf("email-model"), json["delegation_model_chain"].values().map { it.asText() })
+        assertEquals(listOf("receipt-model"), json["receipt_model_chain"].values().map { it.asString() })
+        assertEquals(listOf("email-model"), json["delegation_model_chain"].values().map { it.asString() })
     }
 
     private fun testConfig() =

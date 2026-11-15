@@ -311,7 +311,7 @@ class OcrServiceTest {
         verify(appSettingRepository).save(saved.capture())
         val json = objectMapper.readTree(saved.value.value)
         assertFalse(json["ocr_enabled"].asBoolean())
-        assertEquals("Renamed provider", json["providers"][0]["name"].asText())
+        assertEquals("Renamed provider", json["providers"][0]["name"].asString())
         assertTrue(json["models"][0]["tested"].asBoolean())
     }
 
@@ -460,11 +460,11 @@ class OcrServiceTest {
         val config = ocrService.getOcrConfig()
         val serialized = objectMapper.valueToTree<tools.jackson.databind.JsonNode>(config)
 
-        assertEquals("https://api.example.com/v1", serialized["providers"][0]["base_url"].asText())
-        assertEquals("encrypted-key", serialized["providers"][0]["api_key"].asText())
-        assertEquals("vision-v2", serialized["models"][0]["model_id"].asText())
-        assertEquals("model-1", serialized["receipt_model_chain"][0].asText())
-        assertEquals("model-2", serialized["delegation_model_chain"][0].asText())
+        assertEquals("https://api.example.com/v1", serialized["providers"][0]["base_url"].asString())
+        assertEquals("encrypted-key", serialized["providers"][0]["api_key"].asString())
+        assertEquals("vision-v2", serialized["models"][0]["model_id"].asString())
+        assertEquals("model-1", serialized["receipt_model_chain"][0].asString())
+        assertEquals("model-2", serialized["delegation_model_chain"][0].asString())
     }
 
     @Test
@@ -503,7 +503,7 @@ class OcrServiceTest {
                 ocrService.getOcrConfig().delegationModelChain,
                 "Parse delegation email",
                 "synthetic email",
-            ) { content -> runCatching { objectMapper.readTree(content)["date_from"].asText() }.getOrNull() == "2025-01-01" }
+            ) { content -> runCatching { objectMapper.readTree(content)["date_from"].asString() }.getOrNull() == "2025-01-01" }
 
         assertEquals(listOf("email-v1", "email-v2"), attempted)
         assertTrue(response?.contains("2025-01-01") == true)

@@ -200,7 +200,9 @@ export default function ApprovalsPage() {
         </div>
       )}
 
-      <ReportReceiptsDrawer reportId={receiptsReportId} onClose={() => setReceiptsReportId(null)} />
+      {receiptsReportId !== null && (
+        <ReportReceiptsDrawer reportId={receiptsReportId} onClose={() => setReceiptsReportId(null)} />
+      )}
     </AppShell>
   );
 }

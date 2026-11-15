@@ -19,7 +19,8 @@ class DataInitializer(
     private val expenseRepository: ExpenseRepository,
     private val appSettingRepository: AppSettingRepository,
     private val passwordEncoder: BCryptPasswordEncoder,
-    @Value("\${seed.demo.users:false}") private val seedDemoUsers: Boolean
+    @Value("\${seed.demo.users:false}") private val seedDemoUsers: Boolean,
+    @Value("\${spring.profiles.active:}") private val activeProfiles: String = ""
 ) : CommandLineRunner {
 
     private val log = LoggerFactory.getLogger(DataInitializer::class.java)
@@ -54,11 +55,17 @@ class DataInitializer(
 
         // 3. Seed FX margins as decimal fractions used by FxService.
         if (!appSettingRepository.existsById("fx_margins")) {
-            appSettingRepository.save(AppSetting("fx_margins", "{\"EUR\":0.02,\"USD\":0.025,\"GBP\":0.02,\"CHF\":0.02,\"*\":0.02}"))
+            appSettingRepository.save(AppSetting("fx_margins", "{\"EUR\":0.02,\"USD\":0.02,\"GBP\":0.02,\"CHF\":0.02,\"*\":0.02}"))
         }
 
-        // 4. Seed users (only when SEED_DEMO_USERS=true)
-        if (seedDemoUsers && userRepository.count() == 0L) {
+        val isProdProfile = activeProfiles.split(',').any { it.trim().equals("prod", ignoreCase = true) }
+        val allowDemoSeeding = seedDemoUsers && !isProdProfile
+        if (seedDemoUsers && isProdProfile) {
+            log.warn("Refusing to seed demo users/reports because 'prod' profile is active")
+        }
+
+        // 4. Seed users (only when SEED_DEMO_USERS=true and not running in prod)
+        if (allowDemoSeeding && userRepository.count() == 0L) {
             val users = listOf(
                 User(
                     username = "tech1",
@@ -94,7 +101,7 @@ class DataInitializer(
         }
 
         // 5. Seed sample reports and expenses for tech1 if no reports exist (demo only)
-        if (seedDemoUsers && expenseReportRepository.count() == 0L) {
+        if (allowDemoSeeding && expenseReportRepository.count() == 0L) {
             val tech1 = userRepository.findByUsername("tech1")
             val transportCategory = categoryRepository.findByName("Transport")
             val foodCategory = categoryRepository.findByName("Meals & Food")

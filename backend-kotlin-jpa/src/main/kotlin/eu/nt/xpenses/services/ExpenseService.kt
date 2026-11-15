@@ -17,12 +17,15 @@ import eu.nt.xpenses.repositories.OcrJobRepository
 import eu.nt.xpenses.repositories.ReceiptRepository
 import eu.nt.xpenses.services.mapper.ExpenseMapper
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.HttpStatus
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Service
+import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.transaction.support.TransactionSynchronization
 import org.springframework.transaction.support.TransactionSynchronizationManager
+import org.springframework.transaction.support.TransactionTemplate
 import org.springframework.web.multipart.MultipartFile
 import org.springframework.web.server.ResponseStatusException
 import java.math.BigDecimal
@@ -31,7 +34,7 @@ import java.time.Instant
 import java.time.LocalDate
 
 @Service
-class ExpenseService(
+class ExpenseService @Autowired constructor(
     private val expenseRepository: ExpenseRepository,
     private val categoryRepository: CategoryRepository,
     private val expenseReportRepository: ExpenseReportRepository,
@@ -44,7 +47,8 @@ class ExpenseService(
     private val authorization: Authorization,
     private val expenseReviewOperationRepository: ExpenseReviewOperationRepository,
     private val ocrJobRepository: OcrJobRepository,
-    private val jdbcTemplate: JdbcTemplate
+    private val jdbcTemplate: JdbcTemplate,
+    private val transactionManager: PlatformTransactionManager? = null
 ) {
     private val log = LoggerFactory.getLogger(ExpenseService::class.java)
 
@@ -66,7 +70,9 @@ class ExpenseService(
         val normalizedQuery = q?.trim()?.takeIf { it.isNotEmpty() }
 
         return if (page != null) {
-            val pageable = org.springframework.data.domain.PageRequest.of(page, size)
+            val clampedPage = page.coerceAtLeast(0)
+            val clampedSize = size.coerceIn(1, 100)
+            val pageable = org.springframework.data.domain.PageRequest.of(clampedPage, clampedSize)
             val result = expenseRepository.findAllWithFiltersPaged(uid, status, reportId, categoryId, fromDate, toDate, normalizedQuery, verificationState, pageable)
             PagedResponse(
                 data = result.content.map { expenseMapper.toExpenseOut(it) },
@@ -94,10 +100,15 @@ class ExpenseService(
         return expenseMapper.toExpenseOut(expense)
     }
 
-    @Transactional
     fun createExpense(body: ExpenseCreate, currentUser: User): ExpenseOut {
         val fxRate = resolveFxRate(body.fxRate, body.currency, body.date)
-        val saved = doCreateExpense(body, currentUser, fxRate)
+        val saved = if (transactionManager != null) {
+            TransactionTemplate(transactionManager).execute {
+                doCreateExpense(body, currentUser, fxRate)
+            }
+        } else {
+            doCreateExpense(body, currentUser, fxRate)
+        }
         return expenseMapper.toExpenseOut(saved)
     }
 
@@ -165,11 +176,13 @@ class ExpenseService(
 
         if (body.comparisonId != null) {
             val comp = ocrComparisonRepository.findById(body.comparisonId).orElse(null)
-            if (comp != null) {
+            if (comp != null && (comp.expense == null || comp.expense?.id == savedExpense.id)) {
                 comp.expense = savedExpense
                 ocrComparisonRepository.save(comp)
             }
         }
+
+        recomputeReportTotal(report, includedExpense = savedExpense, now = savedExpense.updatedAt)
 
         return savedExpense
     }
@@ -186,11 +199,14 @@ class ExpenseService(
         if (expense.status != "draft") {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Only draft expenses can be edited")
         }
+        if (expense.report != null && expense.report?.status != "draft") {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Only expenses on draft reports can be modified")
+        }
         if (body.clearCategory && body.categoryId != null) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot select and clear category in the same update")
         }
 
-        val hasRateInputs = body.fxRate != null || body.amount != null || body.currency != null || body.date != null || body.taxAmount != null || body.taxRate != null
+        val hasRateInputs = body.fxRate != null || body.fxRateManual != null || body.amount != null || body.currency != null || body.date != null || body.taxAmount != null || body.taxRate != null
 
         if (hasRateInputs) {
             val effAmount = body.amount ?: expense.amountOriginal
@@ -200,12 +216,16 @@ class ExpenseService(
             val effTaxRate = body.taxRate ?: expense.taxRate
             val unchangedBasis = effCurrency == expense.currencyOriginal && effDate == expense.date
 
-            val (fxRate, fxRateManual) = if (body.fxRate != null) {
-                body.fxRate to true
-            } else if (unchangedBasis) {
-                expense.fxRate to expense.fxRateManual
-            } else {
-                try {
+            val (fxRate, fxRateManual) = when {
+                body.fxRate != null -> body.fxRate to (body.fxRateManual ?: true)
+                body.fxRateManual == false -> try {
+                    fxService.getRate(effCurrency, effDate) to false
+                } catch (e: Exception) {
+                    throw ResponseStatusException(HttpStatus.BAD_GATEWAY, "Failed to fetch exchange rate: ${e.message}")
+                }
+                body.fxRateManual == true -> expense.fxRate to true
+                unchangedBasis -> expense.fxRate to expense.fxRateManual
+                else -> try {
                     fxService.getRate(effCurrency, effDate) to false
                 } catch (e: Exception) {
                     throw ResponseStatusException(HttpStatus.BAD_GATEWAY, "Failed to fetch exchange rate: ${e.message}")
@@ -240,6 +260,9 @@ class ExpenseService(
         }
 
         if (body.reportId != null) {
+            if (expense.report != null && expense.report?.id != body.reportId) {
+                throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Expense is already attached to another report")
+            }
             val rep = expenseReportRepository.findById(body.reportId).orElseThrow {
                 ResponseStatusException(HttpStatus.NOT_FOUND, "Report not found")
             }
@@ -255,9 +278,11 @@ class ExpenseService(
         expense.updatedAt = Instant.now()
         val saved = expenseRepository.save(expense)
 
+        recomputeReportTotal(saved.report, includedExpense = saved, now = saved.updatedAt)
+
         if (body.comparisonId != null) {
             val comp = ocrComparisonRepository.findById(body.comparisonId).orElse(null)
-            if (comp != null) {
+            if (comp != null && (comp.expense == null || comp.expense?.id == saved.id)) {
                 comp.expense = saved
                 ocrComparisonRepository.save(comp)
             }
@@ -319,6 +344,9 @@ class ExpenseService(
         }
 
         val before = reviewableSnapshot(expense)
+        if (expense.report != null && expense.report?.status != "draft") {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Only expenses on draft reports can be modified")
+        }
         if (expense.status != "draft" && reviewValuesChange(expense, body.values)) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Only draft expenses can be edited")
         }
@@ -334,6 +362,9 @@ class ExpenseService(
         if (changed || body.confirm) expense.updatedAt = now
 
         val saved = expenseRepository.saveAndFlush(expense)
+        if (changed) {
+            recomputeReportTotal(saved.report, includedExpense = saved, now = now)
+        }
         expenseReviewOperationRepository.saveAndFlush(
             ExpenseReviewOperation(
                 user = currentUser,
@@ -497,6 +528,16 @@ class ExpenseService(
         if (expense.status != "draft") {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Only draft expenses can be deleted")
         }
+        if (expense.report != null && expense.report?.status != "draft") {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Only expenses on draft reports can be modified")
+        }
+
+        val attachedReport = expense.report
+        val deletedExpenseId = expense.id
+        if (attachedReport != null && org.hibernate.Hibernate.isInitialized(attachedReport.expenses)) {
+            attachedReport.expenses.removeIf { it.id == deletedExpenseId }
+        }
+        expense.report = null
 
         val receiptsList = expense.receipts.toList()
         for (receipt in receiptsList) {
@@ -504,6 +545,7 @@ class ExpenseService(
         }
         val paths = receiptsList.map { it.filePath }
         expenseRepository.delete(expense)
+        recomputeReportTotal(attachedReport, excludeExpenseId = deletedExpenseId)
 
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             TransactionSynchronizationManager.registerSynchronization(object : TransactionSynchronization {
@@ -543,6 +585,9 @@ class ExpenseService(
         }
         if (expense.status != "draft") {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Only draft expenses can have receipts uploaded")
+        }
+        if (expense.report != null && expense.report?.status != "draft") {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Only expenses on draft reports can be modified")
         }
         return expense
     }
@@ -617,6 +662,9 @@ class ExpenseService(
         }
         if (expense.status != "draft") {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Only draft expenses can have receipts deleted")
+        }
+        if (expense.report != null && expense.report?.status != "draft") {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Only expenses on draft reports can be modified")
         }
 
         val receipt = receiptRepository.findById(receiptId).orElseThrow {
@@ -710,14 +758,16 @@ class ExpenseService(
         fromDate: String?,
         toDate: String?,
         all: Boolean,
-        q: String?
+        q: String?,
+        verificationState: ExpenseVerificationState? = null
     ): Triple<ByteArray, String, String> {
         if (format !in listOf("csv", "xlsx")) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported format '$format'. Use 'csv' or 'xlsx'.")
         }
 
         val uid = authorization.effectiveUserId(currentUser, all)
-        val expenses = expenseRepository.findAllWithFilters(uid, status, reportId, categoryId, fromDate, toDate, q, null)
+        val normalizedQuery = q?.trim()?.takeIf { it.isNotEmpty() }
+        val expenses = expenseRepository.findAllWithFilters(uid, status, reportId, categoryId, fromDate, toDate, normalizedQuery, verificationState)
 
         val includeUser = authorization.canViewAll(currentUser) && all
         val columns = listOfNotNull(
@@ -756,5 +806,28 @@ class ExpenseService(
             )
             else -> Triple(exportService.buildCsv(rows, columns), "text/csv", "expenses_$today.csv")
         }
+    }
+
+    private fun recomputeReportTotal(
+        report: ExpenseReport?,
+        includedExpense: Expense? = null,
+        excludeExpenseId: Int? = null,
+        now: Instant = Instant.now()
+    ) {
+        val target = report ?: return
+        val reportId = target.id ?: return
+        val attached = expenseRepository.findAllByReportId(reportId)
+        val byId = LinkedHashMap<Int, Expense>()
+        for (e in attached) {
+            val id = e.id
+            if (id != null && id != excludeExpenseId) byId[id] = e
+        }
+        if (includedExpense != null) {
+            val id = includedExpense.id
+            if (id != null && id != excludeExpenseId) byId[id] = includedExpense
+        }
+        target.totalAmount = byId.values.fold(BigDecimal.ZERO) { acc, e -> acc.add(e.amountEur) }
+        target.updatedAt = now
+        expenseReportRepository.save(target)
     }
 }

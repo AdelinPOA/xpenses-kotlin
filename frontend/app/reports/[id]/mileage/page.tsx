@@ -8,8 +8,9 @@ import AppShell from "@/components/layout/AppShell";
 import Badge from "@/components/ui/Badge";
 import { ArrowLeft, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
-import { formatAmount } from "@/lib/format";
-import { useTranslations } from "next-intl";
+import { formatAmount, parseLocaleNumber } from "@/lib/format";
+import { LOCALE_TO_INTL, type Locale } from "@/i18n/config";
+import { useLocale, useTranslations } from "next-intl";
 
 function formatDuration(minutes: number) {
   const h = Math.floor(minutes / 60);
@@ -17,8 +18,8 @@ function formatDuration(minutes: number) {
   return `${h}h ${m.toString().padStart(2, "0")}m`;
 }
 
-function formatDateTime(iso: string) {
-  return new Date(iso).toLocaleString("en-GB", {
+function formatDateTime(iso: string, intlLocale: string) {
+  return new Date(iso).toLocaleString(intlLocale, {
     day: "2-digit", month: "2-digit", year: "numeric",
     hour: "2-digit", minute: "2-digit",
   });
@@ -38,6 +39,7 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
   const [description, setDescription] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const t = useTranslations("reports");
+  const locale = useLocale() as Locale;
 
   const { data: report, isLoading } = useQuery<Report>({
     queryKey: reportKeys.detail(reportId),
@@ -89,7 +91,7 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
 
   const handleAdd = () => {
     setFormError(null);
-    const km = parseFloat(distanceKm);
+    const km = parseLocaleNumber(distanceKm);
     if (!origin.trim() || !destination.trim()) {
       setFormError(t("mileage_error_origin_dest") || "Both origin and destination are required.");
       return;
@@ -328,7 +330,7 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <p className="font-medium text-foreground">{m.origin} → {m.destination}</p>
-                      <p className="text-xs text-muted mt-0.5">{formatDateTime(m.start_time)}</p>
+                      <p className="text-xs text-muted mt-0.5">{formatDateTime(m.start_time, LOCALE_TO_INTL[locale])}</p>
                     </div>
                     <div className="text-right shrink-0">
                       <p className="font-semibold text-foreground">{formatAmount(m.amount_eur, "EUR")}</p>
@@ -397,7 +399,7 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
                 <tbody>
                   {records.map((m) => (
                     <tr key={m.id} className="border-t border-slate-100 dark:border-slate-700">
-                      <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{formatDateTime(m.start_time)}</td>
+                      <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{formatDateTime(m.start_time, LOCALE_TO_INTL[locale])}</td>
                       <td className="px-4 py-3 text-blue-600 dark:text-blue-400 font-medium">{formatDuration(m.duration_minutes)}</td>
                       <td className="px-4 py-3 font-medium text-foreground">
                         {m.origin} → {m.destination}

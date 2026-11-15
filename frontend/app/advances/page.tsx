@@ -9,7 +9,7 @@ import AppShell from "@/components/layout/AppShell";
 import { useAuth } from "@/components/AuthProvider";
 import { Check, X } from "lucide-react";
 import Link from "next/link";
-import { formatAmount } from "@/lib/format";
+import { formatAmount, parseLocaleNumber } from "@/lib/format";
 import { useTranslations } from "next-intl";
 
 export default function GlobalAdvancesPage() {
@@ -71,7 +71,7 @@ export default function GlobalAdvancesPage() {
 
   const handlePay = () => {
     if (!payingId || !payReportId) return;
-    const amt = parseFloat(payAmount);
+    const amt = parseLocaleNumber(payAmount);
     if (isNaN(amt) || amt <= 0 || !payDate) return;
     payAdvance.mutate({ reportId: payReportId, advanceId: payingId, amount: amt, currency: payCurrency, date: payDate });
   };

@@ -20,11 +20,16 @@ import eu.nt.xpenses.services.StorageContext
 import eu.nt.xpenses.services.StorageService
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.validation.Valid
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.dao.DataIntegrityViolationException
+import org.springframework.data.domain.PageRequest
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.security.access.prepost.PreAuthorize
+import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionTemplate
 import org.springframework.web.bind.annotation.*
 import org.springframework.web.multipart.MultipartFile
 import org.springframework.web.server.ResponseStatusException
@@ -36,7 +41,7 @@ import java.security.MessageDigest
 
 @RestController
 @RequestMapping("/api/ocr")
-class OcrController(
+class OcrController @Autowired constructor(
     private val ocrService: OcrService,
     private val ocrJobPipeline: OcrJobPipeline,
     private val ocrComparisonRepository: OcrComparisonRepository,
@@ -46,8 +51,39 @@ class OcrController(
     private val rateLimitStore: RateLimitStore,
     private val expenseReportRepository: ExpenseReportRepository,
     private val idempotency: SaveIdempotencyService,
-    private val ocrRecoveryService: OcrRecoveryService
+    private val ocrRecoveryService: OcrRecoveryService,
+    transactionManager: PlatformTransactionManager? = null,
+    @Value("\${ocr.source.retention-days:30}") private val sourceRetentionDays: Long = 30L
 ) {
+    constructor(
+        ocrService: OcrService,
+        ocrJobPipeline: OcrJobPipeline,
+        ocrComparisonRepository: OcrComparisonRepository,
+        ocrJobRepository: OcrJobRepository,
+        storageService: StorageService,
+        objectMapper: ObjectMapper,
+        rateLimitStore: RateLimitStore,
+        expenseReportRepository: ExpenseReportRepository,
+        idempotency: SaveIdempotencyService,
+        ocrRecoveryService: OcrRecoveryService
+    ) : this(
+        ocrService,
+        ocrJobPipeline,
+        ocrComparisonRepository,
+        ocrJobRepository,
+        storageService,
+        objectMapper,
+        rateLimitStore,
+        expenseReportRepository,
+        idempotency,
+        ocrRecoveryService,
+        null,
+        30L
+    )
+
+    private val readTx = transactionManager?.let {
+        TransactionTemplate(it).apply { isReadOnly = true }
+    }
 
     @PostMapping("/scan")
     fun scanReceipt(
@@ -123,6 +159,7 @@ class OcrController(
             status = OcrJobStatus.PAUSED,
             acceptanceKey = acceptanceKey,
             acceptanceFingerprint = acceptanceKey?.let { fingerprint },
+            expiresAt = Instant.now().plus(sourceRetentionDays, ChronoUnit.DAYS),
             requestedReportId = reportId,
             reportLinkStatus = if (reportId == null) "NOT_REQUESTED" else "PENDING"
         )
@@ -141,14 +178,22 @@ class OcrController(
 
     private fun validateReportContext(currentUser: User, reportId: Int?) {
         if (reportId == null) return
-        val report = expenseReportRepository.findById(reportId).orElseThrow {
-            ResponseStatusException(HttpStatus.NOT_FOUND, "Report not found")
+        val check: () -> Unit = {
+            val report = expenseReportRepository.findById(reportId).orElseThrow {
+                ResponseStatusException(HttpStatus.NOT_FOUND, "Report not found")
+            }
+            if (report.user?.id != currentUser.id) {
+                throw ResponseStatusException(HttpStatus.FORBIDDEN, "Cannot attach OCR Expense to another user's report")
+            }
+            if (report.status != "draft") {
+                throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Can only capture into a draft report")
+            }
         }
-        if (report.user?.id != currentUser.id) {
-            throw ResponseStatusException(HttpStatus.FORBIDDEN, "Cannot attach OCR Expense to another user's report")
-        }
-        if (report.status != "draft") {
-            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Can only capture into a draft report")
+        val tx = readTx
+        if (tx != null) {
+            tx.executeWithoutResult { check() }
+        } else {
+            check()
         }
     }
 
@@ -194,7 +239,7 @@ class OcrController(
             job.sourceContentType = contentType
             job.sourceSizeBytes = fileBytes.size.toLong()
             job.sourceSha256 = sourceSha256
-            job.expiresAt = Instant.now().plus(30, ChronoUnit.DAYS)
+            job.expiresAt = Instant.now().plus(sourceRetentionDays, ChronoUnit.DAYS)
             job.status = OcrJobStatus.PENDING
             job.errorCode = null
             job.errorMessage = null
@@ -353,8 +398,9 @@ class OcrController(
 
     @GetMapping("/comparison")
     @PreAuthorize("hasRole('mod')")
+    @Transactional(readOnly = true)
     fun getOcrComparisons(): ResponseEntity<*> {
-        val history = ocrComparisonRepository.findAllOrdered().take(100)
+        val history = ocrComparisonRepository.findAllOrdered(PageRequest.of(0, 100))
 
         var geminiAmtOk = 0
         var geminiDateOk = 0

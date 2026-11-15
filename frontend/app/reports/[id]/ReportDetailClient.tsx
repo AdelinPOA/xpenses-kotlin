@@ -34,7 +34,8 @@ import {
 import Link from "next/link";
 import { useAuth } from "@/components/AuthProvider";
 import { formatAmount } from "@/lib/format";
-import { useTranslations } from "next-intl";
+import { LOCALE_TO_INTL, type Locale } from "@/i18n/config";
+import { useLocale, useTranslations } from "next-intl";
 import { useBodyScrollLock } from "@/lib/useBodyScrollLock";
 
 export default function ReportDetailClient({
@@ -57,6 +58,7 @@ export default function ReportDetailClient({
   const t = useTranslations("reports");
   const te = useTranslations("expenses");
   const tc = useTranslations("common");
+  const locale = useLocale() as Locale;
 
   async function handleExportExpenses(format: "csv" | "xlsx") {
     setExporting(true);
@@ -295,7 +297,9 @@ export default function ReportDetailClient({
             )}
             <button
               onClick={() =>
-                downloadBlob(`/reports/${id}/export`, {}, `report_${id}.pdf`)
+                void downloadBlob(`/reports/${id}/export`, {}, `report_${id}.pdf`).catch(
+                  () => toast.error(t("error_export")),
+                )
               }
               className="flex items-center gap-2 px-3 py-1.5 border border-input-border text-slate-600 dark:text-slate-400 text-sm font-medium rounded-lg hover:bg-card-hover cursor-pointer"
             >
@@ -304,11 +308,11 @@ export default function ReportDetailClient({
             </button>
             <button
               onClick={() =>
-                downloadBlob(
+                void downloadBlob(
                   `/reports/${id}/receipts-zip`,
                   {},
                   `receipts_${id}.zip`,
-                )
+                ).catch(() => toast.error(t("error_export")))
               }
               className="flex items-center gap-2 px-3 py-1.5 border border-input-border text-slate-600 dark:text-slate-400 text-sm font-medium rounded-lg hover:bg-card-hover cursor-pointer"
             >
@@ -698,7 +702,7 @@ export default function ReportDetailClient({
           </p>
           <p className="text-sm text-slate-600 dark:text-slate-400">
             {t("detail_signature_signed")}{" "}
-            {new Date(report.signed_at).toLocaleDateString("en-GB", {
+            {new Date(report.signed_at).toLocaleDateString(LOCALE_TO_INTL[locale], {
               day: "2-digit",
               month: "2-digit",
               year: "numeric",
@@ -753,11 +757,11 @@ export default function ReportDetailClient({
                         <button
                           key={r.id}
                           onClick={() =>
-                            downloadBlob(
+                            void downloadBlob(
                               `/expenses/${e.id}/receipts/${r.id}`,
                               {},
                               r.original_name || `receipt_${r.id}`,
-                            )
+                            ).catch(() => toast.error(t("error_export")))
                           }
                           className="text-blue-600 dark:text-blue-400 hover:underline text-xs cursor-pointer"
                         >
@@ -884,11 +888,11 @@ export default function ReportDetailClient({
                               <button
                                 key={r.id}
                                 onClick={() =>
-                                  downloadBlob(
+                                  void downloadBlob(
                                     `/expenses/${e.id}/receipts/${r.id}`,
                                     {},
                                     r.original_name || `receipt_${r.id}`,
-                                  )
+                                  ).catch(() => toast.error(t("error_export")))
                                 }
                                 className="text-blue-600 dark:text-blue-400 hover:underline text-xs cursor-pointer"
                               >

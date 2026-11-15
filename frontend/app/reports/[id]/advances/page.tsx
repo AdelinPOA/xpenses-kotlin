@@ -9,7 +9,7 @@ import AppShell from "@/components/layout/AppShell";
 import Badge from "@/components/ui/Badge";
 import { ArrowLeft, Plus, Check, X, Trash2 } from "lucide-react";
 import Link from "next/link";
-import { formatAmount } from "@/lib/format";
+import { formatAmount, parseLocaleNumber } from "@/lib/format";
 import { useTranslations } from "next-intl";
 
 export default function AdvancesPage({ params }: { params: Promise<{ id: string }> }) {
@@ -95,7 +95,7 @@ export default function AdvancesPage({ params }: { params: Promise<{ id: string 
   });
 
   const handleAdd = () => {
-    const amt = parseFloat(amount);
+    const amt = parseLocaleNumber(amount);
     if (isNaN(amt) || amt <= 0) return;
     if (formType === "paid" && !date) return;
     addAdvance.mutate({
@@ -108,7 +108,7 @@ export default function AdvancesPage({ params }: { params: Promise<{ id: string 
   };
 
   const handlePay = (advanceId: number) => {
-    const amt = parseFloat(payAmount);
+    const amt = parseLocaleNumber(payAmount);
     if (isNaN(amt) || amt <= 0 || !payDate) return;
     payAdvance.mutate({ advanceId, amount: amt, currency: payCurrency, date: payDate });
   };

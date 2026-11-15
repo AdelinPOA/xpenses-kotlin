@@ -44,8 +44,8 @@ class SearchController(
         val term = query.trim()
         val userId = authorization.effectiveUserId(currentUser, all)
 
-        val reports = expenseReportRepository.search(userId, term).map { reportMapper.mapReportToOut(it) }
-        val expenses = expenseRepository.search(userId, term).map { expenseMapper.toExpenseOut(it) }
+        val reports = expenseReportRepository.search(userId, term).take(50).map { reportMapper.mapReportToOut(it) }
+        val expenses = expenseRepository.search(userId, term).take(50).map { expenseMapper.toExpenseOut(it) }
 
         return SearchResult(
             reports = reports,

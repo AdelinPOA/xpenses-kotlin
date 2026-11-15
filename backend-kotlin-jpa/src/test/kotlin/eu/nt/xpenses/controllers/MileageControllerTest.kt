@@ -184,7 +184,7 @@ class MileageControllerTest : IntegrationTestBase() {
                 .content("""{"origin":"Office","destination":"Client","distance_km":50.0,"start_time":"2026-06-01T10:00:00Z","end_time":"2026-06-01T09:00:00Z"}""")
                 .cookie(cookie)
         )
-            .andExpect(status().isUnprocessableEntity)
+            .andExpect(status().isUnprocessableContent)
     }
 
     @Test

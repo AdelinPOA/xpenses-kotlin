@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import api, {
@@ -12,6 +12,7 @@ import api, {
 } from "@/lib/api";
 import { categoryKeys, expenseKeys, dashboardKeys, reportKeys } from "@/lib/queryKeys";
 import { useFormGuard } from "@/lib/useFormGuard";
+import { compressImage, compressedUploadName } from "@/lib/receiptCapture";
 import { saveNewExpense } from "@/lib/expenseSaving";
 import { useOfflineSync } from "@/components/OfflineSyncProvider";
 import { Trash2 } from "lucide-react";
@@ -149,28 +150,21 @@ export default function ExpenseForm({
   };
   const handlePointerUp = () => setIsDraggingImage(false);
 
-  const objectUrlsRef = useRef<Map<File, string>>(new Map());
   const redirectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const getObjectUrl = (file: File) => {
-    if (!objectUrlsRef.current.has(file))
-      objectUrlsRef.current.set(file, URL.createObjectURL(file));
-    return objectUrlsRef.current.get(file)!;
-  };
-
-  useEffect(() => {
-    const currentFiles = new Set(receiptFiles.map((e) => e.file));
-    objectUrlsRef.current.forEach((url, file) => {
-      if (!currentFiles.has(file)) {
-        URL.revokeObjectURL(url);
-        objectUrlsRef.current.delete(file);
-      }
-    });
-  }, [receiptFiles]);
+  const fileUrls = useMemo(
+    () => receiptFiles.map((entry) => URL.createObjectURL(entry.file)),
+    [receiptFiles],
+  );
 
   useEffect(() => {
     return () => {
-      objectUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+      fileUrls.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [fileUrls]);
+
+  useEffect(() => {
+    return () => {
       if (redirectTimeoutRef.current) clearTimeout(redirectTimeoutRef.current);
     };
   }, []);
@@ -201,10 +195,10 @@ export default function ExpenseForm({
       ),
       isPdf: /\.pdf$/i.test(r.file_path || r.original_name || ""),
     })),
-    ...receiptFiles.map((entry) => ({
+    ...receiptFiles.map((entry, idx) => ({
       key: `new-${entry.id}`,
       name: entry.file.name,
-      url: getObjectUrl(entry.file),
+      url: fileUrls[idx],
       isImage:
         entry.file.type.startsWith("image/") ||
         /\.(jpg|jpeg|png|webp)$/i.test(entry.file.name),
@@ -268,7 +262,14 @@ export default function ExpenseForm({
           if (receiptFiles.length > 0) {
             setIsUploadingReceipts(true);
             const fd = new FormData();
-            receiptFiles.forEach(({ file }) => fd.append("files", file));
+            for (const { file } of receiptFiles) {
+              const compressed = await compressImage(file);
+              fd.append(
+                "files",
+                compressed,
+                compressedUploadName(file.name, compressed),
+              );
+            }
             await api.post(`/expenses/${result.id}/receipts`, fd);
           }
         } catch {
@@ -807,8 +808,16 @@ export default function ExpenseForm({
             <button
               type="button"
               onClick={() => {
-                if (!isDirty() || window.confirm(t("guard_unsaved_changes")))
-                  router.back();
+                if (!isDirty() || window.confirm(t("guard_unsaved_changes"))) {
+                  clearDirty();
+                  router.push(
+                    returnToReportId
+                      ? `/reports/${returnToReportId}`
+                      : reportId
+                        ? `/reports/${reportId}`
+                        : "/expenses",
+                  );
+                }
               }}
               className="min-h-11 px-5 py-2 border border-input-border text-slate-600 dark:text-slate-400 text-sm font-medium rounded-lg hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700"
             >

@@ -9,9 +9,11 @@ import eu.nt.xpenses.model.OcrJobActionOperation
 import eu.nt.xpenses.model.OcrJobStatus
 import eu.nt.xpenses.model.User
 import eu.nt.xpenses.repositories.CategoryRepository
+import eu.nt.xpenses.repositories.ExpenseRepository
 import eu.nt.xpenses.repositories.OcrJobActionOperationRepository
 import eu.nt.xpenses.repositories.OcrJobRepository
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.data.domain.PageRequest
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
@@ -25,13 +27,21 @@ import java.time.LocalDate
 import java.util.concurrent.RejectedExecutionException
 
 @Service
-class OcrRecoveryService(
+class OcrRecoveryService @Autowired constructor(
     private val ocrJobRepository: OcrJobRepository,
     private val categoryRepository: CategoryRepository,
     private val actionRepository: OcrJobActionOperationRepository,
     private val ocrJobPipeline: OcrJobPipeline,
-    private val objectMapper: ObjectMapper
+    private val objectMapper: ObjectMapper,
+    private val expenseRepository: ExpenseRepository? = null
 ) {
+    constructor(
+        ocrJobRepository: OcrJobRepository,
+        categoryRepository: CategoryRepository,
+        actionRepository: OcrJobActionOperationRepository,
+        ocrJobPipeline: OcrJobPipeline,
+        objectMapper: ObjectMapper
+    ) : this(ocrJobRepository, categoryRepository, actionRepository, ocrJobPipeline, objectMapper, null)
     private val log = LoggerFactory.getLogger(OcrRecoveryService::class.java)
 
     @Transactional(readOnly = true)
@@ -68,6 +78,7 @@ class OcrRecoveryService(
 
         val now = Instant.now()
         job.status = OcrJobStatus.PENDING
+        job.attemptCount = 0
         job.errorCode = null
         job.errorMessage = null
         job.leaseToken = null
@@ -100,7 +111,8 @@ class OcrRecoveryService(
         }
 
         val values = body.values
-        if (job.expenseId != null) {
+        val activeExpenseId = job.expenseId?.takeIf { expenseRepository?.existsById(it) ?: true }
+        if (activeExpenseId != null) {
             if (values?.hasValues() == true) {
                 throw ResponseStatusException(
                     HttpStatus.CONFLICT,
@@ -110,10 +122,12 @@ class OcrRecoveryService(
             if (job.receiptId != null) {
                 job.status = OcrJobStatus.COMPLETED
                 job.completedAt = Instant.now()
+                job.attemptCount = 0
                 job.errorCode = null
                 job.errorMessage = null
                 job.leaseToken = null
                 job.leaseUntil = null
+                job.nextAttemptAt = null
                 job.updatedAt = job.completedAt!!
                 ocrJobRepository.saveAndFlush(job)
                 saveAction(job, currentUser, ACTION_MANUAL, requestKey, requestHash, job.updatedAt)
@@ -123,12 +137,15 @@ class OcrRecoveryService(
         } else {
             val manualValues = values
                 ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Manual Expense values are required")
+            job.expenseId = null
+            job.receiptId = null
             job.resultJson = objectMapper.writeValueAsString(toOcrResult(manualValues))
             job.stage = "EXPENSE"
         }
 
         val now = Instant.now()
         job.status = OcrJobStatus.PENDING
+        job.attemptCount = 0
         job.errorCode = null
         job.errorMessage = null
         job.leaseToken = null
@@ -269,13 +286,14 @@ class OcrRecoveryService(
             job.errorCode != "OCR_SOURCE_MISSING" &&
             job.expiresAt?.isAfter(now) == true
         val canRecover = job.status == OcrJobStatus.PERMANENT_FAILURE && hasSource
+        val activeExpenseId = job.expenseId?.takeIf { expenseRepository?.existsById(it) ?: true }
         val actions = buildList {
             if (job.status in ACTIVE_STATUSES) add("cancel")
             if (canRecover) {
                 add("retry")
                 add("complete_manually")
             }
-            if (job.expenseId != null) add("view_expense")
+            if (activeExpenseId != null) add("view_expense")
         }
 
         return OcrJobRecoveryOut(
@@ -287,8 +305,8 @@ class OcrRecoveryService(
             retryable = canRecover,
             allowedActions = actions,
             expiresAt = job.expiresAt,
-            expenseId = job.expenseId,
-            receiptId = job.receiptId,
+            expenseId = activeExpenseId,
+            receiptId = if (activeExpenseId != null) job.receiptId else null,
             reportId = job.requestedReportId,
             reportLinkStatus = job.reportLinkStatus
         )

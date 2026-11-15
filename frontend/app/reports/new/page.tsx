@@ -9,7 +9,8 @@ import { useFormGuard } from "@/lib/useFormGuard";
 import AppShell from "@/components/layout/AppShell";
 import Badge from "@/components/ui/Badge";
 import { formatEur } from "@/lib/format";
-import { useTranslations } from "next-intl";
+import { LOCALE_TO_INTL, type Locale } from "@/i18n/config";
+import { useLocale, useTranslations } from "next-intl";
 
 function NewReportContent() {
   const router = useRouter();
@@ -25,6 +26,7 @@ function NewReportContent() {
   const [error, setError] = useState("");
   const submitKeyRef = useRef<string | null>(null);
   const t = useTranslations("reports");
+  const locale = useLocale() as Locale;
 
   const isDirty = () => {
     return !!(title.trim() || description.trim() || dateFrom || dateTo || selectedIds.size > 0);
@@ -65,7 +67,7 @@ function NewReportContent() {
           setTitle((prev) => {
             if (prev) return prev;
             const refDate = new Date(dates[0]);
-            const monthName = refDate.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+            const monthName = refDate.toLocaleDateString(LOCALE_TO_INTL[locale], { month: "short", year: "numeric" });
             return `Expense Report - ${monthName}`;
           });
         }
@@ -266,7 +268,12 @@ function NewReportContent() {
           </button>
           <button
             type="button"
-            onClick={() => router.back()}
+            onClick={() => {
+              if (!isDirty() || window.confirm(t("guard_unsaved_changes"))) {
+                clearDirty();
+                router.push("/reports");
+              }
+            }}
             className="min-h-11 px-5 py-2 border border-input-border text-slate-600 dark:text-slate-400 text-sm font-medium rounded-lg hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700 cursor-pointer"
           >
             {t("new_cancel")}

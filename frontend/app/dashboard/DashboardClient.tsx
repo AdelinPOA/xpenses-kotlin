@@ -25,7 +25,8 @@ import {
   Search, Camera, Clock, CheckCircle2, FileEdit
 } from "lucide-react";
 import { formatEur } from "@/lib/format";
-import { useTranslations } from "next-intl";
+import { LOCALE_TO_INTL, type Locale } from "@/i18n/config";
+import { useLocale, useTranslations } from "next-intl";
 import PendingReportsTable from "@/components/dashboard/PendingReportsTable";
 import PendingAdvancesList from "@/components/dashboard/PendingAdvancesList";
 import RecentActivityStream from "@/components/dashboard/RecentActivityStream";
@@ -56,6 +57,7 @@ export default function DashboardClient() {
   const t = useTranslations("dashboard");
   const tc = useTranslations("common");
   const tcap = useTranslations("capture");
+  const locale = useLocale() as Locale;
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const toast = useToast();
@@ -174,8 +176,19 @@ export default function DashboardClient() {
   const handlePayAdvance = async (reportId: number, advanceId: number, e: React.MouseEvent) => {
     e.stopPropagation();
     triggerHaptic(15);
+    const adv = managerStats?.pending_advances.find(
+      (a) => a.id === advanceId && a.report_id === reportId,
+    );
+    if (!adv) {
+      toast.error(tc("error"));
+      return;
+    }
     try {
-      await api.post(`/reports/${reportId}/advances/${advanceId}/pay`);
+      await api.post(`/reports/${adv.report_id}/advances/${adv.id}/pay`, {
+        amount: adv.amount_eur,
+        currency: "EUR",
+        date: new Date().toISOString().slice(0, 10),
+      });
       refetchManagerStats();
       toast.success(tc("approve"));
     } catch (err) {
@@ -257,8 +270,8 @@ export default function DashboardClient() {
   }, [data?.recent_expenses, recentExpensesSearch]);
 
   const currentMonthYear = useMemo(() => {
-    return new Date().toLocaleString("en-US", { month: "long", year: "numeric" });
-  }, []);
+    return new Date().toLocaleString(LOCALE_TO_INTL[locale], { month: "long", year: "numeric" });
+  }, [locale]);
 
   // Real pending-work count for the manager notification bell.
   const pendingNotificationCount = useMemo(
@@ -507,7 +520,13 @@ export default function DashboardClient() {
                 )}
 
                 <button
-                  onClick={() => downloadBlob("/expenses/export-csv", {}, `expenses-${new Date().toISOString().slice(0, 10)}.csv`)}
+                  onClick={() =>
+                    void downloadBlob(
+                      "/expenses/export",
+                      { format: "csv" },
+                      `xpenses-report-${new Date().toISOString().slice(0, 10)}.csv`,
+                    ).catch(() => toast.error(t("export_failed")))
+                  }
                   className="flex items-center gap-2 bg-card border border-border text-foreground hover:bg-card-hover px-3.5 py-2 rounded-xl text-xs font-semibold transition-colors cursor-pointer shadow-xs"
                 >
                   <Download className="w-4 h-4 text-muted-foreground" />

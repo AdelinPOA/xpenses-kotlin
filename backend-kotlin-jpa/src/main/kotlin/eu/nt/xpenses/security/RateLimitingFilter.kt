@@ -30,7 +30,7 @@ class RateLimitingFilter(
         .map { IpAddressMatcher(it) }
 
     companion object {
-        private val EXPORT_REPORT_PATH = Regex("^/api/reports/\\d+/(pdf|receipts-zip)$")
+        private val EXPORT_REPORT_PATH = Regex("^/api/reports/\\d+/(export|export-csv|pdf|receipts-zip)$")
         private const val WINDOW_MILLIS = 60_000L
     }
 
@@ -40,7 +40,8 @@ class RateLimitingFilter(
         "/api/auth/refresh" to 20,
         "/api/ocr/scan" to 10,
         "/api/expenses/scan" to 10,
-        "/api/expenses/bulk-upload" to 5
+        "/api/expenses/bulk-upload" to 5,
+        "/api/reports/import-order" to 10
     )
 
     override fun doFilterInternal(
@@ -106,11 +107,14 @@ class RateLimitingFilter(
             return cfConnectingIp
         }
 
-        val forwardedAddress = request.getHeader("X-Forwarded-For")
-            ?.split(',')
-            ?.asSequence()
+        val forwardedAddresses = request.getHeaders("X-Forwarded-For")
+            ?.toList()
+            ?.flatMap { it.split(',') }
             ?.map(String::trim)
-            ?.firstOrNull(String::isNotEmpty)
+            ?.filter(String::isNotEmpty)
+            ?: emptyList()
+        val forwardedAddress = forwardedAddresses.asReversed().firstOrNull { !isTrustedProxy(it) }
+            ?: forwardedAddresses.firstOrNull()
         if (!forwardedAddress.isNullOrBlank()) {
             return forwardedAddress
         }

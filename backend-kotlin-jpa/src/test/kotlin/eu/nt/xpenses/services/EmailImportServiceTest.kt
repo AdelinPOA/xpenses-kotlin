@@ -283,7 +283,7 @@ class EmailImportServiceTest {
         val ex = assertThrows<ResponseStatusException> {
             service.importOrderForUser(user, orderEmail)
         }
-        assertEquals(HttpStatus.UNPROCESSABLE_ENTITY, ex.statusCode)
+        assertEquals(HttpStatus.UNPROCESSABLE_CONTENT, ex.statusCode)
         assertTrue(ex.reason?.contains("AI parsing is disabled") == true)
     }
 
@@ -315,7 +315,7 @@ class EmailImportServiceTest {
         val ex = assertThrows<ResponseStatusException> {
             service.importOrderForUser(user, orderEmail)
         }
-        assertEquals(HttpStatus.UNPROCESSABLE_ENTITY, ex.statusCode)
+        assertEquals(HttpStatus.UNPROCESSABLE_CONTENT, ex.statusCode)
         assertTrue(ex.reason?.contains("No configured AI model returned a valid delegation result") == true)
     }
 

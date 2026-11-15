@@ -92,4 +92,6 @@ class S3StorageProvider(
         }
     }
 
+    override fun close() = s3Client.close()
+
 }

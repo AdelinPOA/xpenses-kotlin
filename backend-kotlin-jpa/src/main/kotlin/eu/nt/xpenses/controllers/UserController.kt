@@ -109,8 +109,10 @@ class UserController(
             ?: return ResponseEntity.status(404).body(mapOf("detail" to "User not found"))
 
         user.role = body.role
+        user.tokenVersion++
         user.updatedAt = Instant.now()
         val saved = userRepository.save(user)
+        refreshTokenRepository.deleteByUserId(userId)
         return ResponseEntity.ok(UserResponse.fromUser(saved))
     }
 
@@ -132,6 +134,9 @@ class UserController(
 
         val active = body.isActive ?: return ResponseEntity.status(400).body(mapOf("detail" to "is_active is required"))
         user.isActive = active
+        if (!active) {
+            user.tokenVersion++
+        }
         user.updatedAt = Instant.now()
         val saved = userRepository.save(user)
 

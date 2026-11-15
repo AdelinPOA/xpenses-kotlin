@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import api, { Report } from "@/lib/api";
 import { reportKeys } from "@/lib/queryKeys";
 import { formatEur } from "@/lib/format";
+import { useBodyScrollLock } from "@/lib/useBodyScrollLock";
 import { X, Check, FileText, User, Calendar, Tag, Paperclip, AlertCircle, Loader2 } from "lucide-react";
 import Badge from "@/components/ui/Badge";
 import { useTranslations } from "next-intl";
@@ -36,11 +37,31 @@ export default function SlideOverReviewDrawer({
     enabled: !!reportId,
   });
 
+  useBodyScrollLock(reportId !== null);
+
+  useEffect(() => {
+    if (reportId === null) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [reportId, onClose]);
+
   if (!reportId) return null;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden bg-black/40 backdrop-blur-xs flex justify-end transition-opacity">
-      <div className="w-full max-w-xl bg-card border-l border-border h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-200">
+    <div
+      className="fixed inset-0 z-50 overflow-hidden bg-black/40 backdrop-blur-xs flex justify-end transition-opacity"
+      onClick={onClose}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={report?.title || `${t("report_number")}${reportId}`}
+        className="w-full max-w-xl bg-card border-l border-border h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-200"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="p-6 border-b border-border flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-primary/10 text-primary">

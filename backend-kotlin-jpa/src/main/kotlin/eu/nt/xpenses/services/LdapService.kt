@@ -56,13 +56,13 @@ class LdapService(
             if (encryptedPw.isNotEmpty()) {
                 try {
                     config.bindPassword = cryptoService.decrypt(encryptedPw, "xpenses-ldap-bind-pw")
-                } catch (e: Exception) {
+                } catch (_: Exception) {
                     config.bindPassword = ""
                     config.bindPasswordInvalid = true
                 }
             }
             config
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             LdapConfig()
         }
     }
@@ -228,12 +228,19 @@ class LdapService(
                         !user.isActive
 
                     if (changed) {
+                        val roleChanged = user.role != entry.role
                         user.displayName = entry.displayName.ifEmpty { user.displayName }
                         user.email = entry.email.ifEmpty { user.email }
                         user.role = entry.role
                         user.isActive = true
+                        if (roleChanged) {
+                            user.tokenVersion++
+                        }
                         user.updatedAt = now
                         userRepository.save(user)
+                        if (roleChanged) {
+                            refreshTokenRepository.deleteByUserId(user.id!!)
+                        }
                         stats["updated"] = stats["updated"]!! + 1
                     }
                 }
@@ -244,6 +251,7 @@ class LdapService(
             for (ldapUser in ldapUsers) {
                 if (!directoryUsernames.contains(ldapUser.username)) {
                     ldapUser.isActive = false
+                    ldapUser.tokenVersion++
                     ldapUser.updatedAt = now
                     userRepository.save(ldapUser)
                     refreshTokenRepository.deleteByUserId(ldapUser.id!!)
@@ -252,7 +260,7 @@ class LdapService(
             }
 
             stats
-        } ?: emptyMap()
+        }
     }
 
     fun authenticateLdap(username: String, password: String, config: LdapConfig): Boolean {
@@ -267,9 +275,20 @@ class LdapService(
                     returningAttributes = arrayOf("dn")
                 }
 
-                // Search for DN (safely escaping user input filter chars)
+                // Search for DN (safely escaping user input filter chars and enforcing config.userFilter)
                 val cleanUsername = escapeFilterChars(username)
-                val filter = "(${config.attrUsername}=$cleanUsername)"
+                val trimmedUserFilter = config.userFilter.trim()
+                val normalizedUserFilter = when {
+                    trimmedUserFilter.isEmpty() -> null
+                    trimmedUserFilter.startsWith("(") && trimmedUserFilter.endsWith(")") -> trimmedUserFilter
+                    else -> "($trimmedUserFilter)"
+                }
+                val usernameExpr = "(${config.attrUsername}=$cleanUsername)"
+                val filter = if (normalizedUserFilter != null) {
+                    "(&$normalizedUserFilter$usernameExpr)"
+                } else {
+                    usernameExpr
+                }
                 val results = ctx.search(config.baseDn, filter, searchControls)
 
                 try {
@@ -288,6 +307,8 @@ class LdapService(
                         put(Context.SECURITY_AUTHENTICATION, "simple")
                         put(Context.SECURITY_PRINCIPAL, userDn)
                         put(Context.SECURITY_CREDENTIALS, password)
+                        put("com.sun.jndi.ldap.connect.timeout", "5000")
+                        put("com.sun.jndi.ldap.read.timeout", "5000")
                     }
 
                     val userCtx = InitialDirContext(userEnv)

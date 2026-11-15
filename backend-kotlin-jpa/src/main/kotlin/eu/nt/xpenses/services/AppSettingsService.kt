@@ -12,11 +12,13 @@ import eu.nt.xpenses.model.AppSetting
 import eu.nt.xpenses.models.StorageConfigDto
 import eu.nt.xpenses.repositories.AppSettingRepository
 import eu.nt.xpenses.repositories.ExpenseRepository
+import eu.nt.xpenses.repositories.FxRateRepository
 import eu.nt.xpenses.repositories.InsuranceFileRepository
 import eu.nt.xpenses.repositories.OcrJobRepository
 import eu.nt.xpenses.repositories.ReceiptRepository
 import eu.nt.xpenses.repositories.UserRepository
 import eu.nt.xpenses.services.storage.StoragePathResolver
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.io.File
@@ -34,7 +36,7 @@ import java.time.Instant
  * detection. Controllers stay HTTP adapters and delegate here.
  */
 @Service
-class AppSettingsService(
+class AppSettingsService @Autowired constructor(
     private val appSettingRepository: AppSettingRepository,
     private val receiptRepository: ReceiptRepository,
     private val expenseRepository: ExpenseRepository,
@@ -43,7 +45,28 @@ class AppSettingsService(
     private val userRepository: UserRepository,
     private val storageService: StorageService,
     private val objectMapper: ObjectMapper,
+    private val fxRateRepository: FxRateRepository? = null,
 ) {
+    constructor(
+        appSettingRepository: AppSettingRepository,
+        receiptRepository: ReceiptRepository,
+        expenseRepository: ExpenseRepository,
+        insuranceFileRepository: InsuranceFileRepository,
+        ocrJobRepository: OcrJobRepository,
+        userRepository: UserRepository,
+        storageService: StorageService,
+        objectMapper: ObjectMapper,
+    ) : this(
+        appSettingRepository,
+        receiptRepository,
+        expenseRepository,
+        insuranceFileRepository,
+        ocrJobRepository,
+        userRepository,
+        storageService,
+        objectMapper,
+        null,
+    )
     companion object {
         private const val SECRET_MASK = "••••••••"
         private val SECRET_PLACEHOLDERS = setOf("••••••••", "****")
@@ -216,31 +239,30 @@ class AppSettingsService(
         normalized.forEach { (key, percentage) -> candidate[key] = percentage.movePointLeft(2) }
         if (normalized.isNotEmpty()) {
             appSettingRepository.save(AppSetting("fx_margins", objectMapper.writeValueAsString(candidate), Instant.now()))
+            fxRateRepository?.deleteAllInBatch()
         }
         return toFxMarginsOut(candidate)
     }
 
     // --- Storage secrets ---
 
-    /** Masks any non-empty stored secret before a config leaves the API. Mutates in place. */
-    fun maskStorageSecrets(config: StorageConfigDto) {
-        config.smb
-            ?.password
-            ?.takeUnless { it.isNullOrEmpty() }
-            ?.let { config.smb?.password = SECRET_MASK }
-        config.webdav
-            ?.password
-            ?.takeUnless { it.isNullOrEmpty() }
-            ?.let { config.webdav?.password = SECRET_MASK }
-        config.sftp
-            ?.password
-            ?.takeUnless { it.isNullOrEmpty() }
-            ?.let { config.sftp?.password = SECRET_MASK }
-        config.s3
-            ?.secretKey
-            ?.takeUnless { it.isNullOrEmpty() }
-            ?.let { config.s3?.secretKey = SECRET_MASK }
-    }
+    /** Returns a defensive copy of [config] with any non-empty stored secrets masked. */
+    fun maskStorageSecrets(config: StorageConfigDto): StorageConfigDto =
+        config.copy(
+            local = config.local?.copy(),
+            s3 = config.s3?.let { s3 ->
+                s3.copy(secretKey = if (s3.secretKey.isNullOrEmpty()) s3.secretKey else SECRET_MASK)
+            },
+            smb = config.smb?.let { smb ->
+                smb.copy(password = if (smb.password.isNullOrEmpty()) smb.password else SECRET_MASK)
+            },
+            webdav = config.webdav?.let { webdav ->
+                webdav.copy(password = if (webdav.password.isNullOrEmpty()) webdav.password else SECRET_MASK)
+            },
+            sftp = config.sftp?.let { sftp ->
+                sftp.copy(password = if (sftp.password.isNullOrEmpty()) sftp.password else SECRET_MASK)
+            }
+        )
 
     /**
      * Replaces masked/placeholder secrets in [target] with the values from [stored].
@@ -363,11 +385,14 @@ class AppSettingsService(
             Files.getLastModifiedTime(path, LinkOption.NOFOLLOW_LINKS).toInstant().isBefore(cutoff)
         }.getOrDefault(false)
 
-    private fun findOrphanReceiptFiles(baseDir: Path): List<String> {
+    private fun findOrphanReceiptFiles(
+        baseDir: Path,
+        precomputedReferences: Set<Path>? = null,
+    ): List<String> {
         if (!Files.isDirectory(baseDir, LinkOption.NOFOLLOW_LINKS)) return emptyList()
 
         val cutoff = Instant.now().minus(Duration.ofHours(ORPHAN_RECEIPT_MIN_AGE_HOURS))
-        val referencedPaths = referencedStoragePaths(baseDir)
+        val referencedPaths = precomputedReferences ?: referencedStoragePaths(baseDir)
         return listLocalFiles(baseDir)
             .filter { RECEIPT_STORAGE_PATH.matches(it) }
             .filter { relativePath ->
@@ -387,11 +412,11 @@ class AppSettingsService(
 
     fun scanOrphanReceipts(): List<String> = findOrphanReceiptFiles(localStorageRoot())
 
-    @Transactional
     fun cleanOrphanReceipts(): Int {
         val baseDir = localStorageRoot()
-        val orphans = findOrphanReceiptFiles(baseDir)
+        if (!Files.isDirectory(baseDir, LinkOption.NOFOLLOW_LINKS)) return 0
         val referencedPaths = referencedStoragePaths(baseDir)
+        val orphans = findOrphanReceiptFiles(baseDir, referencedPaths)
         val cutoff = Instant.now().minus(Duration.ofHours(ORPHAN_RECEIPT_MIN_AGE_HOURS))
 
         val cleanedFiles = mutableListOf<Path>()

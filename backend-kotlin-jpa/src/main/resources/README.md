@@ -1,0 +1,11 @@
+# Backend Resources (`resources`)
+
+## Overview
+Provides Spring Boot runtime configuration profiles, structured logging configuration, static branding assets (`company_logo.png`), and database migration scripts:
+- `application.yml`: Default configuration for `backend-microservice`, setting Jackson `SNAKE_CASE` naming (`use-jackson2-defaults: true`), PostgreSQL datasource (`SPRING_DATASOURCE_*`), Hibernate (`open-in-view: false`, `ddl-auto: validate`, `default_batch_fetch_size: 16`), Flyway (`enabled: true`, `baseline-on-migrate: true`, `validate-on-migrate: false`), 10MB servlet multipart upload limits, JCache/Redis (`REDIS_URL`), JWT (`JWT_SECRET`, 60m access, 30d refresh/cookie), `ENCRYPTION_SECRET`, `SEED_DEMO_USERS`, `CORS_ALLOWED_ORIGINS`, `COMPANY_NAME`, rate-limiting defaults (`memory` store, `10000` max tracked keys, `fail-closed: false`), Actuator (`health,info,prometheus`), `imap.poll-interval` (`300000`ms), OCR cache cleanup (`90` days retention, `86400000`ms interval, batch `100`), Springdoc/Swagger toggle, and `server.forward-headers-strategy: framework`.
+- `application-prod.yml`: Production profile overrides requiring `REDIS_URL`, `JWT_SECRET`, `JWT_SALT`, `ENCRYPTION_SECRET`, and `CORS_ALLOWED_ORIGINS` without fallback defaults, enabling strict Flyway validation (`baseline-on-migrate: false`, `validate-on-migrate: true`), setting `cookie.secure: true`, and configuring fail-closed Redis rate limiting (`store: redis`, `fail-closed: true`, trusted proxy CIDRs).
+- `application-ci.yml`: Disposable CI profile enabling strict Flyway validation (`baseline-on-migrate: false`, `validate-on-migrate: true`), disabling `@Scheduled` task scheduling (`spring.task.scheduling.enabled: false`) and rate limiting (`rate-limiting.enabled: false`, `store: redis`, `fail-closed: false`), setting `cookie.secure: false`, and exposing optional `ci.test.technician` credentials.
+- `logback-spring.xml`: Profile-aware Logback logging at `INFO` root level—colored console output for `!prod` and structured JSON (`net.logstash.logback.encoder.LogstashEncoder`) for `prod`.
+
+## Subdirectories & Boundaries
+- `db`: [`./db/README.md`](./db/README.md) - Database resource grouping containing the Flyway SQL migrations under `./db/migration/README.md`.

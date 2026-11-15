@@ -24,11 +24,12 @@ Deployment manifests and release pointers live under the private deployment dire
 - Backend container-free unit tests (`26` suites): `175` tests, `0` skipped, `0` failures, `0` errors.
 - Backend targeted Testcontainers suites (`21` suites across 3 sequential batches, `spring.jpa.open-in-view: false`): `165` tests (`69` + `71` + `25`), `0` skipped, `0` failures, `0` errors (`7` untouched integration suites skipped per host guardrail).
 - Frontend checks (`cd frontend && npm run typecheck && npm run i18n:check && npm run lint`): clean (`1245` i18n keys matched across `en.json` and `ro.json`; `eslint . --max-warnings 0` exited `0`).
-- Frontend Node regression suites:
+- Frontend Node & Playwright regression suites:
   - `npm run test:auth:unit`: `5/5` passed
   - `npm run test:lint-config`: `5/5` passed
   - `npm run test:service-worker:unit`: `9/9` passed
-  - `node --test tests/queryPersister.test.cjs tests/expenses/*.test.cjs`: `45/45` passed
+  - `node --test tests/expenses/ocr-source-queue.test.cjs tests/expenses/capture-resume-state.test.cjs tests/expenses/receipt-capture.test.cjs tests/expenses/ocr-recovery-client.test.cjs`: `18/18` passed
+  - `npm run test:offline-regressions`: `29/29` passed (`mobile-chromium`, `--workers=1`; `tests/auth/replay-session.spec.ts --repeat-each=3`: `21/21` passed)
 - Root script & reconcile checks: `python3 scripts/reconcile.py audit` PASS, `test_verify_ocr_restart.py` `8/8` OK, `check-i18n-parity.test.mjs` & `check-npm-audit.test.mjs` PASS.
 - Live production smoke checks after rollout (`xpenses-backend:audit-fixes-20261115` / `xpenses-frontend:audit-fixes-20261115`):
   - `http://127.0.0.1:8001/api/health` and `https://xpenses.nt-automation.cc/api/health`: `{"status":"ok"}`

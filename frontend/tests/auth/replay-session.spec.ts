@@ -220,25 +220,34 @@ async function startDelayedBrowserReplay(page: Page) {
     )
     .toBe(OWNER_ID);
 
+  await expect(
+    page.getByRole("button", { name: /sign out/i }),
+  ).toBeVisible();
+
   await seedBrowserQueue(page);
-  // Repeated online events re-verify auth; stop once replay has started so they
-  // cannot abort the in-flight create request this test is holding.
-  const replayTrigger = await page.evaluate(() => {
-    const timer = window.setInterval(
-      () => window.dispatchEvent(new Event("online")),
-      100,
-    );
-    const timeout = window.setTimeout(
-      () => window.clearInterval(timer),
-      10_000,
-    );
-    return { timer, timeout };
-  });
-  await expect.poll(() => createStarted, { timeout: 10_000 }).toBe(true);
-  await page.evaluate(({ timer, timeout }) => {
-    window.clearInterval(timer);
-    window.clearTimeout(timeout);
-  }, replayTrigger);
+  // Repeated online events re-verify auth and abort in-flight syncs; throttle
+  // online dispatches and require an active lease before returning.
+  let onlineDispatchedAt = Date.now() - 1_300;
+  await expect
+    .poll(
+      async () => {
+        const summary = await readBrowserQueueSummary(page);
+        if (createStarted && summary?.leaseToken) {
+          return true;
+        }
+        const now = Date.now();
+        if (now - onlineDispatchedAt >= 1_500) {
+          createStarted = false;
+          onlineDispatchedAt = now;
+          await page.evaluate(() => {
+            window.dispatchEvent(new Event("online"));
+          });
+        }
+        return false;
+      },
+      { timeout: 10_000, intervals: [100, 100, 100, 200, 250] },
+    )
+    .toBe(true);
 
   return {
     setServerUser: (nextUser: (typeof USERS)[keyof typeof USERS] | null) => {

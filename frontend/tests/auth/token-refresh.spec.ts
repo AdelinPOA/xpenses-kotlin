@@ -198,14 +198,23 @@ test.describe("Axios session refresh", () => {
     page,
   }) => {
     let meRequests = 0;
+    let authenticatedMeRequests = 0;
     let refreshes = 0;
+    let loggedIn = false;
+    let failNextAuthenticatedMe = false;
     await page.route("**/api/auth/me", async (route) => {
       meRequests += 1;
-      await route.fulfill(
-        meRequests === 1
-          ? { status: 401, json: { detail: "Session expired" } }
-          : { status: meRequests === 3 ? 401 : 200, json: USERS.mod },
-      );
+      if (!loggedIn) {
+        await route.fulfill({ status: 401, json: { detail: "Session expired" } });
+        return;
+      }
+      if (failNextAuthenticatedMe) {
+        failNextAuthenticatedMe = false;
+        await route.fulfill({ status: 401, json: { detail: "Session expired" } });
+        return;
+      }
+      authenticatedMeRequests += 1;
+      await route.fulfill({ status: 200, json: USERS.mod });
     });
     await page.route("**/api/auth/refresh", async (route) => {
       refreshes += 1;
@@ -215,9 +224,11 @@ test.describe("Axios session refresh", () => {
           : { status: 200, json: { access_token: "new-session-token" } },
       );
     });
-    await page.route("**/api/auth/login", (route) =>
-      route.fulfill({ status: 200, json: USERS.mod }),
-    );
+    await page.route("**/api/auth/login", (route) => {
+      loggedIn = true;
+      failNextAuthenticatedMe = false;
+      return route.fulfill({ status: 200, json: USERS.mod });
+    });
 
     await page.goto("/login");
     await expect.poll(() => refreshes).toBe(1);
@@ -227,7 +238,9 @@ test.describe("Axios session refresh", () => {
       .fill("password");
     await page.getByRole("button", { name: /sign in/i }).click();
     await expect(page).toHaveURL(/\/dashboard$/);
+    await expect.poll(() => authenticatedMeRequests).toBeGreaterThanOrEqual(1);
 
+    failNextAuthenticatedMe = true;
     const nextMeCheck = page.waitForRequest((request) =>
       request.url().includes("/api/auth/me"),
     );

@@ -521,10 +521,6 @@ export default function AuthProvider({
         } catch {
           // Ignore storage removal errors
         }
-        if (typeof indexedDB !== "undefined") {
-          indexedDB.deleteDatabase("xpenses-offline");
-          indexedDB.deleteDatabase("xpenses-ocr-sources");
-        }
       }
     }
   }, [router, clearProactiveRefresh, commitUser, setSessionVerified]);

@@ -10,8 +10,8 @@ Historical checkpoints and superseded audits (`P2_HANDOFF.md`, `cve.md`, `plans/
 
 | Area | Provenance / boundary |
 | --- | --- |
-| Previous `origin/main` baseline | `947ada5` (prior `34aa5f8` P0–P3 audit remediation + root documentation sync). |
-| Audit remediation rollout (`2026-11-15`) | Full 30-item checklist in [`todo.md`](todo.md) (`C1`–`C10`, `M1`–`M11`, `P1`–`P5`, `Q1`–`Q4`): OCR lease/attempt/render/lazy-init/idempotency fixes, storage secret masking & SSRF/path guards, rate-limiting & proxy hardening, advance/report/expense/FX lifecycle fixes, IMAPS timeouts & ingestion caps, Kotlin warning cleanup, and frontend auth-image/useFormGuard/IndexedDB-logout/SSR/a11y fixes. |
+| Previous `origin/main` baseline | `0314411` (prior `947ada5` audit remediation + root documentation sync). |
+| Audit remediation rollout (`2026-11-15`) | Full 30-item checklist in [`todo.md`](todo.md) (`C1`–`C10`, `M1`–`M11`, `P1`–`P5`, `Q1`–`Q4`), followed by CI frontend Playwright stabilization in commit `bb960d2`: OCR lease/attempt/render/lazy-init/idempotency fixes, storage secret masking & SSRF/path guards, rate-limiting & proxy hardening, advance/report/expense/FX lifecycle fixes, IMAPS timeouts & ingestion caps, Kotlin warning cleanup, and frontend auth-image/useFormGuard/IndexedDB-logout/SSR/a11y fixes. |
 | Production backend | `xpenses-backend:audit-fixes-20261115` |
 | Production frontend | `xpenses-frontend:audit-fixes-20261115` (built with `NEXT_PUBLIC_OCR_IMMEDIATE_REVIEW_ENABLED=true`) |
 | Production schema | `V107` (`V107__refresh_token_rotation_grace.sql`) applied cleanly on live `postgres:16-alpine`; existing `xpenses-db` and `xpenses-redis` containers and volumes preserved. |
@@ -30,6 +30,7 @@ Deployment manifests and release pointers live under the private deployment dire
   - `npm run test:service-worker:unit`: `9/9` passed
   - `node --test tests/expenses/ocr-source-queue.test.cjs tests/expenses/capture-resume-state.test.cjs tests/expenses/receipt-capture.test.cjs tests/expenses/ocr-recovery-client.test.cjs`: `18/18` passed
   - `npm run test:offline-regressions`: `29/29` passed (`mobile-chromium`, `--workers=1`; `tests/auth/replay-session.spec.ts --repeat-each=3`: `21/21` passed)
+- GitHub Actions CI (run `43759664326` on `bb960d2`): all 4 workflow jobs passed (`Build & Lint Frontend`, `Build & Test Kotlin Backend`, `Secrets Scan (Gitleaks)`, `Compose Integration & Security Gates`).
 - Root script & reconcile checks: `python3 scripts/reconcile.py audit` PASS, `test_verify_ocr_restart.py` `8/8` OK, `check-i18n-parity.test.mjs` & `check-npm-audit.test.mjs` PASS.
 - Live production smoke checks after rollout (`xpenses-backend:audit-fixes-20261115` / `xpenses-frontend:audit-fixes-20261115`):
   - `http://127.0.0.1:8001/api/health` and `https://xpenses.nt-automation.cc/api/health`: `{"status":"ok"}`

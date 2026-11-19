@@ -30,9 +30,11 @@ class AsyncConfig {
     @Bean(name = ["ocrTaskExecutor"])
     fun ocrTaskExecutor(): Executor {
         val executor = ThreadPoolTaskExecutor()
-        executor.corePoolSize = 2
-        executor.maxPoolSize = 5
+        executor.corePoolSize = 6
+        executor.maxPoolSize = 8
         executor.queueCapacity = 50
+        executor.keepAliveSeconds = 60
+        executor.setAllowCoreThreadTimeOut(true)
         executor.setThreadNamePrefix("OcrWorker-")
         // When queue is full, reject with exception instead of running in caller thread
         executor.setRejectedExecutionHandler(ThreadPoolExecutor.AbortPolicy())

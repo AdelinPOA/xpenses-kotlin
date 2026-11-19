@@ -749,4 +749,75 @@ class OcrServiceTest {
         assertEquals(18.0, result["amount"])
         assertEquals("Race Cafe", result["merchant"])
     }
+
+    @Test
+    fun `transient 503 puts failing primary model in cooldown so next scan prioritizes healthy fallback`() {
+        var now = Instant.parse("2026-11-19T20:00:00Z")
+        ocrService.clock = { now }
+        ocrService.clearModelCooldowns()
+        var failPrimary = true
+        val attempted = mutableListOf<String>()
+        doAnswer { invocation ->
+            val modelId = invocation.arguments[1] as String
+            attempted.add(modelId)
+            if (modelId == "gemini-3.1-flash-lite" && failPrimary) {
+                throw ProviderTransportException("AI provider HTTP 503", statusCode = 503)
+            }
+            objectMapper.writeValueAsString(geminiResult(25.0, "Fast Shop", "2026-11-19"))
+        }.`when`(compatibleClient).complete(
+            any(OCRProviderConfig::class.java) ?: OCRProviderConfig("provider", "provider", "https://api.example.com/v1"),
+            anyString(),
+            anyString(),
+            any<Any?>(),
+        )
+
+        // First scan: tries primary -> 503 -> falls back to secondary
+        val first = ocrService.scanReceipt(fakeBytes, filename)
+        assertEquals(25.0, first["amount"])
+        assertEquals(listOf("gemini-3.1-flash-lite", "gemini-3.5-flash"), attempted)
+
+        // Second scan within cooldown window: skips primary and goes straight to healthy secondary
+        attempted.clear()
+        val second = ocrService.scanReceipt(fakeBytes + byteArrayOf(1), "receipt2.jpg")
+        assertEquals(25.0, second["amount"])
+        assertEquals(listOf("gemini-3.5-flash"), attempted)
+
+        // Third scan after cooldown expires: primary is tried first again and succeeds
+        failPrimary = false
+        now = now.plusSeconds(OcrService.MODEL_COOLDOWN_SECONDS + 1)
+        attempted.clear()
+        val third = ocrService.scanReceipt(fakeBytes + byteArrayOf(2), "receipt3.jpg")
+        assertEquals(25.0, third["amount"])
+        assertEquals(listOf("gemini-3.1-flash-lite"), attempted)
+    }
+
+    @Test
+    fun `scanReceipt renders PDF pages as compressed JPEG instead of lossless PNG`() {
+        val pdfBytes =
+            java.io.ByteArrayOutputStream().use { out ->
+                org.apache.pdfbox.pdmodel.PDDocument().use { doc ->
+                    doc.addPage(org.apache.pdfbox.pdmodel.PDPage())
+                    doc.save(out)
+                }
+                out.toByteArray()
+            }
+        var capturedUrl = ""
+        doAnswer { invocation ->
+            val parts = invocation.arguments[3] as List<*>
+            val imagePart = parts.filterIsInstance<Map<*, *>>().firstOrNull { it["type"] == "image_url" }
+            val urlMap = imagePart?.get("image_url") as? Map<*, *>
+            capturedUrl = urlMap?.get("url")?.toString().orEmpty()
+            objectMapper.writeValueAsString(geminiResult(99.0, "PDF Hotel", "2026-11-19"))
+        }.`when`(compatibleClient).complete(
+            any(OCRProviderConfig::class.java) ?: OCRProviderConfig("provider", "provider", "https://api.example.com/v1"),
+            anyString(),
+            anyString(),
+            any<Any?>(),
+        )
+
+        val result = ocrService.scanReceipt(pdfBytes, "hotel.pdf")
+
+        assertEquals(99.0, result["amount"])
+        assertTrue(capturedUrl.startsWith("data:image/jpeg;base64,"), "Expected JPEG data URL, got: ${capturedUrl.take(40)}")
+    }
 }

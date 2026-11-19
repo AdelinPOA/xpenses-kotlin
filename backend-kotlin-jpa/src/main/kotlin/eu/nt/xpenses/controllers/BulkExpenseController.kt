@@ -5,6 +5,7 @@ import eu.nt.xpenses.dto.expense.BulkUploadResult
 import eu.nt.xpenses.dto.expense.ExpenseCreate
 import eu.nt.xpenses.dto.expense.ExpenseOut
 import eu.nt.xpenses.model.User
+import eu.nt.xpenses.repositories.OcrComparisonRepository
 import eu.nt.xpenses.security.RateLimitStore
 import eu.nt.xpenses.services.ExpenseService
 import eu.nt.xpenses.services.IdempotentExpenseSaving
@@ -36,6 +37,7 @@ class BulkExpenseController @Autowired constructor(
     private val rateLimitStore: RateLimitStore,
     private val saving: IdempotentExpenseSaving,
     private val idempotency: SaveIdempotencyService,
+    private val ocrComparisonRepository: OcrComparisonRepository? = null,
     @Qualifier("ocrTaskExecutor") private val ocrTaskExecutor: Executor = Executor { it.run() },
 ) {
     constructor(
@@ -44,7 +46,7 @@ class BulkExpenseController @Autowired constructor(
         rateLimitStore: RateLimitStore,
         saving: IdempotentExpenseSaving,
         idempotency: SaveIdempotencyService,
-    ) : this(expenseService, ocrService, rateLimitStore, saving, idempotency, Executor { it.run() })
+    ) : this(expenseService, ocrService, rateLimitStore, saving, idempotency, null, Executor { it.run() })
     private val log = LoggerFactory.getLogger(javaClass)
     private val currencyRegex = Regex("^[A-Z]{3}$")
     private val dateRegex = Regex("^\\d{4}-\\d{2}-\\d{2}$")
@@ -194,6 +196,13 @@ class BulkExpenseController @Autowired constructor(
                     errors.add(BulkUploadError(filename, "Could not create expense: ${e.message}", fileIndex = index))
                     continue
                 }
+
+            val comparisonId = (ocrResult["comparison_id"] as? Number)?.toInt()
+            val comparisonRepo = ocrComparisonRepository
+            if (comparisonId != null && comparisonRepo != null) {
+                runCatching { comparisonRepo.linkExpense(comparisonId, expenseOut.id) }
+                    .onFailure { log.warn("Failed to link OCR comparison {} to expense {}: {}", comparisonId, expenseOut.id, it.message) }
+            }
 
             try {
                 // Same key used by the known-ID frontend attachment retry.

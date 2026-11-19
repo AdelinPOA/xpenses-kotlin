@@ -312,8 +312,12 @@ export async function scanReceipt(
       }, 1000);
 
       const deadline = startedAt + maxWaitMs;
+      const pollDelaysMs = [250, 400, 600, 900, 1200, 1500];
+      let pollIndex = 0;
       while (Date.now() < deadline) {
-        await sleep(1500, signal);
+        const delayMs = pollDelaysMs[Math.min(pollIndex, pollDelaysMs.length - 1)];
+        pollIndex++;
+        await sleep(delayMs, signal);
         const statusRes = await api.get(statusUrl, { signal });
         if (statusRes.data.status === "completed") {
           const promotedResult = {

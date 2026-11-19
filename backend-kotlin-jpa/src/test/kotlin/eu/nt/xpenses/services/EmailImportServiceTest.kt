@@ -399,4 +399,78 @@ class EmailImportServiceTest {
         assertEquals(77, preview.existingDraftReportId)
         assertEquals("Existing Draft", preview.existingDraftReportTitle)
     }
+
+    @Test
+    fun `DelegationEmailParserAdapter returns RetryableFailure when all AI models fail transiently and local parser cannot match`() {
+        `when`(settingsRepository.findById("ocr_config")).thenReturn(
+            Optional.of(AppSetting("ocr_config", mapper.writeValueAsString(config)))
+        )
+        doAnswer {
+            throw ProviderTransportException("AI provider HTTP 503", statusCode = 503)
+        }.`when`(client).complete(
+            any(OCRProviderConfig::class.java) ?: config.providers.first(),
+            anyString(),
+            anyString(),
+            any<Any?>(),
+        )
+
+        val adapter = eu.nt.xpenses.ingestion.DelegationEmailParserAdapter(service)
+        val outcome =
+            adapter.parse(
+                eu.nt.xpenses.ingestion.InboundEmail(
+                    messageKey = "message-id:transient-ai",
+                    fromAddress = "tech@example.com",
+                    bodyText = "Unstructured prose without standard date formats",
+                ),
+            )
+
+        assertTrue(outcome is eu.nt.xpenses.ingestion.ParseResult.RetryableFailure)
+    }
+
+    @Test
+    fun `simulateIncomingEmail skips AI when local parser is requested and rejects non-technician senders`() {
+        val userRepo = mock(UserRepository::class.java)
+        val localService =
+            EmailImportService(
+                userRepo,
+                expenseReportRepository,
+                ocrService,
+                mapper,
+                mock(ImapIngestionLedger::class.java),
+                parsingSettingsService,
+            )
+        `when`(settingsRepository.findById("ocr_config")).thenReturn(
+            Optional.of(AppSetting("ocr_config", mapper.writeValueAsString(config)))
+        )
+        val techUser =
+            User(
+                id = 10,
+                username = "tech",
+                displayName = "Tech User",
+                email = "tech@example.com",
+                role = "technician",
+                isActive = true,
+            )
+        val modUser =
+            User(
+                id = 11,
+                username = "mod",
+                displayName = "Mod User",
+                email = "mod@example.com",
+                role = "mod",
+                isActive = true,
+            )
+        `when`(userRepo.findByEmail("tech@example.com")).thenReturn(techUser)
+        `when`(userRepo.findByEmail("mod@example.com")).thenReturn(modUser)
+        `when`(expenseReportRepository.save(any(ExpenseReport::class.java))).thenAnswer { it.arguments[0] as ExpenseReport }
+
+        val localResult = localService.simulateIncomingEmail("tech@example.com", orderEmail, requestedParser = "local")
+        assertEquals(true, localResult["success"])
+        assertEquals("local", localResult["active_parser"])
+        org.mockito.Mockito.verifyNoInteractions(client)
+
+        val modResult = localService.simulateIncomingEmail("mod@example.com", orderEmail, requestedParser = "local")
+        assertEquals(false, modResult["success"])
+        assertTrue(modResult["error"].toString().contains("not a Technician"))
+    }
 }

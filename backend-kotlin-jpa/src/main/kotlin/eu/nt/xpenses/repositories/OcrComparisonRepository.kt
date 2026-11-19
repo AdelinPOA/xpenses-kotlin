@@ -33,4 +33,15 @@ interface OcrComparisonRepository : JpaRepository<OcrComparison, Int> {
         @Param("error") error: String?,
         @Param("provider") provider: String?
     )
+
+    @Modifying
+    @Transactional
+    @Query(
+        value = "UPDATE ocr_comparisons SET expense_id = :expenseId WHERE id = :id AND expense_id IS NULL",
+        nativeQuery = true
+    )
+    fun linkExpense(
+        @Param("id") id: Int,
+        @Param("expenseId") expenseId: Int
+    ): Int
 }

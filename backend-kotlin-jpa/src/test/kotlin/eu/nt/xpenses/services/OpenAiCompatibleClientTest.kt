@@ -190,9 +190,37 @@ class OpenAiCompatibleClientTest {
         val client = OpenAiCompatibleClient(builder.build(), publicResolver)
         server
             .expect(requestTo("https://provider.example/v1/chat/completions"))
+            .andExpect(jsonPath("$.temperature").value(0.0))
+            .andExpect(jsonPath("$.max_tokens").value(1024))
+            .andExpect(jsonPath("$.response_format.type").value("json_object"))
             .andRespond(withSuccess("""{"choices":[{"message":{"content":"{\"amount\":12.34}"}}]}""", MediaType.APPLICATION_JSON))
 
         assertEquals("{\"amount\":12.34}", client.complete(provider, "model", "Return JSON", "sample"))
         server.verify()
+    }
+
+    @Test
+    fun `400 rejection retries without optional parameters and status codes classify cooldown eligibility`() {
+        val builder = RestClient.builder()
+        val server = MockRestServiceServer.bindTo(builder).build()
+        val client = OpenAiCompatibleClient(builder.build(), publicResolver)
+        server
+            .expect(requestTo("https://provider.example/v1/chat/completions"))
+            .andExpect(jsonPath("$.response_format.type").value("json_object"))
+            .andRespond(withStatus(HttpStatus.BAD_REQUEST))
+        server
+            .expect(requestTo("https://provider.example/v1/chat/completions"))
+            .andExpect(jsonPath("$.response_format").doesNotExist())
+            .andExpect(jsonPath("$.temperature").doesNotExist())
+            .andExpect(jsonPath("$.max_tokens").doesNotExist())
+            .andRespond(withSuccess("""{"choices":[{"message":{"content":"{\"amount\":5.00}"}}]}""", MediaType.APPLICATION_JSON))
+
+        assertEquals("{\"amount\":5.00}", client.complete(provider, "model", "Return JSON", "sample"))
+        server.verify()
+
+        assertTrue(ProviderTransportException("AI provider HTTP 503", statusCode = 503).shouldCooldown)
+        assertTrue(ProviderTransportException("AI provider HTTP 429", statusCode = 429).shouldCooldown)
+        assertTrue(ProviderTransportException("AI provider request timed out", timedOut = true).shouldCooldown)
+        assertFalse(ProviderTransportException("AI provider HTTP 401", statusCode = 401).shouldCooldown)
     }
 }

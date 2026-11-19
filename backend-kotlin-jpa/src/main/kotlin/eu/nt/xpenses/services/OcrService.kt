@@ -29,8 +29,11 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Base64
 import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
 import java.util.regex.Pattern
+import javax.imageio.IIOImage
 import javax.imageio.ImageIO
+import javax.imageio.ImageWriteParam
 
 data class OCRProviderConfig(
     val id: String,
@@ -73,10 +76,26 @@ class OcrService(
     private val compatibleClient: OpenAiCompatibleClient,
 ) {
     private val log = LoggerFactory.getLogger(OcrService::class.java)
+    private val modelCooldownUntil = ConcurrentHashMap<String, Instant>()
+    internal var clock: () -> Instant = Instant::now
+
+    internal fun clearModelCooldowns() {
+        modelCooldownUntil.clear()
+    }
+
+    data class ModelChainExecution(
+        val response: String?,
+        val attemptedModels: Int,
+        val transportFailures: Int,
+    ) {
+        val allTransportFailures: Boolean
+            get() = attemptedModels > 0 && transportFailures == attemptedModels
+    }
 
     companion object {
         const val CACHE_PROVIDER = "ai-compatible"
         const val CACHE_CONTRACT_VERSION = "2"
+        internal const val MODEL_COOLDOWN_SECONDS = 90L
 
         private const val GEMINI_PROVIDER_ID = "google-gemini"
         private const val GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai"
@@ -491,10 +510,12 @@ class OcrService(
         val errors = mutableListOf<String>()
         var transportFailures = 0
         var bestPartial: Map<String, Any?>? = null
+        val attemptOrder = prioritizeHealthyModels(models)
         val finalResult =
-            models.firstNotNullOfOrNull { (provider, model) ->
+            attemptOrder.firstNotNullOfOrNull { (provider, model) ->
                 try {
                     val attempt = scanModel(fileBytes, filename, provider, model, categories)
+                    modelCooldownUntil.remove(model.id)
                     if (isUsableOcrResult(attempt)) {
                         attempt + mapOf("provider_used" to provider.name, "model_used" to model.modelId)
                     } else {
@@ -506,6 +527,7 @@ class OcrService(
                     }
                 } catch (e: ProviderTransportException) {
                     transportFailures++
+                    recordCooldownIfTransient(model.id, e)
                     errors.add("${model.displayName}: ${e.message}")
                     log.warn("OCR model transport failure for {} ({})", model.id, e.message)
                     null
@@ -583,17 +605,61 @@ class OcrService(
         systemPrompt: String,
         userContent: Any?,
         isValidResponse: (String) -> Boolean,
-    ): String? {
-        for ((provider, model) in orderedModels(config, modelChain)) {
+    ): String? = runModelChainDetailed(config, modelChain, systemPrompt, userContent, isValidResponse).response
+
+    fun runModelChainDetailed(
+        config: OCRConfig,
+        modelChain: List<String>,
+        systemPrompt: String,
+        userContent: Any?,
+        isValidResponse: (String) -> Boolean,
+    ): ModelChainExecution {
+        val models = prioritizeHealthyModels(orderedModels(config, modelChain))
+        var transportFailures = 0
+        for ((provider, model) in models) {
             try {
                 val response = compatibleClient.complete(provider, model.modelId, systemPrompt, userContent)
-                if (isValidResponse(response)) return response
+                modelCooldownUntil.remove(model.id)
+                if (isValidResponse(response)) {
+                    return ModelChainExecution(response, models.size, transportFailures)
+                }
                 log.warn("AI model returned an invalid result: {}", model.id)
+            } catch (e: ProviderTransportException) {
+                transportFailures++
+                recordCooldownIfTransient(model.id, e)
+                log.warn("AI model attempt failed for {} ({}): {}", model.id, e.javaClass.simpleName, e.message)
             } catch (e: Exception) {
                 log.warn("AI model attempt failed for {} ({}): {}", model.id, e.javaClass.simpleName, e.message)
             }
         }
-        return null
+        return ModelChainExecution(null, models.size, transportFailures)
+    }
+
+    private fun prioritizeHealthyModels(
+        models: List<Pair<OCRProviderConfig, OCRModelConfig>>,
+    ): List<Pair<OCRProviderConfig, OCRModelConfig>> {
+        if (models.size <= 1 || modelCooldownUntil.isEmpty()) return models
+        val now = clock()
+        val (cooling, healthy) =
+            models.partition { (_, model) ->
+                val until = modelCooldownUntil[model.id]
+                if (until != null && until.isAfter(now)) {
+                    true
+                } else {
+                    if (until != null) modelCooldownUntil.remove(model.id, until)
+                    false
+                }
+            }
+        return healthy + cooling
+    }
+
+    private fun recordCooldownIfTransient(
+        modelId: String,
+        error: ProviderTransportException,
+    ) {
+        if (error.shouldCooldown) {
+            modelCooldownUntil[modelId] = clock().plusSeconds(MODEL_COOLDOWN_SECONDS)
+        }
     }
 
     private fun orderedModels(
@@ -661,13 +727,13 @@ class OcrService(
             Analyze this receipt, bill, invoice, or ticket (including Romanian, German, or English receipts).
             Return a single valid JSON object with these keys:
             - merchant (string or null): store/vendor name
-            - amount (number or null): FINAL total amount paid/payable (never subtotal, cash tendered, or change returned; convert comma decimals like 123,45 to 123.45)
+            - amount (number or null): FINAL total amount actually charged/paid in the receipt's primary billing currency (never subtotal, cash tendered, change returned, or an alternate display currency if a final charged total is shown; convert comma decimals like 123,45 to 123.45)
             - currency (3-letter uppercase ISO 4217 code or null, e.g. EUR, RON, USD, GBP; convert LEI/Lei to RON, € to EUR)
             - tax_amount (number or null): total VAT/TVA/tax amount
             - tax_rate (number or null): VAT/tax percentage as a number (e.g. 19 for 19%)
             - date (YYYY-MM-DD string or null): receipt/invoice issue date
-            - raw_text (string): key visible text transcription
-            - category_id (integer from [$categoryOptions] or null)
+            - raw_text (string): concise key visible lines only (max 250 chars: merchant, date, totals, tax)
+            - category_id (integer from [$categoryOptions] or null; e.g. parking/tolls/fuel/taxi -> Transport, hotel/lodging -> Accommodation, laundry/detergent -> Laundry, visa/consular fees -> Visa)
             - description (string or null): short human-friendly expense summary (max 80 chars)
             Return raw JSON only without markdown fences. Return null for fields that cannot be identified.
             """.trimIndent()
@@ -824,15 +890,56 @@ class OcrService(
             return (0 until pageCount).map { pageIndex ->
                 val mediaBox = pdf.getPage(pageIndex).mediaBox
                 val maxDimension = maxOf(mediaBox.width, mediaBox.height).coerceAtLeast(1f)
-                val scale = (1800f / maxDimension).coerceIn(0.1f, 2.5f)
-                val image = renderer.renderImage(pageIndex, scale)
-                val png =
-                    ByteArrayOutputStream().use { output ->
-                        ImageIO.write(image, "png", output)
-                        output.toByteArray()
-                    }
-                png to "image/png"
+                val scale = (1600f / maxDimension).coerceIn(0.1f, 2.5f)
+                val rendered = renderer.renderImage(pageIndex, scale)
+                encodePdfPageAsJpeg(rendered)
             }
+        }
+    }
+
+    private fun encodePdfPageAsJpeg(rendered: BufferedImage): Pair<ByteArray, String> {
+        val rgbImage =
+            if (rendered.type == BufferedImage.TYPE_INT_RGB) {
+                rendered
+            } else {
+                BufferedImage(rendered.width, rendered.height, BufferedImage.TYPE_INT_RGB).also { target ->
+                    val g = target.createGraphics()
+                    try {
+                        g.color = Color.WHITE
+                        g.fillRect(0, 0, target.width, target.height)
+                        g.drawImage(rendered, 0, 0, null)
+                    } finally {
+                        g.dispose()
+                    }
+                }
+            }
+        val writers = ImageIO.getImageWritersByFormatName("jpeg")
+        if (!writers.hasNext()) {
+            val png =
+                ByteArrayOutputStream().use { output ->
+                    ImageIO.write(rgbImage, "png", output)
+                    output.toByteArray()
+                }
+            return png to "image/png"
+        }
+        val writer = writers.next()
+        try {
+            val param =
+                writer.defaultWriteParam.apply {
+                    compressionMode = ImageWriteParam.MODE_EXPLICIT
+                    compressionQuality = 0.82f
+                }
+            val jpeg =
+                ByteArrayOutputStream().use { output ->
+                    ImageIO.createImageOutputStream(output).use { imageOutput ->
+                        writer.output = imageOutput
+                        writer.write(null, IIOImage(rgbImage, null, null), param)
+                    }
+                    output.toByteArray()
+                }
+            return jpeg to "image/jpeg"
+        } finally {
+            writer.dispose()
         }
     }
 

@@ -50,11 +50,11 @@ class OpenAiCompatibleClient private constructor(
                     .setDefaultConnectionConfig(
                         ConnectionConfig
                             .custom()
-                            .setConnectTimeout(Timeout.ofSeconds(10))
-                            .setSocketTimeout(Timeout.ofSeconds(60))
+                            .setConnectTimeout(Timeout.ofSeconds(5))
+                            .setSocketTimeout(Timeout.ofSeconds(20))
                             .build(),
-                    ).setMaxConnTotal(20)
-                    .setMaxConnPerRoute(5)
+                    ).setMaxConnTotal(40)
+                    .setMaxConnPerRoute(12)
                     .build()
             val httpClient =
                 HttpClients
@@ -69,8 +69,8 @@ class OpenAiCompatibleClient private constructor(
                     .setDefaultRequestConfig(
                         RequestConfig
                             .custom()
-                            .setConnectionRequestTimeout(Timeout.ofSeconds(10))
-                            .setResponseTimeout(Timeout.ofSeconds(60))
+                            .setConnectionRequestTimeout(Timeout.ofSeconds(5))
+                            .setResponseTimeout(Timeout.ofSeconds(20))
                             .build(),
                     ).build()
             val client =
@@ -99,12 +99,12 @@ class OpenAiCompatibleClient private constructor(
                 throw ProviderTransportException(e.message ?: "Provider URL is invalid")
             }
         return try {
-            executeCompletion(endpoint, provider, modelId, systemPrompt, userContent, includeResponseFormat = true)
+            executeCompletion(endpoint, provider, modelId, systemPrompt, userContent, includeOptionalParams = true)
         } catch (e: ProviderRejectionException) {
             if (e.statusCode == 400 || e.statusCode == 422) {
-                executeCompletion(endpoint, provider, modelId, systemPrompt, userContent, includeResponseFormat = false)
+                executeCompletion(endpoint, provider, modelId, systemPrompt, userContent, includeOptionalParams = false)
             } else {
-                throw ProviderTransportException("AI provider HTTP ${e.statusCode}")
+                throw ProviderTransportException("AI provider HTTP ${e.statusCode}", statusCode = e.statusCode)
             }
         }
     }
@@ -115,7 +115,7 @@ class OpenAiCompatibleClient private constructor(
         modelId: String,
         systemPrompt: String,
         userContent: Any?,
-        includeResponseFormat: Boolean,
+        includeOptionalParams: Boolean,
     ): String {
         try {
             val payload =
@@ -128,8 +128,10 @@ class OpenAiCompatibleClient private constructor(
                             mapOf("role" to "user", "content" to userContent),
                         ),
                     )
-                    if (includeResponseFormat) {
+                    if (includeOptionalParams) {
                         put("response_format", mapOf("type" to "json_object"))
+                        put("temperature", 0.0)
+                        put("max_tokens", 1024)
                     }
                 }
             val request =
@@ -146,10 +148,10 @@ class OpenAiCompatibleClient private constructor(
                     // Redirects are not followed and are failures, not parseable success responses.
                     .onStatus({ !it.is2xxSuccessful }) { _, error ->
                         val status = error.statusCode.value()
-                        if (includeResponseFormat && (status == 400 || status == 422)) {
+                        if (includeOptionalParams && (status == 400 || status == 422)) {
                             throw ProviderRejectionException(status)
                         }
-                        throw ProviderTransportException("AI provider HTTP $status")
+                        throw ProviderTransportException("AI provider HTTP $status", statusCode = status)
                     }.body<Map<String, Any?>>() ?: throw ProviderTransportException("AI provider returned an invalid response")
             val choices = response["choices"] as? List<*> ?: throw ProviderTransportException("AI provider returned an invalid response")
             val choice = choices.firstOrNull() as? Map<*, *> ?: throw ProviderTransportException("AI provider returned an invalid response")
@@ -170,7 +172,7 @@ class OpenAiCompatibleClient private constructor(
             // Deliberately omit the cause: SSL/network/parser exceptions can contain credentials,
             // URLs, or arbitrary provider content and must not escape through logging or callers.
             if (isTimeout(e)) {
-                throw ProviderTransportException("AI provider request timed out")
+                throw ProviderTransportException("AI provider request timed out", timedOut = true)
             }
             throw ProviderTransportException("AI provider connection or response failed")
         }
@@ -226,7 +228,12 @@ class OpenAiCompatibleClient private constructor(
 /** Safe, bounded message only; deliberately carries no raw provider/network cause. */
 internal class ProviderTransportException(
     message: String,
-) : IllegalStateException(message)
+    val statusCode: Int? = null,
+    val timedOut: Boolean = false,
+) : IllegalStateException(message) {
+    val shouldCooldown: Boolean
+        get() = timedOut || statusCode == 429 || (statusCode != null && statusCode >= 500)
+}
 
 private class ProviderRejectionException(
     val statusCode: Int,

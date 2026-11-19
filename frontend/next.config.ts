@@ -12,6 +12,10 @@ const nextConfig: NextConfig = {
   output: "standalone",
   reactStrictMode: true,
   poweredByHeader: false,
+  experimental: {
+    // Allow slow multi-model fallback or bulk uploads to finish without premature 30s rewrite disconnects.
+    proxyTimeout: 90_000,
+  },
   async rewrites() {
     return [
       {

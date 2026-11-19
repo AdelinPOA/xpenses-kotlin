@@ -74,7 +74,7 @@ management:
       show-details: when-authorized
 
 imap:
-  poll-interval: ${IMAP_POLL_INTERVAL:300000}
+  poll-interval: ${IMAP_POLL_INTERVAL:60000}
 
 ocr:
   cache:

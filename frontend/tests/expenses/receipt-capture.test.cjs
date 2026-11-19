@@ -94,3 +94,38 @@ test("upload rejection is distinct from ambiguous timeout/server failure", async
     });
   }
 });
+
+test("status polling uses progressive backoff starting at 250ms and capping at 1500ms", async () => {
+  const filename = path.resolve(__dirname, "../../lib/receiptCapture.ts");
+  const compiled = ts.transpileModule(fs.readFileSync(filename, "utf8"), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  const delays = [];
+  let polls = 0;
+  const api = {
+    post: async () => ({ status: 202, data: { job_id: 22 } }),
+    get: async () => {
+      polls++;
+      return polls >= 7 ? complete : { data: { status: "processing" } };
+    },
+  };
+  const exports = {};
+  vm.runInNewContext(compiled, {
+    exports,
+    require: () => ({ default: api }),
+    FormData,
+    DOMException,
+    Date,
+    Promise,
+    setTimeout: (fn, ms) => {
+      delays.push(ms);
+      return setTimeout(fn, 0);
+    },
+    clearTimeout,
+    setInterval,
+    clearInterval,
+  }, { filename });
+
+  await exports.captureReceipt(file());
+  assert.deepEqual(delays, [250, 400, 600, 900, 1200, 1500, 1500]);
+});

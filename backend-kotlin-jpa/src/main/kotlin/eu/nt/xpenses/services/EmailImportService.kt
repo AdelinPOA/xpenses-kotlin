@@ -336,18 +336,30 @@ class EmailImportService(
         )
     }
 
+    data class DelegationParseOutcome(
+        val parsed: Map<String, String>?,
+        val transientAiFailure: Boolean = false,
+    )
+
     fun parseDelegationEmailWithModels(
         text: String,
         config: OCRConfig,
         settings: DelegationParsingConfig = parsingSettingsService.getConfig(),
-    ): Map<String, String>? {
+    ): Map<String, String>? = parseDelegationEmailWithModelsDetailed(text, config, settings).parsed
+
+    fun parseDelegationEmailWithModelsDetailed(
+        text: String,
+        config: OCRConfig,
+        settings: DelegationParsingConfig = parsingSettingsService.getConfig(),
+    ): DelegationParseOutcome {
         settings.validate()
         val normalizedText = DelegationEmailText.normalize(text)
-        val json =
-            ocrService.runModelChain(config, config.delegationModelChain, settings.systemPrompt(), normalizedText) { response ->
+        val execution =
+            ocrService.runModelChainDetailed(config, config.delegationModelChain, settings.systemPrompt(), normalizedText) { response ->
                 parseDelegationModelResponse(response) != null
-            } ?: return null
-        val parsed = parseDelegationModelResponse(json) ?: return null
+            }
+        val json = execution.response ?: return DelegationParseOutcome(null, transientAiFailure = execution.allTransportFailures)
+        val parsed = parseDelegationModelResponse(json) ?: return DelegationParseOutcome(null)
         val localEnrichment = parseDelegationEmailLocal(normalizedText)
         val merged =
             parsed.toMutableMap().apply {
@@ -379,16 +391,18 @@ class EmailImportService(
                 }
             }
         val orderNumber = DelegationEmailText.orderNumber(normalizedText) ?: merged["kundenauftrag"].orEmpty()
-        if (orderNumber.isBlank()) return merged
+        if (orderNumber.isBlank()) return DelegationParseOutcome(merged)
         val description = merged.getValue("description")
         val orderPrefix =
             Regex("(?i)^(?:Order(?: nr\\.?| number| no\\.?)?|Kundenauftrag|Auftrag)\\s*:\\s*${Regex.escape(orderNumber)}[ \\t]*[;\\n]?\\s*")
         val details = description.replaceFirst(orderPrefix, "")
-        return merged +
-            mapOf(
-                "kundenauftrag" to orderNumber,
-                "description" to listOf("Order nr: $orderNumber", details).filter { it.isNotBlank() }.joinToString("\n"),
-            )
+        return DelegationParseOutcome(
+            merged +
+                mapOf(
+                    "kundenauftrag" to orderNumber,
+                    "description" to listOf("Order nr: $orderNumber", details).filter { it.isNotBlank() }.joinToString("\n"),
+                ),
+        )
     }
 
     private fun parseDelegationModelResponse(response: String): Map<String, String>? =
@@ -423,12 +437,23 @@ class EmailImportService(
             null
         }
 
-    fun parseDelegationEmailAsync(text: String): Map<String, String>? {
+    fun parseDelegationEmailAsync(text: String): Map<String, String>? =
+        parseDelegationEmailForIngestion(text).parsed
+
+    fun parseDelegationEmailForIngestion(text: String): DelegationParseOutcome {
         val config = ocrService.getOcrConfig()
+        var transientAiFailure = false
         if (config.ocrEnabled) {
-            parseDelegationEmailWithModels(text, config)?.let { return it }
+            val aiOutcome = parseDelegationEmailWithModelsDetailed(text, config)
+            aiOutcome.parsed?.let { return DelegationParseOutcome(it) }
+            transientAiFailure = aiOutcome.transientAiFailure
         }
-        return parseDelegationEmailLocal(text)
+        val local = parseDelegationEmailLocal(text)
+        return if (local != null) {
+            DelegationParseOutcome(local)
+        } else {
+            DelegationParseOutcome(null, transientAiFailure = transientAiFailure)
+        }
     }
 
     fun processIncomingEmail(
@@ -557,16 +582,29 @@ class EmailImportService(
                 "parsed" to null,
             )
         }
+        if (user.role != "technician") {
+            return mapOf(
+                "success" to false,
+                "error" to "User '${user.displayName}' ($emailClean) is not a Technician (role '${user.role}'); live IMAP ingestion only accepts active Technicians",
+                "parsed" to null,
+            )
+        }
 
         val localParsed = parseDelegationEmailLocal(bodyText)
         val config = ocrService.getOcrConfig()
+        val shouldRunAi = requestedParser != "local" && config.ocrEnabled
         val modelParsed =
-            if (config.ocrEnabled) {
+            if (shouldRunAi) {
                 parseDelegationEmailWithModels(bodyText, config)
             } else {
                 null
             }
-        val modelError = if (modelParsed == null) "No configured AI model returned a valid delegation result" else null
+        val modelError =
+            if (shouldRunAi && modelParsed == null) {
+                "No configured AI model returned a valid delegation result"
+            } else {
+                null
+            }
         val useAi =
             if (requestedParser != null) {
                 requestedParser in setOf("ai", "gemini") && modelParsed != null

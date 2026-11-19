@@ -344,13 +344,15 @@ class ExpenseService @Autowired constructor(
         }
 
         val before = reviewableSnapshot(expense)
-        if (expense.report != null && expense.report?.status != "draft") {
+        val valuesChange = reviewValuesChange(expense, body.values)
+        val lockedForEdits = expense.status != "draft" || (expense.report != null && expense.report?.status != "draft")
+        if (expense.report != null && expense.report?.status != "draft" && valuesChange) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Only expenses on draft reports can be modified")
         }
-        if (expense.status != "draft" && reviewValuesChange(expense, body.values)) {
+        if (expense.status != "draft" && valuesChange) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Only draft expenses can be edited")
         }
-        if (body.values.hasCorrections()) applyReviewValues(expense, body.values)
+        if (!lockedForEdits && body.values.hasCorrections()) applyReviewValues(expense, body.values)
         val changed = reviewableFieldsChanged(before, reviewableSnapshot(expense))
         val now = Instant.now()
 

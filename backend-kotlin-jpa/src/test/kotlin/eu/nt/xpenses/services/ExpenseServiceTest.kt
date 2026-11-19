@@ -1,10 +1,17 @@
 package eu.nt.xpenses.services
 
 import eu.nt.xpenses.dto.expense.ExpenseCreate
+import eu.nt.xpenses.dto.expense.ExpenseReviewRequest
+import eu.nt.xpenses.dto.expense.ExpenseReviewValues
 import eu.nt.xpenses.dto.expense.ExpenseUpdate
 import eu.nt.xpenses.model.Category
 import eu.nt.xpenses.model.Expense
+import eu.nt.xpenses.model.ExpenseReport
+import eu.nt.xpenses.model.ExpenseReviewOperation
 import eu.nt.xpenses.model.ExpenseVerificationState
+import eu.nt.xpenses.model.OcrJob
+import eu.nt.xpenses.model.OcrJobStage
+import eu.nt.xpenses.model.OcrJobStatus
 import eu.nt.xpenses.model.Receipt
 import eu.nt.xpenses.model.User
 import eu.nt.xpenses.models.RawUpload
@@ -426,5 +433,110 @@ class ExpenseServiceTest {
         assertEquals(verifiedAt, expense.lastVerifiedAt)
         assertEquals(techUser.id, expense.lastVerifiedBy?.id)
         verify(receiptRepository).delete(receipt)
+    }
+
+    @Test
+    fun `reviewExpense confirms pending OCR expense on submitted report without modifying financial fields`() {
+        val submittedReport = ExpenseReport(id = 42, user = techUser, title = "Submitted report", status = "submitted")
+        val expense = Expense(
+            id = 292,
+            user = techUser,
+            report = submittedReport,
+            status = "submitted",
+            amountOriginal = BigDecimal("392.00"),
+            amountEur = BigDecimal("392.00"),
+            currencyOriginal = "EUR",
+            date = "2026-10-30",
+            merchant = "Agoda",
+            verificationState = ExpenseVerificationState.PENDING,
+            version = 5,
+        )
+        expense.receipts.add(Receipt(id = 283, expense = expense, filePath = "2026/11/receipt.pdf", originalName = "receipt.pdf"))
+        val sourceJob = OcrJob(
+            id = 231,
+            user = techUser,
+            status = OcrJobStatus.COMPLETED,
+            stage = OcrJobStage.RECEIPT,
+            filename = "receipt.pdf",
+            expenseId = 292,
+            receiptId = 283,
+        )
+        val dummyOperation = ExpenseReviewOperation(
+            user = techUser,
+            expense = expense,
+            requestKey = "dummy",
+            requestHash = "dummy",
+            resultingVersion = 5,
+        )
+
+        doReturn(expense).`when`(expenseRepository).findByIdForReview(292)
+        doReturn(null).`when`(expenseReviewOperationRepository).findByUser_IdAndRequestKey(1, "confirm-292")
+        doReturn(sourceJob).`when`(ocrJobRepository).findFirstByUser_IdAndExpenseIdOrderByCreatedAtDesc(1, 292)
+        doAnswer { it.arguments[0] as Expense }.`when`(expenseRepository).saveAndFlush(anyObject(dummyExpense))
+        doAnswer { it.arguments[0] as ExpenseReviewOperation }
+            .`when`(expenseReviewOperationRepository).saveAndFlush(anyObject(dummyOperation))
+
+        val result = expenseService.reviewExpense(
+            expenseId = 292,
+            body = ExpenseReviewRequest(expectedVersion = 5, values = ExpenseReviewValues(), confirm = true),
+            currentUser = techUser,
+            requestKey = "confirm-292",
+            requestHash = "hash-292",
+        )
+
+        assertEquals("VERIFIED", result.verificationState)
+        assertEquals("submitted", result.status)
+        assertEquals(techUser.id, result.lastVerifiedByUserId)
+        assertNotNull(result.lastVerifiedAt)
+        verify(expenseReportRepository, never()).save(any())
+    }
+
+    @Test
+    fun `reviewExpense rejects financial modifications on expense belonging to submitted report`() {
+        val submittedReport = ExpenseReport(id = 42, user = techUser, title = "Submitted report", status = "submitted")
+        val expense = Expense(
+            id = 292,
+            user = techUser,
+            report = submittedReport,
+            status = "submitted",
+            amountOriginal = BigDecimal("392.00"),
+            amountEur = BigDecimal("392.00"),
+            currencyOriginal = "EUR",
+            date = "2026-10-30",
+            merchant = "Agoda",
+            verificationState = ExpenseVerificationState.PENDING,
+            version = 5,
+        )
+        expense.receipts.add(Receipt(id = 283, expense = expense, filePath = "2026/11/receipt.pdf", originalName = "receipt.pdf"))
+        val sourceJob = OcrJob(
+            id = 231,
+            user = techUser,
+            status = OcrJobStatus.COMPLETED,
+            stage = OcrJobStage.RECEIPT,
+            filename = "receipt.pdf",
+            expenseId = 292,
+            receiptId = 283,
+        )
+
+        doReturn(expense).`when`(expenseRepository).findByIdForReview(292)
+        doReturn(null).`when`(expenseReviewOperationRepository).findByUser_IdAndRequestKey(1, "edit-292")
+        doReturn(sourceJob).`when`(ocrJobRepository).findFirstByUser_IdAndExpenseIdOrderByCreatedAtDesc(1, 292)
+
+        val ex = assertThrows<ResponseStatusException> {
+            expenseService.reviewExpense(
+                expenseId = 292,
+                body = ExpenseReviewRequest(
+                    expectedVersion = 5,
+                    values = ExpenseReviewValues(amount = BigDecimal("500.00")),
+                    confirm = true,
+                ),
+                currentUser = techUser,
+                requestKey = "edit-292",
+                requestHash = "hash-edit-292",
+            )
+        }
+
+        assertEquals(HttpStatus.BAD_REQUEST, ex.statusCode)
+        assertEquals("Only expenses on draft reports can be modified", ex.reason)
     }
 }

@@ -10,9 +10,9 @@ Historical checkpoints and superseded audits (`P2_HANDOFF.md`, `cve.md`, `plans/
 
 | Area | Provenance / boundary |
 | --- | --- |
-| Previous `origin/main` baseline | `37726ee` (`2026-11-15` audit remediation rollout + CI Playwright stabilization + telemetry sync). |
-| AI OCR & email ingestion optimization rollout (`2026-11-19`) | Commit `4081907` + live DB `ocr_config`/`delegation_parsing_config` recalibration: 90s per-model circuit breaker cooldown, `OpenAiCompatibleClient` `5s`/`20s` timeouts + `temperature: 0.0` + `max_tokens: 1024` + 400/422 fallback, bounded receipt `raw_text` & currency/category prompt calibration, 1600px JPEG PDF rendering, `ocrTaskExecutor` `corePoolSize=6` (`allowCoreThreadTimeOut=true`), `RetryableFailure` on transient IMAP AI outages + `60s` default IMAP poll interval, `simulateIncomingEmail` local-only bypass & Technician role parity, `BulkExpenseController` `ocr_comparisons.expense_id` linkage, frontend progressive OCR polling (`250ms`–`1500ms`), and Next.js `proxyTimeout: 90_000`. |
-| Production backend | `xpenses-backend:ai-ocr-perf-20261119` |
+| Previous `origin/main` baseline | `3c2f1d3` (`2026-11-19` AI OCR & email ingestion optimization rollout `ai-ocr-perf-20261119`). |
+| Submitted-report OCR review deadlock fix (`2026-11-19`) | Allow read-only owner attestation (`PUT /api/expenses/{id}/review` with `confirm=true` and no financial field changes) when the expense's report is no longer `draft`, while still rejecting any financial field edits on non-draft reports/expenses; unblocks `/expenses/capture` when a pending OCR expense was submitted before initial verification. |
+| Production backend | `xpenses-backend:fix-submitted-ocr-review-20261119` |
 | Production frontend | `xpenses-frontend:ai-ocr-perf-20261119` (built with `NEXT_PUBLIC_OCR_IMMEDIATE_REVIEW_ENABLED=true`) |
 | Production schema | `V107` (`V107__refresh_token_rotation_grace.sql`) applied cleanly on live `postgres:16-alpine`; existing `xpenses-db` and `xpenses-redis` containers and volumes preserved. |
 
@@ -32,8 +32,8 @@ Deployment manifests and release pointers live under the private deployment dire
 
 ## Operations and protected evidence
 
-The live host is `xpenses.nt-automation.cc`. Current operational pointer: `/root/xpenses-deployments/current` -> `/root/xpenses-deployments/ai-ocr-perf-20261119`.
-Previous rollout artifacts remain preserved under `/root/xpenses-deployments/audit-fixes-20261115` (rollback target in `ai-ocr-perf-20261119/rollback.yml`), `/root/xpenses-deployments/audit-fixes-20261114`, `/root/xpenses-deployments/stabilize-20261114`, and `/root/xpenses-deployments/ocr-import-20261114`. Pre-deploy DB dump: `/root/xpenses-deployments/ai-ocr-perf-20261119/backups/pre-deploy.sql.gz`.
+The live host is `xpenses.nt-automation.cc`. Current operational pointer: `/root/xpenses-deployments/current` -> `/root/xpenses-deployments/fix-submitted-ocr-review-20261119`.
+Previous rollout artifacts remain preserved under `/root/xpenses-deployments/ai-ocr-perf-20261119` (rollback target in `fix-submitted-ocr-review-20261119/rollback.yml`), `/root/xpenses-deployments/audit-fixes-20261115`, `/root/xpenses-deployments/audit-fixes-20261114`, `/root/xpenses-deployments/stabilize-20261114`, and `/root/xpenses-deployments/ocr-import-20261114`. Pre-deploy DB dump: `/root/xpenses-deployments/ai-ocr-perf-20261119/backups/pre-deploy.sql.gz`.
 
 - **OCR cleanup stays disabled** (`OCR_SOURCE_CLEANUP_ENABLED=false`) pending `#60`.
 - **Host guardrails**: Check `free -h` and `df -h / /tmp` before builds; run Gradle with `--no-daemon`; build Docker images sequentially; never run `docker compose down` or `make down`, and never delete `pgdata`, `redisdata`, or `xpenses-data`.

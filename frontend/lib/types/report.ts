@@ -57,9 +57,11 @@ export interface MileageRecord {
   end_time: string;
   duration_minutes: number;
   description: string | null;
+  round_trip: boolean;
   vehicle_id: number | null;
   vehicle_plate: string | null;
   vehicle_make_model: string | null;
+  vehicle_category: string | null;
   vehicle_fuel_type: FuelType | null;
   created_at: string;
   updated_at: string;
@@ -101,6 +103,7 @@ export interface Report {
   total_advances: number;
   mileage_records: MileageRecord[];
   total_mileage_eur: number;
+  starting_odometer_km: number | null;
   daily_allowance: number;
   total_reimbursable: number;
   kundenauftrag?: string | null;

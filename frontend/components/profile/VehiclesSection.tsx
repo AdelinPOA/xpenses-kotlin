@@ -14,6 +14,7 @@ import { vehicleKeys } from "@/lib/queryKeys";
 import { parseLocaleNumber } from "@/lib/format";
 
 const FUEL_TYPES: FuelType[] = ["petrol", "diesel", "hybrid", "electric", "lpg"];
+const VEHICLE_CATEGORIES = ["M1", "N1", "M2", "N2"] as const;
 
 const FUEL_TYPE_LABEL_KEYS: Record<
   FuelType,
@@ -38,8 +39,10 @@ export default function VehiclesSection() {
   const [editingVehicle, setEditingVehicle] = useState<UserVehicle | null>(null);
   const [plateNumber, setPlateNumber] = useState("");
   const [makeModel, setMakeModel] = useState("");
+  const [vehicleCategory, setVehicleCategory] = useState("M1");
   const [fuelType, setFuelType] = useState<FuelType | "">("");
   const [fuelConsumption, setFuelConsumption] = useState("");
+  const [lastOdometer, setLastOdometer] = useState("");
   const [isDefault, setIsDefault] = useState(false);
 
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
@@ -59,8 +62,10 @@ export default function VehiclesSection() {
     setEditingVehicle(null);
     setPlateNumber("");
     setMakeModel("");
+    setVehicleCategory("M1");
     setFuelType("");
     setFuelConsumption("");
+    setLastOdometer("");
     setIsDefault(false);
     setFormError(null);
   };
@@ -71,8 +76,10 @@ export default function VehiclesSection() {
     setEditingVehicle(null);
     setPlateNumber("");
     setMakeModel("");
+    setVehicleCategory("M1");
     setFuelType("");
     setFuelConsumption("");
+    setLastOdometer("");
     setIsDefault(vehicles.length === 0);
     setFormError(null);
     setFormOpen(true);
@@ -84,11 +91,15 @@ export default function VehiclesSection() {
     setEditingVehicle(vehicle);
     setPlateNumber(vehicle.plate_number);
     setMakeModel(vehicle.make_model ?? "");
+    setVehicleCategory(vehicle.vehicle_category || "M1");
     setFuelType(vehicle.fuel_type ?? "");
     setFuelConsumption(
       vehicle.fuel_consumption_l_per_100km != null
         ? String(vehicle.fuel_consumption_l_per_100km)
         : "",
+    );
+    setLastOdometer(
+      vehicle.last_odometer_km != null ? String(vehicle.last_odometer_km) : "",
     );
     setIsDefault(vehicle.is_default);
     setFormError(null);
@@ -185,11 +196,29 @@ export default function VehiclesSection() {
       parsedConsumption = parsed;
     }
 
+    const trimmedOdometer = lastOdometer.trim();
+    let parsedOdometer: number | null = null;
+    if (trimmedOdometer !== "") {
+      const parsed = parseLocaleNumber(trimmedOdometer);
+      if (
+        !/^\d+([.,]\d)?$/.test(trimmedOdometer) ||
+        !Number.isFinite(parsed) ||
+        parsed < 0 ||
+        parsed > 9999999.9
+      ) {
+        setFormError(t("last_odometer_invalid"));
+        return;
+      }
+      parsedOdometer = parsed;
+    }
+
     const trimmedMakeModel = makeModel.trim();
+    const normalizedCategory = vehicleCategory.trim().toUpperCase() || "M1";
 
     if (editingVehicle) {
       const payload: UserVehicleUpdatePayload = {
         plate_number: trimmedPlate,
+        vehicle_category: normalizedCategory,
         is_default: isDefault,
       };
       if (trimmedMakeModel) {
@@ -207,13 +236,20 @@ export default function VehiclesSection() {
       } else {
         payload.clear_fuel_consumption = true;
       }
+      if (parsedOdometer !== null) {
+        payload.last_odometer_km = parsedOdometer;
+      } else {
+        payload.clear_last_odometer = true;
+      }
       updateMutation.mutate({ id: editingVehicle.id, payload });
     } else {
       const payload: UserVehicleCreatePayload = {
         plate_number: trimmedPlate,
         make_model: trimmedMakeModel || null,
+        vehicle_category: normalizedCategory,
         fuel_type: fuelType || null,
         fuel_consumption_l_per_100km: parsedConsumption,
+        last_odometer_km: parsedOdometer,
         is_default: isDefault,
       };
       createMutation.mutate(payload);
@@ -360,6 +396,52 @@ export default function VehiclesSection() {
             {t("fuel_consumption_hint")}
           </p>
 
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label
+                htmlFor="vehicle-category"
+                className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1"
+              >
+                {t("vehicle_category")}
+              </label>
+              <input
+                id="vehicle-category"
+                name="vehicle_category"
+                type="text"
+                list="vehicle-category-options"
+                maxLength={16}
+                value={vehicleCategory}
+                onChange={(e) => setVehicleCategory(e.target.value)}
+                placeholder={t("vehicle_category_placeholder")}
+                className={INPUT_CLASS}
+              />
+              <datalist id="vehicle-category-options">
+                {VEHICLE_CATEGORIES.map((category) => (
+                  <option key={category} value={category} />
+                ))}
+              </datalist>
+            </div>
+
+            <div>
+              <label
+                htmlFor="vehicle-last-odometer"
+                className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1"
+              >
+                {t("last_odometer_km")}
+              </label>
+              <input
+                id="vehicle-last-odometer"
+                name="last_odometer_km"
+                type="text"
+                inputMode="decimal"
+                value={lastOdometer}
+                onChange={(e) => setLastOdometer(e.target.value)}
+                placeholder={t("last_odometer_placeholder")}
+                className={INPUT_CLASS}
+              />
+            </div>
+          </div>
+
           <div className="flex items-center gap-2">
             <input
               type="checkbox"
@@ -419,6 +501,11 @@ export default function VehiclesSection() {
                   <span className="font-semibold text-sm text-slate-900 dark:text-slate-100">
                     {vehicle.plate_number}
                   </span>
+                  {vehicle.vehicle_category && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                      {vehicle.vehicle_category}
+                    </span>
+                  )}
                   {vehicle.is_default && (
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300">
                       <Star className="w-3 h-3 fill-current" aria-hidden="true" />
@@ -437,6 +524,9 @@ export default function VehiclesSection() {
                     <span className="text-slate-400 dark:text-slate-500">
                       {t("fuel_consumption_global_fallback")}
                     </span>
+                  )}
+                  {vehicle.last_odometer_km != null && (
+                    <span>{`${vehicle.last_odometer_km} km`}</span>
                   )}
                 </div>
               </div>

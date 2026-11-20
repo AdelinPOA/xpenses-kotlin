@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import api from "@/lib/api";
 import AppShell from "@/components/layout/AppShell";
+import VehiclesSection from "@/components/profile/VehiclesSection";
 import { useAuth } from "@/components/AuthProvider";
 import { useTranslations } from "next-intl";
 import { LOCALES, type Locale } from "@/i18n/config";
@@ -124,6 +125,9 @@ export default function ProfilePage() {
             {profileMutation.isPending ? t("saving") : t("save_changes")}
           </button>
         </section>
+
+        {/* Vehicles section */}
+        <VehiclesSection />
 
         {/* Password section */}
         <section className="bg-card rounded-xl shadow-sm p-6 border border-border">

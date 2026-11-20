@@ -82,3 +82,8 @@ export const searchKeys = {
   query: (term: string, all?: boolean) => [...searchKeys.all, term, all] as const,
 };
 
+export const vehicleKeys = {
+  all: ["vehicles"] as const,
+  me: () => [...vehicleKeys.all, "me"] as const,
+};
+

@@ -193,6 +193,12 @@ export type { ReviewQueueItem } from "./types/reviewQueue";
 export type { BulkStatusResult } from "./api/reviewQueue";
 export type { User } from "./types/user";
 export type {
+  FuelType,
+  UserVehicle,
+  UserVehicleCreatePayload,
+  UserVehicleUpdatePayload,
+} from "./types/vehicle";
+export type {
   DashboardStats,
   ManagerKpis,
   PendingReportSummary,

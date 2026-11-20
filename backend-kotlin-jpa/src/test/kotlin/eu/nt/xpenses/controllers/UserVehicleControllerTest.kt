@@ -239,4 +239,106 @@ class UserVehicleControllerTest : IntegrationTestBase() {
         mockMvc.perform(delete("/api/users/me/vehicles/$vehicleId").cookie(managerCookie))
             .andExpect(status().isNotFound)
     }
+
+    @Test
+    fun `vehicle_category defaults to M1, normalizes trimmed uppercase, and rejects over 16 chars`() {
+        val cookie = authHelper.loginAs("tech1", "tech1")
+
+        // Omitted vehicle_category defaults to "M1"
+        val defaultRes = mockMvc.perform(
+            post("/api/users/me/vehicles")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"plate_number":"B 500 CAT"}""")
+                .cookie(cookie)
+        )
+            .andExpect(status().isCreated)
+            .andExpect(jsonPath("$.vehicle_category").value("M1"))
+            .andExpect(jsonPath("$.last_odometer_km").value(nullValue()))
+            .andReturn()
+        val vehicleId = JsonPath.read<Int>(defaultRes.response.contentAsString, "$.id")
+
+        // Creating with " n1 " normalizes to "N1"
+        mockMvc.perform(
+            post("/api/users/me/vehicles")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"plate_number":"B 501 CAT","vehicle_category":" n1 "}""")
+                .cookie(cookie)
+        )
+            .andExpect(status().isCreated)
+            .andExpect(jsonPath("$.vehicle_category").value("N1"))
+
+        // Updating with " n1 " normalizes to "N1"
+        mockMvc.perform(
+            patch("/api/users/me/vehicles/$vehicleId")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"vehicle_category":" n1 "}""")
+                .cookie(cookie)
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.vehicle_category").value("N1"))
+
+        // Rejects > 16 chars on create and update
+        val tooLong = "A".repeat(17)
+        mockMvc.perform(
+            post("/api/users/me/vehicles")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"plate_number":"B 502 CAT","vehicle_category":"$tooLong"}""")
+                .cookie(cookie)
+        ).andExpect(status().isBadRequest)
+
+        mockMvc.perform(
+            patch("/api/users/me/vehicles/$vehicleId")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"vehicle_category":"$tooLong"}""")
+                .cookie(cookie)
+        ).andExpect(status().isBadRequest)
+    }
+
+    @Test
+    fun `last_odometer_km accepts 375000_5, rejects invalid values, and clears via clear_last_odometer`() {
+        val cookie = authHelper.loginAs("tech1", "tech1")
+
+        val createRes = mockMvc.perform(
+            post("/api/users/me/vehicles")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"plate_number":"B 600 ODO","last_odometer_km":375000.5}""")
+                .cookie(cookie)
+        )
+            .andExpect(status().isCreated)
+            .andExpect(jsonPath("$.last_odometer_km").value(375000.5))
+            .andReturn()
+        val vehicleId = JsonPath.read<Int>(createRes.response.contentAsString, "$.id")
+
+        // Reject negative, > 1 decimal place, and > 9999999.9
+        mockMvc.perform(
+            post("/api/users/me/vehicles")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"plate_number":"B 601 ODO","last_odometer_km":-1}""")
+                .cookie(cookie)
+        ).andExpect(status().isBadRequest)
+
+        mockMvc.perform(
+            patch("/api/users/me/vehicles/$vehicleId")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"last_odometer_km":375000.55}""")
+                .cookie(cookie)
+        ).andExpect(status().isBadRequest)
+
+        mockMvc.perform(
+            patch("/api/users/me/vehicles/$vehicleId")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"last_odometer_km":10000000.0}""")
+                .cookie(cookie)
+        ).andExpect(status().isBadRequest)
+
+        // Clear via clear_last_odometer: true
+        mockMvc.perform(
+            patch("/api/users/me/vehicles/$vehicleId")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"clear_last_odometer":true}""")
+                .cookie(cookie)
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.last_odometer_km").value(nullValue()))
+    }
 }

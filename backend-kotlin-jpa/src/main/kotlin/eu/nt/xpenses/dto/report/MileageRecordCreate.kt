@@ -12,5 +12,6 @@ data class MileageRecordCreate(
     @JsonProperty("start_time") val startTime: Instant,
     @JsonProperty("end_time") val endTime: Instant,
     val description: String? = null,
-    @JsonProperty("vehicle_id") val vehicleId: Int? = null
+    @JsonProperty("vehicle_id") val vehicleId: Int? = null,
+    @JsonProperty("round_trip") val roundTrip: Boolean = false
 )

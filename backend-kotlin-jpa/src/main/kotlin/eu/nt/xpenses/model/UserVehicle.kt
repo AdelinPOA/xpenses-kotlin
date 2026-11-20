@@ -27,6 +27,12 @@ class UserVehicle(
     @Column(name = "fuel_consumption_l_per_100km", precision = 5, scale = 2)
     var fuelConsumptionLitersPer100Km: BigDecimal? = null,
 
+    @Column(name = "vehicle_category", nullable = false, length = 16)
+    var vehicleCategory: String = "M1",
+
+    @Column(name = "last_odometer_km", precision = 10, scale = 1)
+    var lastOdometerKm: BigDecimal? = null,
+
     @Column(name = "is_default", nullable = false)
     var isDefault: Boolean = false,
 

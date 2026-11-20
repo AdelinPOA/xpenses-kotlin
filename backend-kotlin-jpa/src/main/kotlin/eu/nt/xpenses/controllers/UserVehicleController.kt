@@ -26,8 +26,12 @@ class UserVehicleController(
         private val ALLOWED_FUEL_TYPES = setOf("petrol", "diesel", "hybrid", "electric", "lpg")
         private val MIN_CONSUMPTION = BigDecimal("0.01")
         private val MAX_CONSUMPTION = BigDecimal("50.00")
+        private val MIN_ODOMETER_KM = BigDecimal.ZERO
+        private val MAX_ODOMETER_KM = BigDecimal("9999999.9")
+        private const val DEFAULT_VEHICLE_CATEGORY = "M1"
         private const val MAX_PLATE_LENGTH = 32
         private const val MAX_MAKE_MODEL_LENGTH = 120
+        private const val MAX_VEHICLE_CATEGORY_LENGTH = 16
     }
 
     @GetMapping
@@ -80,6 +84,19 @@ class UserVehicleController(
         }
         val normalizedConsumption = consumption?.setScale(2, RoundingMode.HALF_UP)
 
+        val vehicleCategory = normalizeVehicleCategory(body.vehicleCategory, defaultWhenBlank = true)
+            ?: return ResponseEntity.badRequest().body(
+                mapOf("detail" to "vehicle_category must be at most $MAX_VEHICLE_CATEGORY_LENGTH characters")
+            )
+
+        val lastOdometer = body.lastOdometerKm
+        if (lastOdometer != null && !isValidOdometerKm(lastOdometer)) {
+            return ResponseEntity.badRequest().body(
+                mapOf("detail" to "last_odometer_km must be between 0.0 and 9999999.9 with at most 1 decimal place")
+            )
+        }
+        val normalizedLastOdometer = lastOdometer?.setScale(1, RoundingMode.HALF_UP)
+
         val now = Instant.now()
         val hasExisting = userVehicleRepository.countByUserId(userId) > 0
         val shouldBeDefault = body.isDefault == true || !hasExisting
@@ -96,6 +113,8 @@ class UserVehicleController(
                 makeModel = makeModel,
                 fuelType = fuelType,
                 fuelConsumptionLitersPer100Km = normalizedConsumption,
+                vehicleCategory = vehicleCategory,
+                lastOdometerKm = normalizedLastOdometer,
                 isDefault = shouldBeDefault,
                 createdAt = now,
                 updatedAt = now,
@@ -152,6 +171,22 @@ class UserVehicleController(
             body.fuelConsumptionLitersPer100Km.setScale(2, RoundingMode.HALF_UP)
         } else null
 
+        val normalizedCategory = if (body.vehicleCategory != null) {
+            normalizeVehicleCategory(body.vehicleCategory, defaultWhenBlank = false)
+                ?: return ResponseEntity.badRequest().body(
+                    mapOf("detail" to "vehicle_category must be non-blank and at most $MAX_VEHICLE_CATEGORY_LENGTH characters")
+                )
+        } else null
+
+        val normalizedLastOdometer = if (!body.clearLastOdometer && body.lastOdometerKm != null) {
+            if (!isValidOdometerKm(body.lastOdometerKm)) {
+                return ResponseEntity.badRequest().body(
+                    mapOf("detail" to "last_odometer_km must be between 0.0 and 9999999.9 with at most 1 decimal place")
+                )
+            }
+            body.lastOdometerKm.setScale(1, RoundingMode.HALF_UP)
+        } else null
+
         val existing = userVehicleRepository.findByIdAndUserId(vehicleId, userId)
             ?: return ResponseEntity.status(HttpStatus.NOT_FOUND).body(mapOf("detail" to "Vehicle not found"))
 
@@ -188,6 +223,14 @@ class UserVehicleController(
             vehicle.fuelConsumptionLitersPer100Km = null
         } else if (normalizedConsumption != null) {
             vehicle.fuelConsumptionLitersPer100Km = normalizedConsumption
+        }
+        if (normalizedCategory != null) {
+            vehicle.vehicleCategory = normalizedCategory
+        }
+        if (body.clearLastOdometer) {
+            vehicle.lastOdometerKm = null
+        } else if (normalizedLastOdometer != null) {
+            vehicle.lastOdometerKm = normalizedLastOdometer
         }
         if (body.isDefault != null) {
             vehicle.isDefault = body.isDefault
@@ -255,4 +298,18 @@ class UserVehicleController(
         value.compareTo(MIN_CONSUMPTION) >= 0 &&
             value.compareTo(MAX_CONSUMPTION) <= 0 &&
             value.stripTrailingZeros().scale() <= 2
+
+    private fun normalizeVehicleCategory(raw: String?, defaultWhenBlank: Boolean): String? {
+        val normalized = raw?.trim()?.uppercase()
+        if (normalized.isNullOrEmpty()) {
+            return if (defaultWhenBlank) DEFAULT_VEHICLE_CATEGORY else null
+        }
+        if (normalized.length > MAX_VEHICLE_CATEGORY_LENGTH) return null
+        return normalized
+    }
+
+    private fun isValidOdometerKm(value: BigDecimal): Boolean =
+        value.compareTo(MIN_ODOMETER_KM) >= 0 &&
+            value.compareTo(MAX_ODOMETER_KM) <= 0 &&
+            value.stripTrailingZeros().scale() <= 1
 }

@@ -137,6 +137,8 @@ class MileageController(
             vehiclePlate = vehicle?.plateNumber,
             vehicleMakeModel = vehicle?.makeModel,
             vehicleFuelType = vehicle?.fuelType,
+            vehicleCategory = vehicle?.vehicleCategory,
+            roundTrip = body.roundTrip,
             createdAt = Instant.now(),
             updatedAt = Instant.now()
         )
@@ -175,6 +177,7 @@ class MileageController(
         if (body.origin != null) rec.origin = body.origin
         if (body.destination != null) rec.destination = body.destination
         if (body.description != null) rec.description = body.description
+        if (body.roundTrip != null) rec.roundTrip = body.roundTrip
 
         val previousBusinessDate = businessDate(rec.startTime)
         if (body.startTime != null) rec.startTime = body.startTime
@@ -202,6 +205,7 @@ class MileageController(
             rec.vehiclePlate = newVehicle?.plateNumber
             rec.vehicleMakeModel = newVehicle?.makeModel
             rec.vehicleFuelType = newVehicle?.fuelType
+            rec.vehicleCategory = newVehicle?.vehicleCategory
             rec.fuelConsumptionLitersPer100Km = newVehicle?.fuelConsumptionLitersPer100Km ?: getDefaultFuelConsumption()
         }
 
@@ -297,7 +301,9 @@ class MileageController(
             vehicleId = m.vehicle?.id,
             vehiclePlate = m.vehiclePlate,
             vehicleMakeModel = m.vehicleMakeModel,
-            vehicleFuelType = m.vehicleFuelType
+            vehicleFuelType = m.vehicleFuelType,
+            vehicleCategory = m.vehicleCategory,
+            roundTrip = m.roundTrip
         )
     }
 

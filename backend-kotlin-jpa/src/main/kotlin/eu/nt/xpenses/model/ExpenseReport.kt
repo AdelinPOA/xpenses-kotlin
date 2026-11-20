@@ -99,6 +99,9 @@ class ExpenseReport(
     var arbeitsplatz: String? = null,
     var techniker: String? = null,
 
+    @Column(name = "starting_odometer_km", precision = 10, scale = 1)
+    var startingOdometerKm: BigDecimal? = null,
+
     @JsonManagedReference("report-expenses")
     @OneToMany(mappedBy = "report", cascade = [CascadeType.PERSIST, CascadeType.MERGE], fetch = FetchType.LAZY)
     var expenses: MutableList<Expense> = mutableListOf(),

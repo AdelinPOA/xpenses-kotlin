@@ -80,7 +80,9 @@ class ReportMapper(
             vehicleId = m.vehicle?.id,
             vehiclePlate = m.vehiclePlate,
             vehicleMakeModel = m.vehicleMakeModel,
-            vehicleFuelType = m.vehicleFuelType
+            vehicleFuelType = m.vehicleFuelType,
+            vehicleCategory = m.vehicleCategory,
+            roundTrip = m.roundTrip
         )
     }
 
@@ -153,7 +155,8 @@ class ReportMapper(
             adresse = report.adresse,
             vorgang = report.vorgang,
             arbeitsplatz = report.arbeitsplatz,
-            techniker = report.techniker
+            techniker = report.techniker,
+            startingOdometerKm = report.startingOdometerKm
         )
     }
 }

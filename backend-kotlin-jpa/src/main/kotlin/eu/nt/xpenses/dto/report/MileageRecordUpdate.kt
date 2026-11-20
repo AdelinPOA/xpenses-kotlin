@@ -12,5 +12,6 @@ data class MileageRecordUpdate(
     @JsonProperty("end_time") val endTime: Instant? = null,
     val description: String? = null,
     @JsonProperty("vehicle_id") val vehicleId: Int? = null,
-    @JsonProperty("clear_vehicle") val clearVehicle: Boolean = false
+    @JsonProperty("clear_vehicle") val clearVehicle: Boolean = false,
+    @JsonProperty("round_trip") val roundTrip: Boolean? = null
 )

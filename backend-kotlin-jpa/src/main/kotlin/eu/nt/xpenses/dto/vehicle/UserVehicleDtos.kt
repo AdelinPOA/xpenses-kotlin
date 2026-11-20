@@ -10,6 +10,8 @@ data class UserVehicleCreate(
     @JsonProperty("make_model") val makeModel: String? = null,
     @JsonProperty("fuel_type") val fuelType: String? = null,
     @JsonProperty("fuel_consumption_l_per_100km") val fuelConsumptionLitersPer100Km: BigDecimal? = null,
+    @JsonProperty("vehicle_category") val vehicleCategory: String? = null,
+    @JsonProperty("last_odometer_km") val lastOdometerKm: BigDecimal? = null,
     @JsonProperty("is_default") val isDefault: Boolean? = null,
 )
 
@@ -21,6 +23,9 @@ data class UserVehicleUpdate(
     @JsonProperty("clear_fuel_type") val clearFuelType: Boolean = false,
     @JsonProperty("fuel_consumption_l_per_100km") val fuelConsumptionLitersPer100Km: BigDecimal? = null,
     @JsonProperty("clear_fuel_consumption") val clearFuelConsumption: Boolean = false,
+    @JsonProperty("vehicle_category") val vehicleCategory: String? = null,
+    @JsonProperty("last_odometer_km") val lastOdometerKm: BigDecimal? = null,
+    @JsonProperty("clear_last_odometer") val clearLastOdometer: Boolean = false,
     @JsonProperty("is_default") val isDefault: Boolean? = null,
 )
 
@@ -30,6 +35,8 @@ data class UserVehicleOut(
     @JsonProperty("make_model") val makeModel: String?,
     @JsonProperty("fuel_type") val fuelType: String?,
     @JsonProperty("fuel_consumption_l_per_100km") val fuelConsumptionLitersPer100Km: BigDecimal?,
+    @JsonProperty("vehicle_category") val vehicleCategory: String,
+    @JsonProperty("last_odometer_km") val lastOdometerKm: BigDecimal?,
     @JsonProperty("is_default") val isDefault: Boolean,
     @JsonProperty("created_at") val createdAt: Instant,
     @JsonProperty("updated_at") val updatedAt: Instant,
@@ -41,6 +48,8 @@ data class UserVehicleOut(
             makeModel = vehicle.makeModel,
             fuelType = vehicle.fuelType,
             fuelConsumptionLitersPer100Km = vehicle.fuelConsumptionLitersPer100Km,
+            vehicleCategory = vehicle.vehicleCategory,
+            lastOdometerKm = vehicle.lastOdometerKm,
             isDefault = vehicle.isDefault,
             createdAt = vehicle.createdAt,
             updatedAt = vehicle.updatedAt,

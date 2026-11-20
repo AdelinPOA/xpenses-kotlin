@@ -102,6 +102,12 @@ class MileageRecord(
     @Column(name = "vehicle_fuel_type", length = 20)
     var vehicleFuelType: String? = null,
 
+    @Column(name = "vehicle_category", length = 16)
+    var vehicleCategory: String? = null,
+
+    @Column(name = "round_trip", nullable = false)
+    var roundTrip: Boolean = false,
+
     @Column(name = "created_at", nullable = false)
     var createdAt: Instant = Instant.now(),
 

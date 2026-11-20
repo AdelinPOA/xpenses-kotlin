@@ -2,6 +2,7 @@ package eu.nt.xpenses.controllers
 
 import com.jayway.jsonpath.JsonPath
 import eu.nt.xpenses.IntegrationTestBase
+import eu.nt.xpenses.model.Expense
 import eu.nt.xpenses.model.ExpenseReport
 import jakarta.persistence.EntityManager
 import org.hamcrest.Matchers.nullValue
@@ -519,5 +520,189 @@ class MileageControllerTest : IntegrationTestBase() {
             .andExpect(jsonPath("$.mileage_records[0].vehicle_make_model").value("Renault Megane"))
             .andExpect(jsonPath("$.mileage_records[0].vehicle_fuel_type").value("diesel"))
             .andExpect(jsonPath("$.mileage_records[0].fuel_consumption_l_per_100km").value(6.0))
+    }
+
+    @Test
+    fun `POST mileage with round_trip true and N1 vehicle persists both without doubling distance_km`() {
+        val report = makeTechReport()
+        entityManager.flush()
+        entityManager.clear()
+        val cookie = authHelper.loginAs("tech1", "tech1")
+
+        val vehicleRes = mockMvc.perform(
+            post("/api/users/me/vehicles")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"plate_number":"B-10-N1","make_model":"Ford Transit","fuel_type":"diesel","vehicle_category":"N1"}""")
+                .cookie(cookie)
+        ).andExpect(status().isCreated).andReturn()
+        val vehicleId = JsonPath.read<Int>(vehicleRes.response.contentAsString, "$.id")
+
+        val createRes = mockMvc.perform(
+            post("/api/reports/${report.id}/mileage")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """{"origin":"Office","destination":"Client","distance_km":50.0,"start_time":"$startTime","end_time":"$endTime","vehicle_id":$vehicleId,"round_trip":true}"""
+                )
+                .cookie(cookie)
+        )
+            .andExpect(status().isCreated)
+            .andExpect(jsonPath("$.distance_km").value(50.0))
+            .andExpect(jsonPath("$.round_trip").value(true))
+            .andExpect(jsonPath("$.vehicle_category").value("N1"))
+            .andReturn()
+        val mileageId = JsonPath.read<Int>(createRes.response.contentAsString, "$.id")
+
+        // Verify ReportMapper also exposes round_trip and vehicle_category
+        entityManager.flush()
+        entityManager.clear()
+        mockMvc.perform(get("/api/reports/${report.id}").cookie(cookie))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.mileage_records[0].distance_km").value(50.0))
+            .andExpect(jsonPath("$.mileage_records[0].round_trip").value(true))
+            .andExpect(jsonPath("$.mileage_records[0].vehicle_category").value("N1"))
+
+        // PATCH can toggle round_trip back to false without affecting distance_km
+        mockMvc.perform(
+            patch("/api/reports/${report.id}/mileage/$mileageId")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"round_trip":false}""")
+                .cookie(cookie)
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.distance_km").value(50.0))
+            .andExpect(jsonPath("$.round_trip").value(false))
+    }
+
+    @Test
+    fun `PATCH report sets, validates, and clears starting_odometer_km`() {
+        val report = makeTechReport()
+        entityManager.flush()
+        entityManager.clear()
+        val cookie = authHelper.loginAs("tech1", "tech1")
+
+        mockMvc.perform(
+            patch("/api/reports/${report.id}")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"starting_odometer_km":375000.5}""")
+                .cookie(cookie)
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.starting_odometer_km").value(375000.5))
+
+        // Invalid starting_odometer_km values rejected with 400
+        mockMvc.perform(
+            patch("/api/reports/${report.id}")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"starting_odometer_km":-5.0}""")
+                .cookie(cookie)
+        ).andExpect(status().isBadRequest)
+
+        mockMvc.perform(
+            patch("/api/reports/${report.id}")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"starting_odometer_km":375000.55}""")
+                .cookie(cookie)
+        ).andExpect(status().isBadRequest)
+
+        mockMvc.perform(
+            patch("/api/reports/${report.id}")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"clear_starting_odometer":true}""")
+                .cookie(cookie)
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.starting_odometer_km").value(nullValue()))
+    }
+
+    @Test
+    fun `POST report submit advances primary vehicle last_odometer_km monotonically without regressing`() {
+        val tech = userRepository.findByUsername("tech1")!!
+        val report1 = expenseReportRepository.save(ExpenseReport(user = tech, title = "Trip Report 1"))
+        expenseRepository.save(
+            Expense(
+                user = tech,
+                report = report1,
+                amountOriginal = BigDecimal("25.00"),
+                amountEur = BigDecimal("25.00"),
+                date = "2026-06-01"
+            )
+        )
+        val report2 = expenseReportRepository.save(ExpenseReport(user = tech, title = "Trip Report 2"))
+        expenseRepository.save(
+            Expense(
+                user = tech,
+                report = report2,
+                amountOriginal = BigDecimal("30.00"),
+                amountEur = BigDecimal("30.00"),
+                date = "2026-06-02"
+            )
+        )
+        entityManager.flush()
+        entityManager.clear()
+        val cookie = authHelper.loginAs("tech1", "tech1")
+
+        val vehicleRes = mockMvc.perform(
+            post("/api/users/me/vehicles")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"plate_number":"B-700-ODO","make_model":"Dacia Duster","fuel_type":"diesel"}""")
+                .cookie(cookie)
+        ).andExpect(status().isCreated).andReturn()
+        val vehicleId = JsonPath.read<Int>(vehicleRes.response.contentAsString, "$.id")
+
+        // Report 1: starting_odometer_km = 375000.0 + 50 km trip -> 375050.0
+        mockMvc.perform(
+            patch("/api/reports/${report1.id}")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"starting_odometer_km":375000.0}""")
+                .cookie(cookie)
+        ).andExpect(status().isOk)
+
+        mockMvc.perform(
+            post("/api/reports/${report1.id}/mileage")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"origin":"Office","destination":"Client","distance_km":50.0,"start_time":"$startTime","end_time":"$endTime","vehicle_id":$vehicleId}""")
+                .cookie(cookie)
+        ).andExpect(status().isCreated)
+
+        mockMvc.perform(
+            post("/api/reports/${report1.id}/submit")
+                .contentType(MediaType.APPLICATION_JSON)
+                .cookie(cookie)
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.status").value("submitted"))
+
+        mockMvc.perform(get("/api/users/me/vehicles").cookie(cookie))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$[0].id").value(vehicleId))
+            .andExpect(jsonPath("$[0].last_odometer_km").value(375050.0))
+
+        // Report 2: lower starting_odometer_km = 300000.0 + 50 km trip -> must NOT regress 375050.0
+        mockMvc.perform(
+            patch("/api/reports/${report2.id}")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"starting_odometer_km":300000.0}""")
+                .cookie(cookie)
+        ).andExpect(status().isOk)
+
+        mockMvc.perform(
+            post("/api/reports/${report2.id}/mileage")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"origin":"Office","destination":"Client 2","distance_km":50.0,"start_time":"$startTime","end_time":"$endTime","vehicle_id":$vehicleId}""")
+                .cookie(cookie)
+        ).andExpect(status().isCreated)
+
+        mockMvc.perform(
+            post("/api/reports/${report2.id}/submit")
+                .contentType(MediaType.APPLICATION_JSON)
+                .cookie(cookie)
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.status").value("submitted"))
+
+        mockMvc.perform(get("/api/users/me/vehicles").cookie(cookie))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$[0].id").value(vehicleId))
+            .andExpect(jsonPath("$[0].last_odometer_km").value(375050.0))
     }
 }

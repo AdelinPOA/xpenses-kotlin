@@ -2,6 +2,7 @@ package eu.nt.xpenses.dto.report
 
 import com.fasterxml.jackson.annotation.JsonProperty
 import jakarta.validation.constraints.Size
+import java.math.BigDecimal
 
 data class ReportUpdate(
     val title: String? = null,
@@ -18,5 +19,7 @@ data class ReportUpdate(
     val adresse: String? = null,
     val vorgang: String? = null,
     val arbeitsplatz: String? = null,
-    val techniker: String? = null
+    val techniker: String? = null,
+    @JsonProperty("starting_odometer_km") val startingOdometerKm: BigDecimal? = null,
+    @JsonProperty("clear_starting_odometer") val clearStartingOdometer: Boolean = false
 )

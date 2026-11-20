@@ -44,5 +44,6 @@ data class ReportOut(
     val adresse: String? = null,
     val vorgang: String? = null,
     val arbeitsplatz: String? = null,
-    val techniker: String? = null
+    val techniker: String? = null,
+    @JsonProperty("starting_odometer_km") val startingOdometerKm: BigDecimal? = null
 )

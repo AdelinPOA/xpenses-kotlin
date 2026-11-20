@@ -45,6 +45,7 @@ export interface MileageRecord {
   fx_rate: number;
   fuel_consumption_l_per_100km: number | null;
   fuel_price_ron_per_liter: number | null;
+  fuel_price_source?: string | null;
   fuel_exchange_rate: number | null;
   fuel_cost_eur: number | null;
   taxable_amount: number | null;
@@ -72,6 +73,9 @@ export interface MileageRates {
   mileage_rate_after_tax: number;
   fuel_consumption_l_per_100km: number;
   fuel_price_ron_per_liter: number;
+  fuel_price_petrol_ron_per_liter?: number;
+  fuel_price_lpg_ron_per_liter?: number;
+  fuel_price_electric_ron_per_liter?: number;
   pension_rate: number;
   health_rate: number;
   income_tax_rate: number;

@@ -18,6 +18,7 @@ import {
 import { useTranslations } from "next-intl";
 import type { MileageRecord } from "@/lib/api";
 import { formatAmount } from "@/lib/format";
+import { formatFuelSourceShortName } from "@/lib/fuelStatus";
 import { LOCALE_TO_INTL, type Locale } from "@/i18n/config";
 import {
   formatDayHeading,
@@ -523,8 +524,18 @@ export default function MileageWeeklyList({
                                       </summary>
                                       <p className="mt-1">
                                         {t("mileage_calc_fuel")}:{" "}
-                                        {m.fuel_cost_eur.toFixed(2)} EUR ·{" "}
-                                        {t("mileage_calc_taxable")}:{" "}
+                                        {m.fuel_cost_eur.toFixed(2)} EUR
+                                        {m.fuel_price_ron_per_liter != null && (
+                                          <span>
+                                            {" "}
+                                            ({m.fuel_price_ron_per_liter.toFixed(2)} RON/L
+                                            {m.fuel_price_source
+                                              ? ` · ${formatFuelSourceShortName(m.fuel_price_source)}`
+                                              : ""}
+                                            )
+                                          </span>
+                                        )}{" "}
+                                        · {t("mileage_calc_taxable")}:{" "}
                                         {(m.taxable_amount ?? 0).toFixed(2)} EUR ·{" "}
                                         {t("mileage_calc_withholding")}:{" "}
                                         {(m.withholding_amount ?? 0).toFixed(2)} EUR
@@ -725,9 +736,21 @@ export default function MileageWeeklyList({
                                             {formatAmount(m.amount_eur, "EUR")}
                                           </td>
                                           <td className="px-4 py-3 text-right text-xs text-muted-foreground whitespace-nowrap">
-                                            {m.fuel_cost_eur != null
-                                              ? `${m.fuel_cost_eur.toFixed(2)} EUR`
-                                              : "—"}
+                                            {m.fuel_cost_eur != null ? (
+                                              <div>
+                                                <div>{m.fuel_cost_eur.toFixed(2)} EUR</div>
+                                                {m.fuel_price_ron_per_liter != null && (
+                                                  <div className="text-[11px] opacity-80">
+                                                    {m.fuel_price_ron_per_liter.toFixed(2)} RON/L
+                                                    {m.fuel_price_source
+                                                      ? ` · ${formatFuelSourceShortName(m.fuel_price_source)}`
+                                                      : ""}
+                                                  </div>
+                                                )}
+                                              </div>
+                                            ) : (
+                                              "—"
+                                            )}
                                           </td>
                                           {isDraft && (
                                             <td className="px-4 py-3 text-right">

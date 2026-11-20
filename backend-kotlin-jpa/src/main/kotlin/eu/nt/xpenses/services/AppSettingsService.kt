@@ -119,24 +119,46 @@ class AppSettingsService @Autowired constructor(
     // --- Mileage Rates ---
 
     fun getMileageRates(): MileageRatesOut {
+        fun optionalValue(key: String) =
+            appSettingRepository
+                .findById(key)
+                .orElse(null)
+                ?.value
+                ?.let { BigDecimal(it) }
+
         fun value(
             key: String,
             default: String,
-        ) = appSettingRepository
-            .findById(key)
-            .orElse(null)
-            ?.value
-            ?.let { BigDecimal(it) } ?: BigDecimal(default)
+        ) = optionalValue(key) ?: BigDecimal(default)
+
+        val dieselPrice = value("mileage_fuel_price_ron_per_liter", "9.20")
+        val petrolPrice = value("mileage_fuel_price_petrol_ron_per_liter", "9.20")
+        val lpgPrice = value("mileage_fuel_price_lpg_ron_per_liter", "4.85")
+        val electricPrice = optionalValue("mileage_fuel_price_electric_ron_per_liter") ?: dieselPrice
+
         return MileageRatesOut(
-            value("mileage_rate_before_tax", "0.60"),
-            value("mileage_rate_after_tax", "0.40"),
-            value("mileage_fuel_consumption_l_per_100km", "7.5"),
-            value("mileage_fuel_price_ron_per_liter", "9.20"),
-            value("mileage_pension_rate", "0.25"),
-            value("mileage_health_rate", "0.10"),
-            value("mileage_income_tax_rate", "0.10"),
-            value("mileage_tax_deduction_eur", "0.00"),
+            mileageRateBeforeTax = value("mileage_rate_before_tax", "0.60"),
+            mileageRateAfterTax = value("mileage_rate_after_tax", "0.40"),
+            fuelConsumptionLitersPer100Km = value("mileage_fuel_consumption_l_per_100km", "7.5"),
+            fuelPriceRonPerLiter = dieselPrice,
+            fuelPricePetrolRonPerLiter = petrolPrice,
+            fuelPriceLpgRonPerLiter = lpgPrice,
+            fuelPriceElectricRonPerLiter = electricPrice,
+            pensionRate = value("mileage_pension_rate", "0.25"),
+            healthRate = value("mileage_health_rate", "0.10"),
+            incomeTaxRate = value("mileage_income_tax_rate", "0.10"),
+            taxDeductionEur = value("mileage_tax_deduction_eur", "0.00"),
         )
+    }
+
+    fun getManualFuelPrice(vehicleFuelType: String?): BigDecimal {
+        val rates = getMileageRates()
+        return when (vehicleFuelType?.trim()?.lowercase()) {
+            "petrol", "hybrid" -> rates.fuelPricePetrolRonPerLiter
+            "lpg" -> rates.fuelPriceLpgRonPerLiter
+            "electric" -> rates.fuelPriceElectricRonPerLiter
+            else -> rates.fuelPriceRonPerLiter
+        }
     }
 
     @Transactional
@@ -147,6 +169,9 @@ class AppSettingsService @Autowired constructor(
         mapOf(
             "mileage_fuel_consumption_l_per_100km" to body.fuelConsumptionLitersPer100Km,
             "mileage_fuel_price_ron_per_liter" to body.fuelPriceRonPerLiter,
+            "mileage_fuel_price_petrol_ron_per_liter" to body.fuelPricePetrolRonPerLiter,
+            "mileage_fuel_price_lpg_ron_per_liter" to body.fuelPriceLpgRonPerLiter,
+            "mileage_fuel_price_electric_ron_per_liter" to body.fuelPriceElectricRonPerLiter,
             "mileage_pension_rate" to body.pensionRate,
             "mileage_health_rate" to body.healthRate,
             "mileage_income_tax_rate" to body.incomeTaxRate,

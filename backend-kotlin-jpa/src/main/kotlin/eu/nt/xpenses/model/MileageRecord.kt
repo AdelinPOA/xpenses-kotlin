@@ -48,6 +48,9 @@ class MileageRecord(
     @Column(name = "fuel_price_ron_per_liter")
     var fuelPriceRonPerLiter: BigDecimal? = null,
 
+    @Column(name = "fuel_price_source", length = 32)
+    var fuelPriceSource: String? = null,
+
     @Column(name = "fuel_exchange_rate")
     var fuelExchangeRate: BigDecimal? = null,
 

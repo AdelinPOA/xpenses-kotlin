@@ -38,6 +38,7 @@ export const settingsKeys = {
   fxMargins: () => [...settingsKeys.all, "fx-margins"] as const,
   fxProviders: () => [...settingsKeys.all, "fx-providers"] as const,
   fxStatus: () => [...settingsKeys.all, "fx-status"] as const,
+  fuelStatus: () => [...settingsKeys.all, "fuel-status"] as const,
   mobileUi: () => [...settingsKeys.all, "mobile-ui"] as const,
 };
 

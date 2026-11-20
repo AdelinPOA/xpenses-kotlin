@@ -11,7 +11,7 @@ import { useAuth } from "@/components/AuthProvider";
 import { useTheme } from "@/components/ThemeProvider";
 import { useBodyScrollLock } from "@/lib/useBodyScrollLock";
 import { useAllowNavigation } from "@/lib/navigationGuard";
-import { FxSidebarStatusPill } from "./FxStatusIndicator";
+import { FuelSidebarStatusPill, FxSidebarStatusPill } from "./FxStatusIndicator";
 import { useTranslations } from "next-intl";
 
 const ROLE_LABELS: Record<string, string> = {
@@ -258,6 +258,12 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
           )}
 
           <FxSidebarStatusPill
+            onNavigate={(e) => {
+              guardedNavigate(e);
+              onClose();
+            }}
+          />
+          <FuelSidebarStatusPill
             onNavigate={(e) => {
               guardedNavigate(e);
               onClose();

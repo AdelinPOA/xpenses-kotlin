@@ -232,6 +232,9 @@ export type {
   FxHealthStatus,
   FxProviderHealthItem,
   FxLastDbRate,
+  FuelPriceHealthStatus,
+  FuelProviderHealthItem,
+  FuelLastDbPrice,
 } from "./types/admin";
 
 export interface ApiValidationError {
@@ -260,6 +263,8 @@ export {
   testFxProvider,
   getFxStatus,
   checkFxProviders,
+  getFuelPriceStatus,
+  checkFuelPrices,
 } from "./api/admin";
 
 function isStandalonePwa(): boolean {

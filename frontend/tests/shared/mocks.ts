@@ -627,6 +627,35 @@ export async function setupCommonMocks(
       },
     }),
   );
+  await page.route("**/api/fuel-prices/status", (route) =>
+    route.fulfill({
+      json: {
+        status: "HEALTHY",
+        primary_provider: "PRETCARBURANT_LIVE",
+        active_source: "PRETCARBURANT_LIVE",
+        fallback_active: false,
+        last_checked_at: "2026-11-20T20:00:00Z",
+        primary_error: null,
+        providers: [
+          {
+            provider: "PRETCARBURANT_LIVE",
+            priority: 1,
+            healthy: true,
+            active: true,
+            is_primary: true,
+            checked_at: "2026-11-20T20:00:00Z",
+            source_date: "2026-11-20",
+            diesel_ron: 10.56,
+            petrol_ron: 9.12,
+            lpg_ron: 4.83,
+            latency_ms: 45,
+            error: null,
+          },
+        ],
+        last_db_price: null,
+      },
+    }),
+  );
 }
 
 export async function setupAdminMocks(
@@ -888,6 +917,62 @@ export async function setupAdminMocks(
   await page.route("**/api/settings/fx-providers/check", (route) =>
     route.fulfill({ json: fxHealthyStatus }),
   );
+  const fuelHealthyStatus = {
+    status: "HEALTHY",
+    primary_provider: "PRETCARBURANT_LIVE",
+    active_source: "PRETCARBURANT_LIVE",
+    fallback_active: false,
+    last_checked_at: "2026-11-20T20:00:00Z",
+    primary_error: null,
+    providers: [
+      {
+        provider: "PRETCARBURANT_LIVE",
+        priority: 1,
+        healthy: true,
+        active: true,
+        is_primary: true,
+        checked_at: "2026-11-20T20:00:00Z",
+        source_date: "2026-11-20",
+        diesel_ron: 10.56,
+        petrol_ron: 9.12,
+        lpg_ron: 4.83,
+        latency_ms: 45,
+        error: null,
+      },
+      {
+        provider: "PRETCARBURANT_DATA",
+        priority: 2,
+        healthy: true,
+        active: false,
+        is_primary: false,
+        checked_at: "2026-11-20T20:00:00Z",
+        source_date: "2026-11-19",
+        diesel_ron: 10.61,
+        petrol_ron: 9.20,
+        lpg_ron: 4.84,
+        latency_ms: 60,
+        error: null,
+      },
+      {
+        provider: "EU_WEEKLY_OIL_BULLETIN",
+        priority: 3,
+        healthy: true,
+        active: false,
+        is_primary: false,
+        checked_at: "2026-11-20T20:00:00Z",
+        source_date: "2026-11-16",
+        diesel_ron: 10.72,
+        petrol_ron: 9.44,
+        lpg_ron: 4.79,
+        latency_ms: 120,
+        error: null,
+      },
+    ],
+    last_db_price: null,
+  };
+  await page.route("**/api/settings/fuel-prices/check", (route) =>
+    route.fulfill({ json: fuelHealthyStatus }),
+  );
   await page.route("**/api/settings/fx-providers", async (route, req) => {
     if (req.method() === "PATCH") {
       const payload = req.postDataJSON() as { providers?: string[] };
@@ -965,6 +1050,35 @@ export async function setupAuthMocks(
           },
         ],
         last_db_rate: null,
+      },
+    }),
+  );
+  await page.route("**/api/fuel-prices/status", (route) =>
+    route.fulfill({
+      json: {
+        status: "HEALTHY",
+        primary_provider: "PRETCARBURANT_LIVE",
+        active_source: "PRETCARBURANT_LIVE",
+        fallback_active: false,
+        last_checked_at: "2026-11-20T20:00:00Z",
+        primary_error: null,
+        providers: [
+          {
+            provider: "PRETCARBURANT_LIVE",
+            priority: 1,
+            healthy: true,
+            active: true,
+            is_primary: true,
+            checked_at: "2026-11-20T20:00:00Z",
+            source_date: "2026-11-20",
+            diesel_ron: 10.56,
+            petrol_ron: 9.12,
+            lpg_ron: 4.83,
+            latency_ms: 45,
+            error: null,
+          },
+        ],
+        last_db_price: null,
       },
     }),
   );

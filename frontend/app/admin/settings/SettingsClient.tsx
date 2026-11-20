@@ -12,27 +12,18 @@ import api, {
   updateFxProviders,
   testFxProvider,
   checkFxProviders,
+  checkFuelPrices,
 } from "@/lib/api";
 import { settingsKeys } from "@/lib/queryKeys";
 import AppShell from "@/components/layout/AppShell";
 import { useAuth } from "@/components/AuthProvider";
-import {
-  Settings,
-  Save,
-  ArrowUp,
-  ArrowDown,
-  Globe,
-  CheckCircle2,
-  AlertCircle,
-  AlertTriangle,
-  Play,
-  RefreshCw,
-} from "lucide-react";
+import { Settings, Save, ArrowUp, ArrowDown, Globe, CheckCircle2, AlertCircle, AlertTriangle, Play, RefreshCw, Fuel } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { AxiosError } from "axios";
 import type { MobileUiConfig } from "@/lib/types/admin";
 import { parseLocaleNumber } from "@/lib/format";
 import { formatFxProviderShortName, useFxStatus } from "@/lib/fxStatus";
+import { formatFuelSourceShortName, useFuelPriceStatus } from "@/lib/fuelStatus";
 
 function MobileUiSettingsCard() {
   const qc = useQueryClient();
@@ -541,6 +532,222 @@ function FxProvidersCard() {
   );
 }
 
+/** Live daily fuel price provider health and fallback status card for mod & chef_finance. */
+function FuelPriceHealthCard() {
+  const qc = useQueryClient();
+  const t = useTranslations("admin");
+  const { data: fuelStatus } = useFuelPriceStatus(true);
+  const [checkError, setCheckError] = useState("");
+
+  const checkMutation = useMutation({
+    mutationFn: checkFuelPrices,
+    onSuccess: (status) => {
+      setCheckError("");
+      qc.setQueryData(settingsKeys.fuelStatus(), status);
+    },
+    onError: (error: unknown) => {
+      const detail = (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      setCheckError(detail ?? t("fuel_health_check_failed"));
+    },
+  });
+
+  const getProviderMeta = (providerKey: string) => {
+    switch (providerKey) {
+      case "PRETCARBURANT_LIVE":
+        return {
+          title: t("fuel_provider_live_title"),
+          desc: t("fuel_provider_live_desc"),
+          badge: "RO Live",
+          badgeColor: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
+        };
+      case "PRETCARBURANT_DATA":
+        return {
+          title: t("fuel_provider_data_title"),
+          desc: t("fuel_provider_data_desc"),
+          badge: "RO Archive",
+          badgeColor: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
+        };
+      case "EU_WEEKLY_OIL_BULLETIN":
+        return {
+          title: t("fuel_provider_eu_title"),
+          desc: t("fuel_provider_eu_desc"),
+          badge: "EU",
+          badgeColor: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
+        };
+      default:
+        return {
+          title: providerKey,
+          desc: "",
+          badge: "API",
+          badgeColor: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
+        };
+    }
+  };
+
+  const getHealthSummaryConfig = () => {
+    if (!fuelStatus || fuelStatus.status === "UNKNOWN") {
+      return {
+        boxClass: "bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300",
+        icon: <Fuel className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" aria-hidden="true" />,
+        headline: t("fuel_health_status_unknown"),
+      };
+    }
+    if (fuelStatus.status === "HEALTHY") {
+      return {
+        boxClass: "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200",
+        icon: <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" aria-hidden="true" />,
+        headline: t("fuel_health_status_healthy", {
+          provider: formatFuelSourceShortName(fuelStatus.active_source),
+        }),
+      };
+    }
+    return {
+      boxClass: "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-700 text-amber-900 dark:text-amber-200",
+      icon: <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" aria-hidden="true" />,
+      headline: t("fuel_health_status_fallback", {
+        active: formatFuelSourceShortName(fuelStatus.active_source),
+        primary: formatFuelSourceShortName(fuelStatus.primary_provider),
+      }),
+    };
+  };
+
+  const summary = getHealthSummaryConfig();
+  const providerOrder = ["PRETCARBURANT_LIVE", "PRETCARBURANT_DATA", "EU_WEEKLY_OIL_BULLETIN"];
+
+  return (
+    <div id="fuel-prices" className="bg-card rounded-xl shadow-sm p-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
+        <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+          <Fuel className="w-5 h-5 text-teal-500" aria-hidden="true" />
+          {t("fuel_health_heading")}
+        </h2>
+        <button
+          type="button"
+          onClick={() => checkMutation.mutate()}
+          disabled={checkMutation.isPending}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-input-border bg-card hover:bg-card-hover text-xs font-medium text-foreground disabled:opacity-50 cursor-pointer transition-colors"
+        >
+          <RefreshCw
+            className={`w-3.5 h-3.5 ${checkMutation.isPending ? "animate-spin" : ""}`}
+            aria-hidden="true"
+          />
+          <span>{checkMutation.isPending ? t("fx_health_checking") : t("fx_health_check_now")}</span>
+        </button>
+      </div>
+      <p className="text-sm text-muted mb-4">{t("fuel_health_description")}</p>
+
+      {/* Live Fuel Health Summary (never use role="status" here so Playwright status assertions target save feedback cleanly) */}
+      <div className={`rounded-xl border p-3.5 mb-5 text-xs ${summary.boxClass}`}>
+        <div className="flex items-start gap-2.5">
+          {summary.icon}
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold text-sm">{summary.headline}</p>
+            {fuelStatus?.primary_error && (
+              <p className="mt-1 opacity-90 break-words">
+                {formatFuelSourceShortName(fuelStatus.primary_provider)}: {fuelStatus.primary_error}
+              </p>
+            )}
+            {fuelStatus?.last_checked_at && (
+              <p className="mt-1 opacity-75">
+                {t("fx_health_last_checked", {
+                  time: new Date(fuelStatus.last_checked_at).toLocaleString(),
+                })}
+              </p>
+            )}
+          </div>
+        </div>
+        {checkError && (
+          <p role="alert" className="mt-2 text-xs text-red-600 dark:text-red-400">
+            {checkError}
+          </p>
+        )}
+      </div>
+
+      <div className="space-y-3">
+        {providerOrder.map((providerKey, idx) => {
+          const info = getProviderMeta(providerKey);
+          const item = fuelStatus?.providers.find((entry) => entry.provider === providerKey);
+
+          let pillLabel = t("fx_health_badge_unknown");
+          let pillClass =
+            "bg-slate-200/80 text-slate-700 dark:bg-slate-700 dark:text-slate-300";
+
+          if (item?.checked_at) {
+            if (item.active && item.is_primary) {
+              pillLabel = t("fx_health_badge_active");
+              pillClass =
+                "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300";
+            } else if (item.active) {
+              pillLabel = t("fx_health_badge_fallback");
+              pillClass =
+                "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300";
+            } else if (item.healthy) {
+              pillLabel = t("fx_health_badge_standby");
+              pillClass =
+                "bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300";
+            } else {
+              pillLabel = t("fx_health_badge_down");
+              pillClass =
+                "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300";
+            }
+          }
+
+          return (
+            <div
+              key={providerKey}
+              className="flex items-start justify-between p-3.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl"
+            >
+              <div className="flex items-start gap-3 min-w-0">
+                <span className="flex items-center justify-center w-7 h-7 rounded-full bg-slate-200 dark:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 shrink-0 mt-0.5">
+                  {idx + 1}
+                </span>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="font-semibold text-sm text-foreground">{info.title}</span>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${info.badgeColor}`}>
+                      {info.badge}
+                    </span>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${pillClass}`}>
+                      {pillLabel}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted mt-0.5">{info.desc}</p>
+                  {item?.healthy && (
+                    <p className="text-[11px] font-mono text-emerald-700 dark:text-emerald-400 mt-1">
+                      {item.diesel_ron != null ? `${t("fuel_label_diesel")}: ${item.diesel_ron.toFixed(2)}` : ""}
+                      {item.petrol_ron != null ? ` · ${t("fuel_label_petrol")}: ${item.petrol_ron.toFixed(2)}` : ""}
+                      {item.lpg_ron != null ? ` · ${t("fuel_label_lpg")}: ${item.lpg_ron.toFixed(2)}` : ""}
+                      {" RON/L"}
+                      {item.source_date ? ` · ${item.source_date}` : ""}
+                      {item.latency_ms != null ? ` · ${item.latency_ms} ms` : ""}
+                    </p>
+                  )}
+                  {item && !item.healthy && item.error && (
+                    <p className="text-[11px] text-red-600 dark:text-red-400 mt-1 break-words">
+                      {item.error}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {fuelStatus?.last_db_price && (
+        <p className="text-xs text-muted mt-4">
+          {t("fuel_health_last_db_price", {
+            fuelType: fuelStatus.last_db_price.fuel_type,
+            date: fuelStatus.last_db_price.price_date,
+            price: fuelStatus.last_db_price.price_ron_per_liter.toFixed(2),
+            source: formatFuelSourceShortName(fuelStatus.last_db_price.source),
+          })}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export default function SettingsClient() {
   const { user } = useAuth();
   const qc = useQueryClient();
@@ -576,6 +783,9 @@ export default function SettingsClient() {
   const [bt, setBt] = useState("");
   const [fuelConsumption, setFuelConsumption] = useState("");
   const [fuelPrice, setFuelPrice] = useState("");
+  const [fuelPricePetrol, setFuelPricePetrol] = useState("");
+  const [fuelPriceLpg, setFuelPriceLpg] = useState("");
+  const [fuelPriceElectric, setFuelPriceElectric] = useState("");
   const [pensionRate, setPensionRate] = useState("");
   const [healthRate, setHealthRate] = useState("");
   const [incomeTaxRate, setIncomeTaxRate] = useState("");
@@ -594,6 +804,13 @@ export default function SettingsClient() {
       setBt(rates.mileage_rate_before_tax?.toString() ?? "");
       setFuelConsumption(rates.fuel_consumption_l_per_100km?.toString() ?? "");
       setFuelPrice(rates.fuel_price_ron_per_liter?.toString() ?? "");
+      setFuelPricePetrol(
+        (rates.fuel_price_petrol_ron_per_liter ?? rates.fuel_price_ron_per_liter)?.toString() ?? "",
+      );
+      setFuelPriceLpg((rates.fuel_price_lpg_ron_per_liter ?? 4.85).toString());
+      setFuelPriceElectric(
+        (rates.fuel_price_electric_ron_per_liter ?? rates.fuel_price_ron_per_liter)?.toString() ?? "",
+      );
       setPensionRate(rates.pension_rate != null ? (rates.pension_rate * 100).toString() : "");
       setHealthRate(rates.health_rate != null ? (rates.health_rate * 100).toString() : "");
       setIncomeTaxRate(rates.income_tax_rate != null ? (rates.income_tax_rate * 100).toString() : "");
@@ -659,16 +876,42 @@ export default function SettingsClient() {
     const btVal = parseLocaleNumber(bt);
     const consumption = parseLocaleNumber(fuelConsumption);
     const price = parseLocaleNumber(fuelPrice);
+    const petrolPrice = parseLocaleNumber(fuelPricePetrol || fuelPrice);
+    const lpgPrice = parseLocaleNumber(fuelPriceLpg || "4.85");
+    const electricPrice = parseLocaleNumber(fuelPriceElectric || fuelPrice);
     const pension = parseLocaleNumber(pensionRate) / 100;
     const health = parseLocaleNumber(healthRate) / 100;
     const incomeTax = parseLocaleNumber(incomeTaxRate) / 100;
     const deduction = parseLocaleNumber(taxDeduction);
-    if ([btVal, consumption, price, pension, health, incomeTax, deduction].some(Number.isNaN) || btVal <= 0 || consumption <= 0 || price < 0 || pension < 0 || health < 0 || incomeTax < 0 || deduction < 0) {
+    if (
+      [btVal, consumption, price, petrolPrice, lpgPrice, electricPrice, pension, health, incomeTax, deduction].some(Number.isNaN) ||
+      btVal <= 0 ||
+      consumption <= 0 ||
+      price < 0 ||
+      petrolPrice < 0 ||
+      lpgPrice < 0 ||
+      electricPrice < 0 ||
+      pension < 0 ||
+      health < 0 ||
+      incomeTax < 0 ||
+      deduction < 0
+    ) {
       setRatesError(t("invalid_rates_input"));
       return;
     }
     setRatesError("");
-    updateRates.mutate({ mileage_rate_before_tax: btVal, fuel_consumption_l_per_100km: consumption, fuel_price_ron_per_liter: price, pension_rate: pension, health_rate: health, income_tax_rate: incomeTax, tax_deduction_eur: deduction });
+    updateRates.mutate({
+      mileage_rate_before_tax: btVal,
+      fuel_consumption_l_per_100km: consumption,
+      fuel_price_ron_per_liter: price,
+      fuel_price_petrol_ron_per_liter: petrolPrice,
+      fuel_price_lpg_ron_per_liter: lpgPrice,
+      fuel_price_electric_ron_per_liter: electricPrice,
+      pension_rate: pension,
+      health_rate: health,
+      income_tax_rate: incomeTax,
+      tax_deduction_eur: deduction,
+    });
   };
 
   const handleSaveAllowance = () => {
@@ -722,6 +965,7 @@ export default function SettingsClient() {
         <div className="space-y-6 max-w-lg">
           <MobileUiSettingsCard />
           <FxProvidersCard />
+          <FuelPriceHealthCard />
         </div>
       </AppShell>
     );
@@ -765,7 +1009,10 @@ export default function SettingsClient() {
               <p className="text-sm font-medium text-foreground">Fuel and tax calculation</p>
               {[
                 ["Fuel consumption (L/100 km)", fuelConsumption, setFuelConsumption, "0.1"],
-                ["Diesel price (RON/liter)", fuelPrice, setFuelPrice, "0.01"],
+                [t("fuel_price_diesel_fallback"), fuelPrice, setFuelPrice, "0.01"],
+                [t("fuel_price_petrol_fallback"), fuelPricePetrol, setFuelPricePetrol, "0.01"],
+                [t("fuel_price_lpg_fallback"), fuelPriceLpg, setFuelPriceLpg, "0.01"],
+                [t("fuel_price_electric_fallback"), fuelPriceElectric, setFuelPriceElectric, "0.01"],
                 ["Pension contribution (%)", pensionRate, setPensionRate, "0.1"],
                 ["Health contribution (%)", healthRate, setHealthRate, "0.1"],
                 ["Income tax (%)", incomeTaxRate, setIncomeTaxRate, "0.1"],
@@ -776,7 +1023,7 @@ export default function SettingsClient() {
                   <input type="number" step={step as string} min="0" value={value as string} onChange={(e) => (setter as (v: string) => void)(e.target.value)} className="w-full px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground" />
                 </div>
               ))}
-              <p className="text-xs text-slate-400">The EUR/RON exchange rate is fetched automatically for each trip date.</p>
+              <p className="text-xs text-slate-400">{t("fuel_price_auto_hint")}</p>
             </div>
 
             <button
@@ -904,6 +1151,7 @@ export default function SettingsClient() {
         </div>
 
         <FxProvidersCard />
+        <FuelPriceHealthCard />
       </div>
     </AppShell>
   );

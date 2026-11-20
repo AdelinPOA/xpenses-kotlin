@@ -5,6 +5,7 @@ import eu.nt.xpenses.dto.settings.DailyAllowanceUpdate
 import eu.nt.xpenses.dto.settings.EmailConfigIn
 import eu.nt.xpenses.dto.settings.EmailConfigOut
 import eu.nt.xpenses.dto.settings.EmailSimulationIn
+import eu.nt.xpenses.dto.settings.FuelPriceHealthStatusOut
 import eu.nt.xpenses.dto.settings.FxHealthStatusOut
 import eu.nt.xpenses.dto.settings.FxMarginsOut
 import eu.nt.xpenses.dto.settings.FxMarginsUpdate
@@ -37,6 +38,7 @@ import eu.nt.xpenses.services.ImapConfig
 import eu.nt.xpenses.services.OCRConfig
 import eu.nt.xpenses.services.OcrService
 import eu.nt.xpenses.services.StorageService
+import eu.nt.xpenses.services.fuel.FuelPriceHealthService
 import eu.nt.xpenses.services.fx.FxProviderHealthService
 import eu.nt.xpenses.services.fx.FxRateSource
 import eu.nt.xpenses.services.fx.HttpFxRateProvider
@@ -59,6 +61,7 @@ class AppSettingsController(
     private val emailImportService: EmailImportService,
     private val httpFxRateProvider: HttpFxRateProvider,
     private val fxProviderHealthService: FxProviderHealthService,
+    private val fuelPriceHealthService: FuelPriceHealthService,
 ) {
     // --- Mobile UI ---
     @GetMapping("/ui")
@@ -144,6 +147,11 @@ class AppSettingsController(
     @PreAuthorize("hasAnyRole('mod', 'chef_finance')")
     fun checkFxProviders(): ResponseEntity<FxHealthStatusOut> =
         ResponseEntity.ok(fxProviderHealthService.runHealthCheck())
+
+    @PostMapping("/fuel-prices/check")
+    @PreAuthorize("hasAnyRole('mod', 'chef_finance')")
+    fun checkFuelPrices(): ResponseEntity<FuelPriceHealthStatusOut> =
+        ResponseEntity.ok(fuelPriceHealthService.runHealthCheck())
 
     @PostMapping("/fx-providers/test")
     @PreAuthorize("hasAnyRole('mod', 'chef_finance')")

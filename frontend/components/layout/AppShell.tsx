@@ -11,7 +11,7 @@ import { navLabelKeyFor } from "./nav";
 import { useAuth } from "@/components/AuthProvider";
 import { useOfflineSync } from "@/components/OfflineSyncProvider";
 import { useAllowNavigation } from "@/lib/navigationGuard";
-import { FxFallbackBanner } from "./FxStatusIndicator";
+import { FuelFallbackBanner, FxFallbackBanner } from "./FxStatusIndicator";
 import clsx from "clsx";
 import { useTranslations } from "next-intl";
 
@@ -148,6 +148,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         className="app-main flex-1 lg:ml-[220px] pt-[calc(3.5rem_+_var(--app-header-safe-inset,env(safe-area-inset-top,0px))_+_var(--app-banner-height,0px)_+_1rem)] sm:pt-[calc(3.5rem_+_var(--app-header-safe-inset,env(safe-area-inset-top,0px))_+_var(--app-banner-height,0px)_+_1.5rem)] lg:pt-[calc(1.5rem_+_var(--app-banner-height,0px))] pb-[calc(7.5rem_+_env(safe-area-inset-bottom,0px))] lg:pb-0 p-4 sm:p-6 lg:p-8"
       >
         <FxFallbackBanner />
+        <FuelFallbackBanner />
         {children}
         <IosInstallHint />
       </main>

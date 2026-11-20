@@ -61,6 +61,7 @@ class ReportMapper(
             amountOriginal = m.amountOriginal,
             fuelConsumptionLitersPer100Km = m.fuelConsumptionLitersPer100Km,
             fuelPriceRonPerLiter = m.fuelPriceRonPerLiter,
+            fuelPriceSource = m.fuelPriceSource,
             fuelExchangeRate = m.fuelExchangeRate,
             fuelCostEur = m.fuelCostEur,
             taxableAmount = m.taxableAmount,

@@ -17,6 +17,7 @@ data class MileageRecordOut(
     @JsonProperty("amount_eur") val amountEur: BigDecimal,
     @JsonProperty("fuel_consumption_l_per_100km") val fuelConsumptionLitersPer100Km: BigDecimal?,
     @JsonProperty("fuel_price_ron_per_liter") val fuelPriceRonPerLiter: BigDecimal?,
+    @JsonProperty("fuel_price_source") val fuelPriceSource: String? = null,
     @JsonProperty("fuel_exchange_rate") val fuelExchangeRate: BigDecimal?,
     @JsonProperty("fuel_cost_eur") val fuelCostEur: BigDecimal?,
     @JsonProperty("taxable_amount") val taxableAmount: BigDecimal?,

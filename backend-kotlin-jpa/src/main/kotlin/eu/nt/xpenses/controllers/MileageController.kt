@@ -9,6 +9,7 @@ import eu.nt.xpenses.services.FxService
 import eu.nt.xpenses.services.MileageCalculationService
 import eu.nt.xpenses.services.MileageCalculationSettings
 import eu.nt.xpenses.services.TripSheetExportService
+import eu.nt.xpenses.services.fuel.FuelPriceService
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.validation.Valid
 import org.springframework.http.HttpHeaders
@@ -36,6 +37,7 @@ class MileageController(
     private val reportOwnership: ReportOwnership,
     private val fxService: FxService,
     private val tripSheetExportService: TripSheetExportService,
+    private val fuelPriceService: FuelPriceService,
     private val mileageCalculationService: MileageCalculationService = MileageCalculationService()
 ) {
 
@@ -49,13 +51,16 @@ class MileageController(
         appSettingRepository.findById("mileage_fuel_consumption_l_per_100km").orElse(null)?.value?.let { BigDecimal(it) }
             ?: BigDecimal("7.5")
 
-    private fun getCalculationSettings(fuelConsumptionOverride: BigDecimal? = null): MileageCalculationSettings {
+    private fun getCalculationSettings(
+        fuelConsumptionOverride: BigDecimal? = null,
+        fuelPriceOverride: BigDecimal? = null,
+    ): MileageCalculationSettings {
         val (grossRate, _) = getMileageRates()
         fun setting(key: String, default: String) = appSettingRepository.findById(key).orElse(null)?.value?.let { BigDecimal(it) } ?: BigDecimal(default)
         return MileageCalculationSettings(
             grossRate = grossRate,
             fuelConsumption = fuelConsumptionOverride ?: setting("mileage_fuel_consumption_l_per_100km", "7.5"),
-            fuelPriceRonPerLiter = setting("mileage_fuel_price_ron_per_liter", "9.20"),
+            fuelPriceRonPerLiter = fuelPriceOverride ?: setting("mileage_fuel_price_ron_per_liter", "9.20"),
             pensionRate = setting("mileage_pension_rate", "0.25"),
             healthRate = setting("mileage_health_rate", "0.10"),
             incomeTaxRate = setting("mileage_income_tax_rate", "0.10"),
@@ -132,7 +137,14 @@ class MileageController(
 
         val distanceBd = BigDecimal.valueOf(body.distanceKm)
         val fxRate = resolveFuelExchangeRate(body.startTime)
-        val settings = getCalculationSettings(vehicle?.fuelConsumptionLitersPer100Km)
+        val resolvedFuel = fuelPriceService.resolveFuelPrice(
+            vehicle?.fuelType,
+            LocalDate.parse(businessDate(body.startTime)),
+        )
+        val settings = getCalculationSettings(
+            fuelConsumptionOverride = vehicle?.fuelConsumptionLitersPer100Km,
+            fuelPriceOverride = resolvedFuel.priceRonPerLiter,
+        )
         val calculation = mileageCalculationService.calculate(distanceBd, fxRate, settings)
         val amountBeforeTax = calculation.grossAmount.setScale(2, RoundingMode.HALF_UP)
         val amountOriginal = calculation.netAmount.setScale(2, RoundingMode.HALF_UP)
@@ -153,6 +165,7 @@ class MileageController(
             fxRate = BigDecimal.ONE,
             fuelConsumptionLitersPer100Km = settings.fuelConsumption,
             fuelPriceRonPerLiter = settings.fuelPriceRonPerLiter,
+            fuelPriceSource = resolvedFuel.source.name,
             fuelExchangeRate = fxRate,
             fuelCostEur = calculation.fuelCostEur,
             taxableAmount = calculation.taxableAmount,
@@ -241,6 +254,14 @@ class MileageController(
         }
 
         if (distanceChanged || dateChanged || vehicleChanged) {
+            if (dateChanged || vehicleChanged) {
+                val resolvedFuel = fuelPriceService.resolveFuelPrice(
+                    rec.vehicleFuelType,
+                    LocalDate.parse(businessDate(rec.startTime)),
+                )
+                rec.fuelPriceRonPerLiter = resolvedFuel.priceRonPerLiter
+                rec.fuelPriceSource = resolvedFuel.source.name
+            }
             val hasFuelFields = rec.fuelConsumptionLitersPer100Km != null &&
                 rec.fuelPriceRonPerLiter != null &&
                 rec.pensionRate != null &&
@@ -313,6 +334,7 @@ class MileageController(
             amountOriginal = m.amountOriginal,
             fuelConsumptionLitersPer100Km = m.fuelConsumptionLitersPer100Km,
             fuelPriceRonPerLiter = m.fuelPriceRonPerLiter,
+            fuelPriceSource = m.fuelPriceSource,
             fuelExchangeRate = m.fuelExchangeRate,
             fuelCostEur = m.fuelCostEur,
             taxableAmount = m.taxableAmount,

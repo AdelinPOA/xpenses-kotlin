@@ -4,6 +4,9 @@ import com.jayway.jsonpath.JsonPath
 import eu.nt.xpenses.IntegrationTestBase
 import eu.nt.xpenses.model.Expense
 import eu.nt.xpenses.model.ExpenseReport
+import eu.nt.xpenses.model.FuelPrice
+import eu.nt.xpenses.repositories.FuelPriceRepository
+import eu.nt.xpenses.services.fuel.FuelPriceSource
 import jakarta.persistence.EntityManager
 import org.hamcrest.Matchers.nullValue
 import org.junit.jupiter.api.Test
@@ -22,6 +25,9 @@ class MileageControllerTest : IntegrationTestBase() {
 
     @Autowired
     private lateinit var entityManager: EntityManager
+
+    @Autowired
+    private lateinit var fuelPriceRepository: FuelPriceRepository
 
     private fun makeTechReport(): ExpenseReport {
         val tech = userRepository.findByUsername("tech1")!!
@@ -874,5 +880,46 @@ class MileageControllerTest : IntegrationTestBase() {
         val tech2Cookie = authHelper.loginAs("tech2tripsheet", "pass1234")
         mockMvc.perform(get("/api/reports/${report.id}/mileage/trip-sheet").cookie(tech2Cookie))
             .andExpect(status().isForbidden)
+    }
+
+    @Test
+    fun `POST mileage picks cached daily fuel price for vehicle fuel type and records fuel_price_source`() {
+        val report = makeTechReport()
+        fuelPriceRepository.save(
+            FuelPrice(
+                fuelType = "diesel",
+                priceDate = "2026-06-01",
+                sourceDate = java.time.LocalDate.parse("2026-06-01"),
+                source = FuelPriceSource.PRETCARBURANT_DATA,
+                priceRonPerLiter = BigDecimal("10.50"),
+                stationCount = 1350,
+            ),
+        )
+        entityManager.flush()
+        entityManager.clear()
+        val cookie = authHelper.loginAs("tech1", "tech1")
+
+        org.mockito.Mockito.`when`(fxService.getRate("RON", "2026-06-01"))
+            .thenReturn(BigDecimal("0.2")) // 5.0 RON/EUR
+
+        val vehicleRes = mockMvc.perform(
+            post("/api/users/me/vehicles")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"plate_number":"B-77-DSL","make_model":"VW Passat","fuel_type":"diesel","fuel_consumption_l_per_100km":6.0}""")
+                .cookie(cookie)
+        ).andExpect(status().isCreated).andReturn()
+        val vehicleId = JsonPath.read<Int>(vehicleRes.response.contentAsString, "$.id")
+
+        // 100 km * 6.0 L/100km = 6.0 L * 10.50 RON/L = 63.0 RON / 5.0 = 12.60 EUR
+        mockMvc.perform(
+            post("/api/reports/${report.id}/mileage")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"origin":"Office","destination":"Client","distance_km":100.0,"start_time":"$startTime","end_time":"$endTime","vehicle_id":$vehicleId}""")
+                .cookie(cookie)
+        )
+            .andExpect(status().isCreated)
+            .andExpect(jsonPath("$.fuel_price_ron_per_liter").value(10.50))
+            .andExpect(jsonPath("$.fuel_price_source").value("PRETCARBURANT_DATA"))
+            .andExpect(jsonPath("$.fuel_cost_eur").value(12.60))
     }
 }

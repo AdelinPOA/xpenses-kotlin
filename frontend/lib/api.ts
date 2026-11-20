@@ -229,6 +229,9 @@ export type {
   FxMargins,
   FxProvidersConfig,
   FxTestResult,
+  FxHealthStatus,
+  FxProviderHealthItem,
+  FxLastDbRate,
 } from "./types/admin";
 
 export interface ApiValidationError {
@@ -255,6 +258,8 @@ export {
   getFxProviders,
   updateFxProviders,
   testFxProvider,
+  getFxStatus,
+  checkFxProviders,
 } from "./api/admin";
 
 function isStandalonePwa(): boolean {

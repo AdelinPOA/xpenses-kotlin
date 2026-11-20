@@ -5,6 +5,7 @@ import eu.nt.xpenses.dto.settings.DailyAllowanceUpdate
 import eu.nt.xpenses.dto.settings.EmailConfigIn
 import eu.nt.xpenses.dto.settings.EmailConfigOut
 import eu.nt.xpenses.dto.settings.EmailSimulationIn
+import eu.nt.xpenses.dto.settings.FxHealthStatusOut
 import eu.nt.xpenses.dto.settings.FxMarginsOut
 import eu.nt.xpenses.dto.settings.FxMarginsUpdate
 import eu.nt.xpenses.dto.settings.FxProvidersOut
@@ -36,6 +37,7 @@ import eu.nt.xpenses.services.ImapConfig
 import eu.nt.xpenses.services.OCRConfig
 import eu.nt.xpenses.services.OcrService
 import eu.nt.xpenses.services.StorageService
+import eu.nt.xpenses.services.fx.FxProviderHealthService
 import eu.nt.xpenses.services.fx.FxRateSource
 import eu.nt.xpenses.services.fx.HttpFxRateProvider
 import jakarta.validation.Valid
@@ -56,6 +58,7 @@ class AppSettingsController(
     private val storageService: StorageService,
     private val emailImportService: EmailImportService,
     private val httpFxRateProvider: HttpFxRateProvider,
+    private val fxProviderHealthService: FxProviderHealthService,
 ) {
     // --- Mobile UI ---
     @GetMapping("/ui")
@@ -136,6 +139,11 @@ class AppSettingsController(
         val available = FxRateSource.entries.map { it.name }
         return ResponseEntity.ok(FxProvidersOut(providers = updated, availableProviders = available))
     }
+
+    @PostMapping("/fx-providers/check")
+    @PreAuthorize("hasAnyRole('mod', 'chef_finance')")
+    fun checkFxProviders(): ResponseEntity<FxHealthStatusOut> =
+        ResponseEntity.ok(fxProviderHealthService.runHealthCheck())
 
     @PostMapping("/fx-providers/test")
     @PreAuthorize("hasAnyRole('mod', 'chef_finance')")

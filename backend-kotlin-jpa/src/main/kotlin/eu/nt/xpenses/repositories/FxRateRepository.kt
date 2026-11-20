@@ -11,4 +11,6 @@ interface FxRateRepository : JpaRepository<FxRate, Int> {
         toCurrency: String,
         rateDate: String
     ): FxRate?
+
+    fun findTopByOrderByFetchedAtDesc(): FxRate?
 }

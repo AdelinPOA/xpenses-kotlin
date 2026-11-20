@@ -5,6 +5,7 @@ import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.NotEmpty
 import java.math.BigDecimal
+import java.time.Instant
 
 data class DailyAllowanceOut(
     @JsonProperty("daily_allowance_rate") val dailyAllowanceRate: BigDecimal,
@@ -173,4 +174,37 @@ data class FxTestResponse(
     val rate: BigDecimal? = null,
     val source: String? = null,
     @JsonProperty("source_date") val sourceDate: String? = null,
+)
+
+data class FxProviderHealthItemOut(
+    val provider: String,
+    val priority: Int,
+    val healthy: Boolean,
+    val active: Boolean,
+    @JsonProperty("is_primary") val isPrimary: Boolean,
+    @JsonProperty("checked_at") val checkedAt: Instant? = null,
+    @JsonProperty("source_date") val sourceDate: String? = null,
+    @JsonProperty("ron_per_eur") val ronPerEur: BigDecimal? = null,
+    @JsonProperty("latency_ms") val latencyMs: Long? = null,
+    val error: String? = null,
+)
+
+data class FxLastDbRateOut(
+    @JsonProperty("from_currency") val fromCurrency: String,
+    @JsonProperty("rate_date") val rateDate: String,
+    @JsonProperty("source_date") val sourceDate: String,
+    val source: String,
+    val rate: BigDecimal,
+    @JsonProperty("fetched_at") val fetchedAt: Instant,
+)
+
+data class FxHealthStatusOut(
+    val status: String,
+    @JsonProperty("primary_provider") val primaryProvider: String,
+    @JsonProperty("active_source") val activeSource: String? = null,
+    @JsonProperty("fallback_active") val fallbackActive: Boolean,
+    @JsonProperty("last_checked_at") val lastCheckedAt: Instant? = null,
+    @JsonProperty("primary_error") val primaryError: String? = null,
+    val providers: List<FxProviderHealthItemOut>,
+    @JsonProperty("last_db_rate") val lastDbRate: FxLastDbRateOut? = null,
 )

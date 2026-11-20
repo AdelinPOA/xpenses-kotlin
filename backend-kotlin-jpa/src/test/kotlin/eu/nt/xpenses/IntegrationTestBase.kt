@@ -52,6 +52,7 @@ abstract class IntegrationTestBase {
             registry.add("encryption.secret") { "test-encryption-secret-different-from-jwt" }
             registry.add("bucket4j.enabled") { "false" }
             registry.add("rate-limiting.enabled") { "false" }
+            registry.add("fx.health.scheduled-enabled") { "false" }
             registry.add("seed.demo.users") { "true" }
             // Use temp directories for file storage in tests
             registry.add("signatures.dir") { java.nio.file.Files.createTempDirectory("test-signatures").toAbsolutePath().toString() }

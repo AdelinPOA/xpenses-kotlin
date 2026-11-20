@@ -12,6 +12,7 @@ import eu.nt.xpenses.services.OCRModelConfig
 import eu.nt.xpenses.services.OCRProviderConfig
 import eu.nt.xpenses.services.OcrService
 import eu.nt.xpenses.services.StorageService
+import eu.nt.xpenses.services.fx.FxProviderHealthService
 import eu.nt.xpenses.services.fx.HttpFxRateProvider
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -34,6 +35,7 @@ class OcrSettingsControllerTest {
             mock(StorageService::class.java),
             mock(EmailImportService::class.java),
             mock(HttpFxRateProvider::class.java),
+            mock(FxProviderHealthService::class.java),
         )
 
     @Test

@@ -6,13 +6,17 @@ import eu.nt.xpenses.repositories.AppSettingRepository
 import org.slf4j.LoggerFactory
 import org.springframework.http.client.JdkClientHttpRequestFactory
 import org.springframework.stereotype.Component
+import org.springframework.web.client.HttpClientErrorException
 import org.springframework.web.client.RestClient
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.net.http.HttpClient
 import java.time.Duration
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.ZoneOffset
+import java.util.concurrent.ConcurrentHashMap
 import javax.xml.parsers.DocumentBuilderFactory
 
 enum class FxRateSource {
@@ -27,6 +31,16 @@ data class ProviderRate(
     val source: FxRateSource
 )
 
+data class ProviderHealthState(
+    val provider: FxRateSource,
+    val healthy: Boolean,
+    val checkedAt: Instant,
+    val sourceDate: LocalDate? = null,
+    val ronPerEur: BigDecimal? = null,
+    val latencyMs: Long? = null,
+    val error: String? = null,
+)
+
 interface FxRateProvider {
     fun resolve(currency: String, requestedDate: LocalDate): ProviderRate?
 }
@@ -37,6 +51,7 @@ class HttpFxRateProvider(
     private val appSettingRepository: AppSettingRepository
 ) : FxRateProvider {
     private val log = LoggerFactory.getLogger(javaClass)
+    private val providerStates = ConcurrentHashMap<FxRateSource, ProviderHealthState>()
     private val restClient = RestClient.builder()
         .requestFactory(JdkClientHttpRequestFactory(HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(5))
@@ -68,50 +83,152 @@ class HttpFxRateProvider(
         val setting = eu.nt.xpenses.model.AppSetting(
             key = "fx_provider_priority",
             value = objectMapper.writeValueAsString(names),
-            updatedAt = java.time.Instant.now()
+            updatedAt = Instant.now()
         )
         appSettingRepository.save(setting)
+    }
+
+    fun getProviderStates(): Map<FxRateSource, ProviderHealthState> = providerStates.toMap()
+
+    /**
+     * Probe one provider directly for health/fallback tracking without triggering downstream fallbacks.
+     */
+    fun probeProvider(
+        source: FxRateSource,
+        currency: String = "RON",
+        requestedDate: LocalDate = LocalDate.now(ZoneId.of("Europe/Bucharest")),
+    ): ProviderHealthState {
+        val normalized = currency.uppercase().trim()
+        val startedNanos = System.nanoTime()
+        return try {
+            val rate = fetchFromSource(source, normalized, requestedDate)
+            val elapsedMs = (System.nanoTime() - startedNanos) / 1_000_000L
+            if (rate != null) {
+                recordSuccess(source, normalized, rate, elapsedMs)
+            } else {
+                val msg = "No $normalized/EUR rate returned"
+                log.warn("FX probe failed for {} ({} on {}): {}", source, normalized, requestedDate, msg)
+                recordFailure(source, msg, elapsedMs)
+            }
+        } catch (e: Exception) {
+            val elapsedMs = (System.nanoTime() - startedNanos) / 1_000_000L
+            val summary = summarizeError(e)
+            log.warn("FX probe failed for {} ({} on {}): {}", source, normalized, requestedDate, summary)
+            recordFailure(source, summary, elapsedMs)
+        }
     }
 
     override fun resolve(currency: String, requestedDate: LocalDate): ProviderRate? {
         val normalized = currency.uppercase().trim()
         val priority = getProviderPriority()
         for (source in priority) {
+            val startedNanos = System.nanoTime()
             try {
-                val rate = when (source) {
-                    FxRateSource.BNR -> BnrRateProvider.fetch(restClient, normalized, requestedDate)
-                    FxRateSource.ECB_FRANKFURTER -> fetchFrankfurter(normalized, requestedDate)
-                    FxRateSource.CURRENCY_API -> fetchCurrencyApi(normalized, requestedDate)
+                val rate = fetchFromSource(source, normalized, requestedDate)
+                val elapsedMs = (System.nanoTime() - startedNanos) / 1_000_000L
+                if (rate != null) {
+                    recordSuccess(source, normalized, rate, elapsedMs)
+                    return rate
                 }
-                if (rate != null) return rate
+                if (normalized == "RON") {
+                    val msg = "No RON/EUR rate returned"
+                    log.warn("FX provider {} returned no rate for RON on {}", source, requestedDate)
+                    recordFailure(source, msg, elapsedMs)
+                }
             } catch (e: Exception) {
-                log.debug("Provider {} failed for {} on {}: {}", source, normalized, requestedDate, e.message)
+                val elapsedMs = (System.nanoTime() - startedNanos) / 1_000_000L
+                val summary = summarizeError(e)
+                log.warn("FX provider {} failed for {} on {}: {}", source, normalized, requestedDate, summary)
+                recordFailure(source, summary, elapsedMs)
             }
         }
         log.warn("Unable to resolve dated FX rate for {} on {} across providers {}", normalized, requestedDate, priority)
         return null
     }
 
+    private fun fetchFromSource(
+        source: FxRateSource,
+        normalizedCurrency: String,
+        requestedDate: LocalDate,
+    ): ProviderRate? = when (source) {
+        FxRateSource.BNR -> BnrRateProvider.fetch(restClient, normalizedCurrency, requestedDate)
+        FxRateSource.ECB_FRANKFURTER -> fetchFrankfurter(normalizedCurrency, requestedDate)
+        FxRateSource.CURRENCY_API -> fetchCurrencyApi(normalizedCurrency, requestedDate)
+    }
+
+    private fun recordSuccess(
+        source: FxRateSource,
+        normalizedCurrency: String,
+        rate: ProviderRate,
+        elapsedMs: Long,
+    ): ProviderHealthState {
+        val ronPerEur =
+            if (normalizedCurrency == "RON") computeRonPerEur(rate.rateToEur)
+            else providerStates[source]?.ronPerEur
+        val state = ProviderHealthState(
+            provider = source,
+            healthy = true,
+            checkedAt = Instant.now(),
+            sourceDate = rate.sourceDate,
+            ronPerEur = ronPerEur,
+            latencyMs = elapsedMs,
+            error = null,
+        )
+        providerStates[source] = state
+        return state
+    }
+
+    private fun recordFailure(
+        source: FxRateSource,
+        error: String,
+        elapsedMs: Long,
+    ): ProviderHealthState {
+        val state = ProviderHealthState(
+            provider = source,
+            healthy = false,
+            checkedAt = Instant.now(),
+            sourceDate = null,
+            ronPerEur = null,
+            latencyMs = elapsedMs,
+            error = error,
+        )
+        providerStates[source] = state
+        return state
+    }
+
+    private fun computeRonPerEur(rateToEur: BigDecimal): BigDecimal =
+        BigDecimal.ONE.divide(rateToEur, 4, RoundingMode.HALF_UP)
+
+    private fun summarizeError(e: Throwable): String {
+        val raw = (e.message ?: e.javaClass.simpleName).replace(Regex("\\s+"), " ").trim()
+        return if (raw.length > 160) raw.take(157) + "..." else raw.ifBlank { e.javaClass.simpleName }
+    }
+
     private fun fetchFrankfurter(currency: String, requestedDate: LocalDate): ProviderRate? {
-        return try {
-            val response = restClient.get()
+        val entity = try {
+            restClient.get()
                 .uri("https://api.frankfurter.dev/v2/rate/$currency/EUR?date=$requestedDate&providers=ECB")
                 .retrieve()
-                .body(String::class.java)
-                ?: return null
-
-            val payload = objectMapper.readTree(response)
-            val sourceDate = payload["date"]?.asString()?.let(LocalDate::parse) ?: return null
-            val rate = payload["rate"]?.asString()?.let { BigDecimal(it) }
-                ?: payload["rates"]?.get("EUR")?.asString()?.let { BigDecimal(it) }
-                ?: return null
-            require(sourceDate <= requestedDate) { "Provider returned a future FX source date" }
-            require(rate.signum() > 0) { "Provider returned a non-positive FX rate" }
-            ProviderRate(rate, sourceDate, FxRateSource.ECB_FRANKFURTER)
-        } catch (e: Exception) {
-            log.debug("Frankfurter FX lookup failed for {} on {}: {}", currency, requestedDate, e.message)
-            null
+                .toEntity(String::class.java)
+        } catch (e: HttpClientErrorException.NotFound) {
+            if (currency != "RON") return null
+            throw e
         }
+
+        if (!entity.statusCode.is2xxSuccessful) {
+            throw IllegalStateException("HTTP ${entity.statusCode.value()} from Frankfurter")
+        }
+
+        val response = entity.body ?: throw IllegalStateException("Empty response from Frankfurter")
+        val payload = objectMapper.readTree(response)
+        val sourceDate = payload["date"]?.asString()?.let(LocalDate::parse)
+            ?: throw IllegalStateException("Missing date in Frankfurter response")
+        val rate = payload["rate"]?.asString()?.let { BigDecimal(it) }
+            ?: payload["rates"]?.get("EUR")?.asString()?.let { BigDecimal(it) }
+            ?: return null
+        require(sourceDate <= requestedDate) { "Provider returned a future FX source date" }
+        require(rate.signum() > 0) { "Provider returned a non-positive FX rate" }
+        return ProviderRate(rate, sourceDate, FxRateSource.ECB_FRANKFURTER)
     }
 
     private fun fetchCurrencyApi(currency: String, requestedDate: LocalDate): ProviderRate? {
@@ -126,38 +243,81 @@ class HttpFxRateProvider(
             }
         }
 
+        var lastFailure: Exception? = null
         for (url in urls) {
             try {
-                val response = restClient.get()
+                val entity = restClient.get()
                     .uri(url)
                     .retrieve()
-                    .body(String::class.java)
-                    ?: continue
+                    .toEntity(String::class.java)
+                if (!entity.statusCode.is2xxSuccessful) {
+                    lastFailure = IllegalStateException("HTTP ${entity.statusCode.value()} from Currency API")
+                    continue
+                }
+                val response = entity.body
+                if (response.isNullOrBlank()) {
+                    lastFailure = IllegalStateException("Empty response from Currency API")
+                    continue
+                }
 
                 val result = CurrencyApiRateProvider.parse(response, curLower, requestedDate)
                 if (result != null) {
                     return result
                 }
+            } catch (e: HttpClientErrorException.NotFound) {
+                if (currency == "RON") {
+                    lastFailure = e
+                }
             } catch (e: Exception) {
+                lastFailure = e
                 log.debug("Currency API attempt failed at {}: {}", url, e.message)
             }
+        }
+        if (lastFailure != null) {
+            throw lastFailure
         }
         return null
     }
 }
 
 internal object BnrRateProvider {
+    const val BASE_URL = "https://curs.bnr.ro/files/xml/years"
+
     fun fetch(restClient: RestClient, currency: String, requestedDate: LocalDate): ProviderRate? {
-        val currentYear = fetchYear(restClient, requestedDate.year)
-        return currentYear?.let { parse(it, currency, requestedDate) }
-            ?: fetchYear(restClient, requestedDate.year - 1)?.let { parse(it, currency, requestedDate) }
+        val currentYearXml = try {
+            fetchYear(restClient, requestedDate.year)
+        } catch (e: Exception) {
+            // Jan 1-5 may precede the new year's first BNR publication, so fall back to prior year only then.
+            if (requestedDate.dayOfYear <= 5) {
+                return parse(fetchYear(restClient, requestedDate.year - 1), currency, requestedDate)
+            }
+            throw e
+        }
+
+        return parse(currentYearXml, currency, requestedDate)
+            ?: if (requestedDate.dayOfYear <= 5) {
+                parse(fetchYear(restClient, requestedDate.year - 1), currency, requestedDate)
+            } else {
+                null
+            }
     }
 
-    private fun fetchYear(restClient: RestClient, year: Int): String? =
-        restClient.get()
-            .uri("https://www.bnr.ro/files/xml/years/nbrfxrates$year.xml")
+    private fun fetchYear(restClient: RestClient, year: Int): String {
+        val entity = restClient.get()
+            .uri("$BASE_URL/nbrfxrates$year.xml")
             .retrieve()
-            .body(String::class.java)
+            .toEntity(String::class.java)
+        if (!entity.statusCode.is2xxSuccessful) {
+            val location = entity.headers.location?.toString()
+            val locationSuffix = if (!location.isNullOrBlank()) " -> $location" else ""
+            throw IllegalStateException("HTTP ${entity.statusCode.value()}$locationSuffix")
+        }
+        val body = entity.body
+        if (body.isNullOrBlank() || !body.contains("<Cube")) {
+            throw IllegalStateException("Unexpected non-XML response from curs.bnr.ro")
+        }
+        return body
+    }
 
     fun parse(xml: String, currency: String, requestedDate: LocalDate): ProviderRate? {
         val factory = DocumentBuilderFactory.newInstance().apply {
@@ -243,4 +403,3 @@ internal object CurrencyApiRateProvider {
         return ProviderRate(rate, sourceDate, FxRateSource.CURRENCY_API)
     }
 }
-

@@ -1,4 +1,4 @@
-import type { OcrConfig, OcrConfigUpdate, OCRComparisonHistoryResponse, StorageConfig, StorageMigrationStatus, FxProvidersConfig, FxTestResult, ImapIngestionRecovery } from "@/lib/types/admin";
+import type { OcrConfig, OcrConfigUpdate, OCRComparisonHistoryResponse, StorageConfig, StorageMigrationStatus, FxProvidersConfig, FxTestResult, FxHealthStatus, ImapIngestionRecovery } from "@/lib/types/admin";
 import api from "@/lib/api";
 
 export async function getFxProviders(): Promise<FxProvidersConfig> {
@@ -13,6 +13,16 @@ export async function updateFxProviders(providers: string[]): Promise<FxProvider
 
 export async function testFxProvider(currency: string, date?: string): Promise<FxTestResult> {
   const { data } = await api.post("/settings/fx-providers/test", { currency, date });
+  return data;
+}
+
+export async function getFxStatus(): Promise<FxHealthStatus> {
+  const { data } = await api.get<FxHealthStatus>("/fx/status");
+  return data;
+}
+
+export async function checkFxProviders(): Promise<FxHealthStatus> {
+  const { data } = await api.post<FxHealthStatus>("/settings/fx-providers/check");
   return data;
 }
 

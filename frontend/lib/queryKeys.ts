@@ -37,6 +37,7 @@ export const settingsKeys = {
   dailyAllowanceRate: () => [...settingsKeys.all, "daily-allowance-rate"] as const,
   fxMargins: () => [...settingsKeys.all, "fx-margins"] as const,
   fxProviders: () => [...settingsKeys.all, "fx-providers"] as const,
+  fxStatus: () => [...settingsKeys.all, "fx-status"] as const,
   mobileUi: () => [...settingsKeys.all, "mobile-ui"] as const,
 };
 

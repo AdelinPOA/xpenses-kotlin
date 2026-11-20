@@ -600,6 +600,33 @@ export async function setupCommonMocks(
   await page.route("**/api/users/me/vehicles", (route) =>
     route.fulfill({ json: [] }),
   );
+  await page.route("**/api/fx/status", (route) =>
+    route.fulfill({
+      json: {
+        status: "HEALTHY",
+        primary_provider: "BNR",
+        active_source: "BNR",
+        fallback_active: false,
+        last_checked_at: "2026-11-20T18:00:00Z",
+        primary_error: null,
+        providers: [
+          {
+            provider: "BNR",
+            priority: 1,
+            healthy: true,
+            active: true,
+            is_primary: true,
+            checked_at: "2026-11-20T18:00:00Z",
+            source_date: "2026-11-20",
+            ron_per_eur: 5.3482,
+            latency_ms: 42,
+            error: null,
+          },
+        ],
+        last_db_rate: null,
+      },
+    }),
+  );
 }
 
 export async function setupAdminMocks(
@@ -810,6 +837,71 @@ export async function setupAdminMocks(
   await page.route("**/api/settings/mileage-rates*", (route) =>
     route.fulfill({ json: MILEAGE_RATES }),
   );
+  let fxProvidersPriority = ["BNR", "ECB_FRANKFURTER", "CURRENCY_API"];
+  const fxHealthyStatus = {
+    status: "HEALTHY",
+    primary_provider: "BNR",
+    active_source: "BNR",
+    fallback_active: false,
+    last_checked_at: "2026-11-20T18:00:00Z",
+    primary_error: null,
+    providers: [
+      {
+        provider: "BNR",
+        priority: 1,
+        healthy: true,
+        active: true,
+        is_primary: true,
+        checked_at: "2026-11-20T18:00:00Z",
+        source_date: "2026-11-20",
+        ron_per_eur: 5.3482,
+        latency_ms: 42,
+        error: null,
+      },
+      {
+        provider: "ECB_FRANKFURTER",
+        priority: 2,
+        healthy: true,
+        active: false,
+        is_primary: false,
+        checked_at: "2026-11-20T18:00:00Z",
+        source_date: "2026-11-20",
+        ron_per_eur: 5.3476,
+        latency_ms: 68,
+        error: null,
+      },
+      {
+        provider: "CURRENCY_API",
+        priority: 3,
+        healthy: true,
+        active: false,
+        is_primary: false,
+        checked_at: "2026-11-20T18:00:00Z",
+        source_date: "2026-11-20",
+        ron_per_eur: 5.348,
+        latency_ms: 95,
+        error: null,
+      },
+    ],
+    last_db_rate: null,
+  };
+  await page.route("**/api/settings/fx-providers/check", (route) =>
+    route.fulfill({ json: fxHealthyStatus }),
+  );
+  await page.route("**/api/settings/fx-providers", async (route, req) => {
+    if (req.method() === "PATCH") {
+      const payload = req.postDataJSON() as { providers?: string[] };
+      if (Array.isArray(payload.providers) && payload.providers.length > 0) {
+        fxProvidersPriority = payload.providers;
+      }
+    }
+    await route.fulfill({
+      json: {
+        providers: fxProvidersPriority,
+        available_providers: ["BNR", "ECB_FRANKFURTER", "CURRENCY_API"],
+      },
+    });
+  });
   await page.route("**/api/ocr/comparison", (route) =>
     route.fulfill({
       json: {
@@ -848,6 +940,33 @@ export async function setupAuthMocks(
   );
   await page.route("**/api/users/me/vehicles", (route) =>
     route.fulfill({ json: [] }),
+  );
+  await page.route("**/api/fx/status", (route) =>
+    route.fulfill({
+      json: {
+        status: "HEALTHY",
+        primary_provider: "BNR",
+        active_source: "BNR",
+        fallback_active: false,
+        last_checked_at: "2026-11-20T18:00:00Z",
+        primary_error: null,
+        providers: [
+          {
+            provider: "BNR",
+            priority: 1,
+            healthy: true,
+            active: true,
+            is_primary: true,
+            checked_at: "2026-11-20T18:00:00Z",
+            source_date: "2026-11-20",
+            ron_per_eur: 5.3482,
+            latency_ms: 42,
+            error: null,
+          },
+        ],
+        last_db_rate: null,
+      },
+    }),
   );
 }
 

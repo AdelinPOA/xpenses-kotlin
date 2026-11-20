@@ -188,3 +188,36 @@ export interface FxTestResult {
   source_date?: string | null;
 }
 
+export interface FxProviderHealthItem {
+  provider: string;
+  priority: number;
+  healthy: boolean;
+  active: boolean;
+  is_primary: boolean;
+  checked_at: string | null;
+  source_date: string | null;
+  ron_per_eur: number | null;
+  latency_ms: number | null;
+  error: string | null;
+}
+
+export interface FxLastDbRate {
+  from_currency: string;
+  rate_date: string;
+  source_date: string;
+  source: string;
+  rate: number;
+  fetched_at: string;
+}
+
+export interface FxHealthStatus {
+  status: "HEALTHY" | "FALLBACK" | "DOWN" | "UNKNOWN";
+  primary_provider: string;
+  active_source: string | null;
+  fallback_active: boolean;
+  last_checked_at: string | null;
+  primary_error: string | null;
+  providers: FxProviderHealthItem[];
+  last_db_rate: FxLastDbRate | null;
+}
+

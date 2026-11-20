@@ -11,6 +11,7 @@ import { useAuth } from "@/components/AuthProvider";
 import { useTheme } from "@/components/ThemeProvider";
 import { useBodyScrollLock } from "@/lib/useBodyScrollLock";
 import { useAllowNavigation } from "@/lib/navigationGuard";
+import { FxSidebarStatusPill } from "./FxStatusIndicator";
 import { useTranslations } from "next-intl";
 
 const ROLE_LABELS: Record<string, string> = {
@@ -255,6 +256,13 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
               <p className="text-[10px] text-slate-400 truncate">{tNav(ROLE_LABELS[user.role] || user.role)}</p>
             </div>
           )}
+
+          <FxSidebarStatusPill
+            onNavigate={(e) => {
+              guardedNavigate(e);
+              onClose();
+            }}
+          />
 
           {/* Theme Switcher */}
           <button

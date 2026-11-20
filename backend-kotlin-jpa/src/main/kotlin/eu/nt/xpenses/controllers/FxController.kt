@@ -1,6 +1,8 @@
 package eu.nt.xpenses.controllers
 
+import eu.nt.xpenses.dto.settings.FxHealthStatusOut
 import eu.nt.xpenses.services.FxService
+import eu.nt.xpenses.services.fx.FxProviderHealthService
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
@@ -14,7 +16,8 @@ import java.time.format.DateTimeParseException
 @RestController
 @RequestMapping("/api/fx")
 class FxController(
-    private val fxService: FxService
+    private val fxService: FxService,
+    private val fxProviderHealthService: FxProviderHealthService,
 ) {
 
     /**
@@ -45,4 +48,8 @@ class FxController(
             )
         )
     }
+
+    @GetMapping("/status")
+    fun status(): ResponseEntity<FxHealthStatusOut> =
+        ResponseEntity.ok(fxProviderHealthService.getHealthStatus())
 }

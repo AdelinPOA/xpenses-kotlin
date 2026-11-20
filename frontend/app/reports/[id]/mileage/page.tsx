@@ -50,6 +50,7 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
   const { data: vehicles = [], isSuccess: vehiclesLoaded } = useQuery<UserVehicle[]>({
     queryKey: vehicleKeys.me(),
     queryFn: () => api.get("/users/me/vehicles").then((r) => r.data),
+    enabled: report?.status === "draft",
   });
 
   const defaultVehicle = vehicles.find((v) => v.is_default);
@@ -385,7 +386,7 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
                       {m.vehicle_plate && (
                         <div className="mt-1">
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                            <Car className="w-3 h-3 shrink-0" />
+                            <Car className="w-3 h-3 shrink-0" aria-hidden="true" />
                             <span>
                               {m.vehicle_plate}
                               {m.vehicle_make_model ? ` · ${m.vehicle_make_model}` : ""}
@@ -468,7 +469,7 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
                         {m.vehicle_plate && (
                           <div className="mt-1">
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-normal bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                              <Car className="w-3 h-3 shrink-0" />
+                              <Car className="w-3 h-3 shrink-0" aria-hidden="true" />
                               <span>
                                 {m.vehicle_plate}
                                 {m.vehicle_make_model ? ` · ${m.vehicle_make_model}` : ""}

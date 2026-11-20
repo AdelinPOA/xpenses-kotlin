@@ -164,9 +164,52 @@ class UserVehicleControllerTest : IntegrationTestBase() {
         mockMvc.perform(
             post("/api/users/me/vehicles")
                 .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"plate_number":"B 123 ABC","fuel_consumption_l_per_100km":0.001}""")
+                .cookie(cookie)
+        ).andExpect(status().isBadRequest)
+
+        mockMvc.perform(
+            post("/api/users/me/vehicles")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"plate_number":"B 123 ABC","fuel_consumption_l_per_100km":6.555}""")
+                .cookie(cookie)
+        ).andExpect(status().isBadRequest)
+
+        mockMvc.perform(
+            post("/api/users/me/vehicles")
+                .contentType(MediaType.APPLICATION_JSON)
                 .content("""{"plate_number":"   "}""")
                 .cookie(cookie)
         ).andExpect(status().isBadRequest)
+    }
+
+    @Test
+    fun `PATCH active default vehicle with is_default false returns 400 and preserves default`() {
+        val cookie = authHelper.loginAs("tech1", "tech1")
+
+        val createRes = mockMvc.perform(
+            post("/api/users/me/vehicles")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"plate_number":"b 404 def","make_model":"Default Car"}""")
+                .cookie(cookie)
+        )
+            .andExpect(status().isCreated)
+            .andExpect(jsonPath("$.is_default").value(true))
+            .andReturn()
+        val vehicleId = JsonPath.read<Int>(createRes.response.contentAsString, "$.id")
+
+        mockMvc.perform(
+            patch("/api/users/me/vehicles/$vehicleId")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"is_default":false}""")
+                .cookie(cookie)
+        ).andExpect(status().isBadRequest)
+
+        mockMvc.perform(get("/api/users/me/vehicles").cookie(cookie))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.length()").value(1))
+            .andExpect(jsonPath("$[0].id").value(vehicleId))
+            .andExpect(jsonPath("$[0].is_default").value(true))
     }
 
     @Test

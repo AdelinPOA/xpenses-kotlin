@@ -359,6 +359,39 @@ class MileageControllerTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `PATCH mileage with another user's vehicle returns 404`() {
+        val report = makeTechReport()
+        entityManager.flush()
+        entityManager.clear()
+        val techCookie = authHelper.loginAs("tech1", "tech1")
+        val managerCookie = authHelper.loginAs("manager1", "manager1")
+
+        val createRes = mockMvc.perform(
+            post("/api/reports/${report.id}/mileage")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(mileageBody)
+                .cookie(techCookie)
+        ).andExpect(status().isCreated).andReturn()
+        val mileageId = JsonPath.read<Int>(createRes.response.contentAsString, "$.id")
+
+        val managerVehicleRes = mockMvc.perform(
+            post("/api/users/me/vehicles")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"plate_number":"B-89-MGR","make_model":"Audi A4","fuel_type":"diesel","fuel_consumption_l_per_100km":6.2}""")
+                .cookie(managerCookie)
+        ).andExpect(status().isCreated).andReturn()
+        val managerVehicleId = JsonPath.read<Int>(managerVehicleRes.response.contentAsString, "$.id")
+
+        mockMvc.perform(
+            patch("/api/reports/${report.id}/mileage/$mileageId")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"vehicle_id":$managerVehicleId}""")
+                .cookie(techCookie)
+        )
+            .andExpect(status().isNotFound)
+    }
+
+    @Test
     fun `PATCH mileage switching vehicle and clearing vehicle recalculates consumption and updates snapshot`() {
         val report = makeTechReport()
         entityManager.flush()

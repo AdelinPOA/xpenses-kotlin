@@ -16,6 +16,9 @@ interface UserVehicleRepository : JpaRepository<UserVehicle, Int> {
 
     fun countByUserId(userId: Int): Long
 
+    @Query(value = "SELECT pg_advisory_xact_lock(hashtextextended('user-vehicles:' || :userId, 0))", nativeQuery = true)
+    fun acquireUserLock(@Param("userId") userId: Int)
+
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("UPDATE UserVehicle v SET v.isDefault = false, v.updatedAt = :now WHERE v.user.id = :userId AND v.isDefault = true")
     fun clearDefaultForUser(

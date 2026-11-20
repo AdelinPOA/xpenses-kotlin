@@ -597,6 +597,9 @@ export async function setupCommonMocks(
     route.fulfill({ json: DASHBOARD_DATA });
   });
   await setupAdminMocks(page);
+  await page.route("**/api/users/me/vehicles", (route) =>
+    route.fulfill({ json: [] }),
+  );
 }
 
 export async function setupAdminMocks(
@@ -842,6 +845,9 @@ export async function setupAuthMocks(
   await page.route("**/api/auth/me", (route) => route.fulfill({ json: user }));
   await page.route("**/api/auth/refresh", (route) =>
     route.fulfill({ json: { access_token: "new-mock-token" } }),
+  );
+  await page.route("**/api/users/me/vehicles", (route) =>
+    route.fulfill({ json: [] }),
   );
 }
 

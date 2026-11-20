@@ -104,9 +104,10 @@ export default function VehiclesSection() {
       setErrorMsg(null);
       setStatusMsg(t("vehicle_saved"));
     },
-    onError: () => {
+    onError: (e: unknown) => {
+      const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
       setStatusMsg(null);
-      setFormError(t("vehicle_save_failed"));
+      setFormError(detail ?? t("vehicle_save_failed"));
     },
   });
 
@@ -119,9 +120,10 @@ export default function VehiclesSection() {
       setErrorMsg(null);
       setStatusMsg(t("vehicle_saved"));
     },
-    onError: () => {
+    onError: (e: unknown) => {
+      const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
       setStatusMsg(null);
-      setFormError(t("vehicle_save_failed"));
+      setFormError(detail ?? t("vehicle_save_failed"));
     },
   });
 
@@ -172,9 +174,9 @@ export default function VehiclesSection() {
     if (trimmedConsumption !== "") {
       const parsed = parseLocaleNumber(trimmedConsumption);
       if (
-        !/^\d+([.,]\d+)?$/.test(trimmedConsumption) ||
+        !/^\d+([.,]\d{1,2})?$/.test(trimmedConsumption) ||
         !Number.isFinite(parsed) ||
-        parsed <= 0 ||
+        parsed < 0.01 ||
         parsed > 50
       ) {
         setFormError(t("vehicle_consumption_invalid"));
@@ -283,6 +285,7 @@ export default function VehiclesSection() {
               name="plate_number"
               type="text"
               required
+              maxLength={32}
               value={plateNumber}
               onChange={(e) => setPlateNumber(e.target.value)}
               placeholder={t("plate_placeholder")}
@@ -301,6 +304,7 @@ export default function VehiclesSection() {
               id="vehicle-make-model"
               name="make_model"
               type="text"
+              maxLength={120}
               value={makeModel}
               onChange={(e) => setMakeModel(e.target.value)}
               placeholder={t("make_model_placeholder")}
@@ -361,8 +365,9 @@ export default function VehiclesSection() {
               type="checkbox"
               id="vehicle-is-default"
               checked={isDefault}
+              disabled={editingVehicle?.is_default === true}
               onChange={(e) => setIsDefault(e.target.checked)}
-              className="rounded border-slate-300 text-blue-600 focus:ring-primary h-4 w-4"
+              className="rounded border-slate-300 text-blue-600 focus:ring-primary h-4 w-4 disabled:opacity-50 disabled:cursor-not-allowed"
             />
             <label
               htmlFor="vehicle-is-default"

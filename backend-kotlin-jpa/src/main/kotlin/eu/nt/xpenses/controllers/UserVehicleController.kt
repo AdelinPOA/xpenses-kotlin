@@ -13,6 +13,7 @@ import org.springframework.http.ResponseEntity
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.bind.annotation.*
 import java.math.BigDecimal
+import java.math.RoundingMode
 import java.time.Instant
 
 @RestController
@@ -23,6 +24,7 @@ class UserVehicleController(
 ) {
     companion object {
         private val ALLOWED_FUEL_TYPES = setOf("petrol", "diesel", "hybrid", "electric", "lpg")
+        private val MIN_CONSUMPTION = BigDecimal("0.01")
         private val MAX_CONSUMPTION = BigDecimal("50.00")
         private const val MAX_PLATE_LENGTH = 32
         private const val MAX_MAKE_MODEL_LENGTH = 120
@@ -50,6 +52,8 @@ class UserVehicleController(
         val userId = currentUser.id
             ?: return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(mapOf("detail" to "Not authenticated"))
 
+        userVehicleRepository.acquireUserLock(userId)
+
         val plateNumber = normalizePlate(body.plateNumber)
             ?: return ResponseEntity.badRequest().body(
                 mapOf("detail" to "plate_number is required and must be at most $MAX_PLATE_LENGTH characters")
@@ -71,9 +75,10 @@ class UserVehicleController(
         val consumption = body.fuelConsumptionLitersPer100Km
         if (consumption != null && !isValidConsumption(consumption)) {
             return ResponseEntity.badRequest().body(
-                mapOf("detail" to "fuel_consumption_l_per_100km must be greater than 0 and at most 50.00")
+                mapOf("detail" to "fuel_consumption_l_per_100km must be between 0.01 and 50.00 with at most 2 decimal places")
             )
         }
+        val normalizedConsumption = consumption?.setScale(2, RoundingMode.HALF_UP)
 
         val now = Instant.now()
         val hasExisting = userVehicleRepository.countByUserId(userId) > 0
@@ -90,7 +95,7 @@ class UserVehicleController(
                 plateNumber = plateNumber,
                 makeModel = makeModel,
                 fuelType = fuelType,
-                fuelConsumptionLitersPer100Km = consumption,
+                fuelConsumptionLitersPer100Km = normalizedConsumption,
                 isDefault = shouldBeDefault,
                 createdAt = now,
                 updatedAt = now,
@@ -110,6 +115,8 @@ class UserVehicleController(
             ?: return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(mapOf("detail" to "Not authenticated"))
         val userId = currentUser.id
             ?: return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(mapOf("detail" to "Not authenticated"))
+
+        userVehicleRepository.acquireUserLock(userId)
 
         val normalizedPlate = if (body.plateNumber != null) {
             normalizePlate(body.plateNumber)
@@ -136,16 +143,23 @@ class UserVehicleController(
             }
         } else null
 
-        if (!body.clearFuelConsumption && body.fuelConsumptionLitersPer100Km != null) {
+        val normalizedConsumption = if (!body.clearFuelConsumption && body.fuelConsumptionLitersPer100Km != null) {
             if (!isValidConsumption(body.fuelConsumptionLitersPer100Km)) {
                 return ResponseEntity.badRequest().body(
-                    mapOf("detail" to "fuel_consumption_l_per_100km must be greater than 0 and at most 50.00")
+                    mapOf("detail" to "fuel_consumption_l_per_100km must be between 0.01 and 50.00 with at most 2 decimal places")
                 )
             }
-        }
+            body.fuelConsumptionLitersPer100Km.setScale(2, RoundingMode.HALF_UP)
+        } else null
 
         val existing = userVehicleRepository.findByIdAndUserId(vehicleId, userId)
             ?: return ResponseEntity.status(HttpStatus.NOT_FOUND).body(mapOf("detail" to "Vehicle not found"))
+
+        if (existing.isDefault && body.isDefault == false) {
+            return ResponseEntity.badRequest().body(
+                mapOf("detail" to "Cannot unset default vehicle directly; set another vehicle as default instead")
+            )
+        }
 
         val now = Instant.now()
         val vehicle = if (body.isDefault == true && !existing.isDefault) {
@@ -172,8 +186,8 @@ class UserVehicleController(
         }
         if (body.clearFuelConsumption) {
             vehicle.fuelConsumptionLitersPer100Km = null
-        } else if (body.fuelConsumptionLitersPer100Km != null) {
-            vehicle.fuelConsumptionLitersPer100Km = body.fuelConsumptionLitersPer100Km
+        } else if (normalizedConsumption != null) {
+            vehicle.fuelConsumptionLitersPer100Km = normalizedConsumption
         }
         if (body.isDefault != null) {
             vehicle.isDefault = body.isDefault
@@ -194,6 +208,8 @@ class UserVehicleController(
             ?: return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(mapOf("detail" to "Not authenticated"))
         val userId = currentUser.id
             ?: return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(mapOf("detail" to "Not authenticated"))
+
+        userVehicleRepository.acquireUserLock(userId)
 
         val vehicle = userVehicleRepository.findByIdAndUserId(vehicleId, userId)
             ?: return ResponseEntity.status(HttpStatus.NOT_FOUND).body(mapOf("detail" to "Vehicle not found"))
@@ -236,5 +252,7 @@ class UserVehicleController(
     }
 
     private fun isValidConsumption(value: BigDecimal): Boolean =
-        value.compareTo(BigDecimal.ZERO) > 0 && value.compareTo(MAX_CONSUMPTION) <= 0
+        value.compareTo(MIN_CONSUMPTION) >= 0 &&
+            value.compareTo(MAX_CONSUMPTION) <= 0 &&
+            value.stripTrailingZeros().scale() <= 2
 }

@@ -169,7 +169,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
         </div>
         <nav className="flex-1 py-4 px-3 overflow-y-auto">
           {visibleNav.filter(({ href }) => href !== "/profile/signature").map(({ href, labelKey, icon: Icon }) => {
-            const active = pathname.startsWith(href);
+            const active = href === "/profile" ? pathname === "/profile" : pathname.startsWith(href);
             return (
               <Link
                 key={href}

@@ -28,6 +28,7 @@ export interface NavItem {
 }
 
 export const NAV: NavItem[] = [
+  { href: "/profile", labelKey: "profile", icon: User, roles: ["technician", "manager", "chef_finance", "mod"] },
   { href: "/dashboard", labelKey: "dashboard", icon: LayoutDashboard, roles: ["technician", "manager", "chef_finance", "mod"] },
   { href: "/expenses", labelKey: "expenses", icon: Receipt, roles: ["technician", "manager", "chef_finance", "mod"] },
   { href: "/insurance", labelKey: "insurance", icon: Shield, roles: ["technician", "manager", "chef_finance", "mod"] },
@@ -52,7 +53,6 @@ export const ADMIN_NAV: NavItem[] = [
 
 /** Routes that have a nav label but are not sidebar entries (used for page titles). */
 const EXTRA_TITLE_ROUTES: NavItem[] = [
-  { href: "/profile", labelKey: "profile", icon: User, roles: [] },
   { href: "/expenses/capture", labelKey: "capture", icon: Camera, roles: [] },
   { href: "/search", labelKey: "search", icon: LayoutDashboard, roles: [] },
 ];

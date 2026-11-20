@@ -1,4 +1,5 @@
 import type { Expense } from "./expense";
+import type { FuelType } from "./vehicle";
 
 export interface AdvancePayment {
   id: number;
@@ -56,6 +57,10 @@ export interface MileageRecord {
   end_time: string;
   duration_minutes: number;
   description: string | null;
+  vehicle_id: number | null;
+  vehicle_plate: string | null;
+  vehicle_make_model: string | null;
+  vehicle_fuel_type: FuelType | null;
   created_at: string;
   updated_at: string;
 }

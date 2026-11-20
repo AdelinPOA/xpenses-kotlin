@@ -2,11 +2,11 @@
 
 import { use, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import api, { Report } from "@/lib/api";
-import { reportKeys, mileageKeys } from "@/lib/queryKeys";
+import api, { Report, UserVehicle } from "@/lib/api";
+import { reportKeys, mileageKeys, vehicleKeys } from "@/lib/queryKeys";
 import AppShell from "@/components/layout/AppShell";
 import Badge from "@/components/ui/Badge";
-import { ArrowLeft, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Car, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { formatAmount, parseLocaleNumber } from "@/lib/format";
 import { LOCALE_TO_INTL, type Locale } from "@/i18n/config";
@@ -37,6 +37,7 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [description, setDescription] = useState("");
+  const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const t = useTranslations("reports");
   const locale = useLocale() as Locale;
@@ -46,13 +47,30 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
     queryFn: () => api.get(`/reports/${id}`).then((r) => r.data),
   });
 
+  const { data: vehicles = [], isSuccess: vehiclesLoaded } = useQuery<UserVehicle[]>({
+    queryKey: vehicleKeys.me(),
+    queryFn: () => api.get("/users/me/vehicles").then((r) => r.data),
+  });
+
+  const defaultVehicle = vehicles.find((v) => v.is_default);
+  const defaultVehicleId = defaultVehicle ? String(defaultVehicle.id) : "";
+  const effectiveVehicleId = selectedVehicleId ?? defaultVehicleId;
+
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: reportKeys.detail(reportId) });
     qc.invalidateQueries({ queryKey: mileageKeys.all });
   };
 
   const addMileage = useMutation({
-    mutationFn: (data: { origin: string; destination: string; distance_km: number; start_time: string; end_time: string; description?: string }) =>
+    mutationFn: (data: {
+      origin: string;
+      destination: string;
+      distance_km: number;
+      start_time: string;
+      end_time: string;
+      description?: string;
+      vehicle_id?: number;
+    }) =>
       api.post(`/reports/${id}/mileage`, data),
     onSuccess: () => {
       invalidate();
@@ -64,6 +82,7 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
       setStartTime("");
       setEndTime("");
       setDescription("");
+      setSelectedVehicleId(null);
     },
     onError: (e: any) => {
       setFormError(e.response?.data?.detail ?? t("mileage_error_save") ?? "Failed to save trip");
@@ -115,6 +134,7 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
       start_time: new Date(startTime).toISOString(),
       end_time: new Date(endTime).toISOString(),
       ...(description.trim() ? { description: description.trim() } : {}),
+      ...(effectiveVehicleId ? { vehicle_id: Number(effectiveVehicleId) } : {}),
     });
   };
 
@@ -265,6 +285,37 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
             </div>
           </div>
 
+          <div>
+            <label htmlFor="mileage-vehicle" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
+              {t("mileage_vehicle")}
+            </label>
+            <select
+              id="mileage-vehicle"
+              value={effectiveVehicleId}
+              onChange={(e) => {
+                setSelectedVehicleId(e.target.value);
+                if (formError) setFormError(null);
+              }}
+              className="w-full min-h-11 px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground focus:outline-none focus:ring-2 focus:ring-teal-500"
+            >
+              <option value="">{t("mileage_vehicle_none")}</option>
+              {vehicles.map((v) => (
+                <option key={v.id} value={String(v.id)}>
+                  {`${v.plate_number}${v.make_model ? ` · ${v.make_model}` : ""}${v.fuel_consumption_l_per_100km != null ? ` (${v.fuel_consumption_l_per_100km} l/100km)` : ""}`}
+                </option>
+              ))}
+            </select>
+            {vehiclesLoaded && vehicles.length === 0 && (
+              <p className="text-xs text-muted mt-1">
+                {t("mileage_vehicle_add_hint")}{" "}
+                <Link href="/profile" className="text-teal-600 dark:text-teal-400 underline hover:text-teal-700 dark:hover:text-teal-300">
+                  {t("mileage_vehicle_add_link")}
+                </Link>
+                .
+              </p>
+            )}
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
             <div className="sm:col-span-3">
               <label htmlFor="mileage-distance" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
@@ -331,6 +382,17 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
                     <div>
                       <p className="font-medium text-foreground">{m.origin} → {m.destination}</p>
                       <p className="text-xs text-muted mt-0.5">{formatDateTime(m.start_time, LOCALE_TO_INTL[locale])}</p>
+                      {m.vehicle_plate && (
+                        <div className="mt-1">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                            <Car className="w-3 h-3 shrink-0" />
+                            <span>
+                              {m.vehicle_plate}
+                              {m.vehicle_make_model ? ` · ${m.vehicle_make_model}` : ""}
+                            </span>
+                          </span>
+                        </div>
+                      )}
                     </div>
                     <div className="text-right shrink-0">
                       <p className="font-semibold text-foreground">{formatAmount(m.amount_eur, "EUR")}</p>
@@ -402,8 +464,19 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
                       <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{formatDateTime(m.start_time, LOCALE_TO_INTL[locale])}</td>
                       <td className="px-4 py-3 text-blue-600 dark:text-blue-400 font-medium">{formatDuration(m.duration_minutes)}</td>
                       <td className="px-4 py-3 font-medium text-foreground">
-                        {m.origin} → {m.destination}
-                        {m.description && <span className="block text-xs text-muted-foreground">{m.description}</span>}
+                        <div>{m.origin} → {m.destination}</div>
+                        {m.vehicle_plate && (
+                          <div className="mt-1">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-normal bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                              <Car className="w-3 h-3 shrink-0" />
+                              <span>
+                                {m.vehicle_plate}
+                                {m.vehicle_make_model ? ` · ${m.vehicle_make_model}` : ""}
+                              </span>
+                            </span>
+                          </div>
+                        )}
+                        {m.description && <span className="block text-xs text-muted-foreground mt-0.5">{m.description}</span>}
                       </td>
                       <td className="px-4 py-3 text-right text-slate-600 dark:text-slate-400">{m.distance_km.toFixed(1)}</td>
                       <td className="px-4 py-3 text-right text-muted-foreground">{formatAmount(m.rate_before_tax, "EUR")}</td>

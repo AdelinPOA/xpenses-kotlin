@@ -89,6 +89,19 @@ class MileageRecord(
 
     var description: String? = null,
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "vehicle_id")
+    var vehicle: UserVehicle? = null,
+
+    @Column(name = "vehicle_plate", length = 32)
+    var vehiclePlate: String? = null,
+
+    @Column(name = "vehicle_make_model", length = 120)
+    var vehicleMakeModel: String? = null,
+
+    @Column(name = "vehicle_fuel_type", length = 20)
+    var vehicleFuelType: String? = null,
+
     @Column(name = "created_at", nullable = false)
     var createdAt: Instant = Instant.now(),
 

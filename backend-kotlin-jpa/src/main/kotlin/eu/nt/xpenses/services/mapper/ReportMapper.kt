@@ -76,7 +76,11 @@ class ReportMapper(
             description = m.description,
             createdAt = m.createdAt,
             updatedAt = m.updatedAt,
-            durationMinutes = durationMins
+            durationMinutes = durationMins,
+            vehicleId = m.vehicle?.id,
+            vehiclePlate = m.vehiclePlate,
+            vehicleMakeModel = m.vehicleMakeModel,
+            vehicleFuelType = m.vehicleFuelType
         )
     }
 

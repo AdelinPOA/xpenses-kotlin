@@ -10,5 +10,7 @@ data class MileageRecordUpdate(
     @JsonProperty("distance_km") @field:DecimalMin(value = "0.01", inclusive = true) val distanceKm: Double? = null,
     @JsonProperty("start_time") val startTime: Instant? = null,
     @JsonProperty("end_time") val endTime: Instant? = null,
-    val description: String? = null
+    val description: String? = null,
+    @JsonProperty("vehicle_id") val vehicleId: Int? = null,
+    @JsonProperty("clear_vehicle") val clearVehicle: Boolean = false
 )

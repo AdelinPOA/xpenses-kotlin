@@ -33,5 +33,9 @@ data class MileageRecordOut(
     val description: String?,
     @JsonProperty("created_at") val createdAt: Instant,
     @JsonProperty("updated_at") val updatedAt: Instant,
-    @JsonProperty("duration_minutes") val durationMinutes: Double
+    @JsonProperty("duration_minutes") val durationMinutes: Double,
+    @JsonProperty("vehicle_id") val vehicleId: Int? = null,
+    @JsonProperty("vehicle_plate") val vehiclePlate: String? = null,
+    @JsonProperty("vehicle_make_model") val vehicleMakeModel: String? = null,
+    @JsonProperty("vehicle_fuel_type") val vehicleFuelType: String? = null
 )

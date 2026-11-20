@@ -11,5 +11,6 @@ data class MileageRecordCreate(
     @JsonProperty("distance_km") @field:DecimalMin(value = "0.01", inclusive = true) val distanceKm: Double,
     @JsonProperty("start_time") val startTime: Instant,
     @JsonProperty("end_time") val endTime: Instant,
-    val description: String? = null
+    val description: String? = null,
+    @JsonProperty("vehicle_id") val vehicleId: Int? = null
 )

@@ -1,8 +1,10 @@
 package eu.nt.xpenses.controllers
 
+import com.jayway.jsonpath.JsonPath
 import eu.nt.xpenses.IntegrationTestBase
 import eu.nt.xpenses.model.ExpenseReport
 import jakarta.persistence.EntityManager
+import org.hamcrest.Matchers.nullValue
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.MediaType
@@ -261,5 +263,228 @@ class MileageControllerTest : IntegrationTestBase() {
 
         mockMvc.perform(get("/api/reports/${report.id}/mileage"))
             .andExpect(status().isUnauthorized)
+    }
+
+    @Test
+    fun `POST mileage with vehicle uses vehicle consumption and stores snapshot`() {
+        val report = makeTechReport()
+        entityManager.flush()
+        entityManager.clear()
+        val cookie = authHelper.loginAs("tech1", "tech1")
+
+        // 1 RON = 0.2 EUR -> 5.0 RON/EUR; distance 100km, fuel price 9.20 RON/L
+        // 6.0 L/100km -> fuel_cost_eur = 6.0 * 9.20 / 5.0 = 11.04 (vs default 7.5 -> 13.80)
+        org.mockito.Mockito.`when`(fxService.getRate("RON", "2026-06-01"))
+            .thenReturn(BigDecimal("0.2"))
+
+        val vehicleRes = mockMvc.perform(
+            post("/api/users/me/vehicles")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"plate_number":"B-99-TST","make_model":"Skoda Octavia","fuel_type":"diesel","fuel_consumption_l_per_100km":6.0}""")
+                .cookie(cookie)
+        ).andExpect(status().isCreated).andReturn()
+        val vehicleId = JsonPath.read<Int>(vehicleRes.response.contentAsString, "$.id")
+
+        mockMvc.perform(
+            post("/api/reports/${report.id}/mileage")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"origin":"Office","destination":"Client","distance_km":100.0,"start_time":"$startTime","end_time":"$endTime","vehicle_id":$vehicleId}""")
+                .cookie(cookie)
+        )
+            .andExpect(status().isCreated)
+            .andExpect(jsonPath("$.vehicle_id").value(vehicleId))
+            .andExpect(jsonPath("$.vehicle_plate").value("B-99-TST"))
+            .andExpect(jsonPath("$.vehicle_make_model").value("Skoda Octavia"))
+            .andExpect(jsonPath("$.vehicle_fuel_type").value("diesel"))
+            .andExpect(jsonPath("$.fuel_consumption_l_per_100km").value(6.0))
+            .andExpect(jsonPath("$.fuel_cost_eur").value(11.04))
+    }
+
+    @Test
+    fun `POST mileage with vehicle lacking consumption falls back to global 7_5`() {
+        val report = makeTechReport()
+        entityManager.flush()
+        entityManager.clear()
+        val cookie = authHelper.loginAs("tech1", "tech1")
+
+        org.mockito.Mockito.`when`(fxService.getRate("RON", "2026-06-01"))
+            .thenReturn(BigDecimal("0.2"))
+
+        val vehicleRes = mockMvc.perform(
+            post("/api/users/me/vehicles")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"plate_number":"B-55-DEF","make_model":"Dacia Logan","fuel_type":"petrol","fuel_consumption_l_per_100km":null}""")
+                .cookie(cookie)
+        ).andExpect(status().isCreated).andReturn()
+        val vehicleId = JsonPath.read<Int>(vehicleRes.response.contentAsString, "$.id")
+
+        mockMvc.perform(
+            post("/api/reports/${report.id}/mileage")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"origin":"Office","destination":"Client","distance_km":100.0,"start_time":"$startTime","end_time":"$endTime","vehicle_id":$vehicleId}""")
+                .cookie(cookie)
+        )
+            .andExpect(status().isCreated)
+            .andExpect(jsonPath("$.vehicle_id").value(vehicleId))
+            .andExpect(jsonPath("$.vehicle_plate").value("B-55-DEF"))
+            .andExpect(jsonPath("$.vehicle_make_model").value("Dacia Logan"))
+            .andExpect(jsonPath("$.vehicle_fuel_type").value("petrol"))
+            .andExpect(jsonPath("$.fuel_consumption_l_per_100km").value(7.5))
+            .andExpect(jsonPath("$.fuel_cost_eur").value(13.80))
+    }
+
+    @Test
+    fun `POST mileage with another user's vehicle returns 404`() {
+        val report = makeTechReport()
+        entityManager.flush()
+        entityManager.clear()
+        val techCookie = authHelper.loginAs("tech1", "tech1")
+        val managerCookie = authHelper.loginAs("manager1", "manager1")
+
+        val managerVehicleRes = mockMvc.perform(
+            post("/api/users/me/vehicles")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"plate_number":"B-88-MGR","make_model":"BMW 320d","fuel_type":"diesel","fuel_consumption_l_per_100km":5.8}""")
+                .cookie(managerCookie)
+        ).andExpect(status().isCreated).andReturn()
+        val managerVehicleId = JsonPath.read<Int>(managerVehicleRes.response.contentAsString, "$.id")
+
+        mockMvc.perform(
+            post("/api/reports/${report.id}/mileage")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"origin":"Office","destination":"Client","distance_km":50.0,"start_time":"$startTime","end_time":"$endTime","vehicle_id":$managerVehicleId}""")
+                .cookie(techCookie)
+        )
+            .andExpect(status().isNotFound)
+    }
+
+    @Test
+    fun `PATCH mileage switching vehicle and clearing vehicle recalculates consumption and updates snapshot`() {
+        val report = makeTechReport()
+        entityManager.flush()
+        entityManager.clear()
+        val cookie = authHelper.loginAs("tech1", "tech1")
+
+        org.mockito.Mockito.`when`(fxService.getRate("RON", "2026-06-01"))
+            .thenReturn(BigDecimal("0.2"))
+
+        val vehicleARes = mockMvc.perform(
+            post("/api/users/me/vehicles")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"plate_number":"B-11-AAA","make_model":"VW Polo","fuel_type":"diesel","fuel_consumption_l_per_100km":6.0}""")
+                .cookie(cookie)
+        ).andExpect(status().isCreated).andReturn()
+        val vehicleAId = JsonPath.read<Int>(vehicleARes.response.contentAsString, "$.id")
+
+        val vehicleBRes = mockMvc.perform(
+            post("/api/users/me/vehicles")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"plate_number":"B-22-BBB","make_model":"Ford Ranger","fuel_type":"petrol","fuel_consumption_l_per_100km":9.0}""")
+                .cookie(cookie)
+        ).andExpect(status().isCreated).andReturn()
+        val vehicleBId = JsonPath.read<Int>(vehicleBRes.response.contentAsString, "$.id")
+
+        val createRes = mockMvc.perform(
+            post("/api/reports/${report.id}/mileage")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"origin":"Office","destination":"Client","distance_km":100.0,"start_time":"$startTime","end_time":"$endTime","vehicle_id":$vehicleAId}""")
+                .cookie(cookie)
+        )
+            .andExpect(status().isCreated)
+            .andExpect(jsonPath("$.fuel_consumption_l_per_100km").value(6.0))
+            .andExpect(jsonPath("$.fuel_cost_eur").value(11.04))
+            .andReturn()
+        val mileageId = JsonPath.read<Int>(createRes.response.contentAsString, "$.id")
+
+        // Switch to vehicle B (9.0 L/100km -> fuel_cost_eur = 9.0 * 9.20 / 5.0 = 16.56)
+        mockMvc.perform(
+            patch("/api/reports/${report.id}/mileage/$mileageId")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"vehicle_id":$vehicleBId}""")
+                .cookie(cookie)
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.vehicle_id").value(vehicleBId))
+            .andExpect(jsonPath("$.vehicle_plate").value("B-22-BBB"))
+            .andExpect(jsonPath("$.vehicle_make_model").value("Ford Ranger"))
+            .andExpect(jsonPath("$.vehicle_fuel_type").value("petrol"))
+            .andExpect(jsonPath("$.fuel_consumption_l_per_100km").value(9.0))
+            .andExpect(jsonPath("$.fuel_cost_eur").value(16.56))
+
+        // Clear vehicle -> reverts to global 7.5 L/100km (fuel_cost_eur = 13.80)
+        mockMvc.perform(
+            patch("/api/reports/${report.id}/mileage/$mileageId")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"clear_vehicle":true}""")
+                .cookie(cookie)
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.vehicle_id").value(nullValue()))
+            .andExpect(jsonPath("$.vehicle_plate").value(nullValue()))
+            .andExpect(jsonPath("$.vehicle_make_model").value(nullValue()))
+            .andExpect(jsonPath("$.vehicle_fuel_type").value(nullValue()))
+            .andExpect(jsonPath("$.fuel_consumption_l_per_100km").value(7.5))
+            .andExpect(jsonPath("$.fuel_cost_eur").value(13.80))
+    }
+
+    @Test
+    fun `Editing or deleting vehicle preserves snapshot on existing mileage records`() {
+        val report = makeTechReport()
+        entityManager.flush()
+        entityManager.clear()
+        val cookie = authHelper.loginAs("tech1", "tech1")
+
+        val vehicleRes = mockMvc.perform(
+            post("/api/users/me/vehicles")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"plate_number":"B-77-OLD","make_model":"Renault Megane","fuel_type":"diesel","fuel_consumption_l_per_100km":6.0}""")
+                .cookie(cookie)
+        ).andExpect(status().isCreated).andReturn()
+        val vehicleId = JsonPath.read<Int>(vehicleRes.response.contentAsString, "$.id")
+
+        mockMvc.perform(
+            post("/api/reports/${report.id}/mileage")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"origin":"Office","destination":"Client","distance_km":100.0,"start_time":"$startTime","end_time":"$endTime","vehicle_id":$vehicleId}""")
+                .cookie(cookie)
+        ).andExpect(status().isCreated)
+
+        // Edit vehicle plate and consumption
+        mockMvc.perform(
+            patch("/api/users/me/vehicles/$vehicleId")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"plate_number":"B-77-NEW","fuel_consumption_l_per_100km":10.0}""")
+                .cookie(cookie)
+        ).andExpect(status().isOk)
+
+        // Separate persistence context boundary before DELETE (matching separate HTTP requests in production)
+        entityManager.flush()
+        entityManager.clear()
+
+        // Delete vehicle (ON DELETE SET NULL on mileage_records.vehicle_id)
+        mockMvc.perform(
+            delete("/api/users/me/vehicles/$vehicleId")
+                .cookie(cookie)
+        ).andExpect(status().isNoContent)
+
+        // Clear L1 cache so subsequent GETs read fresh rows from PostgreSQL
+        entityManager.flush()
+        entityManager.clear()
+
+        mockMvc.perform(get("/api/reports/${report.id}/mileage").cookie(cookie))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$[0].vehicle_id").value(nullValue()))
+            .andExpect(jsonPath("$[0].vehicle_plate").value("B-77-OLD"))
+            .andExpect(jsonPath("$[0].vehicle_make_model").value("Renault Megane"))
+            .andExpect(jsonPath("$[0].vehicle_fuel_type").value("diesel"))
+            .andExpect(jsonPath("$[0].fuel_consumption_l_per_100km").value(6.0))
+
+        mockMvc.perform(get("/api/reports/${report.id}").cookie(cookie))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.mileage_records[0].vehicle_id").value(nullValue()))
+            .andExpect(jsonPath("$.mileage_records[0].vehicle_plate").value("B-77-OLD"))
+            .andExpect(jsonPath("$.mileage_records[0].vehicle_make_model").value("Renault Megane"))
+            .andExpect(jsonPath("$.mileage_records[0].vehicle_fuel_type").value("diesel"))
+            .andExpect(jsonPath("$.mileage_records[0].fuel_consumption_l_per_100km").value(6.0))
     }
 }

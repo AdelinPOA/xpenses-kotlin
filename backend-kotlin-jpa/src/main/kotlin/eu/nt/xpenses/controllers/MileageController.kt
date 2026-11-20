@@ -27,6 +27,7 @@ class MileageController(
     private val mileageRecordRepository: MileageRecordRepository,
     private val expenseReportRepository: ExpenseReportRepository,
     private val appSettingRepository: AppSettingRepository,
+    private val userVehicleRepository: UserVehicleRepository,
     private val reportOwnership: ReportOwnership,
     private val fxService: FxService,
     private val mileageCalculationService: MileageCalculationService = MileageCalculationService()
@@ -38,12 +39,16 @@ class MileageController(
         return Pair(rateBt, rateAt)
     }
 
-    private fun getCalculationSettings(): MileageCalculationSettings {
+    private fun getDefaultFuelConsumption(): BigDecimal =
+        appSettingRepository.findById("mileage_fuel_consumption_l_per_100km").orElse(null)?.value?.let { BigDecimal(it) }
+            ?: BigDecimal("7.5")
+
+    private fun getCalculationSettings(fuelConsumptionOverride: BigDecimal? = null): MileageCalculationSettings {
         val (grossRate, _) = getMileageRates()
         fun setting(key: String, default: String) = appSettingRepository.findById(key).orElse(null)?.value?.let { BigDecimal(it) } ?: BigDecimal(default)
         return MileageCalculationSettings(
             grossRate = grossRate,
-            fuelConsumption = setting("mileage_fuel_consumption_l_per_100km", "7.5"),
+            fuelConsumption = fuelConsumptionOverride ?: setting("mileage_fuel_consumption_l_per_100km", "7.5"),
             fuelPriceRonPerLiter = setting("mileage_fuel_price_ron_per_liter", "9.20"),
             pensionRate = setting("mileage_pension_rate", "0.25"),
             healthRate = setting("mileage_health_rate", "0.10"),
@@ -89,9 +94,14 @@ class MileageController(
             throw ResponseStatusException(HttpStatus.UNPROCESSABLE_CONTENT, "end_time must be after start_time")
         }
 
+        val vehicle = body.vehicleId?.let { vehicleId ->
+            userVehicleRepository.findByIdAndUserId(vehicleId, currentUser.id!!)
+                ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Vehicle not found")
+        }
+
         val distanceBd = BigDecimal.valueOf(body.distanceKm)
         val fxRate = resolveFuelExchangeRate(body.startTime)
-        val settings = getCalculationSettings()
+        val settings = getCalculationSettings(vehicle?.fuelConsumptionLitersPer100Km)
         val calculation = mileageCalculationService.calculate(distanceBd, fxRate, settings)
         val amountBeforeTax = calculation.grossAmount.setScale(2, RoundingMode.HALF_UP)
         val amountOriginal = calculation.netAmount.setScale(2, RoundingMode.HALF_UP)
@@ -123,6 +133,10 @@ class MileageController(
             startTime = body.startTime,
             endTime = body.endTime,
             description = body.description,
+            vehicle = vehicle,
+            vehiclePlate = vehicle?.plateNumber,
+            vehicleMakeModel = vehicle?.makeModel,
+            vehicleFuelType = vehicle?.fuelType,
             createdAt = Instant.now(),
             updatedAt = Instant.now()
         )
@@ -176,7 +190,22 @@ class MileageController(
             rec.distanceKm = body.distanceKm
         }
 
-        if (distanceChanged || dateChanged) {
+        val vehicleChanged = body.clearVehicle || body.vehicleId != null
+        if (vehicleChanged) {
+            val newVehicle = if (body.clearVehicle) {
+                null
+            } else {
+                userVehicleRepository.findByIdAndUserId(body.vehicleId!!, currentUser.id!!)
+                    ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Vehicle not found")
+            }
+            rec.vehicle = newVehicle
+            rec.vehiclePlate = newVehicle?.plateNumber
+            rec.vehicleMakeModel = newVehicle?.makeModel
+            rec.vehicleFuelType = newVehicle?.fuelType
+            rec.fuelConsumptionLitersPer100Km = newVehicle?.fuelConsumptionLitersPer100Km ?: getDefaultFuelConsumption()
+        }
+
+        if (distanceChanged || dateChanged || vehicleChanged) {
             val hasFuelFields = rec.fuelConsumptionLitersPer100Km != null &&
                 rec.fuelPriceRonPerLiter != null &&
                 rec.pensionRate != null &&
@@ -264,7 +293,11 @@ class MileageController(
             description = m.description,
             createdAt = m.createdAt,
             updatedAt = m.updatedAt,
-            durationMinutes = durationMins
+            durationMinutes = durationMins,
+            vehicleId = m.vehicle?.id,
+            vehiclePlate = m.vehiclePlate,
+            vehicleMakeModel = m.vehicleMakeModel,
+            vehicleFuelType = m.vehicleFuelType
         )
     }
 

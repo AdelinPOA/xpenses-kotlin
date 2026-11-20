@@ -705,4 +705,76 @@ class MileageControllerTest : IntegrationTestBase() {
             .andExpect(jsonPath("$[0].id").value(vehicleId))
             .andExpect(jsonPath("$[0].last_odometer_km").value(375050.0))
     }
+
+    @Test
+    fun `GET trip-sheet returns 200 with valid xlsx for owner and manager`() {
+        val report = makeTechReport()
+        entityManager.flush()
+        entityManager.clear()
+        val techCookie = authHelper.loginAs("tech1", "tech1")
+        val managerCookie = authHelper.loginAs("manager1", "manager1")
+
+        mockMvc.perform(
+            post("/api/reports/${report.id}/mileage")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(mileageBody)
+                .cookie(techCookie)
+        ).andExpect(status().isCreated)
+
+        val expectedContentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+        val ownerRes = mockMvc.perform(get("/api/reports/${report.id}/mileage/trip-sheet").cookie(techCookie))
+            .andExpect(status().isOk)
+            .andExpect(header().string("Content-Type", expectedContentType))
+            .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.containsString("foaie_parcurs_raport_${report.id}_")))
+            .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.endsWith(".xlsx\"")))
+            .andReturn()
+
+        org.apache.poi.xssf.usermodel.XSSFWorkbook(java.io.ByteArrayInputStream(ownerRes.response.contentAsByteArray)).use { wb ->
+            org.junit.jupiter.api.Assertions.assertEquals(1, wb.numberOfSheets)
+            org.junit.jupiter.api.Assertions.assertEquals("Iunie", wb.getSheetAt(0).sheetName)
+        }
+
+        mockMvc.perform(get("/api/reports/${report.id}/mileage/trip-sheet").cookie(managerCookie))
+            .andExpect(status().isOk)
+            .andExpect(header().string("Content-Type", expectedContentType))
+    }
+
+    @Test
+    fun `GET trip-sheet returns 400 when report has no mileage records`() {
+        val report = makeTechReport()
+        entityManager.flush()
+        entityManager.clear()
+        val techCookie = authHelper.loginAs("tech1", "tech1")
+
+        mockMvc.perform(get("/api/reports/${report.id}/mileage/trip-sheet").cookie(techCookie))
+            .andExpect(status().isBadRequest)
+    }
+
+    @Test
+    fun `GET trip-sheet returns 403 for unrelated technician`() {
+        val report = makeTechReport()
+        entityManager.flush()
+        entityManager.clear()
+        val techCookie = authHelper.loginAs("tech1", "tech1")
+
+        mockMvc.perform(
+            post("/api/reports/${report.id}/mileage")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(mileageBody)
+                .cookie(techCookie)
+        ).andExpect(status().isCreated)
+
+        val modCookie = authHelper.loginAs("mod1", "mod1")
+        mockMvc.perform(
+            post("/api/users")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"username":"tech2tripsheet","display_name":"Tech 2","password":"pass1234","role":"technician"}""")
+                .cookie(modCookie)
+        ).andExpect(status().isCreated)
+
+        val tech2Cookie = authHelper.loginAs("tech2tripsheet", "pass1234")
+        mockMvc.perform(get("/api/reports/${report.id}/mileage/trip-sheet").cookie(tech2Cookie))
+            .andExpect(status().isForbidden)
+    }
 }

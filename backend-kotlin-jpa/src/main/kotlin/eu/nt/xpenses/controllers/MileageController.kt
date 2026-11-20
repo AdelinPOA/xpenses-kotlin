@@ -8,9 +8,12 @@ import eu.nt.xpenses.repositories.*
 import eu.nt.xpenses.services.FxService
 import eu.nt.xpenses.services.MileageCalculationService
 import eu.nt.xpenses.services.MileageCalculationSettings
+import eu.nt.xpenses.services.TripSheetExportService
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.validation.Valid
+import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
+import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.bind.annotation.*
@@ -19,6 +22,8 @@ import java.math.BigDecimal
 import java.math.RoundingMode
 import java.time.Duration
 import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
 import java.time.ZoneOffset
 
 @RestController
@@ -30,6 +35,7 @@ class MileageController(
     private val userVehicleRepository: UserVehicleRepository,
     private val reportOwnership: ReportOwnership,
     private val fxService: FxService,
+    private val tripSheetExportService: TripSheetExportService,
     private val mileageCalculationService: MileageCalculationService = MileageCalculationService()
 ) {
 
@@ -70,6 +76,31 @@ class MileageController(
 
         val records = mileageRecordRepository.findAllByReportId(reportId)
         return records.sortedBy { it.startTime }.map { mapRecordToOut(it) }
+    }
+
+    @GetMapping("/trip-sheet")
+    @Transactional(readOnly = true)
+    fun downloadTripSheet(
+        @PathVariable reportId: Int,
+        request: HttpServletRequest
+    ): ResponseEntity<ByteArray> {
+        val currentUser = request.getAttribute("currentUser") as? User
+            ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
+
+        val report = reportOwnership.verifyOwnership(reportId, currentUser)
+        val records = mileageRecordRepository.findAllByReportId(reportId)
+        if (records.isEmpty()) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Report has no mileage records")
+        }
+
+        val bytes = tripSheetExportService.buildTripSheet(report, records)
+        val today = LocalDate.now(ZoneId.of("Europe/Bucharest"))
+        val filename = "foaie_parcurs_raport_${reportId}_${today}.xlsx"
+
+        return ResponseEntity.ok()
+            .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"$filename\"")
+            .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+            .body(bytes)
     }
 
     @PostMapping

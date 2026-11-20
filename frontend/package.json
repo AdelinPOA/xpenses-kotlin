@@ -14,6 +14,7 @@
     "test:service-worker:browser": "node --test tests/service-worker/sw-browser.test.mjs",
     "test:service-worker": "npm run test:service-worker:unit && npm run test:service-worker:browser",
     "test:auth:unit": "node --experimental-strip-types --test tests/auth/auth-session.test.mjs",
+    "test:mileage:unit": "node --experimental-strip-types --test tests/reports/mileage-weeks.test.mjs",
     "test:offline-workspace": "INTERNAL_API_URL=http://127.0.0.1:18081/api PLAYWRIGHT_PORT=3101 RUN_OFFLINE_WORKSPACE=1 playwright test tests/offline/offline-workspace.spec.ts --project=mobile-chromium --workers=1 --reporter=list",
     "test:offline-regressions": "npm run test:auth:unit && INTERNAL_API_URL=http://127.0.0.1:18081/api PLAYWRIGHT_PORT=3101 RUN_OFFLINE_WORKSPACE=1 RUN_OFFLINE_DIAGNOSIS=1 playwright test tests/offline/offline-workspace.spec.ts tests/offline/offline-auth-diagnosis.spec.ts tests/auth/token-refresh.spec.ts tests/auth/replay-session.spec.ts --project=mobile-chromium --workers=1 --reporter=list",
     "test:e2e": "playwright test",

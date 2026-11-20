@@ -1,29 +1,25 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import api, { downloadBlob, Report, UserVehicle } from "@/lib/api";
+import api, { downloadBlob, MileageRecord, Report, UserVehicle } from "@/lib/api";
 import { reportKeys, mileageKeys, vehicleKeys } from "@/lib/queryKeys";
 import AppShell from "@/components/layout/AppShell";
 import Badge from "@/components/ui/Badge";
-import { ArrowLeft, ArrowLeftRight, Car, FileSpreadsheet, Gauge, Plus, Trash2 } from "lucide-react";
+import MileageWeeklyList from "@/components/reports/MileageWeeklyList";
+import { ArrowLeft, FileSpreadsheet, Gauge, Plus } from "lucide-react";
 import Link from "next/link";
 import { formatAmount, parseLocaleNumber } from "@/lib/format";
 import { LOCALE_TO_INTL, type Locale } from "@/i18n/config";
+import {
+  addDaysToDateKey,
+  buildDefaultDateTimeLocal,
+  buildMileageWeeks,
+  buildPastePayload,
+  formatDayHeading,
+  formatDuration,
+} from "@/lib/mileageWeeks";
 import { useLocale, useTranslations } from "next-intl";
-
-function formatDuration(minutes: number) {
-  const h = Math.floor(minutes / 60);
-  const m = Math.round(minutes % 60);
-  return `${h}h ${m.toString().padStart(2, "0")}m`;
-}
-
-function formatDateTime(iso: string, intlLocale: string) {
-  return new Date(iso).toLocaleString(intlLocale, {
-    day: "2-digit", month: "2-digit", year: "numeric",
-    hour: "2-digit", minute: "2-digit",
-  });
-}
 
 export default function MileagePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -45,13 +41,55 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
   const [odometerSaved, setOdometerSaved] = useState(false);
   const [downloadingTripSheet, setDownloadingTripSheet] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [copiedTrip, setCopiedTrip] = useState<MileageRecord | null>(null);
+  const [extraWeekStarts, setExtraWeekStarts] = useState<string[]>([]);
+  const [pastingDates, setPastingDates] = useState<Set<string>>(() => new Set());
+  const [pasteNotice, setPasteNotice] = useState<string | null>(null);
+  const [pasteError, setPasteError] = useState<string | null>(null);
+  const inFlightDatesRef = useRef<Set<string>>(new Set());
+  const pasteNoticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const formRef = useRef<HTMLFormElement | null>(null);
   const t = useTranslations("reports");
   const locale = useLocale() as Locale;
+
+  useEffect(() => {
+    return () => {
+      if (pasteNoticeTimerRef.current) {
+        clearTimeout(pasteNoticeTimerRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!copiedTrip) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setCopiedTrip(null);
+        setPasteNotice(null);
+        setPasteError(null);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [copiedTrip]);
 
   const { data: report, isLoading } = useQuery<Report>({
     queryKey: reportKeys.detail(reportId),
     queryFn: () => api.get(`/reports/${id}`).then((r) => r.data),
   });
+
+  const isDraft = report?.status === "draft";
+  const weeks = useMemo(
+    () =>
+      buildMileageWeeks({
+        records: report?.mileage_records ?? [],
+        dateFrom: report?.date_from,
+        dateTo: report?.date_to,
+        includeEmptyDays: isDraft,
+        extraWeekStarts,
+      }),
+    [report?.mileage_records, report?.date_from, report?.date_to, isDraft, extraWeekStarts],
+  );
 
   const { data: vehicles = [], isSuccess: vehiclesLoaded } = useQuery<UserVehicle[]>({
     queryKey: vehicleKeys.me(),
@@ -220,6 +258,127 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
     });
   };
 
+  const handleCopyTrip = (trip: MileageRecord) => {
+    setCopiedTrip(trip);
+    setPasteError(null);
+    setPasteNotice(null);
+  };
+
+  const handleClearClipboard = () => {
+    setCopiedTrip(null);
+    setPasteError(null);
+    setPasteNotice(null);
+  };
+
+  const handleOpenFormForDay = (dateKey: string) => {
+    const nextTimes = buildDefaultDateTimeLocal(dateKey, startTime, endTime);
+    setStartTime(nextTimes.startTime);
+    setEndTime(nextTimes.endTime);
+    setShowForm(true);
+    setFormError(null);
+    requestAnimationFrame(() => {
+      formRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
+  };
+
+  const handleAddPreviousWeek = () => {
+    if (weeks.length === 0) return;
+    const prevStart = addDaysToDateKey(weeks[0].weekStartKey, -7);
+    setExtraWeekStarts((prev) => (prev.includes(prevStart) ? prev : [...prev, prevStart]));
+  };
+
+  const handleAddNextWeek = () => {
+    if (weeks.length === 0) return;
+    const nextStart = addDaysToDateKey(weeks[weeks.length - 1].weekStartKey, 7);
+    setExtraWeekStarts((prev) => (prev.includes(nextStart) ? prev : [...prev, nextStart]));
+  };
+
+  const handlePasteToDates = async (targetDateKeys: string[]) => {
+    if (!copiedTrip || !isDraft || targetDateKeys.length === 0) return;
+
+    const pending: string[] = [];
+    const seen = new Set<string>();
+    for (const dateKey of targetDateKeys) {
+      if (!seen.has(dateKey) && !inFlightDatesRef.current.has(dateKey)) {
+        seen.add(dateKey);
+        pending.push(dateKey);
+      }
+    }
+    if (pending.length === 0) return;
+
+    for (const dateKey of pending) {
+      inFlightDatesRef.current.add(dateKey);
+    }
+    setPastingDates(new Set(inFlightDatesRef.current));
+    setPasteError(null);
+    setPasteNotice(null);
+    if (pasteNoticeTimerRef.current) {
+      clearTimeout(pasteNoticeTimerRef.current);
+      pasteNoticeTimerRef.current = null;
+    }
+
+    const validVehicleIds = vehiclesLoaded ? new Set(vehicles.map((v) => v.id)) : null;
+    const succeeded: string[] = [];
+    let errorDetail: string | null = null;
+    let hadError = false;
+
+    try {
+      for (const dateKey of pending) {
+        try {
+          const payload = buildPastePayload(copiedTrip, dateKey, validVehicleIds);
+          await api.post(`/reports/${id}/mileage`, payload);
+          succeeded.push(dateKey);
+        } catch (err: unknown) {
+          const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+          errorDetail = detail ?? t("mileage_paste_error");
+          hadError = true;
+          break;
+        } finally {
+          inFlightDatesRef.current.delete(dateKey);
+          setPastingDates(new Set(inFlightDatesRef.current));
+        }
+      }
+    } finally {
+      for (const dateKey of pending) {
+        inFlightDatesRef.current.delete(dateKey);
+      }
+      setPastingDates(new Set(inFlightDatesRef.current));
+    }
+
+    if (succeeded.length > 0) {
+      invalidate();
+    }
+
+    if (hadError) {
+      if (succeeded.length > 0) {
+        setPasteError(
+          t("mileage_paste_partial_error", {
+            succeeded: succeeded.length,
+            total: pending.length,
+            detail: errorDetail ?? t("mileage_paste_error"),
+          }),
+        );
+      } else {
+        setPasteError(errorDetail ?? t("mileage_paste_error"));
+      }
+    } else if (succeeded.length === 1) {
+      const heading = formatDayHeading(succeeded[0], LOCALE_TO_INTL[locale]);
+      setPasteNotice(
+        t("mileage_paste_success_one", {
+          day: `${heading.weekday}, ${heading.shortDate}`,
+        }),
+      );
+      pasteNoticeTimerRef.current = setTimeout(() => {
+        setPasteNotice(null);
+      }, 4000);
+    } else if (succeeded.length > 1) {
+      setPasteNotice(t("mileage_paste_success_many", { count: succeeded.length }));
+      pasteNoticeTimerRef.current = setTimeout(() => {
+        setPasteNotice(null);
+      }, 4000);
+    }
+  };
+
   if (isLoading) return <AppShell><p className="text-muted-foreground text-sm mt-8">{t("mileage_loading")}</p></AppShell>;
   if (!report) return <AppShell><p className="text-red-500 text-sm">{t("mileage_not_found")}</p></AppShell>;
 
@@ -382,6 +541,7 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
       {/* Add form */}
       {showForm && (
         <form
+          ref={formRef}
           onSubmit={(e) => {
             e.preventDefault();
             handleAdd();
@@ -562,175 +722,29 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
         </form>
       )}
 
-      {/* Mileage table */}
-      <div className="bg-card rounded-xl shadow-sm">
-        <div className="p-4 border-b border-slate-100 dark:border-slate-700">
-          <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-            {t("mileage_trips")} ({records.length})
-          </h2>
-        </div>
-        {records.length === 0 ? (
-          <p className="p-6 text-sm text-muted-foreground text-center">{t("mileage_no_records")}</p>
-        ) : (
-          <>
-            {/* Mobile: stacked cards */}
-            <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-700">
-              {records.map((m) => (
-                <div key={m.id} className="p-4">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="font-medium text-foreground">{m.origin} → {m.destination}</p>
-                      <p className="text-xs text-muted mt-0.5">{formatDateTime(m.start_time, LOCALE_TO_INTL[locale])}</p>
-                      {(m.round_trip || m.vehicle_plate) && (
-                        <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                          {m.round_trip && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300">
-                              <ArrowLeftRight className="w-3 h-3 shrink-0" aria-hidden="true" />
-                              <span>{t("mileage_round_trip")}</span>
-                            </span>
-                          )}
-                          {m.vehicle_plate && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                              <Car className="w-3 h-3 shrink-0" aria-hidden="true" />
-                              <span>
-                                {m.vehicle_plate}
-                                {m.vehicle_make_model ? ` · ${m.vehicle_make_model}` : ""}
-                              </span>
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className="font-semibold text-foreground">{formatAmount(m.amount_eur, "EUR")}</p>
-                      <p className="text-xs text-muted-foreground">{m.distance_km.toFixed(1)} km</p>
-                    </div>
-                  </div>
-                  {m.description && (
-                    <p className="text-sm text-muted mt-2">{m.description}</p>
-                  )}
-                  <div className="flex items-center justify-between mt-3">
-                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                      <span className="text-blue-600 dark:text-blue-400 font-medium">{formatDuration(m.duration_minutes)}</span>
-                      <span>{t("mileage_gross_prefix")} {formatAmount(m.amount_before_tax, "EUR")}</span>
-                    </div>
-                    {report.status === "draft" && (
-                      <button
-                        type="button"
-                        onClick={() => confirmDeleteMileage(m.id)}
-                        disabled={deleteMileage.isPending}
-                        className="text-slate-400 hover:text-red-500 disabled:opacity-40 disabled:cursor-not-allowed"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
-                  {m.fuel_cost_eur != null && (
-                    <details className="mt-2 text-xs text-muted-foreground">
-                      <summary className="cursor-pointer">{t("mileage_calc_details")}</summary>
-                      <p className="mt-1">{t("mileage_calc_fuel")}: {m.fuel_cost_eur.toFixed(2)} EUR · {t("mileage_calc_taxable")}: {(m.taxable_amount ?? 0).toFixed(2)} EUR · {t("mileage_calc_withholding")}: {(m.withholding_amount ?? 0).toFixed(2)} EUR</p>
-                    </details>
-                  )}
-                </div>
-              ))}
-              <div className="p-4 bg-slate-50 dark:bg-slate-800">
-                <div className="flex items-start justify-between gap-2">
-                  <p className="font-bold text-slate-700 dark:text-slate-300">{t("mileage_total")}</p>
-                  <div className="text-right shrink-0">
-                    <p className="font-bold text-emerald-600 dark:text-emerald-400">{formatAmount(totalNet, "EUR")}</p>
-                    <p className="text-xs text-muted">{totalKm.toFixed(1)} km</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 text-xs text-muted mt-2">
-                  <span className="text-blue-600 dark:text-blue-400 font-bold">{formatDuration(totalDuration)}</span>
-                  <span>Gross: {formatAmount(totalGross, "EUR")}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Desktop: table */}
-            <div className="hidden md:block overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-slate-50 dark:bg-slate-800 text-xs text-muted uppercase">
-                  <tr>
-                    <th className="text-left px-4 py-3">{t("mileage_table_start")}</th>
-                    <th className="text-left px-4 py-3">{t("mileage_table_duration")}</th>
-                    <th className="text-left px-4 py-3">{t("mileage_table_route")}</th>
-                    <th className="text-right px-4 py-3">{t("mileage_table_km")}</th>
-                    <th className="text-right px-4 py-3">{t("mileage_table_rate_bt")}</th>
-                    <th className="text-right px-4 py-3">{t("mileage_table_gross")}</th>
-                    <th className="text-right px-4 py-3">{t("mileage_table_rate_at")}</th>
-                    <th className="text-right px-4 py-3">{t("mileage_table_net")}</th>
-                    <th className="text-right px-4 py-3">Fuel deduction</th>
-                    {report.status === "draft" && <th className="text-right px-4 py-3">{t("mileage_table_actions")}</th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {records.map((m) => (
-                    <tr key={m.id} className="border-t border-slate-100 dark:border-slate-700">
-                      <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{formatDateTime(m.start_time, LOCALE_TO_INTL[locale])}</td>
-                      <td className="px-4 py-3 text-blue-600 dark:text-blue-400 font-medium">{formatDuration(m.duration_minutes)}</td>
-                      <td className="px-4 py-3 font-medium text-foreground">
-                        <div>{m.origin} → {m.destination}</div>
-                        {(m.round_trip || m.vehicle_plate) && (
-                          <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                            {m.round_trip && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300">
-                                <ArrowLeftRight className="w-3 h-3 shrink-0" aria-hidden="true" />
-                                <span>{t("mileage_round_trip")}</span>
-                              </span>
-                            )}
-                            {m.vehicle_plate && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-normal bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                                <Car className="w-3 h-3 shrink-0" aria-hidden="true" />
-                                <span>
-                                  {m.vehicle_plate}
-                                  {m.vehicle_make_model ? ` · ${m.vehicle_make_model}` : ""}
-                                </span>
-                              </span>
-                            )}
-                          </div>
-                        )}
-                        {m.description && <span className="block text-xs text-muted-foreground mt-0.5">{m.description}</span>}
-                      </td>
-                      <td className="px-4 py-3 text-right text-slate-600 dark:text-slate-400">{m.distance_km.toFixed(1)}</td>
-                      <td className="px-4 py-3 text-right text-muted-foreground">{formatAmount(m.rate_before_tax, "EUR")}</td>
-                      <td className="px-4 py-3 text-right text-slate-600 dark:text-slate-400">{formatAmount(m.amount_before_tax, "EUR")}</td>
-                      <td className="px-4 py-3 text-right text-muted-foreground">{formatAmount(m.rate_after_tax, "EUR")}</td>
-                      <td className="px-4 py-3 text-right font-semibold text-foreground">{formatAmount(m.amount_eur, "EUR")}</td>
-                      <td className="px-4 py-3 text-right text-xs text-muted-foreground">{m.fuel_cost_eur != null ? `${m.fuel_cost_eur.toFixed(2)} EUR` : "—"}</td>
-                      {report.status === "draft" && (
-                        <td className="px-4 py-3 text-right">
-                          <button
-                            type="button"
-                            onClick={() => confirmDeleteMileage(m.id)}
-                            disabled={deleteMileage.isPending}
-                            className="text-slate-400 hover:text-red-500 disabled:opacity-40 disabled:cursor-not-allowed"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </td>
-                      )}
-                    </tr>
-                  ))}
-                  <tr className="border-t-2 border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-800">
-                    <td className="px-4 py-3 font-bold text-slate-700 dark:text-slate-300">{t("mileage_total")}</td>
-                    <td className="px-4 py-3 font-bold text-blue-600 dark:text-blue-400">{formatDuration(totalDuration)}</td>
-                    <td className="px-4 py-3"></td>
-                    <td className="px-4 py-3 text-right font-bold text-slate-700 dark:text-slate-300">{totalKm.toFixed(1)}</td>
-                    <td className="px-4 py-3"></td>
-                    <td className="px-4 py-3 text-right font-bold text-slate-700 dark:text-slate-300">{formatAmount(totalGross, "EUR")}</td>
-                    <td className="px-4 py-3"></td>
-                    <td className="px-4 py-3 text-right font-bold text-emerald-600 dark:text-emerald-400">{formatAmount(totalNet, "EUR")}</td>
-                    <td className="px-4 py-3"></td>
-                    {report.status === "draft" && <td></td>}
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </>
-        )}
-      </div>
+      {/* Weekly mileage trips */}
+      <MileageWeeklyList
+        weeks={weeks}
+        totalRecords={records.length}
+        totalKm={totalKm}
+        totalDuration={totalDuration}
+        totalGross={totalGross}
+        totalNet={totalNet}
+        isDraft={isDraft}
+        locale={locale}
+        copiedTrip={copiedTrip}
+        pastingDates={pastingDates}
+        deletingTrip={deleteMileage.isPending}
+        pasteNotice={pasteNotice}
+        pasteError={pasteError}
+        onCopyTrip={handleCopyTrip}
+        onClearClipboard={handleClearClipboard}
+        onPasteToDates={(dates) => void handlePasteToDates(dates)}
+        onAddForDay={handleOpenFormForDay}
+        onDeleteTrip={confirmDeleteMileage}
+        onAddPreviousWeek={handleAddPreviousWeek}
+        onAddNextWeek={handleAddNextWeek}
+      />
     </AppShell>
   );
 }

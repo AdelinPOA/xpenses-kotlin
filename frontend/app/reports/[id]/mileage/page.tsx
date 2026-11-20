@@ -2,11 +2,11 @@
 
 import { use, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import api, { Report, UserVehicle } from "@/lib/api";
+import api, { downloadBlob, Report, UserVehicle } from "@/lib/api";
 import { reportKeys, mileageKeys, vehicleKeys } from "@/lib/queryKeys";
 import AppShell from "@/components/layout/AppShell";
 import Badge from "@/components/ui/Badge";
-import { ArrowLeft, Car, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowLeftRight, Car, FileSpreadsheet, Gauge, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { formatAmount, parseLocaleNumber } from "@/lib/format";
 import { LOCALE_TO_INTL, type Locale } from "@/i18n/config";
@@ -37,8 +37,14 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [description, setDescription] = useState("");
+  const [roundTrip, setRoundTrip] = useState(false);
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const [odometerInput, setOdometerInput] = useState<string | null>(null);
+  const [odometerError, setOdometerError] = useState<string | null>(null);
+  const [odometerSaved, setOdometerSaved] = useState(false);
+  const [downloadingTripSheet, setDownloadingTripSheet] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
   const t = useTranslations("reports");
   const locale = useLocale() as Locale;
 
@@ -56,10 +62,79 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
   const defaultVehicle = vehicles.find((v) => v.is_default);
   const defaultVehicleId = defaultVehicle ? String(defaultVehicle.id) : "";
   const effectiveVehicleId = selectedVehicleId ?? defaultVehicleId;
+  const selectedVehicle = effectiveVehicleId
+    ? vehicles.find((v) => String(v.id) === effectiveVehicleId)
+    : undefined;
+  const prefillVehicle =
+    (selectedVehicle?.last_odometer_km != null ? selectedVehicle : undefined) ??
+    (defaultVehicle?.last_odometer_km != null ? defaultVehicle : undefined) ??
+    vehicles.find((v) => v.last_odometer_km != null);
+  const prefillKm = prefillVehicle?.last_odometer_km ?? null;
+
+  const effectiveOdometerInput =
+    odometerInput ??
+    (report?.starting_odometer_km != null ? String(report.starting_odometer_km) : "");
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: reportKeys.detail(reportId) });
     qc.invalidateQueries({ queryKey: mileageKeys.all });
+  };
+
+  const saveOdometer = useMutation({
+    mutationFn: (payload: {
+      starting_odometer_km?: number;
+      clear_starting_odometer?: boolean;
+    }) => api.patch(`/reports/${id}`, payload),
+    onSuccess: () => {
+      setOdometerInput(null);
+      setOdometerError(null);
+      setOdometerSaved(true);
+      invalidate();
+    },
+    onError: (e: unknown) => {
+      const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      setOdometerSaved(false);
+      setOdometerError(detail ?? t("mileage_starting_odometer_invalid"));
+    },
+  });
+
+  const handleSaveOdometer = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setOdometerError(null);
+    setOdometerSaved(false);
+    const trimmed = effectiveOdometerInput.trim();
+    if (trimmed === "") {
+      saveOdometer.mutate({ clear_starting_odometer: true });
+      return;
+    }
+    const parsed = parseLocaleNumber(trimmed);
+    if (
+      !/^\d+([.,]\d)?$/.test(trimmed) ||
+      !Number.isFinite(parsed) ||
+      parsed < 0 ||
+      parsed > 9999999.9
+    ) {
+      setOdometerError(t("mileage_starting_odometer_invalid"));
+      return;
+    }
+    saveOdometer.mutate({ starting_odometer_km: parsed });
+  };
+
+  const handleDownloadTripSheet = async () => {
+    setDownloadingTripSheet(true);
+    setExportError(null);
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      await downloadBlob(
+        `/reports/${id}/mileage/trip-sheet`,
+        {},
+        `foaie_parcurs_raport_${id}_${today}.xlsx`,
+      );
+    } catch {
+      setExportError(t("mileage_export_trip_sheet_error"));
+    } finally {
+      setDownloadingTripSheet(false);
+    }
   };
 
   const addMileage = useMutation({
@@ -71,6 +146,7 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
       end_time: string;
       description?: string;
       vehicle_id?: number;
+      round_trip?: boolean;
     }) =>
       api.post(`/reports/${id}/mileage`, data),
     onSuccess: () => {
@@ -83,6 +159,7 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
       setStartTime("");
       setEndTime("");
       setDescription("");
+      setRoundTrip(false);
       setSelectedVehicleId(null);
     },
     onError: (e: any) => {
@@ -134,6 +211,7 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
       distance_km: km,
       start_time: new Date(startTime).toISOString(),
       end_time: new Date(endTime).toISOString(),
+      round_trip: roundTrip,
       ...(description.trim() ? { description: description.trim() } : {}),
       ...(effectiveVehicleId ? { vehicle_id: Number(effectiveVehicleId) } : {}),
     });
@@ -152,13 +230,33 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
     <AppShell>
       <div className="mb-6">
         <Link href={`/reports/${id}`} className="flex items-center gap-1 text-sm text-muted hover:text-slate-800 dark:hover:text-slate-200 mb-4">
-          <ArrowLeft className="w-4 h-4" /> {t("mileage_back")}
+          <ArrowLeft className="w-4 h-4" aria-hidden="true" /> {t("mileage_back")}
         </Link>
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold text-foreground">{t("mileage_heading")}</h1>
-          <Badge status={report.status} />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold text-foreground">{t("mileage_heading")}</h1>
+              <Badge status={report.status} />
+            </div>
+            <p className="text-sm text-muted mt-1">{report.title}</p>
+          </div>
+          {records.length > 0 && (
+            <button
+              type="button"
+              onClick={() => void handleDownloadTripSheet()}
+              disabled={downloadingTripSheet}
+              className="inline-flex items-center justify-center gap-2 px-3.5 py-2 border border-input-border text-slate-700 dark:text-slate-200 bg-card hover:bg-card-hover text-sm font-medium rounded-lg disabled:opacity-50 cursor-pointer transition-colors"
+            >
+              <FileSpreadsheet className="w-4 h-4 shrink-0" aria-hidden="true" />
+              <span>{t("mileage_export_trip_sheet")}</span>
+            </button>
+          )}
         </div>
-        <p className="text-sm text-muted mt-1">{report.title}</p>
+        {exportError && (
+          <p role="alert" className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-400">
+            {exportError}
+          </p>
+        )}
       </div>
 
       {/* Summary cards */}
@@ -180,6 +278,87 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
           <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400">{formatAmount(totalNet, "EUR")}</p>
         </div>
       </div>
+
+      {/* Starting odometer card */}
+      {report.status === "draft" ? (
+        <div className="bg-card rounded-xl shadow-sm p-4 mb-6">
+          <form onSubmit={handleSaveOdometer} className="space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+              <div className="flex-1 max-w-xs">
+                <label
+                  htmlFor="mileage-starting-odometer"
+                  className="flex items-center gap-1.5 text-xs font-medium text-slate-600 dark:text-slate-400 mb-1"
+                >
+                  <Gauge className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                  <span>{t("mileage_starting_odometer")}</span>
+                </label>
+                <input
+                  id="mileage-starting-odometer"
+                  type="text"
+                  inputMode="decimal"
+                  placeholder={t("mileage_starting_odometer_placeholder")}
+                  value={effectiveOdometerInput}
+                  onChange={(e) => {
+                    setOdometerInput(e.target.value);
+                    if (odometerError) setOdometerError(null);
+                    if (odometerSaved) setOdometerSaved(false);
+                  }}
+                  className="w-full min-h-11 px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground focus:outline-none focus:ring-2 focus:ring-teal-500"
+                />
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="submit"
+                  disabled={saveOdometer.isPending}
+                  className="min-h-11 px-4 py-2 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 disabled:opacity-50 cursor-pointer transition-colors"
+                >
+                  {t("mileage_starting_odometer_save")}
+                </button>
+                {report.starting_odometer_km == null && prefillKm != null && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOdometerInput(String(prefillKm));
+                      setOdometerError(null);
+                      setOdometerSaved(false);
+                    }}
+                    className="min-h-11 px-3 py-2 border border-teal-300 dark:border-teal-700 text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/30 hover:bg-teal-100 dark:hover:bg-teal-900/40 text-xs font-medium rounded-lg cursor-pointer transition-colors"
+                  >
+                    {t("mileage_starting_odometer_prefill", {
+                      km: prefillKm.toLocaleString(LOCALE_TO_INTL[locale], {
+                        maximumFractionDigits: 1,
+                      }),
+                    })}
+                  </button>
+                )}
+              </div>
+            </div>
+            {report.starting_odometer_km != null && totalKm > 0 && (
+              <p className="text-xs text-muted">
+                {report.starting_odometer_km.toFixed(1)} km → {(report.starting_odometer_km + totalKm).toFixed(1)} km
+              </p>
+            )}
+            {odometerError && (
+              <p role="alert" className="text-xs text-red-600 dark:text-red-400">
+                {odometerError}
+              </p>
+            )}
+            {odometerSaved && !odometerError && (
+              <p role="status" className="text-xs text-emerald-600 dark:text-emerald-400">
+                {t("mileage_starting_odometer_saved")}
+              </p>
+            )}
+          </form>
+        </div>
+      ) : report.starting_odometer_km != null ? (
+        <div className="bg-card rounded-xl shadow-sm p-4 mb-6 flex items-center gap-2 text-sm">
+          <Gauge className="w-4 h-4 text-teal-600 dark:text-teal-400 shrink-0" aria-hidden="true" />
+          <span className="text-muted">{t("mileage_starting_odometer")}:</span>
+          <span className="font-semibold text-foreground">
+            {report.starting_odometer_km.toFixed(1)} km → {(report.starting_odometer_km + totalKm).toFixed(1)} km
+          </span>
+        </div>
+      ) : null}
 
       {/* Add button */}
       {report.status === "draft" && (
@@ -356,10 +535,26 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
                 disabled={addMileage.isPending}
                 className="w-full min-h-11 flex items-center justify-center gap-2 px-4 py-2 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 disabled:opacity-50 whitespace-nowrap cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
               >
-                <Plus className="w-4 h-4" />
+                <Plus className="w-4 h-4" aria-hidden="true" />
                 {addMileage.isPending ? t("mileage_adding") : t("mileage_add_trip")}
               </button>
             </div>
+          </div>
+
+          <div className="pt-1">
+            <label
+              htmlFor="mileage-round-trip"
+              className="inline-flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300 cursor-pointer select-none"
+            >
+              <input
+                id="mileage-round-trip"
+                type="checkbox"
+                checked={roundTrip}
+                onChange={(e) => setRoundTrip(e.target.checked)}
+                className="h-4 w-4 rounded border-input-border text-teal-600 focus:ring-teal-500"
+              />
+              <span>{t("mileage_round_trip")}</span>
+            </label>
           </div>
         </form>
       )}
@@ -383,15 +578,23 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
                     <div>
                       <p className="font-medium text-foreground">{m.origin} → {m.destination}</p>
                       <p className="text-xs text-muted mt-0.5">{formatDateTime(m.start_time, LOCALE_TO_INTL[locale])}</p>
-                      {m.vehicle_plate && (
-                        <div className="mt-1">
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                            <Car className="w-3 h-3 shrink-0" aria-hidden="true" />
-                            <span>
-                              {m.vehicle_plate}
-                              {m.vehicle_make_model ? ` · ${m.vehicle_make_model}` : ""}
+                      {(m.round_trip || m.vehicle_plate) && (
+                        <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                          {m.round_trip && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300">
+                              <ArrowLeftRight className="w-3 h-3 shrink-0" aria-hidden="true" />
+                              <span>{t("mileage_round_trip")}</span>
                             </span>
-                          </span>
+                          )}
+                          {m.vehicle_plate && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                              <Car className="w-3 h-3 shrink-0" aria-hidden="true" />
+                              <span>
+                                {m.vehicle_plate}
+                                {m.vehicle_make_model ? ` · ${m.vehicle_make_model}` : ""}
+                              </span>
+                            </span>
+                          )}
                         </div>
                       )}
                     </div>
@@ -466,15 +669,23 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
                       <td className="px-4 py-3 text-blue-600 dark:text-blue-400 font-medium">{formatDuration(m.duration_minutes)}</td>
                       <td className="px-4 py-3 font-medium text-foreground">
                         <div>{m.origin} → {m.destination}</div>
-                        {m.vehicle_plate && (
-                          <div className="mt-1">
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-normal bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                              <Car className="w-3 h-3 shrink-0" aria-hidden="true" />
-                              <span>
-                                {m.vehicle_plate}
-                                {m.vehicle_make_model ? ` · ${m.vehicle_make_model}` : ""}
+                        {(m.round_trip || m.vehicle_plate) && (
+                          <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                            {m.round_trip && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300">
+                                <ArrowLeftRight className="w-3 h-3 shrink-0" aria-hidden="true" />
+                                <span>{t("mileage_round_trip")}</span>
                               </span>
-                            </span>
+                            )}
+                            {m.vehicle_plate && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-normal bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                                <Car className="w-3 h-3 shrink-0" aria-hidden="true" />
+                                <span>
+                                  {m.vehicle_plate}
+                                  {m.vehicle_make_model ? ` · ${m.vehicle_make_model}` : ""}
+                                </span>
+                              </span>
+                            )}
                           </div>
                         )}
                         {m.description && <span className="block text-xs text-muted-foreground mt-0.5">{m.description}</span>}

@@ -22,6 +22,7 @@ import {
   Copy,
   DollarSign,
   FileDown,
+  FileSpreadsheet,
   FolderDown,
   PenLine,
   Pencil,
@@ -54,6 +55,7 @@ export default function ReportDetailClient({
   const [showRejectInput, setShowRejectInput] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
   const [exporting, setExporting] = useState(false);
+  const [exportingTripSheet, setExportingTripSheet] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const t = useTranslations("reports");
   const te = useTranslations("expenses");
@@ -74,6 +76,22 @@ export default function ReportDetailClient({
       toast.error(t("error_export"));
     } finally {
       setExporting(false);
+    }
+  }
+
+  async function handleExportTripSheet() {
+    setExportingTripSheet(true);
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      await downloadBlob(
+        `/reports/${id}/mileage/trip-sheet`,
+        {},
+        `foaie_parcurs_raport_${id}_${today}.xlsx`,
+      );
+    } catch {
+      toast.error(t("mileage_export_trip_sheet_error"));
+    } finally {
+      setExportingTripSheet(false);
     }
   }
 
@@ -354,6 +372,19 @@ export default function ReportDetailClient({
                 </>
               )}
             </div>
+            {(report.mileage_records?.length ?? 0) > 0 && (
+              <button
+                type="button"
+                disabled={exportingTripSheet}
+                onClick={() => void handleExportTripSheet()}
+                className="flex items-center gap-2 px-3 py-1.5 border border-input-border text-slate-600 dark:text-slate-400 text-sm font-medium rounded-lg hover:bg-card-hover disabled:opacity-50 cursor-pointer"
+              >
+                <FileSpreadsheet className="w-4 h-4" aria-hidden="true" />
+                {exportingTripSheet
+                  ? t("detail_exporting")
+                  : t("mileage_export_trip_sheet")}
+              </button>
+            )}
             {!report.signed_at &&
               user &&
               report.user_id === user.id &&

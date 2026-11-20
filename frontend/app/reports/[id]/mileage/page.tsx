@@ -84,8 +84,11 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
     mutationFn: (payload: {
       starting_odometer_km?: number;
       clear_starting_odometer?: boolean;
-    }) => api.patch(`/reports/${id}`, payload),
-    onSuccess: () => {
+    }) => api.patch<Report>(`/reports/${id}`, payload),
+    onSuccess: (res) => {
+      if (res?.data) {
+        qc.setQueryData(reportKeys.detail(reportId), res.data);
+      }
       setOdometerInput(null);
       setOdometerError(null);
       setOdometerSaved(true);
@@ -248,7 +251,7 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
               className="inline-flex items-center justify-center gap-2 px-3.5 py-2 border border-input-border text-slate-700 dark:text-slate-200 bg-card hover:bg-card-hover text-sm font-medium rounded-lg disabled:opacity-50 cursor-pointer transition-colors"
             >
               <FileSpreadsheet className="w-4 h-4 shrink-0" aria-hidden="true" />
-              <span>{t("mileage_export_trip_sheet")}</span>
+              <span>{downloadingTripSheet ? t("detail_exporting") : t("mileage_export_trip_sheet")}</span>
             </button>
           )}
         </div>

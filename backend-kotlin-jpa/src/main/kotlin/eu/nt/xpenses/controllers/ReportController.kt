@@ -316,7 +316,11 @@ class ReportController(
         val currentUser = request.getAttribute("currentUser") as? User
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
         val outcome = lifecycle.submit(reportId, SubmitReportCommand(body?.expenseIds), currentUser)
-        advancePrimaryVehicleOdometer(reportId, outcome.report.startingOdometerKm)
+        try {
+            advancePrimaryVehicleOdometer(reportId, outcome.report.startingOdometerKm)
+        } catch (ex: Exception) {
+            log.warn("Failed to advance vehicle odometer for report {}: {}", reportId, ex.message)
+        }
         notificationAdapter.dispatch(outcome.events)
         return toReportOut(outcome.report)
     }
@@ -329,22 +333,19 @@ class ReportController(
     private fun advancePrimaryVehicleOdometer(reportId: Int, startingOdometerKm: BigDecimal?) {
         if (startingOdometerKm == null) return
         createTx.execute {
+            val ownerId = expenseReportRepository.findById(reportId).orElse(null)?.user?.id ?: return@execute
+            userVehicleRepository.acquireUserLock(ownerId)
             val sortedRecords = mileageRecordRepository.findAllByReportId(reportId)
                 .sortedWith(compareBy<MileageRecord>({ it.startTime }, { it.id ?: Int.MAX_VALUE }))
             val primaryVehicleId = sortedRecords.firstOrNull()?.vehicle?.id ?: return@execute
-            val primaryVehicle = userVehicleRepository.findById(primaryVehicleId).orElse(null) ?: return@execute
             val totalPrimaryKm = sortedRecords
                 .filter { it.vehicle?.id == primaryVehicleId }
                 .fold(BigDecimal.ZERO) { acc, r -> acc.add(BigDecimal.valueOf(r.distanceKm)) }
             val endingOdometer = startingOdometerKm
                 .add(totalPrimaryKm)
                 .setScale(1, RoundingMode.HALF_UP)
-            if (endingOdometer.compareTo(MAX_ODOMETER_KM) <= 0 &&
-                (primaryVehicle.lastOdometerKm == null || endingOdometer.compareTo(primaryVehicle.lastOdometerKm) > 0)
-            ) {
-                primaryVehicle.lastOdometerKm = endingOdometer
-                primaryVehicle.updatedAt = Instant.now()
-                userVehicleRepository.save(primaryVehicle)
+            if (endingOdometer.compareTo(MAX_ODOMETER_KM) <= 0) {
+                userVehicleRepository.advanceLastOdometerIfGreater(primaryVehicleId, endingOdometer, Instant.now())
             }
         }
     }

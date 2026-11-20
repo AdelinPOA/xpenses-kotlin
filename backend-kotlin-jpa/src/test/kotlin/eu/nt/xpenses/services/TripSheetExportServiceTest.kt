@@ -373,4 +373,42 @@ class TripSheetExportServiceTest {
             assertEquals("J12+L12", row12.getCell(10).cellFormula)
         }
     }
+
+    @Test
+    fun `sanitizes leading tab and carriage return and resolves vehicle metadata from non-null group record`() {
+        val report = makeReport(startingOdometerKm = BigDecimal("100000.0"))
+        val r1 = makeRecord(
+            id = 1,
+            report = report,
+            origin = "\tLeadingTab",
+            destination = "\rLeadingCR",
+            vehiclePlate = "GJ01POA",
+            vehicleMakeModel = null,
+            vehicleCategory = null,
+            vehicleFuelType = null,
+            startTime = Instant.parse("2026-04-10T06:00:00Z"),
+            endTime = Instant.parse("2026-04-10T07:00:00Z")
+        )
+        val r2 = makeRecord(
+            id = 2,
+            report = report,
+            vehiclePlate = "GJ01POA",
+            vehicleMakeModel = "Audi A6",
+            vehicleCategory = "N1",
+            vehicleFuelType = "diesel",
+            startTime = Instant.parse("2026-04-11T06:00:00Z"),
+            endTime = Instant.parse("2026-04-11T07:00:00Z")
+        )
+
+        val bytes = service.buildTripSheet(report, listOf(r1, r2))
+        parseWorkbook(bytes).use { wb ->
+            val sheet = wb.getSheetAt(0)
+            assertEquals("Audi A6 - GJ01POA", sheet.getRow(4).getCell(6).stringCellValue)
+            assertEquals("N1", sheet.getRow(5).getCell(6).stringCellValue)
+            assertEquals("Diesel", sheet.getRow(6).getCell(6).stringCellValue)
+            assertEquals("'\tLeadingTab", sheet.getRow(11).getCell(5).stringCellValue)
+            assertEquals("'\rLeadingCR", sheet.getRow(11).getCell(6).stringCellValue)
+            assertEquals(25 * 256, sheet.getColumnWidth(5))
+        }
+    }
 }

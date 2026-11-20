@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.*
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.time.Instant
+import java.util.Locale
 
 @RestController
 @RequestMapping("/api/users/me/vehicles")
@@ -274,7 +275,7 @@ class UserVehicleController(
     }
 
     private fun normalizePlate(raw: String?): String? {
-        val normalized = raw?.trim()?.uppercase() ?: return null
+        val normalized = raw?.trim()?.uppercase(Locale.ROOT) ?: return null
         if (normalized.isEmpty() || normalized.length > MAX_PLATE_LENGTH) return null
         return normalized
     }
@@ -286,7 +287,7 @@ class UserVehicleController(
     }
 
     private fun validateFuelType(raw: String?): String? {
-        val normalized = raw?.trim()?.lowercase() ?: return null
+        val normalized = raw?.trim()?.lowercase(Locale.ROOT) ?: return null
         if (normalized.isEmpty()) return null
         if (normalized !in ALLOWED_FUEL_TYPES) {
             throw IllegalArgumentException("Invalid fuel_type. Must be one of: $ALLOWED_FUEL_TYPES")
@@ -300,7 +301,7 @@ class UserVehicleController(
             value.stripTrailingZeros().scale() <= 2
 
     private fun normalizeVehicleCategory(raw: String?, defaultWhenBlank: Boolean): String? {
-        val normalized = raw?.trim()?.uppercase()
+        val normalized = raw?.trim()?.uppercase(Locale.ROOT)
         if (normalized.isNullOrEmpty()) {
             return if (defaultWhenBlank) DEFAULT_VEHICLE_CATEGORY else null
         }

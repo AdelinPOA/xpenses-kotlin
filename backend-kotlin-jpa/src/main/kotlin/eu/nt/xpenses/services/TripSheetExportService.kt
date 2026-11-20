@@ -50,7 +50,7 @@ class TripSheetExportService(
 
         private val INVALID_SHEET_CHARS = Regex("[:\\\\/?*\\[\\]]")
         private val FORMULA_INJECTION_CHARS = charArrayOf('=', '+', '-', '@', '\t', '\r')
-        private val COLUMN_WIDTHS_CHARS = intArrayOf(8, 8, 12, 8, 12, 22, 22, 26, 13, 14, 14, 16)
+        private val COLUMN_WIDTHS_CHARS = intArrayOf(8, 8, 12, 8, 12, 25, 22, 26, 13, 14, 14, 16)
     }
 
     private data class SheetGroupKey(
@@ -265,6 +265,10 @@ class TripSheetExportService(
     ) {
         val firstRecord = groupRecords.first()
         val driverName = report.user?.displayName ?: firstRecord.user.displayName
+        val vehicleMakeModel = groupRecords.firstNotNullOfOrNull { it.vehicleMakeModel?.trim()?.takeIf(String::isNotEmpty) }
+        val vehiclePlate = groupRecords.firstNotNullOfOrNull { it.vehiclePlate?.trim()?.takeIf(String::isNotEmpty) }
+        val vehicleCategory = groupRecords.firstNotNullOfOrNull { it.vehicleCategory?.trim()?.takeIf(String::isNotEmpty) } ?: "M1"
+        val vehicleFuelType = groupRecords.firstNotNullOfOrNull { it.vehicleFuelType?.trim()?.takeIf(String::isNotEmpty) }
         val lastDataExcelRow = 11 + groupRecords.size
 
         // Row 1 (idx 0): Company name
@@ -320,7 +324,7 @@ class TripSheetExportService(
             cellStyle = styles.metaLabel
         }
         row5.createCell(6).apply {
-            setCellValue(formatVehicleDisplay(firstRecord))
+            setCellValue(formatVehicleDisplay(vehicleMakeModel, vehiclePlate))
             cellStyle = styles.metaValue
         }
         sheet.addMergedRegion(CellRangeAddress(4, 4, 6, 7))
@@ -352,9 +356,8 @@ class TripSheetExportService(
             setCellValue("Categorie auto")
             cellStyle = styles.metaLabel
         }
-        val category = firstRecord.vehicleCategory?.trim()?.takeIf { it.isNotEmpty() } ?: "M1"
         row6.createCell(6).apply {
-            setCellValue(sanitizeCellText(category))
+            setCellValue(sanitizeCellText(vehicleCategory))
             cellStyle = styles.metaValue
         }
         sheet.addMergedRegion(CellRangeAddress(5, 5, 6, 7))
@@ -377,7 +380,7 @@ class TripSheetExportService(
             cellStyle = styles.metaLabel
         }
         row7.createCell(6).apply {
-            setCellValue(fuelTypeLabel(firstRecord.vehicleFuelType))
+            setCellValue(fuelTypeLabel(vehicleFuelType))
             cellStyle = styles.metaValue
         }
         sheet.addMergedRegion(CellRangeAddress(6, 6, 6, 7))
@@ -585,9 +588,7 @@ class TripSheetExportService(
         else -> "-"
     }
 
-    private fun formatVehicleDisplay(record: MileageRecord): String {
-        val makeModel = record.vehicleMakeModel?.trim()?.takeIf { it.isNotEmpty() }
-        val plate = record.vehiclePlate?.trim()?.takeIf { it.isNotEmpty() }
+    private fun formatVehicleDisplay(makeModel: String?, plate: String?): String {
         val raw = when {
             makeModel != null && plate != null -> "$makeModel - $plate"
             plate != null -> plate
@@ -609,7 +610,7 @@ class TripSheetExportService(
     private fun sanitizeCellText(value: String?): String {
         if (value.isNullOrEmpty()) return ""
         val trimmed = value.trimStart()
-        return if (trimmed.isNotEmpty() && trimmed[0] in FORMULA_INJECTION_CHARS) {
+        return if (value[0] in FORMULA_INJECTION_CHARS || (trimmed.isNotEmpty() && trimmed[0] in FORMULA_INJECTION_CHARS)) {
             "'$value"
         } else {
             value

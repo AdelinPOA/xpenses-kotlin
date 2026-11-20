@@ -707,6 +707,104 @@ class MileageControllerTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `POST report submit with multiple vehicles advances only primary vehicle by its own distance`() {
+        val tech = userRepository.findByUsername("tech1")!!
+        val report = expenseReportRepository.save(ExpenseReport(user = tech, title = "Multi-Vehicle Trip Report"))
+        expenseRepository.save(
+            Expense(
+                user = tech,
+                report = report,
+                amountOriginal = BigDecimal("40.00"),
+                amountEur = BigDecimal("40.00"),
+                date = "2026-06-01"
+            )
+        )
+        entityManager.flush()
+        entityManager.clear()
+        val cookie = authHelper.loginAs("tech1", "tech1")
+
+        val vehicleARes = mockMvc.perform(
+            post("/api/users/me/vehicles")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"plate_number":"B-100-AAA","make_model":"Skoda Octavia","fuel_type":"diesel","last_odometer_km":100000.0}""")
+                .cookie(cookie)
+        ).andExpect(status().isCreated).andReturn()
+        val vehicleAId = JsonPath.read<Int>(vehicleARes.response.contentAsString, "$.id")
+
+        val vehicleBRes = mockMvc.perform(
+            post("/api/users/me/vehicles")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"plate_number":"B-200-BBB","make_model":"Dacia Duster","fuel_type":"petrol","last_odometer_km":200000.0}""")
+                .cookie(cookie)
+        ).andExpect(status().isCreated).andReturn()
+        val vehicleBId = JsonPath.read<Int>(vehicleBRes.response.contentAsString, "$.id")
+
+        mockMvc.perform(
+            patch("/api/reports/${report.id}")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"starting_odometer_km":100000.0}""")
+                .cookie(cookie)
+        ).andExpect(status().isOk)
+
+        // Earliest trip with Vehicle A (100.0 km)
+        mockMvc.perform(
+            post("/api/reports/${report.id}/mileage")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"origin":"Office","destination":"Client A","distance_km":100.0,"start_time":"2026-06-01T08:00:00Z","end_time":"2026-06-01T09:30:00Z","vehicle_id":$vehicleAId}""")
+                .cookie(cookie)
+        ).andExpect(status().isCreated)
+
+        // Later trip with Vehicle B (250.0 km)
+        mockMvc.perform(
+            post("/api/reports/${report.id}/mileage")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"origin":"Office","destination":"Client B","distance_km":250.0,"start_time":"2026-06-02T08:00:00Z","end_time":"2026-06-02T11:30:00Z","vehicle_id":$vehicleBId}""")
+                .cookie(cookie)
+        ).andExpect(status().isCreated)
+
+        mockMvc.perform(
+            post("/api/reports/${report.id}/submit")
+                .contentType(MediaType.APPLICATION_JSON)
+                .cookie(cookie)
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.status").value("submitted"))
+
+        mockMvc.perform(get("/api/users/me/vehicles").cookie(cookie))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$[0].id").value(vehicleAId))
+            .andExpect(jsonPath("$[0].last_odometer_km").value(100100.0))
+            .andExpect(jsonPath("$[1].id").value(vehicleBId))
+            .andExpect(jsonPath("$[1].last_odometer_km").value(200000.0))
+    }
+
+    @Test
+    fun `PATCH report starting_odometer_km returns 400 on submitted report and 403 for another user`() {
+        val draftReport = makeTechReport()
+        val submittedReport = makeTechReport().apply { status = "submitted" }
+        expenseReportRepository.save(submittedReport)
+        entityManager.flush()
+        entityManager.clear()
+
+        val techCookie = authHelper.loginAs("tech1", "tech1")
+        val managerCookie = authHelper.loginAs("manager1", "manager1")
+
+        mockMvc.perform(
+            patch("/api/reports/${submittedReport.id}")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"starting_odometer_km":123456.0}""")
+                .cookie(techCookie)
+        ).andExpect(status().isBadRequest)
+
+        mockMvc.perform(
+            patch("/api/reports/${draftReport.id}")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"starting_odometer_km":123456.0}""")
+                .cookie(managerCookie)
+        ).andExpect(status().isForbidden)
+    }
+
+    @Test
     fun `GET trip-sheet returns 200 with valid xlsx for owner and manager`() {
         val report = makeTechReport()
         entityManager.flush()

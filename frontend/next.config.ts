@@ -15,6 +15,7 @@ const nextConfig: NextConfig = {
   experimental: {
     // Allow slow multi-model fallback or bulk uploads to finish without premature 30s rewrite disconnects.
     proxyTimeout: 90_000,
+    agentUpgrade: "security",
   },
   async rewrites() {
     return [

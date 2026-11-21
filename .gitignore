@@ -61,3 +61,4 @@ Thumbs.db
 !docs/ux/mobile-ios-review/issue-48/**/*.png
 !docs/ux/mobile-ios-review/issue-49/**/*.png
 
+.worktrees/

@@ -12,3 +12,4 @@ Domain-grouped request and response data transfer objects (`eu.nt.xpenses.dto.*`
 - `search`: [./search/README.md](./search/README.md) - Cross-entity search result wrapper for reports and expenses.
 - `settings`: [./settings/README.md](./settings/README.md) - System configuration DTOs for allowances, mobile UI flags, mileage tax rates, FX margins/providers, OCR chains, SMTP/IMAP, and ingestion retry/simulation.
 - `user`: [./user/README.md](./user/README.md) - User creation, profile update, role/activation mutation, and user response DTOs.
+- `vehicle`: [./vehicle/README.md](./vehicle/README.md) - User vehicle registration, partial update, and response DTOs.

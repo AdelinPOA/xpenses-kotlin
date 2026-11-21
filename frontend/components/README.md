@@ -23,8 +23,9 @@ Root React component package housing top-level application providers (authentica
 - `./admin/README.md` — Admin OCR provider/model settings and delegation email parsing editor (`DelegationParsingSettings`, `OcrModelSettings`).
 - `./dashboard/README.md` — Dashboard KPIs, spend chart, status overview, activity stream, pending advances, pending reports table, and slide-over review drawer.
 - `./expenses/README.md` — Expense form, FX rate override input, bulk upload/review, immediate OCR review, receipt scanner/preview/lightbox, authorized image, and offline queue panel.
-- `./layout/README.md` — Application shell, role-filtered sidebar, mobile header/bottom navigation, and route-title resolution (`AppShell`, `Sidebar`, `nav.ts`).
-- `./reports/README.md` — Report receipts inspection drawer (`ReportReceiptsDrawer`).
+- `./layout/README.md` — Application shell, role-filtered sidebar, mobile header/bottom navigation, FX/fuel status indicators, and route-title resolution (`AppShell`, `Sidebar`, `FxStatusIndicator`, `nav.ts`).
+- `./profile/README.md` — User profile vehicle management section (`VehiclesSection`).
+- `./reports/README.md` — Weekly mileage trip list and report receipts inspection drawer (`MileageWeeklyList`, `ReportReceiptsDrawer`).
 - `./signature/README.md` — HiDPI canvas signature capture pad (`SignaturePad`).
 - `./ui/README.md` — Reusable UI primitives (`Badge`, `EmptyState`, `QueryErrorNotice`, `SearchDropdown`).
 

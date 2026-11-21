@@ -31,6 +31,7 @@ Multi-provider foreign exchange rate resolution subsystem in `eu.nt.xpenses.serv
 - `[FxRateProvider.kt:HttpFxRateProvider.fetchCurrencyApi]` — HTTP GET to `https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@{requestedDate}/v1/currencies/{currency}.min.json` and fallback `https://latest.currency-api.pages.dev/v1/currencies/{currency}.min.json`
 - `[FxRateProvider.kt:BnrRateProvider.fetchYear]` — HTTP GET to `https://curs.bnr.ro/files/xml/years/nbrfxrates{year}.xml`
 - `[FxProviderHealthService.kt:FxProviderHealthService.scheduledHealthCheck]` — periodic `@Scheduled` probe across all configured providers (controlled by `fx.health.scheduled-enabled`)
+- `[FxProviderHealthService.kt:FxProviderHealthService.getHealthStatus]` — reads latest cached FX rate via `fxRateRepository.findTopByOrderByFetchedAtDesc()` and provider priority from `appSettingRepository`
 
 ## Verification
 - Run: `cd backend-kotlin-jpa && ./gradlew test --tests 'eu.nt.xpenses.services.fx.FxRateProviderTest' --no-daemon` (or `cd backend-kotlin-jpa && ./gradlew test --no-daemon` in an isolated/CI environment)

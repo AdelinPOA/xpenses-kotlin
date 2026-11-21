@@ -15,7 +15,7 @@ Request and response data transfer objects for user creation, profile updates, r
 - `[ActiveUpdateRequest.kt:NotNull]` — `isActive` must not be `null`
 - `[RoleUpdateRequest.kt:NotBlank]` — `role` must not be blank
 - `[UserCreateRequest.kt:NotBlank]` — `username`, `displayName`, and `password` must not be blank
-- `[UserCreateRequest.kt:Size]` — `password` must be at least 8 characters
+- `[UserCreateRequest.kt:Size]` — `password` must be between 8 and 72 characters (`Size(min = 8)`, `Size(max = 72)`)
 - `[UserCreateRequest.kt:Pattern]` — `role` must match `technician|manager|chef_finance|mod`
 - `[UserResponse.kt:fromUser]` — `user.id` must be non-null (throws `IllegalStateException("User must be persisted")`)
 - `[UserUpdateMeRequest.kt:Size]` — `displayName` must have minimum length 1 when provided

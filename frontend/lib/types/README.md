@@ -4,7 +4,7 @@
 Shared TypeScript interfaces, union types, literal constants, and runtime type guards modeling API request/response payloads and domain entities across expenses, reports, dashboard metrics, review queue items, user profiles, insurance documents, search results, delegation email parsing, and admin configuration.
 
 ## Interface
-- `[index.ts]`: Barrel export re-exporting all symbols from `./common`, `./expense`, `./report`, `./user`, `./dashboard`, `./admin`, `./insurance`, and `./search` (does not re-export `./delegationParsing` or `./reviewQueue`).
+- `[index.ts]`: Barrel export re-exporting all symbols from `./common`, `./expense`, `./report`, `./user`, `./dashboard`, `./admin`, `./insurance`, `./search`, and `./vehicle` (does not re-export `./delegationParsing` or `./reviewQueue`).
 - `[common.ts:PagedResponse]`: Generic paginated envelope `PagedResponse<T>` (`data: T[]`, `page`, `size`, `total_elements`, `total_pages`).
 - `[common.ts:isPagedResponse]`: Type guard `(r: T[] | PagedResponse<T>) => r is PagedResponse<T>`.
 - `[common.ts:CURRENCIES]`: Readonly 49-element tuple of supported ISO currency codes (`EUR`, `USD`, `GBP`, `RON`, `CHF`, etc.).
@@ -13,7 +13,7 @@ Shared TypeScript interfaces, union types, literal constants, and runtime type g
 - `[admin.ts:SmtpConfig]`, `[admin.ts:SmtpTestResult]`, `[admin.ts:ImapConfig]`, `[admin.ts:ImapTestResult]`: Mail (SMTP) and email ingestion (IMAP) configuration and test result contracts.
 - `[admin.ts:ImapIngestionStatus]`, `[admin.ts:ImapAcknowledgementStatus]`, `[admin.ts:ImapIngestionRecovery]`: IMAP ingestion recovery record and status unions (`"CLAIMED" | "FAILED" | "PROCESSED" | "REJECTED"`, `"NONE" | "PENDING" | "CONFIRMED"`).
 - `[admin.ts:OcrProvider]`, `[admin.ts:OcrProviderUpdate]`, `[admin.ts:OcrModel]`, `[admin.ts:OcrModelUpdate]`, `[admin.ts:OcrConfig]`, `[admin.ts:OcrConfigUpdate]`: OCR provider catalog, model chain, and partial update contracts.
-- `[admin.ts:MobileUiConfig]`, `[admin.ts:StorageConfig]`, `[admin.ts:StorageMigrationStatus]`, `[admin.ts:FxMargins]`, `[admin.ts:FxProvidersConfig]`, `[admin.ts:FxTestResult]`: Mobile UI feature flag, storage backend/migration, and FX margin/provider contracts.
+- `[admin.ts:MobileUiConfig]`, `[admin.ts:StorageConfig]`, `[admin.ts:StorageMigrationStatus]`, `[admin.ts:FxMargins]`, `[admin.ts:FxProvidersConfig]`, `[admin.ts:FxTestResult]`, `[admin.ts:FxProviderHealthItem]`, `[admin.ts:FxLastDbRate]`, `[admin.ts:FxHealthStatus]`, `[admin.ts:FuelProviderHealthItem]`, `[admin.ts:FuelLastDbPrice]`, `[admin.ts:FuelPriceHealthStatus]`, `[admin.ts:FuelProvidersConfig]`: Mobile UI feature flag, storage backend/migration, and FX/fuel margin, provider, and health status contracts.
 - `[admin.ts:OCRComparisonStats]`, `[admin.ts:OCRComparisonRow]`, `[admin.ts:OCRComparisonHistoryResponse]`: OCR prediction accuracy and comparison history contracts.
 - `[dashboard.ts:DashboardStats]`, `[dashboard.ts:ManagerKpis]`, `[dashboard.ts:PendingReportSummary]`, `[dashboard.ts:PendingAdvanceSummary]`, `[dashboard.ts:ActivityFeedItem]`, `[dashboard.ts:ManagerDashboardStats]`: User and manager dashboard analytics and pending-action summaries.
 - `[delegationParsing.ts:DelegationParsingConfig]`, `[delegationParsing.ts:DelegationPreviewRequest]`, `[delegationParsing.ts:DelegationPreviewResult]`: Delegation email parser prompt settings and preview request/response contracts.
@@ -23,6 +23,7 @@ Shared TypeScript interfaces, union types, literal constants, and runtime type g
 - `[reviewQueue.ts:ReviewQueueItem]`: Review queue report summary contract.
 - `[search.ts:SearchResult]`: Cross-entity global search result contract (`reports`, `expenses`, optional `users`, `insurance`, `advances`, and counts).
 - `[user.ts:User]`: User account contract (`id`, `username`, `display_name`, `email`, `role`, `is_active`, `auth_source`, `notifications_enabled`, `language`, timestamps).
+- `[vehicle.ts:FuelType]`, `[vehicle.ts:UserVehicle]`, `[vehicle.ts:UserVehicleCreatePayload]`, `[vehicle.ts:UserVehicleUpdatePayload]`: Personal vehicle fuel type union (`"petrol" | "diesel" | "hybrid" | "electric" | "lpg"`), vehicle record, create payload, and partial update payload with `clear_*` flags.
 
 ## Invariants
 - `[common.ts:isPagedResponse]`: Discriminates `PagedResponse<T>` from `T[]` via `!Array.isArray(r) && r.data !== undefined`.

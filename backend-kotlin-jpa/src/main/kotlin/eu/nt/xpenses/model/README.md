@@ -5,15 +5,17 @@ Core JPA entities, soft-delete configurations, optimistic locking definitions, i
 
 ## Interface
 - `[User.kt:User]` — JPA entity (`users`) with authentication fields (`username`, `passwordHash` ignored in JSON, `authSource`, `tokenVersion`), authorization `role`, `isActive`, `signaturePath`, `notificationsEnabled`, and `language`
+- `[UserVehicle.kt:UserVehicle]` — JPA entity (`user_vehicles`) storing user vehicle plate number, make/model, fuel type, fuel consumption, category, `lastOdometerKm`, and `isDefault`
 - `[RefreshToken.kt:RefreshToken]` — JPA entity (`refresh_tokens`) storing hashed refresh tokens, expiration, and rotation timestamps
 - `[Category.kt:Category]` — JPA entity (`categories`) with unique `name`, `limitAmount`, and `isActive`
-- `[ExpenseReport.kt:ExpenseReport]` — JPA entity (`expense_reports`) aggregate root holding report status, SAP/delegation order metadata (`kundenauftrag`, `auftragsart`, etc.), signature/approval/rejection audit fields, and child collections `expenses`, `advances`, and `mileageRecords`
+- `[ExpenseReport.kt:ExpenseReport]` — JPA entity (`expense_reports`) aggregate root holding report status, SAP/delegation order metadata (`kundenauftrag`, `auftragsart`, etc.), `startingOdometerKm`, signature/approval/rejection audit fields, and child collections `expenses`, `advances`, and `mileageRecords`
 - `[Expense.kt:Expense]` — JPA entity (`expenses`) holding original/EUR amounts, FX metadata, tax fields, `receipts`, and `verificationState` (`ExpenseVerificationState`)
 - `[ExpenseVerificationState.kt:ExpenseVerificationState]` — `enum class` with `NOT_REQUIRED`, `PENDING`, `VERIFIED`
 - `[ExpenseReviewOperation.kt:ExpenseReviewOperation]` — JPA entity (`expense_review_operations`) recording idempotent review corrections (`requestKey`, `requestHash`, `resultingVersion`)
+- `[FuelPrice.kt:FuelPrice]` — JPA entity (`fuel_prices`) caching Romanian fuel prices by `fuelType`, `priceDate`, `sourceDate`, and `source` (`FuelPriceSource`)
 - `[Receipt.kt:Receipt]` — JPA entity (`receipts`) storing receipt file paths and original filenames linked to an `Expense`
 - `[AdvancePayment.kt:AdvancePayment]` — JPA entity (`advance_payments`) tracking requested/paid/rejected advances on an `ExpenseReport`
-- `[MileageRecord.kt:MileageRecord]` — JPA entity (`mileage_records`) storing trip distances, fuel consumption/price parameters, and Romanian fiscal withholding calculations
+- `[MileageRecord.kt:MileageRecord]` — JPA entity (`mileage_records`) storing trip distances, fuel consumption/price parameters (`fuelPriceSource`), vehicle snapshot fields (`vehicle`, `vehiclePlate`, `vehicleMakeModel`, `vehicleFuelType`, `vehicleCategory`, `roundTrip`), and Romanian fiscal withholding calculations
 - `[FxRate.kt:FxRate]` — JPA entity (`fx_rates`) caching currency conversion rates by `fromCurrency`, `toCurrency`, `rateDate`, `sourceDate`, and `source`
 - `[AppSetting.kt:AppSetting]` — JPA entity (`app_settings`) storing string key-value configuration entries
 - `[InsuranceFile.kt:InsuranceFile]` — JPA entity (`insurance_files`) storing user insurance document metadata and storage paths

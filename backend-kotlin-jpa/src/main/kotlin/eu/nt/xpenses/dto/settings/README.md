@@ -7,10 +7,13 @@ Request and response data transfer objects for system settings management in `eu
 - `[IngestionRetryIn.kt:IngestionRetryIn]` — `data class IngestionRetryIn(@JsonProperty("message_key") val messageKey: String)`
 - `[SettingsDtos.kt:DailyAllowanceOut]` / `[SettingsDtos.kt:DailyAllowanceUpdate]` — daily allowance rate DTOs (`daily_allowance_rate`)
 - `[SettingsDtos.kt:MobileUiConfigOut]` / `[SettingsDtos.kt:MobileUiConfigUpdate]` — mobile quick-add FAB toggle DTOs (`mobile_quick_add_fab_enabled`)
-- `[SettingsDtos.kt:MileageRatesOut]` / `[SettingsDtos.kt:MileageRatesUpdate]` — mileage rate, fuel consumption/price, pension/health/income tax rates, and deduction DTOs
+- `[SettingsDtos.kt:MileageRatesOut]` / `[SettingsDtos.kt:MileageRatesUpdate]` — mileage rate, fuel consumption/price (default, petrol, LPG, electric), pension/health/income tax rates, and deduction DTOs
 - `[SettingsDtos.kt:FxMarginsOut]` / `[SettingsDtos.kt:FxMarginsUpdate]` — FX currency margin maps, default margin, and currency list DTOs
 - `[SettingsDtos.kt:FxProvidersOut]` / `[SettingsDtos.kt:FxProvidersUpdate]` — ordered FX provider priority list DTOs
+- `[SettingsDtos.kt:FuelProvidersOut]` / `[SettingsDtos.kt:FuelProvidersUpdate]` — ordered fuel price provider priority list DTOs
 - `[SettingsDtos.kt:FxTestRequest]` / `[SettingsDtos.kt:FxTestResponse]` — FX lookup test request/response DTOs
+- `[SettingsDtos.kt:FxProviderHealthItemOut]` / `[SettingsDtos.kt:FxLastDbRateOut]` / `[SettingsDtos.kt:FxHealthStatusOut]` — FX provider health status and last DB rate DTOs
+- `[SettingsDtos.kt:FuelProviderHealthItemOut]` / `[SettingsDtos.kt:FuelLastDbPriceOut]` / `[SettingsDtos.kt:FuelPriceHealthStatusOut]` — fuel price provider health status and last DB price DTOs
 - `[SettingsDtos.kt:OCRProviderOut]` / `[SettingsDtos.kt:OCRProviderUpdate]` — OCR provider configuration DTOs
 - `[SettingsDtos.kt:OCRModelOut]` / `[SettingsDtos.kt:OCRModelUpdate]` — OCR model configuration DTOs
 - `[SettingsDtos.kt:OCRConfigOut]` / `[SettingsDtos.kt:OCRConfigUpdate]` — OCR toggle, provider/model lists, and receipt/delegation model chains
@@ -27,6 +30,7 @@ Request and response data transfer objects for system settings management in `eu
 - `[SettingsDtos.kt:EmailSimulationIn.fromAddress]` — `@field:NotBlank` enforces non-blank `fromAddress`
 - `[SettingsDtos.kt:EmailSimulationIn.bodyText]` — `@field:NotBlank` enforces non-blank `bodyText`
 - `[SettingsDtos.kt:FxProvidersUpdate.providers]` — `@field:NotEmpty` enforces non-empty `providers` list
+- `[SettingsDtos.kt:FuelProvidersUpdate.providers]` — `@field:NotEmpty` enforces non-empty `providers` list
 
 ## Side Effects
 - None

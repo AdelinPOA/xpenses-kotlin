@@ -13,9 +13,9 @@ Request and response data transfer objects in `eu.nt.xpenses.dto.report` for exp
 - `[BulkStatusBody.kt:BulkStatusBody]` / `[BulkStatusBody.kt:BulkStatusFailure]` / `[BulkStatusBody.kt:BulkStatusResult]` — bulk report status action payload and per-ID outcome DTOs
 - `[ImportOrderIn.kt:ImportOrderIn]` — `data class ImportOrderIn(bodyText: String)`
 - `[ImportOrderPreviewOut.kt:ImportOrderPreviewOut]` — `data class` representing parsed delegation/SAP order metadata and matching existing draft report info
-- `[MileageRecordCreate.kt:MileageRecordCreate]` / `[MileageRecordUpdate.kt:MileageRecordUpdate]` / `[MileageRecordOut.kt:MileageRecordOut]` — mileage record request DTOs and detailed output DTO with fuel/tax withholding breakdown and `durationMinutes`
+- `[MileageRecordCreate.kt:MileageRecordCreate]` / `[MileageRecordUpdate.kt:MileageRecordUpdate]` / `[MileageRecordOut.kt:MileageRecordOut]` — mileage record request DTOs (`vehicle_id`, `clear_vehicle`, `round_trip`) and detailed output DTO with fuel price/source, tax withholding breakdown, vehicle snapshot fields, and `durationMinutes`
 - `[RejectBody.kt:RejectBody]` — `data class RejectBody(reason: String = "")`
-- `[ReportCreate.kt:ReportCreate]` / `[ReportUpdate.kt:ReportUpdate]` / `[ReportSubmit.kt:ReportSubmit]` / `[ReportOut.kt:ReportOut]` — report lifecycle request/response DTOs including child expenses, advances, mileage records, daily allowance, `totalReimbursable`, and SAP order fields
+- `[ReportCreate.kt:ReportCreate]` / `[ReportUpdate.kt:ReportUpdate]` / `[ReportSubmit.kt:ReportSubmit]` / `[ReportOut.kt:ReportOut]` — report lifecycle request/response DTOs including child expenses, advances, mileage records, daily allowance, `totalReimbursable`, `starting_odometer_km`, `clear_starting_odometer`, and SAP order fields
 
 ## Invariants
 - `[AdvancePayBody.kt:Min]` / `[AdvancePaymentCreate.kt:Min]` / `[AdvancePaymentUpdate.kt:Min]` — `amount >= 0` (`@field:Min(0)`)

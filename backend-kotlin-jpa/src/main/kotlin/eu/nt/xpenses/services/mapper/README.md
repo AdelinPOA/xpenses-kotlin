@@ -16,7 +16,7 @@ Entity-to-DTO mapper components in `eu.nt.xpenses.services.mapper` translating J
 
 ## Invariants
 - `[ExpenseMapper.kt:toReceiptOut]` — requires non-null `receipt.id` and `receipt.expense.id` via `requireNotNull`
-- `[ExpenseMapper.kt:toExpenseOut]` — requires non-null `expense.id` via `requireNotNull`
+- `[ExpenseMapper.kt:toExpenseOut]` — requires non-null `expense.id` via `requireNotNull`; falls back to `expense.receiptPath` when mapped receipts are empty; sets `comparisonId = null` and `verificationState = expense.verificationState.name`
 - `[ReportMapper.kt:mapAdvanceToOut]` — asserts non-null `adv.id!!`, `adv.report.id!!`, and `adv.user.id!!`
 - `[ReportMapper.kt:mapRecordToOut]` — asserts non-null `m.id!!`, `m.report.id!!`, and `m.user.id!!`
 - `[ReportMapper.kt:mapReportToOut]` — asserts non-null `report.id!!`; only advances with `status == "paid"` are summed into `totalAdvances` and deducted from `totalReimbursable`

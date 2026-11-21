@@ -2,7 +2,7 @@
 
 Expense management for field-service teams. Technicians record expenses and receipts, submit expense reports, and track advances and mileage. Managers and `chef_finance` review, approve and reject reports; `chef_finance` alone can mark approved reports as paid. Moderators manage application settings and integrations.
 
-This is the consolidated project reference, updated for the **2026-11-14** (`34aa5f8`) baseline. Read [HANDOFF.md](HANDOFF.md) for source-versus-production provenance, live deployment pointers, and verification snapshots.
+This is the consolidated project reference, updated for the **2026-11-21** (`bbbf6f9`) baseline. Read [HANDOFF.md](HANDOFF.md) for source-versus-production provenance, live deployment pointers, and verification snapshots.
 
 - [System Overview](#system-overview)
 - [Subdirectories & System Boundaries](#subdirectories--system-boundaries)
@@ -22,7 +22,7 @@ Repository: [AdelinPOA/xpenses-kotlin](https://github.com/AdelinPOA/xpenses-kotl
 <!-- BEGIN:XPENSES_AUTOSYNC:TELEMETRY -->
 | Telemetry Metric | Live Repository State |
 |---|---|
-| **Git Baseline** | `chore/next-security-upgrade` @ `af53dd3` |
+| **Git Baseline** | `main` @ `bbbf6f9` |
 | **Flyway Migrations** | 42 scripts (latest: `V110__fuel_prices_and_mileage_source.sql`) |
 | **Backend Controllers** | 21 `*Controller.kt` files |
 | **Frontend Routes** | 31 Next.js `page.tsx` routes |
@@ -31,13 +31,13 @@ Repository: [AdelinPOA/xpenses-kotlin](https://github.com/AdelinPOA/xpenses-kotl
 
 ## System Overview
 
-Xpenses is a two-tier expense management system composed of a Spring Boot 4.1.1 / Kotlin 2.4.0 JPA backend (`backend-kotlin-jpa`), a Next.js 16.4.3 / React 19 App Router PWA frontend (`frontend`), and operational/CI verification utilities (`scripts`). PostgreSQL 16 (Flyway-managed, `V1`–`V107`) serves as the durable relational store, Redis 7.4 provides optional distributed rate-limiting storage, and local filesystem or S3-compatible object storage holds receipts, signatures, insurance files, and staged OCR uploads. Asynchronous workflows include bounded-lease OCR job processing (`OCR` → `EXPENSE` → `RECEIPT`) and durable IMAP technician delegation email ingestion.
+Xpenses is a two-tier expense management system composed of a Spring Boot 4.1.1 / Kotlin 2.4.0 JPA backend (`backend-kotlin-jpa`), a Next.js 16.4.6 / React 19 App Router PWA frontend (`frontend`), and operational/CI verification utilities (`scripts`). PostgreSQL 16 (Flyway-managed, `V1`–`V110`) serves as the durable relational store, Redis 7.4 provides optional distributed rate-limiting storage, and local filesystem or S3-compatible object storage holds receipts, signatures, insurance files, and staged OCR uploads. Asynchronous workflows include bounded-lease OCR job processing (`OCR` → `EXPENSE` → `RECEIPT`) and durable IMAP technician delegation email ingestion.
 
 ## Subdirectories & System Boundaries
 
-- [backend-kotlin-jpa](./backend-kotlin-jpa/README.md) — Spring Boot / Kotlin JPA backend (`/api/**` REST controllers, security/JWT/rate limiting, Flyway SQL migrations `V1`–`V107`, report lifecycle, IMAP ingestion ledger, FX providers, local/S3 storage, and async OCR services)
+- [backend-kotlin-jpa](./backend-kotlin-jpa/README.md) — Spring Boot / Kotlin JPA backend (`/api/**` REST controllers, security/JWT/rate limiting, Flyway SQL migrations `V1`–`V110`, report lifecycle, IMAP ingestion ledger, FX/fuel providers, local/S3 storage, and async OCR services)
 - [frontend](./frontend/README.md) — Next.js App Router PWA frontend (route pages, feature components, `next-intl` `en`/`ro` localization, single-flight Axios/SSR transport, IndexedDB offline/OCR queues, and v9 Service Worker)
-- [scripts](./scripts/README.md) — Operational and CI verification scripts (`backup-db.sh`, `check-format-currency.mjs`, `check-i18n-parity.mjs`, `check-npm-audit.mjs`, `run_graphify_full.py`, `verify-ocr-restart.py`)
+- [scripts](./scripts/README.md) — Operational, CI verification, and developer tooling scripts (`backup-db.sh`, `check-format-currency.mjs`, `check-i18n-parity.mjs`, `check-npm-audit.mjs`, `reconcile.py`, `run_graphify_full.py`, `verify-ocr-restart.py`)
 - [skills/mobile-pwa-qa](./skills/mobile-pwa-qa/SKILL.md) — Manual mobile/PWA QA checklist and acceptance boundaries
 - `docs/`, `openspec/`, `roadmap/` — Architecture decision records (`docs/adr/`), verification contracts (`docs/contracts/`), designs, OpenSpec specs, and historical archives (documentation-only; no source code contracts)
 
@@ -48,7 +48,7 @@ The backend is one Spring Boot application with shared PostgreSQL persistence. T
 | Area | Checked configuration | Source |
 | --- | --- | --- |
 | Backend | Kotlin 2.4.0; Spring Boot 4.1.1 / Spring Framework 7; Java toolchain 21; MVC, Security, JPA | [Gradle build](backend-kotlin-jpa/build.gradle.kts) |
-| Frontend | Next.js 16.4.3; React 19; TypeScript; Tailwind CSS 4; TanStack Query 5 | [package manifest](frontend/package.json), [lockfile](frontend/package-lock.json) |
+| Frontend | Next.js 16.4.6; React 19; TypeScript; Tailwind CSS 4; TanStack Query 5 | [package manifest](frontend/package.json), [lockfile](frontend/package-lock.json) |
 | Data | PostgreSQL 16; Redis 7.4 with append-only persistence | [Compose](docker-compose.yml) |
 | Schema | Flyway SQL; Hibernate `ddl-auto: validate`; batch fetch size 16 | [application configuration](backend-kotlin-jpa/src/main/resources/application.yml) |
 | Exports | PDF via OpenPDF/PDFBox; XLSX via Apache POI; CSV | [Gradle build](backend-kotlin-jpa/build.gradle.kts), [export service](backend-kotlin-jpa/src/main/kotlin/eu/nt/xpenses/services/ExportService.kt) |
@@ -199,7 +199,7 @@ The [Makefile](Makefile) also contains build/test/rebuild shortcuts. Its `test-h
 | `SEED_DEMO_USERS` | false by default; enables demo initialization when the user table is empty. No production-profile refusal is implemented. |
 | `SWAGGER_ENABLED` | false by default. |
 | `COMPANY_NAME` | Display name in application configuration. |
-| `IMAP_POLL_INTERVAL` | 300,000 ms by default. |
+| `IMAP_POLL_INTERVAL` | 60,000 ms by default. |
 | `OCR_CACHE_RETENTION_DAYS` | 90 days by default. |
 | `OCR_CACHE_CLEANUP_INTERVAL`, `OCR_CACHE_CLEANUP_BATCH_SIZE` | 86,400,000 ms / 100 by default. |
 | `INTERNAL_API_URL` | Frontend rewrite and server fetch target; default `http://backend:8080/api`. |
@@ -208,7 +208,7 @@ The [Makefile](Makefile) also contains build/test/rebuild shortcuts. Its `test-h
 
 ### Migrations and backups
 
-The latest schema migration is `V107__refresh_token_rotation_grace.sql` (following `V104` durable-save idempotency, `V105` expense verification, and `V106` OCR acceptance/recovery). Determine the next version from the directory when adding a migration; [HANDOFF.md](HANDOFF.md) tracks verified production schema state.
+The latest schema migration is `V110__fuel_prices_and_mileage_source.sql` (following `V107` refresh-token rotation grace, `V108` user vehicles & mileage link, and `V109` trip sheet fields). Determine the next version from the directory when adding a migration; [HANDOFF.md](HANDOFF.md) tracks verified production schema state.
 
 ```bash
 ls -1 backend-kotlin-jpa/src/main/resources/db/migration/ | sort -V | tail -n 1
@@ -238,7 +238,7 @@ npm run test:lint-config
 npm run lint
 ```
 
-Typecheck, lint-coverage regressions, and lint (`eslint . --max-warnings 0`) pass on the current source; translation parity covers **1,243 keys** in English and Romanian. Parity does not establish that every UI string is translated or accessible.
+Typecheck, lint-coverage regressions, and lint (`eslint . --max-warnings 0`) pass on the current source; translation parity covers **1,369 keys** in English and Romanian. Parity does not establish that every UI string is translated or accessible.
 
 For a backend change, select the affected test class:
 

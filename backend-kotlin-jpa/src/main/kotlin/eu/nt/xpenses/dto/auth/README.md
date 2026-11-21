@@ -12,9 +12,10 @@ Request payload data transfer objects for user authentication and password chang
 - `[LoginRequest.kt:password]` — `val password: String`
 
 ## Invariants
-- `[ChangePasswordRequest.kt:NotBlank]` — `@field:NotBlank` on `oldPassword` and `newPassword` requires non-blank values
-- `[ChangePasswordRequest.kt:Size]` — `@field:Size(min = 8)` on `newPassword` requires at least 8 characters
-- `[LoginRequest.kt:NotBlank]` — `@field:NotBlank` on `username` and `password` requires non-blank values
+- `[ChangePasswordRequest.kt:oldPassword]` — `@field:NotBlank` requires a non-blank value and `@field:Size(max = 72)` caps length at 72 characters
+- `[ChangePasswordRequest.kt:newPassword]` — `@field:NotBlank` requires a non-blank value and `@field:Size(min = 8)` / `@field:Size(max = 72)` enforce length between 8 and 72 characters
+- `[LoginRequest.kt:username]` — `@field:NotBlank` requires a non-blank value
+- `[LoginRequest.kt:password]` — `@field:NotBlank` requires a non-blank value and `@field:Size(max = 72)` caps length at 72 characters
 
 ## Side Effects
 - None

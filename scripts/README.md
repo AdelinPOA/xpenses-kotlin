@@ -1,7 +1,7 @@
 # Scripts
 
 ## Overview
-Operational, CI verification, and developer tooling scripts for the `xpenses-kotlin` workspace. This package groups database backup automation (`backup-db.sh`), frontend currency formatting and i18n parity checks (`check-format-currency.mjs`, `check-i18n-parity.mjs`), npm audit policy enforcement (`check-npm-audit.mjs`), full Graphify knowledge-graph construction (`run_graphify_full.py`), and disposable CI OCR restart-recovery verification (`verify-ocr-restart.py`).
+Operational, CI verification, and developer tooling scripts for the `xpenses-kotlin` workspace. This package groups database backup automation (`backup-db.sh`), frontend currency formatting and i18n parity checks (`check-format-currency.mjs`, `check-i18n-parity.mjs`), npm audit policy enforcement (`check-npm-audit.mjs`), pre-commit `README.md` telemetry reconciliation and repository drift auditing (`reconcile.py`), full Graphify knowledge-graph construction (`run_graphify_full.py`), and disposable CI OCR restart-recovery verification (`verify-ocr-restart.py`).
 
 ## Interface
 - `[backup-db.sh:set -euo pipefail]` — Bash strict-mode CLI entrypoint (`-euo pipefail`) that dumps PostgreSQL from Docker and prunes expired backups.
@@ -20,6 +20,12 @@ Operational, CI verification, and developer tooling scripts for the `xpenses-kot
 - `[check-npm-audit.mjs:process.argv]` — Positional CLI argument `process.argv[2]` specifying the audit JSON report path (default `"npm-audit.json"`).
 - `[check-npm-audit.mjs:hasFix]` — `hasFix(vulnerability)` returning `true` when `fixAvailable` is `true` or a non-null object.
 - `[check-npm-audit.mjs:process.exit]` — CLI entrypoint exiting `1` when any fixable `high` or `critical` vulnerability is found or on report error, otherwise `0`.
+- `[reconcile.py:START_MARKER]` — Beginning HTML comment marker `"<!-- BEGIN:XPENSES_AUTOSYNC:TELEMETRY -->"` for bounded telemetry replacement.
+- `[reconcile.py:END_MARKER]` — Ending HTML comment marker `"<!-- END:XPENSES_AUTOSYNC:TELEMETRY -->"` for bounded telemetry replacement.
+- `[reconcile.py:render_telemetry_block]` — `render_telemetry_block()` building the Markdown telemetry table (Git baseline, Flyway migrations, backend controllers, frontend routes, Compose services).
+- `[reconcile.py:run_reconcile]` — `run_reconcile()` updating the bounded telemetry block in root `README.md` when out of sync.
+- `[reconcile.py:run_audit]` — `run_audit()` verifying root `README.md` telemetry sync, Flyway migration version uniqueness, and frontend i18n/currency scripts.
+- `[reconcile.py:main]` — `main()` CLI entrypoint accepting required positional `command` in `{"reconcile", "audit"}`.
 - `[run_graphify_full.py:main]` — `main()` CLI entrypoint taking no CLI arguments and operating on `CWD/graphify-out`.
 - `[run_graphify_full.py:sys.exit]` — Exits with status `1` if `.graphify_detect.json` or `.graphify_ast.json` is missing, or if the built graph has `0` nodes.
 - `[verify-ocr-restart.py:ApiError]` — `RuntimeError` subclass storing HTTP status code in `self.status`.
@@ -43,6 +49,8 @@ Operational, CI verification, and developer tooling scripts for the `xpenses-kot
 - `[check-i18n-parity.mjs:missingInRo]` — Enforces symmetric key parity between `en.json` and `ro.json` (`missingInRo.length === 0 && missingInEn.length === 0`).
 - `[check-npm-audit.mjs:report]` — Parsed audit JSON must include a non-null object `report.vulnerabilities` map.
 - `[check-npm-audit.mjs:blocking]` — Audit policy fails only on vulnerabilities with `severity` in `["high", "critical"]` where `hasFix(vulnerability)` is `true`.
+- `[reconcile.py:run_reconcile]` — Requires root `README.md` to exist (returns `1` otherwise) and only mutates content between `START_MARKER` and `END_MARKER` (skips with `0` if markers are absent).
+- `[reconcile.py:run_audit]` — Fails (returns `1`) if root `README.md` lacks telemetry markers or differs from `render_telemetry_block()`, if duplicate Flyway `V{N}__` migration versions exist, or if `check-i18n-parity.mjs` or `check-format-currency.mjs` fails when `node` is available.
 - `[run_graphify_full.py:detect_file]` — Requires `graphify-out/.graphify_detect.json` and `graphify-out/.graphify_ast.json` to exist prior to graph construction.
 - `[run_graphify_full.py:non_code_files]` — Semantic extraction processes only `"document"` and `"image"` categories with `backend="gemini"`, `chunk_size=20`, `token_budget=60_000`, `max_concurrency=4`.
 - `[run_graphify_full.py:seen_nodes]` — Node merge deduplicates by `n["id"]` keeping AST nodes before semantic nodes; resulting graph must be undirected (`directed=False`) and non-empty (`number_of_nodes() > 0`).
@@ -64,6 +72,9 @@ Operational, CI verification, and developer tooling scripts for the `xpenses-kot
 - `[check-i18n-parity.mjs:console.error]` — Prints parity status or missing key diagnostics to stdout/stderr.
 - `[check-npm-audit.mjs:readFileSync]` — Reads the audit JSON report from `reportPath`.
 - `[check-npm-audit.mjs:console.error]` — Prints audit policy pass/failure/error diagnostics to stdout/stderr.
+- `[reconcile.py:_git_head]` — Invokes `git rev-parse --short HEAD` and `git rev-parse --abbrev-ref HEAD` subprocesses in `REPO_ROOT`.
+- `[reconcile.py:run_reconcile]` — Reads and overwrites root `README.md` when the bounded telemetry block differs, and prints status to stdout/stderr.
+- `[reconcile.py:run_audit]` — Reads root `README.md`, `MIGRATIONS_DIR`, `CONTROLLERS_DIR`, `FRONTEND_APP_DIR`, and `COMPOSE_FILE`, invokes `node` subprocesses for `check-i18n-parity.mjs` and `check-format-currency.mjs`, and prints audit results to stdout/stderr.
 - `[run_graphify_full.py:out_dir.mkdir]` — Creates `graphify-out/` and reads `.graphify_detect.json`, `.graphify_ast.json`, and existing `cost.json`.
 - `[run_graphify_full.py:extract_corpus_parallel]` — Calls remote Gemini LLM APIs for semantic extraction and community labeling.
 - `[run_graphify_full.py:subprocess.check_output]` — Runs `git rev-parse HEAD`.
@@ -78,3 +89,4 @@ Operational, CI verification, and developer tooling scripts for the `xpenses-kot
 - Run: `cd frontend && npm run i18n:check`
 - Run: `node --test scripts/check-i18n-parity.test.mjs scripts/check-npm-audit.test.mjs`
 - Run: `python3 -m unittest scripts/test_verify_ocr_restart.py`
+- Run: `python3 scripts/reconcile.py audit`

@@ -6,6 +6,8 @@ import eu.nt.xpenses.dto.settings.EmailConfigIn
 import eu.nt.xpenses.dto.settings.EmailConfigOut
 import eu.nt.xpenses.dto.settings.EmailSimulationIn
 import eu.nt.xpenses.dto.settings.FuelPriceHealthStatusOut
+import eu.nt.xpenses.dto.settings.FuelProvidersOut
+import eu.nt.xpenses.dto.settings.FuelProvidersUpdate
 import eu.nt.xpenses.dto.settings.FxHealthStatusOut
 import eu.nt.xpenses.dto.settings.FxMarginsOut
 import eu.nt.xpenses.dto.settings.FxMarginsUpdate
@@ -39,6 +41,8 @@ import eu.nt.xpenses.services.OCRConfig
 import eu.nt.xpenses.services.OcrService
 import eu.nt.xpenses.services.StorageService
 import eu.nt.xpenses.services.fuel.FuelPriceHealthService
+import eu.nt.xpenses.services.fuel.FuelPriceSource
+import eu.nt.xpenses.services.fuel.HttpFuelPriceProvider
 import eu.nt.xpenses.services.fx.FxProviderHealthService
 import eu.nt.xpenses.services.fx.FxRateSource
 import eu.nt.xpenses.services.fx.HttpFxRateProvider
@@ -62,6 +66,7 @@ class AppSettingsController(
     private val httpFxRateProvider: HttpFxRateProvider,
     private val fxProviderHealthService: FxProviderHealthService,
     private val fuelPriceHealthService: FuelPriceHealthService,
+    private val httpFuelPriceProvider: HttpFuelPriceProvider,
 ) {
     // --- Mobile UI ---
     @GetMapping("/ui")
@@ -152,6 +157,38 @@ class AppSettingsController(
     @PreAuthorize("hasAnyRole('mod', 'chef_finance')")
     fun checkFuelPrices(): ResponseEntity<FuelPriceHealthStatusOut> =
         ResponseEntity.ok(fuelPriceHealthService.runHealthCheck())
+
+    // --- Fuel Provider Priority ---
+    @GetMapping("/fuel-providers")
+    @PreAuthorize("hasAnyRole('mod', 'chef_finance')")
+    fun readFuelProviders(): ResponseEntity<FuelProvidersOut> =
+        ResponseEntity.ok(buildFuelProvidersOut())
+
+    @PatchMapping("/fuel-providers")
+    @PreAuthorize("hasAnyRole('mod', 'chef_finance')")
+    fun updateFuelProviders(
+        @Valid @RequestBody body: FuelProvidersUpdate,
+    ): ResponseEntity<FuelProvidersOut> {
+        val parsed =
+            body.providers.mapNotNull { name ->
+                try {
+                    FuelPriceSource.valueOf(name.uppercase().trim()).takeIf { it in HttpFuelPriceProvider.EXTERNAL_SOURCES }
+                } catch (_: Exception) {
+                    null
+                }
+            }
+        if (parsed.isEmpty()) {
+            return ResponseEntity.badRequest().build()
+        }
+        httpFuelPriceProvider.saveProviderPriority(parsed)
+        return ResponseEntity.ok(buildFuelProvidersOut())
+    }
+
+    private fun buildFuelProvidersOut(): FuelProvidersOut =
+        FuelProvidersOut(
+            providers = httpFuelPriceProvider.getProviderPriority().map { it.name },
+            availableProviders = HttpFuelPriceProvider.EXTERNAL_SOURCES.map { it.name },
+        )
 
     @PostMapping("/fx-providers/test")
     @PreAuthorize("hasAnyRole('mod', 'chef_finance')")

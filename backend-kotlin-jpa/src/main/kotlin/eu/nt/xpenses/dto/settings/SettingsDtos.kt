@@ -169,6 +169,15 @@ data class FxProvidersUpdate(
     @field:NotEmpty val providers: List<String>,
 )
 
+data class FuelProvidersOut(
+    val providers: List<String>,
+    @JsonProperty("available_providers") val availableProviders: List<String>,
+)
+
+data class FuelProvidersUpdate(
+    @field:NotEmpty val providers: List<String>,
+)
+
 data class FxTestRequest(
     val currency: String,
     val date: String? = null,

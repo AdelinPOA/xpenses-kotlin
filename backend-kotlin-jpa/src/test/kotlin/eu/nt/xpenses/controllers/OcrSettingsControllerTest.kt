@@ -13,6 +13,7 @@ import eu.nt.xpenses.services.OCRProviderConfig
 import eu.nt.xpenses.services.OcrService
 import eu.nt.xpenses.services.StorageService
 import eu.nt.xpenses.services.fuel.FuelPriceHealthService
+import eu.nt.xpenses.services.fuel.HttpFuelPriceProvider
 import eu.nt.xpenses.services.fx.FxProviderHealthService
 import eu.nt.xpenses.services.fx.HttpFxRateProvider
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -38,6 +39,7 @@ class OcrSettingsControllerTest {
             mock(HttpFxRateProvider::class.java),
             mock(FxProviderHealthService::class.java),
             mock(FuelPriceHealthService::class.java),
+            mock(HttpFuelPriceProvider::class.java),
         )
 
     @Test

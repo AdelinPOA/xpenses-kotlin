@@ -8,10 +8,13 @@ import api, {
   MileageRates,
   FxProvidersConfig,
   FxTestResult,
+  FuelProvidersConfig,
   getFxProviders,
   updateFxProviders,
   testFxProvider,
   checkFxProviders,
+  getFuelProviders,
+  updateFuelProviders,
   checkFuelPrices,
 } from "@/lib/api";
 import { settingsKeys } from "@/lib/queryKeys";
@@ -532,12 +535,50 @@ function FxProvidersCard() {
   );
 }
 
-/** Live daily fuel price provider health and fallback status card for mod & chef_finance. */
+/** Live daily fuel price provider health, priority order, and fallback status card for mod & chef_finance. */
 function FuelPriceHealthCard() {
   const qc = useQueryClient();
   const t = useTranslations("admin");
+  const { data: fuelProvidersData } = useQuery<FuelProvidersConfig>({
+    queryKey: settingsKeys.fuelProviders(),
+    queryFn: () => getFuelProviders(),
+    staleTime: 300_000,
+    gcTime: 600_000,
+  });
   const { data: fuelStatus } = useFuelPriceStatus(true);
+  const [providers, setProviders] = useState<string[]>([
+    "PRETCARBURANT_LIVE",
+    "PRETCARBURANT_DATA",
+    "EU_WEEKLY_OIL_BULLETIN",
+  ]);
+  const [providersSaveSuccess, setProvidersSaveSuccess] = useState(false);
+  const [providersSaveError, setProvidersSaveError] = useState("");
   const [checkError, setCheckError] = useState("");
+
+  useEffect(() => {
+    if (fuelProvidersData?.providers?.length) {
+      setProviders(fuelProvidersData.providers);
+    } else if (fuelStatus?.providers?.length) {
+      setProviders(fuelStatus.providers.map((entry) => entry.provider));
+    }
+  }, [fuelProvidersData, fuelStatus]);
+
+  const updateFuelProvidersMutation = useMutation({
+    mutationFn: (newProviders: string[]) => updateFuelProviders(newProviders),
+    onSuccess: (data) => {
+      setProviders(data.providers);
+      setProvidersSaveSuccess(true);
+      setProvidersSaveError("");
+      setTimeout(() => setProvidersSaveSuccess(false), 4000);
+      qc.invalidateQueries({ queryKey: settingsKeys.fuelProviders() });
+      qc.invalidateQueries({ queryKey: settingsKeys.fuelStatus() });
+    },
+    onError: (error: unknown) => {
+      const detail = (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      setProvidersSaveSuccess(false);
+      setProvidersSaveError(detail ?? t("fuel_providers_save_failed"));
+    },
+  });
 
   const checkMutation = useMutation({
     mutationFn: checkFuelPrices,
@@ -550,6 +591,22 @@ function FuelPriceHealthCard() {
       setCheckError(detail ?? t("fuel_health_check_failed"));
     },
   });
+
+  const moveProvider = (index: number, direction: "up" | "down") => {
+    const targetIndex = direction === "up" ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= providers.length) return;
+    const next = [...providers];
+    const temp = next[index];
+    next[index] = next[targetIndex];
+    next[targetIndex] = temp;
+    setProviders(next);
+  };
+
+  const handleSaveProviders = () => {
+    setProvidersSaveSuccess(false);
+    setProvidersSaveError("");
+    updateFuelProvidersMutation.mutate(providers);
+  };
 
   const getProviderMeta = (providerKey: string) => {
     switch (providerKey) {
@@ -612,7 +669,6 @@ function FuelPriceHealthCard() {
   };
 
   const summary = getHealthSummaryConfig();
-  const providerOrder = ["PRETCARBURANT_LIVE", "PRETCARBURANT_DATA", "EU_WEEKLY_OIL_BULLETIN"];
 
   return (
     <div id="fuel-prices" className="bg-card rounded-xl shadow-sm p-6">
@@ -663,9 +719,11 @@ function FuelPriceHealthCard() {
         )}
       </div>
 
-      <div className="space-y-3">
-        {providerOrder.map((providerKey, idx) => {
+      <div className="space-y-3 mb-6">
+        {providers.map((providerKey, idx) => {
           const info = getProviderMeta(providerKey);
+          const isFirst = idx === 0;
+          const isLast = idx === providers.length - 1;
           const item = fuelStatus?.providers.find((entry) => entry.provider === providerKey);
 
           let pillLabel = t("fx_health_badge_unknown");
@@ -729,9 +787,52 @@ function FuelPriceHealthCard() {
                   )}
                 </div>
               </div>
+
+              <div className="flex items-center gap-1 shrink-0 ml-3">
+                <button
+                  type="button"
+                  disabled={isFirst}
+                  onClick={() => moveProvider(idx, "up")}
+                  aria-label={`${t("fuel_priority_move_up")} ${info.title}`}
+                  className="p-1.5 rounded-lg border border-input-border text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ArrowUp className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  disabled={isLast}
+                  onClick={() => moveProvider(idx, "down")}
+                  aria-label={`${t("fuel_priority_move_down")} ${info.title}`}
+                  className="p-1.5 rounded-lg border border-input-border text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ArrowDown className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           );
         })}
+      </div>
+
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={handleSaveProviders}
+          disabled={updateFuelProvidersMutation.isPending}
+          className="flex items-center gap-2 px-4 py-2 bg-slate-800 dark:bg-slate-700 text-white text-sm font-medium rounded-lg hover:bg-slate-900 dark:hover:bg-slate-600 disabled:opacity-50 transition-colors"
+        >
+          <Save className="w-4 h-4" />
+          {updateFuelProvidersMutation.isPending ? t("saving") : t("save")}
+        </button>
+        {providersSaveSuccess && (
+          <p role="status" className="text-sm text-emerald-600 dark:text-emerald-400">
+            {t("fuel_providers_saved")}
+          </p>
+        )}
+        {providersSaveError && (
+          <p role="alert" className="text-sm text-red-600">
+            {providersSaveError}
+          </p>
+        )}
       </div>
 
       {fuelStatus?.last_db_price && (

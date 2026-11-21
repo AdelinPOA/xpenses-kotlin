@@ -235,6 +235,7 @@ export type {
   FuelPriceHealthStatus,
   FuelProviderHealthItem,
   FuelLastDbPrice,
+  FuelProvidersConfig,
 } from "./types/admin";
 
 export interface ApiValidationError {
@@ -263,6 +264,8 @@ export {
   testFxProvider,
   getFxStatus,
   checkFxProviders,
+  getFuelProviders,
+  updateFuelProviders,
   getFuelPriceStatus,
   checkFuelPrices,
 } from "./api/admin";

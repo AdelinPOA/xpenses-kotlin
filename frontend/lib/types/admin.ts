@@ -256,3 +256,8 @@ export interface FuelPriceHealthStatus {
   last_db_price: FuelLastDbPrice | null;
 }
 
+export interface FuelProvidersConfig {
+  providers: string[];
+  available_providers: string[];
+}
+

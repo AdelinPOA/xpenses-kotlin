@@ -41,7 +41,8 @@ class FuelPriceHealthService(
     fun runHealthCheck(
         date: LocalDate = LocalDate.now(ZoneId.of("Europe/Bucharest")),
     ): FuelPriceHealthStatusOut {
-        for (source in HttpFuelPriceProvider.EXTERNAL_SOURCES) {
+        val priority = httpFuelPriceProvider.getProviderPriority().ifEmpty { HttpFuelPriceProvider.EXTERNAL_SOURCES }
+        for (source in priority) {
             httpFuelPriceProvider.probeProvider(source, date, bypassCache = true)
         }
         val snapshot = getHealthStatus()
@@ -72,7 +73,7 @@ class FuelPriceHealthService(
 
     /** Compute current fuel provider health snapshot from probe/resolve states and latest cached DB price. */
     fun getHealthStatus(): FuelPriceHealthStatusOut {
-        val priority = HttpFuelPriceProvider.EXTERNAL_SOURCES
+        val priority = httpFuelPriceProvider.getProviderPriority().ifEmpty { HttpFuelPriceProvider.EXTERNAL_SOURCES }
         val states = httpFuelPriceProvider.getProviderStates()
         val primary = priority.first()
         val anyChecked = priority.any { states[it] != null }

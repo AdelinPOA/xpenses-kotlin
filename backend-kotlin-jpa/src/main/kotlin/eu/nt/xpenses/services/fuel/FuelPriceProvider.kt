@@ -1,5 +1,7 @@
 package eu.nt.xpenses.services.fuel
 
+import eu.nt.xpenses.model.AppSetting
+import eu.nt.xpenses.repositories.AppSettingRepository
 import eu.nt.xpenses.services.FxService
 import org.apache.poi.ss.usermodel.Cell
 import org.apache.poi.ss.usermodel.CellType
@@ -11,6 +13,7 @@ import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.ObjectMapper
+import tools.jackson.module.kotlin.readValue
 import java.io.ByteArrayInputStream
 import java.math.BigDecimal
 import java.math.RoundingMode
@@ -274,6 +277,7 @@ internal object EuWeeklyOilBulletinParser {
 class HttpFuelPriceProvider(
     private val objectMapper: ObjectMapper,
     private val fxService: FxService,
+    private val appSettingRepository: AppSettingRepository? = null,
 ) : FuelPriceProvider {
     private val log = LoggerFactory.getLogger(javaClass)
     private val providerStates = ConcurrentHashMap<FuelPriceSource, FuelProviderHealthState>()
@@ -303,6 +307,7 @@ class HttpFuelPriceProvider(
     private var euPayloadCache: CachedPayload<ByteArray>? = null
 
     companion object {
+        const val PRIORITY_SETTING_KEY = "fuel_provider_priority"
         val EXTERNAL_SOURCES = listOf(
             FuelPriceSource.PRETCARBURANT_LIVE,
             FuelPriceSource.PRETCARBURANT_DATA,
@@ -311,6 +316,59 @@ class HttpFuelPriceProvider(
         private val LIVE_TTL = Duration.ofMinutes(15)
         private val DATA_TTL = Duration.ofMinutes(30)
         private val EU_TTL = Duration.ofHours(6)
+    }
+
+    fun getProviderPriority(): List<FuelPriceSource> {
+        val stored = appSettingRepository?.findById(PRIORITY_SETTING_KEY)?.orElse(null)?.value
+        if (!stored.isNullOrBlank()) {
+            try {
+                val list: List<String> = objectMapper.readValue(stored)
+                val parsed = list.mapNotNull { name ->
+                    try {
+                        FuelPriceSource.valueOf(name.uppercase().trim()).takeIf { it in EXTERNAL_SOURCES }
+                    } catch (_: Exception) {
+                        null
+                    }
+                }.distinct()
+                if (parsed.isNotEmpty()) {
+                    val missing = EXTERNAL_SOURCES.filter { it !in parsed }
+                    return parsed + missing
+                }
+            } catch (_: Exception) {
+            }
+        }
+        return EXTERNAL_SOURCES
+    }
+
+    fun saveProviderPriority(priority: List<FuelPriceSource>) {
+        val valid = priority.filter { it in EXTERNAL_SOURCES }.distinct()
+        val allIncluded = valid + EXTERNAL_SOURCES.filter { it !in valid }
+        val names = allIncluded.map { it.name }
+        val setting = AppSetting(
+            key = PRIORITY_SETTING_KEY,
+            value = objectMapper.writeValueAsString(names),
+            updatedAt = Instant.now(),
+        )
+        appSettingRepository?.save(setting)
+    }
+
+    fun resolvePriorityForDate(
+        requestedDate: LocalDate,
+        today: LocalDate = LocalDate.now(ZoneId.of("Europe/Bucharest")),
+    ): List<FuelPriceSource> {
+        val configured = getProviderPriority()
+        if (!requestedDate.isBefore(today)) {
+            return configured
+        }
+        val liveIdx = configured.indexOf(FuelPriceSource.PRETCARBURANT_LIVE)
+        val dataIdx = configured.indexOf(FuelPriceSource.PRETCARBURANT_DATA)
+        if (liveIdx < 0 || dataIdx < 0 || liveIdx >= dataIdx) {
+            return configured
+        }
+        return configured.toMutableList().apply {
+            set(liveIdx, FuelPriceSource.PRETCARBURANT_DATA)
+            set(dataIdx, FuelPriceSource.PRETCARBURANT_LIVE)
+        }
     }
 
     fun getProviderStates(): Map<FuelPriceSource, FuelProviderHealthState> = providerStates.toMap()
@@ -345,15 +403,7 @@ class HttpFuelPriceProvider(
     override fun resolve(canonicalFuelType: String, requestedDate: LocalDate): ProviderFuelPrice? {
         val normalized = canonicalFuelType.trim().lowercase()
         val today = LocalDate.now(ZoneId.of("Europe/Bucharest"))
-        val priority = if (requestedDate.isBefore(today)) {
-            listOf(
-                FuelPriceSource.PRETCARBURANT_DATA,
-                FuelPriceSource.PRETCARBURANT_LIVE,
-                FuelPriceSource.EU_WEEKLY_OIL_BULLETIN,
-            )
-        } else {
-            EXTERNAL_SOURCES
-        }
+        val priority = resolvePriorityForDate(requestedDate, today)
 
         for (source in priority) {
             val startedNanos = System.nanoTime()

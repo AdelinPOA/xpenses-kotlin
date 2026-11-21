@@ -1,8 +1,11 @@
 package eu.nt.xpenses.services.fuel
 
+import eu.nt.xpenses.model.AppSetting
 import eu.nt.xpenses.model.FuelPrice
+import eu.nt.xpenses.repositories.AppSettingRepository
 import eu.nt.xpenses.repositories.FuelPriceRepository
 import eu.nt.xpenses.services.AppSettingsService
+import eu.nt.xpenses.services.FxService
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
@@ -15,6 +18,7 @@ import java.math.BigDecimal
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import java.util.Optional
 
 class FuelPriceServiceTest {
     private val objectMapper = ObjectMapper()
@@ -259,5 +263,131 @@ class FuelPriceServiceTest {
         assertEquals("FALLBACK", manualFallback.status)
         assertTrue(manualFallback.fallbackActive)
         assertEquals("MANUAL_SETTING", manualFallback.activeSource)
+    }
+
+    @Test
+    fun `HttpFuelPriceProvider getProviderPriority returns default EXTERNAL_SOURCES when empty or corrupt`() {
+        val appSettingRepository = mock(AppSettingRepository::class.java)
+        val fxService = mock(FxService::class.java)
+        val provider = HttpFuelPriceProvider(objectMapper, fxService, appSettingRepository)
+
+        `when`(appSettingRepository.findById("fuel_provider_priority")).thenReturn(Optional.empty())
+        assertEquals(HttpFuelPriceProvider.EXTERNAL_SOURCES, provider.getProviderPriority())
+
+        `when`(appSettingRepository.findById("fuel_provider_priority")).thenReturn(
+            Optional.of(AppSetting(key = "fuel_provider_priority", value = "not-valid-json", updatedAt = Instant.now())),
+        )
+        assertEquals(HttpFuelPriceProvider.EXTERNAL_SOURCES, provider.getProviderPriority())
+    }
+
+    @Test
+    fun `HttpFuelPriceProvider saveProviderPriority persists deduplicated external sources excluding MANUAL_SETTING`() {
+        val appSettingRepository = mock(AppSettingRepository::class.java)
+        val fxService = mock(FxService::class.java)
+        val provider = HttpFuelPriceProvider(objectMapper, fxService, appSettingRepository)
+
+        provider.saveProviderPriority(
+            listOf(
+                FuelPriceSource.EU_WEEKLY_OIL_BULLETIN,
+                FuelPriceSource.MANUAL_SETTING,
+                FuelPriceSource.EU_WEEKLY_OIL_BULLETIN,
+            ),
+        )
+
+        val captor = ArgumentCaptor.forClass(AppSetting::class.java)
+        verify(appSettingRepository).save(captor.capture())
+        assertEquals("fuel_provider_priority", captor.value.key)
+        assertEquals(
+            listOf(
+                FuelPriceSource.EU_WEEKLY_OIL_BULLETIN.name,
+                FuelPriceSource.PRETCARBURANT_LIVE.name,
+                FuelPriceSource.PRETCARBURANT_DATA.name,
+            ),
+            objectMapper.readValue(captor.value.value, List::class.java),
+        )
+    }
+
+    @Test
+    fun `HttpFuelPriceProvider resolvePriorityForDate swaps PRETCARBURANT_LIVE and PRETCARBURANT_DATA for historical dates`() {
+        val appSettingRepository = mock(AppSettingRepository::class.java)
+        val fxService = mock(FxService::class.java)
+        val provider = HttpFuelPriceProvider(objectMapper, fxService, appSettingRepository)
+        val configured = listOf(
+            FuelPriceSource.EU_WEEKLY_OIL_BULLETIN,
+            FuelPriceSource.PRETCARBURANT_LIVE,
+            FuelPriceSource.PRETCARBURANT_DATA,
+        )
+        `when`(appSettingRepository.findById("fuel_provider_priority")).thenReturn(
+            Optional.of(
+                AppSetting(
+                    key = "fuel_provider_priority",
+                    value = objectMapper.writeValueAsString(configured.map { it.name }),
+                    updatedAt = Instant.now(),
+                ),
+            ),
+        )
+
+        val today = LocalDate.parse("2026-11-21")
+        assertEquals(configured, provider.resolvePriorityForDate(today, today))
+        assertEquals(
+            listOf(
+                FuelPriceSource.EU_WEEKLY_OIL_BULLETIN,
+                FuelPriceSource.PRETCARBURANT_DATA,
+                FuelPriceSource.PRETCARBURANT_LIVE,
+            ),
+            provider.resolvePriorityForDate(today.minusDays(1), today),
+        )
+    }
+
+    @Test
+    fun `FuelPriceHealthService getHealthStatus reflects custom priority order`() {
+        val provider = mock(HttpFuelPriceProvider::class.java)
+        val repo = mock(FuelPriceRepository::class.java)
+        val healthService = FuelPriceHealthService(provider, repo, scheduledEnabled = false)
+
+        val customPriority = listOf(
+            FuelPriceSource.EU_WEEKLY_OIL_BULLETIN,
+            FuelPriceSource.PRETCARBURANT_DATA,
+            FuelPriceSource.PRETCARBURANT_LIVE,
+        )
+        `when`(provider.getProviderPriority()).thenReturn(customPriority)
+        val now = Instant.parse("2026-11-21T10:00:00Z")
+        `when`(provider.getProviderStates()).thenReturn(
+            mapOf(
+                FuelPriceSource.EU_WEEKLY_OIL_BULLETIN to FuelProviderHealthState(
+                    provider = FuelPriceSource.EU_WEEKLY_OIL_BULLETIN,
+                    healthy = true,
+                    checkedAt = now,
+                    sourceDate = LocalDate.parse("2026-11-16"),
+                    dieselRon = BigDecimal("10.72"),
+                ),
+                FuelPriceSource.PRETCARBURANT_DATA to FuelProviderHealthState(
+                    provider = FuelPriceSource.PRETCARBURANT_DATA,
+                    healthy = true,
+                    checkedAt = now,
+                ),
+            ),
+        )
+
+        val status = healthService.getHealthStatus()
+        assertEquals("HEALTHY", status.status)
+        assertEquals(FuelPriceSource.EU_WEEKLY_OIL_BULLETIN.name, status.primaryProvider)
+        assertEquals(FuelPriceSource.EU_WEEKLY_OIL_BULLETIN.name, status.activeSource)
+        assertEquals(3, status.providers.size)
+
+        assertEquals(FuelPriceSource.EU_WEEKLY_OIL_BULLETIN.name, status.providers[0].provider)
+        assertEquals(1, status.providers[0].priority)
+        assertTrue(status.providers[0].isPrimary)
+        assertTrue(status.providers[0].active)
+
+        assertEquals(FuelPriceSource.PRETCARBURANT_DATA.name, status.providers[1].provider)
+        assertEquals(2, status.providers[1].priority)
+        assertFalse(status.providers[1].isPrimary)
+        assertFalse(status.providers[1].active)
+
+        assertEquals(FuelPriceSource.PRETCARBURANT_LIVE.name, status.providers[2].provider)
+        assertEquals(3, status.providers[2].priority)
+        assertFalse(status.providers[2].isPrimary)
+        assertFalse(status.providers[2].active)
     }
 }

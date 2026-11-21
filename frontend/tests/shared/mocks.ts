@@ -970,6 +970,32 @@ export async function setupAdminMocks(
     ],
     last_db_price: null,
   };
+  let fuelProvidersPriority = [
+    "PRETCARBURANT_LIVE",
+    "PRETCARBURANT_DATA",
+    "EU_WEEKLY_OIL_BULLETIN",
+  ];
+  await page.route("**/api/settings/fuel-providers", async (route, req) => {
+    if (req.method() === "PATCH") {
+      const payload = req.postDataJSON() as { providers?: string[] };
+      if (Array.isArray(payload.providers) && payload.providers.length > 0) {
+        fuelProvidersPriority = payload.providers;
+      }
+    }
+    await route.fulfill({
+      json: {
+        providers: fuelProvidersPriority,
+        available_providers: [
+          "PRETCARBURANT_LIVE",
+          "PRETCARBURANT_DATA",
+          "EU_WEEKLY_OIL_BULLETIN",
+        ],
+      },
+    });
+  });
+  await page.route("**/api/fuel-prices/status", (route) =>
+    route.fulfill({ json: fuelHealthyStatus }),
+  );
   await page.route("**/api/settings/fuel-prices/check", (route) =>
     route.fulfill({ json: fuelHealthyStatus }),
   );

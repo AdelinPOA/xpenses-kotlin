@@ -554,18 +554,18 @@ function FuelPriceHealthCard() {
   const [providersSaveSuccess, setProvidersSaveSuccess] = useState(false);
   const [providersSaveError, setProvidersSaveError] = useState("");
   const [checkError, setCheckError] = useState("");
+  const [hasUnsavedOrder, setHasUnsavedOrder] = useState(false);
 
   useEffect(() => {
-    if (fuelProvidersData?.providers?.length) {
+    if (!hasUnsavedOrder && fuelProvidersData?.providers?.length) {
       setProviders(fuelProvidersData.providers);
-    } else if (fuelStatus?.providers?.length) {
-      setProviders(fuelStatus.providers.map((entry) => entry.provider));
     }
-  }, [fuelProvidersData, fuelStatus]);
+  }, [fuelProvidersData, hasUnsavedOrder]);
 
   const updateFuelProvidersMutation = useMutation({
     mutationFn: (newProviders: string[]) => updateFuelProviders(newProviders),
     onSuccess: (data) => {
+      setHasUnsavedOrder(false);
       setProviders(data.providers);
       setProvidersSaveSuccess(true);
       setProvidersSaveError("");
@@ -599,6 +599,7 @@ function FuelPriceHealthCard() {
     const temp = next[index];
     next[index] = next[targetIndex];
     next[targetIndex] = temp;
+    setHasUnsavedOrder(true);
     setProviders(next);
   };
 

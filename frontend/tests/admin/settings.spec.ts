@@ -114,4 +114,36 @@ test.describe("Admin Settings", () => {
     expect(payloads).toHaveLength(1);
     expect(payloads[0]).toMatchObject({ margins: { USD: 3 }, default_margin: 2 });
   });
+
+  test("mod can reorder fuel price sources and save priority", async ({ page }) => {
+    await setupAuthMocks(page, "mod");
+    await setupAdminMocks(page);
+    const payloads: unknown[] = [];
+    page.on("request", (request) => {
+      if (request.method() === "PATCH" && request.url().includes("/api/settings/fuel-providers")) {
+        payloads.push(request.postDataJSON());
+      }
+    });
+
+    await page.goto("/admin/settings", { waitUntil: "load" });
+    const fuelCard = page.locator("#fuel-prices");
+    await expect(fuelCard).toBeVisible({ timeout: 15000 });
+
+    const moveUpOpenData = fuelCard.getByRole("button", {
+      name: /Move Up PretCarburant Open Data/i,
+    });
+    await expect(moveUpOpenData).toBeVisible();
+    await moveUpOpenData.click();
+
+    await fuelCard.getByRole("button", { name: /^save$/i }).click();
+    await expect(fuelCard.getByRole("status")).toHaveText(/fuel price source priority saved/i);
+    expect(payloads).toHaveLength(1);
+    expect(payloads[0]).toEqual({
+      providers: [
+        "PRETCARBURANT_DATA",
+        "PRETCARBURANT_LIVE",
+        "EU_WEEKLY_OIL_BULLETIN",
+      ],
+    });
+  });
 });

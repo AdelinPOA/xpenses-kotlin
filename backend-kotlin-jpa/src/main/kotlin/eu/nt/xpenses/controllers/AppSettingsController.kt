@@ -170,12 +170,17 @@ class AppSettingsController(
         @Valid @RequestBody body: FuelProvidersUpdate,
     ): ResponseEntity<FuelProvidersOut> {
         val parsed =
-            body.providers.mapNotNull { name ->
-                try {
-                    FuelPriceSource.valueOf(name.uppercase().trim()).takeIf { it in HttpFuelPriceProvider.EXTERNAL_SOURCES }
-                } catch (_: Exception) {
-                    null
+            body.providers.map { name ->
+                val source =
+                    try {
+                        FuelPriceSource.valueOf(name.uppercase().trim())
+                    } catch (_: Exception) {
+                        return ResponseEntity.badRequest().build()
+                    }
+                if (source !in HttpFuelPriceProvider.EXTERNAL_SOURCES) {
+                    return ResponseEntity.badRequest().build()
                 }
+                source
             }
         if (parsed.isEmpty()) {
             return ResponseEntity.badRequest().build()

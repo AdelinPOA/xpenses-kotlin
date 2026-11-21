@@ -138,5 +138,23 @@ class FuelProvidersControllerTest : IntegrationTestBase() {
                 .content("""{"providers":[]}""")
                 .cookie(cfoCookie),
         ).andExpect(status().isBadRequest)
+
+        val beforeMixedRejects = httpFuelPriceProvider.getProviderPriority()
+
+        mockMvc.perform(
+            patch("/api/settings/fuel-providers")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"providers":["PRETCARBURANT_LIVE","INVALID"]}""")
+                .cookie(cfoCookie),
+        ).andExpect(status().isBadRequest)
+        assertEquals(beforeMixedRejects, httpFuelPriceProvider.getProviderPriority())
+
+        mockMvc.perform(
+            patch("/api/settings/fuel-providers")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"providers":["PRETCARBURANT_LIVE","MANUAL_SETTING"]}""")
+                .cookie(cfoCookie),
+        ).andExpect(status().isBadRequest)
+        assertEquals(beforeMixedRejects, httpFuelPriceProvider.getProviderPriority())
     }
 }

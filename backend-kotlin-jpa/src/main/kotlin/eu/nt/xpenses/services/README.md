@@ -23,13 +23,12 @@ Core business logic services in `eu.nt.xpenses.services` covering expense/report
 - `[OcrRecoveryService.kt:OcrRecoveryService]` — lists/fetches user OCR jobs (`listJobs`, `getJob`) and handles idempotent `retry` and `completeManually`
 - `[OcrResultCacheCleanupService.kt:OcrResultCacheCleanupService]` — `@Scheduled` batched purge of expired `OcrResultCache` rows (`deleteExpiredEntries`)
 - `[OcrSourceCleanupService.kt:OcrSourceCleanupService]` — `@Scheduled @Synchronized` bounded cleanup of expired terminal OCR source files (`cleanup`)
-- `[PdfService.kt:PdfService]` — builds expense report PDFs with image receipts, signatures, and merged PDF receipts (`generateReportPdf`)
-- `[ReportService.kt:ReportService]` — eager report fetch queries (`getReportWithExpenses`, `getAllReportsWithExpenses`) and facade delegating lifecycle transitions (`attachExpenses`, `submitReport`, `recallReport`, `approveReport`, `rejectReport`, `payReport`) to `ExpenseReportLifecycle`
+- `[PdfService.kt:PdfService]` — builds expense report PDFs with image receipts, signatures, and merged PDF receipts from precomputed `ReportTotals` (`generateReportPdf`)
 - `[StorageService.kt:StorageService]` / `[StorageService.kt:StorageContext]` — manages active/remote storage providers, validates extensions/sizes/magic bytes (`validateMagicBytes`, `storeFile`), caches local copies (`getLocalPath`, `uploadFile`, `downloadFile`, `deleteFile`, `deleteOcrSource`), tests connections, and starts async migrations (`startMigration`)
 - Child subpackages:
   - `fuel`: [./fuel/README.md](./fuel/README.md) - Multi-provider Romanian fuel price resolution, caching, and health monitoring (`FuelPriceProvider`, `FuelPriceService`, `FuelPriceHealthService`)
   - `fx`: [./fx/README.md](./fx/README.md) - Multi-provider HTTP/XML FX rate resolution (`FxRateProvider`, `HttpFxRateProvider`, `FxRateSource`)
-  - `mapper`: [./mapper/README.md](./mapper/README.md) - Entity-to-DTO mappers (`ExpenseMapper`, `ReportMapper`)
+  - `mapper`: [./mapper/README.md](./mapper/README.md) - Entity-to-DTO mapper (`ExpenseMapper`)
   - `storage`: [./storage/README.md](./storage/README.md) - Storage providers (`LocalStorageProvider`, `S3StorageProvider`), `StoragePathResolver`, and `StorageMigrationEngine`
 
 ## Invariants
@@ -49,7 +48,7 @@ Core business logic services in `eu.nt.xpenses.services` covering expense/report
 
 ## Side Effects
 - `[AppSettingsService.kt]` / `[DelegationParsingSettingsService.kt]` / `[EmailSettingsService.kt]` / `[LdapService.kt]` / `[OcrService.kt]` / `[StorageService.kt]` — read/write `app_settings` entries (`daily_allowance_rate`, `mobile_quick_add_fab_enabled`, `fx_margins`, `delegation_parsing_config`, `email_config`, `imap_config`, `ldap_config`, `ocr_config`, `storage_config`, `storage_migration_status`) with `CryptoService` encryption/decryption for secrets
-- `[ExpenseService.kt]` / `[SaveIdempotencyService.kt]` / `[FxService.kt]` / `[ReportService.kt]` — read/write JPA entities (`expenses`, `receipts`, `expense_reports`, `fx_rates`, `ocr_comparisons`, `expense_save_requests`, `expense_review_operations`) and acquire PostgreSQL advisory (`pg_advisory_xact_lock`) or row locks (`SELECT ... FOR UPDATE`)
+- `[ExpenseService.kt]` / `[SaveIdempotencyService.kt]` / `[FxService.kt]` — read/write JPA entities (`expenses`, `receipts`, `expense_reports`, `fx_rates`, `ocr_comparisons`, `expense_save_requests`, `expense_review_operations`) and acquire PostgreSQL advisory (`pg_advisory_xact_lock`) or row locks (`SELECT ... FOR UPDATE`)
 - `[AsyncOcrService.kt]` / `[OcrRecoveryService.kt]` / `[OcrJobRecoveryScheduler.kt]` / `[OcrResultCacheCleanupService.kt]` / `[OcrSourceCleanupService.kt]` — manage `ocr_jobs`, `ocr_job_action_operations`, and `ocr_result_cache` rows, dispatch `@Async("ocrTaskExecutor")` and `@Scheduled` jobs, and clean up storage objects
 - `[OcrService.kt]` / `[OpenAiCompatibleClient.kt]` / `[EmailImportService.kt]` / `[EmailSettingsService.kt]` / `[LdapService.kt]` / `[FxService.kt]` — execute outbound HTTPS LLM requests, SMTP/IMAP network operations, LDAP/LDAPS directory binds/searches, and HTTP FX rate fetches
 - `[StorageService.kt]` / `[AppSettingsService.kt:cleanOrphanReceipts]` / `[PdfService.kt]` — read/write/delete local filesystem and remote S3 objects via `StorageProvider`, execute async migrations via `StorageMigrationEngine`, and render/merge PDFs with OpenPDF and Apache PDFBox

@@ -2,11 +2,11 @@ package eu.nt.xpenses.controllers
 
 import eu.nt.xpenses.dto.search.SearchResult
 import eu.nt.xpenses.model.User
+import eu.nt.xpenses.report.ReportProjector
 import eu.nt.xpenses.repositories.ExpenseReportRepository
 import eu.nt.xpenses.repositories.ExpenseRepository
 import eu.nt.xpenses.services.Authorization
 import eu.nt.xpenses.services.mapper.ExpenseMapper
-import eu.nt.xpenses.services.mapper.ReportMapper
 import jakarta.servlet.http.HttpServletRequest
 import org.springframework.http.HttpStatus
 import org.springframework.transaction.annotation.Transactional
@@ -19,7 +19,7 @@ class SearchController(
     private val expenseRepository: ExpenseRepository,
     private val expenseReportRepository: ExpenseReportRepository,
     private val expenseMapper: ExpenseMapper,
-    private val reportMapper: ReportMapper,
+    private val reportProjector: ReportProjector,
     private val authorization: Authorization,
 ) {
     @GetMapping
@@ -44,7 +44,7 @@ class SearchController(
         val term = query.trim()
         val userId = authorization.effectiveUserId(currentUser, all)
 
-        val reports = expenseReportRepository.search(userId, term).take(50).map { reportMapper.mapReportToOut(it) }
+        val reports = reportProjector.toReportOuts(expenseReportRepository.search(userId, term).take(50))
         val expenses = expenseRepository.search(userId, term).take(50).map { expenseMapper.toExpenseOut(it) }
 
         return SearchResult(

@@ -4,7 +4,7 @@ import com.lowagie.text.*
 import com.lowagie.text.pdf.*
 import com.lowagie.text.pdf.draw.DottedLineSeparator
 import eu.nt.xpenses.model.*
-import eu.nt.xpenses.repositories.AppSettingRepository
+import eu.nt.xpenses.report.ReportTotals
 import org.apache.pdfbox.Loader
 import org.apache.pdfbox.io.IOUtils
 import org.apache.pdfbox.io.RandomAccessReadBuffer
@@ -26,7 +26,6 @@ import java.util.Locale
 @Service
 class PdfService(
     private val storageService: StorageService,
-    private val appSettingRepository: AppSettingRepository,
     @Value("\${company.name:Newtech Automation}") private val companyName: String,
 ) {
     private val log = LoggerFactory.getLogger(PdfService::class.java)
@@ -40,8 +39,9 @@ class PdfService(
         advances: List<AdvancePayment>,
         mileage: List<MileageRecord>,
         signer: User?,
+        totals: ReportTotals,
     ): ByteArray {
-        val mainPdfBytes = buildMainPdf(report, expenses, advances, mileage, signer)
+        val mainPdfBytes = buildMainPdf(report, expenses, advances, mileage, signer, totals)
 
         // Find all PDF receipts
         val pdfReceipts = mutableListOf<ByteArray>()
@@ -71,6 +71,7 @@ class PdfService(
         advances: List<AdvancePayment>,
         mileage: List<MileageRecord>,
         signer: User?,
+        totals: ReportTotals,
     ): ByteArray {
         val outputStream = ByteArrayOutputStream()
         val document = Document(PageSize.A4, 36f, 36f, 36f, 36f)
@@ -131,7 +132,7 @@ class PdfService(
 
         rightCell.addElement(Paragraph(" ", fontSmall))
 
-        val totalEur = expenses.map { it.amountEur }.fold(BigDecimal.ZERO) { acc, v -> acc.add(v) }
+        val totalEur = totals.totalExpensesEur
         val pTotalLabel = Paragraph("Total", fontCaption)
         pTotalLabel.alignment = Element.ALIGN_RIGHT
         rightCell.addElement(pTotalLabel)
@@ -346,9 +347,6 @@ class PdfService(
                 advTable.addCell(cellAmtEur)
             }
 
-            // Calculate paid advances total
-            val totalAdvTable = paidAdvances.map { it.amountEur }.fold(BigDecimal.ZERO) { acc, v -> acc.add(v) }
-
             // Add total row to Advance Payments table
             val cellAdvBlank1 = PdfPCell()
             cellAdvBlank1.setPadding(5f)
@@ -366,7 +364,7 @@ class PdfService(
             cellAdvBlank3.setPadding(5f)
             advTable.addCell(cellAdvBlank3)
 
-            val cellAdvTotalAmtEur = PdfPCell(Phrase("€${formatBigDecimal(totalAdvTable)}", fontBold))
+            val cellAdvTotalAmtEur = PdfPCell(Phrase("€${formatBigDecimal(totals.totalPaidAdvancesEur)}", fontBold))
             cellAdvTotalAmtEur.setPadding(5f)
             cellAdvTotalAmtEur.horizontalAlignment = Element.ALIGN_RIGHT
             advTable.addCell(cellAdvTotalAmtEur)
@@ -561,11 +559,9 @@ class PdfService(
         }
 
         // --- Report Summary block ---
-        val totalAdv = advances.filter { it.status == "paid" }.map { it.amountEur }.fold(BigDecimal.ZERO) { acc, v -> acc.add(v) }
-        val allowance = calculateDailyAllowance(report.dateFrom, report.dateTo)
-        val totalMil = mileage.map { it.amountEur }.fold(BigDecimal.ZERO) { acc, v -> acc.add(v) }
-        // Note: Accounting policy explicitly requires mileage (totalMil) to be excluded from totalReimbursable in the PDF summary.
-        val totalReimbursable = totalEur.add(allowance).subtract(totalAdv)
+        val totalAdv = totals.totalPaidAdvancesEur
+        val allowance = totals.dailyAllowanceEur
+        val totalReimbursable = totals.pdfReimbursableEur
 
         val reimbursableStr =
             if (totalReimbursable < BigDecimal.ZERO) {
@@ -792,27 +788,5 @@ class PdfService(
         val h = mins / 60
         val m = mins % 60
         return "${h}h ${String.format("%02d", m)}m"
-    }
-
-    private fun calculateDailyAllowance(
-        dateFrom: String?,
-        dateTo: String?,
-    ): BigDecimal {
-        if (dateFrom.isNullOrEmpty() || dateTo.isNullOrEmpty()) return BigDecimal.ZERO
-        return try {
-            val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
-            val dFrom = java.time.LocalDate.parse(dateFrom.take(10), formatter)
-            val dTo = java.time.LocalDate.parse(dateTo.take(10), formatter)
-            val days = Duration.between(dFrom.atStartOfDay(), dTo.atStartOfDay()).toDays() + 1
-            val rate =
-                appSettingRepository
-                    .findById("daily_allowance_rate")
-                    .orElse(null)
-                    ?.value
-                    ?.let { BigDecimal(it) } ?: BigDecimal("50.00")
-            if (days > 0) rate.multiply(BigDecimal.valueOf(days)) else BigDecimal.ZERO
-        } catch (e: Exception) {
-            BigDecimal.ZERO
-        }
     }
 }

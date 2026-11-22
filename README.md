@@ -22,7 +22,7 @@ Repository: [AdelinPOA/xpenses-kotlin](https://github.com/AdelinPOA/xpenses-kotl
 <!-- BEGIN:XPENSES_AUTOSYNC:TELEMETRY -->
 | Telemetry Metric | Live Repository State |
 |---|---|
-| **Git Baseline** | `main` @ `518c9c6` |
+| **Git Baseline** | `main` @ `44573eb` |
 | **Flyway Migrations** | 42 scripts (latest: `V110__fuel_prices_and_mileage_source.sql`) |
 | **Backend Controllers** | 21 `*Controller.kt` files |
 | **Frontend Routes** | 31 Next.js `page.tsx` routes |

@@ -4,13 +4,12 @@ import eu.nt.xpenses.dto.report.ImportOrderIn
 import eu.nt.xpenses.dto.report.ImportOrderPreviewOut
 import eu.nt.xpenses.dto.report.ReportCreate
 import eu.nt.xpenses.dto.report.ReportOut
+import eu.nt.xpenses.mileage.VehicleMileage
 import eu.nt.xpenses.model.ExpenseReport
 import eu.nt.xpenses.model.User
 import eu.nt.xpenses.report.lifecycle.ExpenseReportLifecycle
 import eu.nt.xpenses.report.lifecycle.ReportLifecycleNotificationAdapter
 import eu.nt.xpenses.repositories.ExpenseReportRepository
-import eu.nt.xpenses.repositories.MileageRecordRepository
-import eu.nt.xpenses.repositories.UserVehicleRepository
 import eu.nt.xpenses.services.Authorization
 import eu.nt.xpenses.services.EmailImportService
 import eu.nt.xpenses.services.ExportService
@@ -34,8 +33,7 @@ import java.time.Instant
 
 class ReportControllerImportOrderTest {
     private val expenseReportRepository = mock(ExpenseReportRepository::class.java)
-    private val mileageRecordRepository = mock(MileageRecordRepository::class.java)
-    private val userVehicleRepository = mock(UserVehicleRepository::class.java)
+    private val vehicleMileage = mock(VehicleMileage::class.java)
     private val pdfService = mock(PdfService::class.java)
     private val storageService = mock(StorageService::class.java)
     private val exportService = mock(ExportService::class.java)
@@ -54,8 +52,7 @@ class ReportControllerImportOrderTest {
 
     private val controller = ReportController(
         expenseReportRepository,
-        mileageRecordRepository,
-        userVehicleRepository,
+        vehicleMileage,
         pdfService,
         storageService,
         exportService,

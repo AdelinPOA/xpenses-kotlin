@@ -4,6 +4,7 @@ import eu.nt.xpenses.dto.expense.ExpenseOut
 import eu.nt.xpenses.dto.report.AdvancePaymentOut
 import eu.nt.xpenses.dto.report.MileageRecordOut
 import eu.nt.xpenses.dto.report.ReportOut
+import eu.nt.xpenses.mileage.toMileageRecordOut
 import eu.nt.xpenses.model.AdvancePayment
 import eu.nt.xpenses.model.ExpenseReport
 import eu.nt.xpenses.model.MileageRecord
@@ -11,7 +12,6 @@ import eu.nt.xpenses.repositories.AppSettingRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import java.math.BigDecimal
-import java.time.Duration
 
 @Component
 class ReportMapper(
@@ -45,47 +45,7 @@ class ReportMapper(
         )
     }
 
-    fun mapRecordToOut(m: MileageRecord): MileageRecordOut {
-        val durationMins = Duration.between(m.startTime, m.endTime).toMillis() / 60000.0
-        return MileageRecordOut(
-            id = m.id!!,
-            reportId = m.report.id!!,
-            userId = m.user.id!!,
-            origin = m.origin,
-            destination = m.destination,
-            distanceKm = m.distanceKm,
-            rateBeforeTax = m.rateBeforeTax,
-            rateAfterTax = m.rateAfterTax,
-            amountBeforeTax = m.amountBeforeTax,
-            amountEur = m.amountEur,
-            amountOriginal = m.amountOriginal,
-            fuelConsumptionLitersPer100Km = m.fuelConsumptionLitersPer100Km,
-            fuelPriceRonPerLiter = m.fuelPriceRonPerLiter,
-            fuelPriceSource = m.fuelPriceSource,
-            fuelExchangeRate = m.fuelExchangeRate,
-            fuelCostEur = m.fuelCostEur,
-            taxableAmount = m.taxableAmount,
-            withholdingAmount = m.withholdingAmount,
-            pensionRate = m.pensionRate,
-            healthRate = m.healthRate,
-            incomeTaxRate = m.incomeTaxRate,
-            taxDeductionEur = m.taxDeductionEur,
-            currencyOriginal = m.currencyOriginal,
-            fxRate = m.fxRate,
-            startTime = m.startTime,
-            endTime = m.endTime,
-            description = m.description,
-            createdAt = m.createdAt,
-            updatedAt = m.updatedAt,
-            durationMinutes = durationMins,
-            vehicleId = m.vehicle?.id,
-            vehiclePlate = m.vehiclePlate,
-            vehicleMakeModel = m.vehicleMakeModel,
-            vehicleFuelType = m.vehicleFuelType,
-            vehicleCategory = m.vehicleCategory,
-            roundTrip = m.roundTrip
-        )
-    }
+    fun mapRecordToOut(m: MileageRecord): MileageRecordOut = toMileageRecordOut(m)
 
     fun getDailyAllowanceRate(): BigDecimal =
         appSettingRepository.findById("daily_allowance_rate").orElse(null)?.value?.let { BigDecimal(it) } ?: BigDecimal("50.00")

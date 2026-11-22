@@ -1,4 +1,4 @@
-package eu.nt.xpenses.services
+package eu.nt.xpenses.mileage
 
 import eu.nt.xpenses.model.ExpenseReport
 import eu.nt.xpenses.model.MileageRecord
@@ -14,9 +14,9 @@ import java.io.ByteArrayInputStream
 import java.math.BigDecimal
 import java.time.Instant
 
-class TripSheetExportServiceTest {
+class TripSheetExporterTest {
 
-    private val service = TripSheetExportService(companyName = "Newtech Automation")
+    private val exporter = TripSheetExporter(companyName = "Newtech Automation")
 
     private fun makeUser(id: Int = 1, username: String = "ion.popescu", displayName: String = "Ion Popescu"): User =
         User(id = id, username = username, displayName = displayName)
@@ -107,7 +107,7 @@ class TripSheetExportServiceTest {
             roundTrip = true
         )
 
-        val bytes = service.buildTripSheet(report, listOf(r2, r1)) // deliberately unsorted input
+        val bytes = exporter.buildTripSheet(report, listOf(r2, r1)) // deliberately unsorted input
         parseWorkbook(bytes).use { wb ->
             assertEquals(1, wb.numberOfSheets)
             val sheet = wb.getSheetAt(0)
@@ -251,7 +251,7 @@ class TripSheetExportServiceTest {
             endTime = Instant.parse("2027-01-03T09:00:00Z")
         )
 
-        val bytes = service.buildTripSheet(report, listOf(decTrip, janTrip))
+        val bytes = exporter.buildTripSheet(report, listOf(decTrip, janTrip))
         parseWorkbook(bytes).use { wb ->
             assertEquals(2, wb.numberOfSheets)
 
@@ -292,7 +292,7 @@ class TripSheetExportServiceTest {
             endTime = Instant.parse("2026-04-11T07:30:00Z")
         )
 
-        val bytes = service.buildTripSheet(report, listOf(primaryTrip, secondaryTrip))
+        val bytes = exporter.buildTripSheet(report, listOf(primaryTrip, secondaryTrip))
         parseWorkbook(bytes).use { wb ->
             assertEquals(2, wb.numberOfSheets)
 
@@ -317,7 +317,7 @@ class TripSheetExportServiceTest {
         val report = makeReport(startingOdometerKm = null)
         val trip = makeRecord(id = 1, report = report, distanceKm = 150.0)
 
-        val bytes = service.buildTripSheet(report, listOf(trip))
+        val bytes = exporter.buildTripSheet(report, listOf(trip))
         parseWorkbook(bytes).use { wb ->
             val sheet = wb.getSheetAt(0)
             // L5 and L6 blank
@@ -351,7 +351,7 @@ class TripSheetExportServiceTest {
             distanceKm = 42.0
         )
 
-        val bytes = service.buildTripSheet(report, listOf(trip))
+        val bytes = exporter.buildTripSheet(report, listOf(trip))
         parseWorkbook(bytes).use { wb ->
             val sheet = wb.getSheetAt(0)
             val row12 = sheet.getRow(11)
@@ -400,7 +400,7 @@ class TripSheetExportServiceTest {
             endTime = Instant.parse("2026-04-11T07:00:00Z")
         )
 
-        val bytes = service.buildTripSheet(report, listOf(r1, r2))
+        val bytes = exporter.buildTripSheet(report, listOf(r1, r2))
         parseWorkbook(bytes).use { wb ->
             val sheet = wb.getSheetAt(0)
             assertEquals("Audi A6 - GJ01POA", sheet.getRow(4).getCell(6).stringCellValue)

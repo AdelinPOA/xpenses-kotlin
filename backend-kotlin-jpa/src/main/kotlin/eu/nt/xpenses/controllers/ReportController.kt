@@ -10,6 +10,7 @@ import eu.nt.xpenses.dto.report.ReportCreate
 import eu.nt.xpenses.dto.report.ReportOut
 import eu.nt.xpenses.dto.report.ReportSubmit
 import eu.nt.xpenses.dto.report.ReportUpdate
+import eu.nt.xpenses.mileage.VehicleMileage
 import eu.nt.xpenses.model.*
 import eu.nt.xpenses.models.PagedResponse
 import eu.nt.xpenses.report.lifecycle.AttachExpensesCommand
@@ -20,8 +21,6 @@ import eu.nt.xpenses.report.lifecycle.ReportLifecycleNotificationAdapter
 import eu.nt.xpenses.report.lifecycle.RejectReportCommand
 import eu.nt.xpenses.report.lifecycle.SubmitReportCommand
 import eu.nt.xpenses.repositories.ExpenseReportRepository
-import eu.nt.xpenses.repositories.MileageRecordRepository
-import eu.nt.xpenses.repositories.UserVehicleRepository
 import eu.nt.xpenses.services.mapper.ReportMapper
 import eu.nt.xpenses.services.Authorization
 import eu.nt.xpenses.services.EmailImportService
@@ -44,8 +43,6 @@ import org.springframework.web.server.ResponseStatusException
 import tools.jackson.core.type.TypeReference
 import jakarta.validation.Valid
 import java.io.ByteArrayOutputStream
-import java.math.BigDecimal
-import java.math.RoundingMode
 import java.time.Instant
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -56,8 +53,7 @@ import java.util.zip.ZipOutputStream
 @RequestMapping("/api/reports")
 class ReportController(
     private val expenseReportRepository: ExpenseReportRepository,
-    private val mileageRecordRepository: MileageRecordRepository,
-    private val userVehicleRepository: UserVehicleRepository,
+    private val vehicleMileage: VehicleMileage,
     private val pdfService: PdfService,
     private val storageService: StorageService,
     private val exportService: ExportService,
@@ -69,10 +65,6 @@ class ReportController(
     private val idempotency: SaveIdempotencyService,
     transactionManager: PlatformTransactionManager,
 ) {
-    companion object {
-        private val MIN_ODOMETER_KM = BigDecimal.ZERO
-        private val MAX_ODOMETER_KM = BigDecimal("9999999.9")
-    }
     private val reportType = object : TypeReference<ReportOut>() {}
     private val createTx = TransactionTemplate(transactionManager)
     private val readTx = TransactionTemplate(transactionManager).apply { isReadOnly = true }
@@ -268,13 +260,10 @@ class ReportController(
         if (body.clearStartingOdometer) {
             report.startingOdometerKm = null
         } else if (body.startingOdometerKm != null) {
-            if (!isValidOdometerKm(body.startingOdometerKm)) {
-                throw ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "starting_odometer_km must be between 0.0 and 9999999.9 with at most 1 decimal place"
-                )
-            }
-            report.startingOdometerKm = body.startingOdometerKm.setScale(1, RoundingMode.HALF_UP)
+            report.startingOdometerKm = vehicleMileage.validateAndNormalizeOdometerKm(
+                body.startingOdometerKm,
+                "starting_odometer_km",
+            )
         }
 
         report.updatedAt = Instant.now()
@@ -317,37 +306,12 @@ class ReportController(
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
         val outcome = lifecycle.submit(reportId, SubmitReportCommand(body?.expenseIds), currentUser)
         try {
-            advancePrimaryVehicleOdometer(reportId, outcome.report.startingOdometerKm)
+            vehicleMileage.advancePrimaryVehicleOdometer(reportId, outcome.report.startingOdometerKm)
         } catch (ex: Exception) {
             log.warn("Failed to advance vehicle odometer for report {}: {}", reportId, ex.message)
         }
         notificationAdapter.dispatch(outcome.events)
         return toReportOut(outcome.report)
-    }
-
-    private fun isValidOdometerKm(value: BigDecimal): Boolean =
-        value.compareTo(MIN_ODOMETER_KM) >= 0 &&
-            value.compareTo(MAX_ODOMETER_KM) <= 0 &&
-            value.stripTrailingZeros().scale() <= 1
-
-    private fun advancePrimaryVehicleOdometer(reportId: Int, startingOdometerKm: BigDecimal?) {
-        if (startingOdometerKm == null) return
-        createTx.execute {
-            val ownerId = expenseReportRepository.findById(reportId).orElse(null)?.user?.id ?: return@execute
-            userVehicleRepository.acquireUserLock(ownerId)
-            val sortedRecords = mileageRecordRepository.findAllByReportId(reportId)
-                .sortedWith(compareBy<MileageRecord>({ it.startTime }, { it.id ?: Int.MAX_VALUE }))
-            val primaryVehicleId = sortedRecords.firstOrNull()?.vehicle?.id ?: return@execute
-            val totalPrimaryKm = sortedRecords
-                .filter { it.vehicle?.id == primaryVehicleId }
-                .fold(BigDecimal.ZERO) { acc, r -> acc.add(BigDecimal.valueOf(r.distanceKm)) }
-            val endingOdometer = startingOdometerKm
-                .add(totalPrimaryKm)
-                .setScale(1, RoundingMode.HALF_UP)
-            if (endingOdometer.compareTo(MAX_ODOMETER_KM) <= 0) {
-                userVehicleRepository.advanceLastOdometerIfGreater(primaryVehicleId, endingOdometer, Instant.now())
-            }
-        }
     }
 
     @PostMapping("/{reportId}/recall")

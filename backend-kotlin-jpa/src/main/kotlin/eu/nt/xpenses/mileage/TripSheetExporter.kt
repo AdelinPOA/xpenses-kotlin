@@ -1,4 +1,4 @@
-package eu.nt.xpenses.services
+package eu.nt.xpenses.mileage
 
 import eu.nt.xpenses.model.ExpenseReport
 import eu.nt.xpenses.model.MileageRecord
@@ -12,8 +12,6 @@ import org.apache.poi.ss.util.CellRangeAddress
 import org.apache.poi.xssf.usermodel.XSSFCellStyle
 import org.apache.poi.xssf.usermodel.XSSFSheet
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
-import org.springframework.beans.factory.annotation.Value
-import org.springframework.stereotype.Service
 import java.io.ByteArrayOutputStream
 import java.math.BigDecimal
 import java.math.RoundingMode
@@ -22,9 +20,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-@Service
-class TripSheetExportService(
-    @Value("\${company.name:Newtech Automation}")
+internal class TripSheetExporter(
     private val companyName: String = "Newtech Automation"
 ) {
 

@@ -1,7 +1,7 @@
 # Backend Services
 
 ## Overview
-Core business logic services in `eu.nt.xpenses.services` covering expense/report operations, OCR processing and recovery, delegation email ingestion, FX rate conversion, mileage withholding calculation, PDF/CSV/XLSX export, LDAP authentication/sync, encryption, authorization, idempotency, application settings, and file storage.
+Core business logic services in `eu.nt.xpenses.services` covering expense/report operations, OCR processing and recovery, delegation email ingestion, FX rate conversion, PDF/CSV/XLSX export, LDAP authentication/sync, encryption, authorization, idempotency, application settings, and file storage.
 
 ## Interface
 - `[AppSettingsService.kt:AppSettingsService]` — manages daily allowance, mobile quick-add FAB flag, mileage rates, manual fuel prices (`getManualFuelPrice`), FX margins (`updateFxMargins` / `getFxMargins`), storage secret masking/restoration (`maskStorageSecrets`, `restoreStoredSecrets`), storage migration status, and orphan receipt scanning/cleanup
@@ -17,7 +17,6 @@ Core business logic services in `eu.nt.xpenses.services` covering expense/report
 - `[FxService.kt:FxService]` — resolves cached or provider FX rates with configured margins (`getRate`) and converts amounts to EUR (`convert`)
 - `[IdempotentExpenseSaving.kt:IdempotentExpenseSaving]` / `[SaveIdempotencyService.kt:SaveIdempotencyService]` — coordinates idempotent expense creation, receipt manifest/file uploads, and bulk creation outside long DB transactions (`create`, `manifest`, `bindManifest`, `upload`, `lookupBulkCreate`, `bulkCreate`; `validateKey`, `hash`, `digest`, `lookup`, `execute`)
 - `[LdapService.kt:LdapService]` / `[LdapService.kt:LdapConfig]` / `[LdapService.kt:LDAPUnavailableException]` / `[LdapService.kt:LDAPBindException]` — manages LDAP configuration, connection testing (`testConnection`), user sync (`syncUsers`), and bind authentication (`authenticateLdap`)
-- `[MileageCalculationService.kt:MileageCalculationService]` / `[MileageCalculationService.kt:MileageCalculationSettings]` / `[MileageCalculationService.kt:MileageCalculation]` — computes fuel costs, Romanian social/income tax withholdings, and net mileage reimbursement (`calculate`)
 - `[OcrService.kt:OcrService]` / `[OcrService.kt:OCRProviderConfig]` / `[OcrService.kt:OCRModelConfig]` / `[OcrService.kt:OCRConfig]` — manages OCR provider/model catalog (`getOcrConfig`, `updateOcrConfig`, `saveOcrConfig`, `testModel`), receipt scanning with SHA-256 caching (`scanReceipt`), and fallback model chain execution (`runModelChain`, `scanModel`)
 - `[OpenAiCompatibleClient.kt:OpenAiCompatibleClient]` — `DisposableBean` HTTPS client (`complete`, `validateBaseUrl`, `destroy`) with SSRF-blocking `PublicAddressDnsResolver` and `AiJsonSanitizer`
 - `[OcrJobRecoveryScheduler.kt:OcrJobRecoveryScheduler]` — `@Scheduled` runner invoking `OcrJobPipeline.recover`
@@ -27,7 +26,6 @@ Core business logic services in `eu.nt.xpenses.services` covering expense/report
 - `[PdfService.kt:PdfService]` — builds expense report PDFs with image receipts, signatures, and merged PDF receipts (`generateReportPdf`)
 - `[ReportService.kt:ReportService]` — eager report fetch queries (`getReportWithExpenses`, `getAllReportsWithExpenses`) and facade delegating lifecycle transitions (`attachExpenses`, `submitReport`, `recallReport`, `approveReport`, `rejectReport`, `payReport`) to `ExpenseReportLifecycle`
 - `[StorageService.kt:StorageService]` / `[StorageService.kt:StorageContext]` — manages active/remote storage providers, validates extensions/sizes/magic bytes (`validateMagicBytes`, `storeFile`), caches local copies (`getLocalPath`, `uploadFile`, `downloadFile`, `deleteFile`, `deleteOcrSource`), tests connections, and starts async migrations (`startMigration`)
-- `[TripSheetExportService.kt:TripSheetExportService]` — generates multi-sheet XLSX trip-sheet workbooks (`buildTripSheet`) grouped by vehicle plate and month with chained odometer readings
 - Child subpackages:
   - `fuel`: [./fuel/README.md](./fuel/README.md) - Multi-provider Romanian fuel price resolution, caching, and health monitoring (`FuelPriceProvider`, `FuelPriceService`, `FuelPriceHealthService`)
   - `fx`: [./fx/README.md](./fx/README.md) - Multi-provider HTTP/XML FX rate resolution (`FxRateProvider`, `HttpFxRateProvider`, `FxRateSource`)
@@ -46,7 +44,7 @@ Core business logic services in `eu.nt.xpenses.services` covering expense/report
 - `[AsyncOcrService.kt:processJob]` / `[OcrRecoveryService.kt:retry]` / `[OcrRecoveryService.kt:completeManually]` — jobs execute under 300s leases (`claimEligible`/`reclaimExpired`) with max 3 attempts (`30s * attemptCount` retry backoff; expired `PROCESSING` jobs at `attemptCount >= 3` are marked `PERMANENT_FAILURE` with `OCR_LEASE_EXPIRED`); recovery requires job ownership, valid unexpired source, and `PERMANENT_FAILURE` status
 - `[OcrSourceCleanupService.kt:cleanup]` — `@Synchronized` bounded pass (batch 1..100) only deletes unshared `ocr-sources/` files on terminal expired jobs outside DB locks, transitioning `PERMANENT_FAILURE`/`UNRECOVERABLE` jobs to `EXPIRED`
 - `[StorageService.kt:storeFile]` / `[StorageService.kt:deleteOcrSource]` — enforces `StorageContext` extension/size limits (`10 MB` for `OCR_SOURCE`/`RECEIPT`, `2 MB` for `SIGNATURE`; `50 MB` global cap in `uploadFile`), magic-byte validation (`validateMagicBytes`), masked-secret rejection, and non-symlink `ocr-sources/` path checks
-- `[ExportService.kt:sanitizeFormula]` / `[LdapService.kt:syncUsers]` / `[MileageCalculationService.kt:calculate]` / `[PdfService.kt:buildMainPdf]` — CSV/XLSX strings starting with `=`, `+`, `-`, `@`, `\t`, `\r` are quote-prefixed; LDAP sync skips `authSource == "local"` users and runs searches outside DB transactions; mileage clamps negative totals to zero and requires `fuelExchangeRate > 0`; PDF `totalReimbursable` excludes mileage (`totalEur + allowance - totalAdv`)
+- `[ExportService.kt:sanitizeFormula]` / `[LdapService.kt:syncUsers]` / `[PdfService.kt:buildMainPdf]` — CSV/XLSX strings starting with `=`, `+`, `-`, `@`, `\t`, `\r` are quote-prefixed; LDAP sync skips `authSource == "local"` users and runs searches outside DB transactions; PDF `totalReimbursable` excludes mileage (`totalEur + allowance - totalAdv`)
 - `[EmailImportService.kt:parseOrderForUser]` / `[EmailImportService.kt:findActiveSender]` — automated email ingestion requires an active `technician` sender; manual order import requires active user, enabled OCR + non-empty `delegationModelChain`, and disallows fallback to local parsing
 
 ## Side Effects

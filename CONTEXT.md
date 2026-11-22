@@ -57,6 +57,14 @@ _Avoid_: expense folder, expense pack, claim
 **MileageRecord**:
 A Technician's distance-based travel entry attached to an ExpenseReport, carrying an EUR amount (`amountEur`). Tracked alongside Expenses and included in the API report total, but excluded from the PDF report reimbursement summary.
 
+**Vehicle**:
+A User-owned vehicle profile (plate number, fuel type, consumption, category, and last odometer reading) used to price MileageRecords, snapshot vehicle details onto trips, and populate trip sheets. One Vehicle per User is designated as the default when any exist.
+_Avoid_: car, profile car, user vehicle
+
+**Trip sheet**:
+An Excel travel log (`foaie de parcurs`) generated from an ExpenseReport's MileageRecords and their Vehicle snapshots.
+_Avoid_: mileage export, travel sheet
+
 **Technician**:
 An employee who incurs and submits expenses, represented by a User with role `technician`. Exact bank-debit reimbursement is a policy goal; an automatically estimated FX rate alone does not establish the actual bank debit.
 _Avoid_: employee, worker, user

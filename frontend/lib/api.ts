@@ -183,6 +183,8 @@ export type {
   AdvancePayment,
   PendingAdvance,
   MileageRecord,
+  MileageCreatePayload,
+  MileageUpdatePayload,
   MileageRates,
   Report,
   EmailSimulationIn,
@@ -246,6 +248,7 @@ export type { Category } from "./types/expense";
 export type { InsuranceFile } from "./types/insurance";
 export type { SearchResult } from "./types/search";
 export { bulkUploadExpenses, duplicateExpense } from "./api/expenses";
+export { createMileage, updateMileage, deleteMileage } from "./api/mileage";
 export { getReviewQueue, bulkReportStatus } from "./api/reviewQueue";
 export {
   getOcrConfig,

@@ -13,7 +13,7 @@ Request and response data transfer objects in `eu.nt.xpenses.dto.report` for exp
 - `[BulkStatusBody.kt:BulkStatusBody]` / `[BulkStatusBody.kt:BulkStatusFailure]` / `[BulkStatusBody.kt:BulkStatusResult]` — bulk report status action payload and per-ID outcome DTOs
 - `[ImportOrderIn.kt:ImportOrderIn]` — `data class ImportOrderIn(bodyText: String)`
 - `[ImportOrderPreviewOut.kt:ImportOrderPreviewOut]` — `data class` representing parsed delegation/SAP order metadata and matching existing draft report info
-- `[MileageRecordCreate.kt:MileageRecordCreate]` / `[MileageRecordUpdate.kt:MileageRecordUpdate]` / `[MileageRecordOut.kt:MileageRecordOut]` — mileage record request DTOs (`vehicle_id`, `clear_vehicle`, `round_trip`) and detailed output DTO with fuel price/source, tax withholding breakdown, vehicle snapshot fields, and `durationMinutes`
+- `[MileageRecordCreate.kt:MileageRecordCreate]` / `[MileageRecordUpdate.kt:MileageRecordUpdate]` / `[MileageRecordOut.kt:MileageRecordOut]` — mileage record request DTOs (`vehicle_id`, `clear_vehicle`, `round_trip`, optional `version` on update) and detailed output DTO with `version`, fuel price/source, tax withholding breakdown, vehicle snapshot fields, and `durationMinutes`
 - `[RejectBody.kt:RejectBody]` — `data class RejectBody(reason: String = "")`
 - `[ReportCreate.kt:ReportCreate]` / `[ReportUpdate.kt:ReportUpdate]` / `[ReportSubmit.kt:ReportSubmit]` / `[ReportOut.kt:ReportOut]` — report lifecycle request/response DTOs including child expenses, advances, mileage records, daily allowance, `totalReimbursable`, `starting_odometer_km`, `clear_starting_odometer`, and SAP order fields
 
@@ -24,8 +24,8 @@ Request and response data transfer objects in `eu.nt.xpenses.dto.report` for exp
 - `[AdvancePaymentCreate.kt:NotBlank]` — `type` must not be blank
 - `[BulkStatusBody.kt:NotEmpty]` — `ids` must not be empty
 - `[ImportOrderIn.kt:NotBlank]` / `[ImportOrderIn.kt:Size]` — `bodyText` must not be blank and max length is `50000`
-- `[MileageRecordCreate.kt:NotBlank]` — `origin` and `destination` must not be blank
-- `[MileageRecordCreate.kt:DecimalMin]` / `[MileageRecordUpdate.kt:DecimalMin]` — `distanceKm >= 0.01`
+- `[MileageRecordCreate.kt:NotBlank]` / `[MileageRecordCreate.kt:Size]` / `[MileageRecordUpdate.kt:Size]` — `origin` and `destination` max length `255` (`@field:NotBlank` on create), `description` max length `1000`
+- `[MileageRecordCreate.kt:DecimalMin]` / `[MileageRecordCreate.kt:DecimalMax]` / `[MileageRecordUpdate.kt:DecimalMin]` / `[MileageRecordUpdate.kt:DecimalMax]` — `0.01 <= distanceKm <= 100000.0`
 - `[ReportCreate.kt:NotBlank]` — `title` must not be blank
 - `[ReportCreate.kt:Size]` — `description` max length is `5000`
 - `[ReportUpdate.kt:Size]` — `description` max length is `1000`

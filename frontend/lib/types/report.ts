@@ -64,8 +64,33 @@ export interface MileageRecord {
   vehicle_make_model: string | null;
   vehicle_category: string | null;
   vehicle_fuel_type: FuelType | null;
+  version?: number;
   created_at: string;
   updated_at: string;
+}
+
+export interface MileageCreatePayload {
+  origin: string;
+  destination: string;
+  distance_km: number;
+  start_time: string;
+  end_time: string;
+  round_trip: boolean;
+  description?: string;
+  vehicle_id?: number;
+}
+
+export interface MileageUpdatePayload {
+  origin?: string;
+  destination?: string;
+  distance_km?: number;
+  start_time?: string;
+  end_time?: string;
+  description?: string;
+  vehicle_id?: number;
+  clear_vehicle?: boolean;
+  round_trip?: boolean;
+  version?: number;
 }
 
 export interface MileageRates {

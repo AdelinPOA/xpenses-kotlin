@@ -2,53 +2,85 @@
 
 import { use, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import api, { downloadBlob, MileageRecord, Report, UserVehicle } from "@/lib/api";
+import api, {
+  createMileage,
+  deleteMileage as deleteMileageApi,
+  downloadBlob,
+  updateMileage as updateMileageApi,
+  type MileageCreatePayload,
+  type MileageRecord,
+  type MileageUpdatePayload,
+  type Report,
+  type UserVehicle,
+} from "@/lib/api";
 import { reportKeys, mileageKeys, vehicleKeys } from "@/lib/queryKeys";
 import AppShell from "@/components/layout/AppShell";
 import Badge from "@/components/ui/Badge";
+import QueryErrorNotice from "@/components/ui/QueryErrorNotice";
+import { useAuth } from "@/components/AuthProvider";
+import { useToast } from "@/components/ToastProvider";
 import MileageWeeklyList from "@/components/reports/MileageWeeklyList";
+import MileageTripModal from "@/components/reports/MileageTripModal";
 import { ArrowLeft, FileSpreadsheet, Gauge, Plus } from "lucide-react";
 import Link from "next/link";
-import { formatAmount, parseLocaleNumber } from "@/lib/format";
+import {
+  formatAmount,
+  formatDistanceKm,
+  parseLocaleNumber,
+} from "@/lib/format";
 import { LOCALE_TO_INTL, type Locale } from "@/i18n/config";
 import {
   addDaysToDateKey,
-  buildDefaultDateTimeLocal,
   buildMileageWeeks,
   buildPastePayload,
   formatDayHeading,
   formatDuration,
+  getMondayDateKey,
+  isoToLocalDateKey,
 } from "@/lib/mileageWeeks";
 import { useLocale, useTranslations } from "next-intl";
 
-export default function MileagePage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
-  const reportId = parseInt(id);
-  const qc = useQueryClient();
+type ModalState =
+  | null
+  | { mode: "create"; initialDateKey?: string }
+  | { mode: "edit"; trip: MileageRecord };
 
-  const [showForm, setShowForm] = useState(false);
-  const [origin, setOrigin] = useState("");
-  const [destination, setDestination] = useState("");
-  const [distanceKm, setDistanceKm] = useState("");
-  const [startTime, setStartTime] = useState("");
-  const [endTime, setEndTime] = useState("");
-  const [description, setDescription] = useState("");
-  const [roundTrip, setRoundTrip] = useState(false);
-  const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
-  const [formError, setFormError] = useState<string | null>(null);
+export default function MileagePage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = use(params);
+  const reportId = parseInt(id, 10);
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  const toast = useToast();
+
+  const [modalState, setModalState] = useState<ModalState>(null);
   const [odometerInput, setOdometerInput] = useState<string | null>(null);
   const [odometerError, setOdometerError] = useState<string | null>(null);
   const [odometerSaved, setOdometerSaved] = useState(false);
   const [downloadingTripSheet, setDownloadingTripSheet] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
-  const [copiedTrip, setCopiedTrip] = useState<MileageRecord | null>(null);
+  const [copiedTripId, setCopiedTripId] = useState<number | null>(null);
   const [extraWeekStarts, setExtraWeekStarts] = useState<string[]>([]);
-  const [pastingDates, setPastingDates] = useState<Set<string>>(() => new Set());
+  const [collapsedWeeks, setCollapsedWeeks] = useState<Record<string, boolean>>(
+    {},
+  );
+  const [highlightedTripId, setHighlightedTripId] = useState<number | null>(
+    null,
+  );
+  const [pastingDates, setPastingDates] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [pasteNotice, setPasteNotice] = useState<string | null>(null);
   const [pasteError, setPasteError] = useState<string | null>(null);
   const inFlightDatesRef = useRef<Set<string>>(new Set());
-  const pasteNoticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const formRef = useRef<HTMLFormElement | null>(null);
+  const pasteNoticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const triggerRef = useRef<HTMLElement | null>(null);
   const t = useTranslations("reports");
   const locale = useLocale() as Locale;
 
@@ -57,65 +89,101 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
       if (pasteNoticeTimerRef.current) {
         clearTimeout(pasteNoticeTimerRef.current);
       }
+      if (highlightTimerRef.current) {
+        clearTimeout(highlightTimerRef.current);
+      }
     };
   }, []);
 
+  const {
+    data: report,
+    isLoading,
+    isError,
+    isFetching: reportFetching,
+    refetch: refetchReport,
+  } = useQuery<Report>({
+    queryKey: reportKeys.detail(reportId),
+    queryFn: () => api.get(`/reports/${id}`).then((r) => r.data),
+  });
+
+  const canEdit = Boolean(
+    user && report && report.status === "draft" && report.user_id === user.id,
+  );
+
+  const copiedTrip = useMemo(() => {
+    if (copiedTripId == null) return null;
+    return (
+      report?.mileage_records?.find((record) => record.id === copiedTripId) ??
+      null
+    );
+  }, [copiedTripId, report?.mileage_records]);
+
   useEffect(() => {
-    if (!copiedTrip) return;
+    if (!copiedTrip || modalState !== null) return;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        setCopiedTrip(null);
+        setCopiedTripId(null);
         setPasteNotice(null);
         setPasteError(null);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [copiedTrip]);
+  }, [copiedTrip, modalState]);
 
-  const { data: report, isLoading } = useQuery<Report>({
-    queryKey: reportKeys.detail(reportId),
-    queryFn: () => api.get(`/reports/${id}`).then((r) => r.data),
-  });
-
-  const isDraft = report?.status === "draft";
   const weeks = useMemo(
     () =>
       buildMileageWeeks({
         records: report?.mileage_records ?? [],
         dateFrom: report?.date_from,
         dateTo: report?.date_to,
-        includeEmptyDays: isDraft,
+        includeEmptyDays: canEdit,
         extraWeekStarts,
       }),
-    [report?.mileage_records, report?.date_from, report?.date_to, isDraft, extraWeekStarts],
+    [
+      report?.mileage_records,
+      report?.date_from,
+      report?.date_to,
+      canEdit,
+      extraWeekStarts,
+    ],
   );
 
-  const { data: vehicles = [], isSuccess: vehiclesLoaded } = useQuery<UserVehicle[]>({
+  const {
+    data: vehicles = [],
+    isLoading: vehiclesLoading,
+    isError: vehiclesError,
+    isSuccess: vehiclesLoaded,
+  } = useQuery<UserVehicle[]>({
     queryKey: vehicleKeys.me(),
     queryFn: () => api.get("/users/me/vehicles").then((r) => r.data),
-    enabled: report?.status === "draft",
+    enabled: canEdit,
   });
 
   const defaultVehicle = vehicles.find((v) => v.is_default);
-  const defaultVehicleId = defaultVehicle ? String(defaultVehicle.id) : "";
-  const effectiveVehicleId = selectedVehicleId ?? defaultVehicleId;
-  const selectedVehicle = effectiveVehicleId
-    ? vehicles.find((v) => String(v.id) === effectiveVehicleId)
-    : undefined;
   const prefillVehicle =
-    (selectedVehicle?.last_odometer_km != null ? selectedVehicle : undefined) ??
     (defaultVehicle?.last_odometer_km != null ? defaultVehicle : undefined) ??
     vehicles.find((v) => v.last_odometer_km != null);
   const prefillKm = prefillVehicle?.last_odometer_km ?? null;
 
   const effectiveOdometerInput =
     odometerInput ??
-    (report?.starting_odometer_km != null ? String(report.starting_odometer_km) : "");
+    (report?.starting_odometer_km != null
+      ? String(report.starting_odometer_km)
+      : "");
 
   const invalidate = () => {
-    qc.invalidateQueries({ queryKey: reportKeys.detail(reportId) });
+    qc.invalidateQueries({ queryKey: reportKeys.all });
     qc.invalidateQueries({ queryKey: mileageKeys.all });
+  };
+
+  const closeModalAndRestoreFocus = () => {
+    setModalState(null);
+    const el = triggerRef.current;
+    triggerRef.current = null;
+    if (el && el.isConnected) {
+      requestAnimationFrame(() => el.focus());
+    }
   };
 
   const saveOdometer = useMutation({
@@ -133,7 +201,9 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
       invalidate();
     },
     onError: (e: unknown) => {
-      const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      const detail = (
+        e as { response?: { data?: { detail?: string } } }
+      )?.response?.data?.detail;
       setOdometerSaved(false);
       setOdometerError(detail ?? t("mileage_starting_odometer_invalid"));
     },
@@ -179,122 +249,151 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
   };
 
   const addMileage = useMutation({
-    mutationFn: (data: {
-      origin: string;
-      destination: string;
-      distance_km: number;
-      start_time: string;
-      end_time: string;
-      description?: string;
-      vehicle_id?: number;
-      round_trip?: boolean;
-    }) =>
-      api.post(`/reports/${id}/mileage`, data),
-    onSuccess: () => {
+    mutationFn: (payload: MileageCreatePayload) =>
+      createMileage(reportId, payload),
+    onSuccess: (created) => {
       invalidate();
-      setShowForm(false);
-      setFormError(null);
-      setOrigin("");
-      setDestination("");
-      setDistanceKm("");
-      setStartTime("");
-      setEndTime("");
-      setDescription("");
-      setRoundTrip(false);
-      setSelectedVehicleId(null);
+      const targetDayKey = isoToLocalDateKey(created.start_time);
+      const targetWeekStart = getMondayDateKey(targetDayKey);
+      setCollapsedWeeks((prev) =>
+        prev[targetWeekStart] ? { ...prev, [targetWeekStart]: false } : prev,
+      );
+      closeModalAndRestoreFocus();
     },
-    onError: (e: any) => {
-      setFormError(e.response?.data?.detail ?? t("mileage_error_save") ?? "Failed to save trip");
+  });
+
+  const editMileage = useMutation({
+    mutationFn: ({
+      mileageId,
+      payload,
+    }: {
+      mileageId: number;
+      payload: MileageUpdatePayload;
+      previousDayKey: string;
+    }) => updateMileageApi(reportId, mileageId, payload),
+    onSuccess: (updated, variables) => {
+      invalidate();
+      const targetDayKey = isoToLocalDateKey(updated.start_time);
+      const targetWeekStart = getMondayDateKey(targetDayKey);
+      setCollapsedWeeks((prev) =>
+        prev[targetWeekStart] ? { ...prev, [targetWeekStart]: false } : prev,
+      );
+
+      if (highlightTimerRef.current) {
+        clearTimeout(highlightTimerRef.current);
+      }
+      setHighlightedTripId(updated.id);
+      highlightTimerRef.current = setTimeout(() => {
+        setHighlightedTripId(null);
+        highlightTimerRef.current = null;
+      }, 2500);
+
+      if (targetDayKey !== variables.previousDayKey) {
+        const heading = formatDayHeading(targetDayKey, LOCALE_TO_INTL[locale]);
+        toast.success(
+          t("mileage_toast_moved", {
+            day: `${heading.weekday}, ${heading.shortDate}`,
+          }),
+        );
+      } else {
+        toast.success(t("mileage_toast_updated"));
+      }
+      closeModalAndRestoreFocus();
+    },
+    onError: (err: unknown) => {
+      const axiosErr = err as {
+        code?: string;
+        response?: { status?: number };
+      };
+      const status = axiosErr?.response?.status;
+      const isTimeout =
+        axiosErr?.code === "ECONNABORTED" || axiosErr?.code === "ETIMEDOUT";
+      if (
+        isTimeout ||
+        status === 400 ||
+        status === 404 ||
+        status === 409
+      ) {
+        invalidate();
+      }
     },
   });
 
   const deleteMileage = useMutation({
-    mutationFn: (mileageId: number) => api.delete(`/reports/${id}/mileage/${mileageId}`),
+    mutationFn: (mileageId: number) => deleteMileageApi(reportId, mileageId),
     onSuccess: () => {
-      setFormError(null);
       invalidate();
     },
     onError: (e: unknown) => {
-      const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
-      setFormError(detail ?? t("mileage_error_delete"));
+      const detail = (
+        e as { response?: { data?: { detail?: string } } }
+      )?.response?.data?.detail;
+      toast.error(detail ?? t("mileage_error_delete"));
     },
   });
 
   const confirmDeleteMileage = (mileageId: number) => {
     if (window.confirm(t("mileage_confirm_delete"))) {
-      setFormError(null);
       deleteMileage.mutate(mileageId);
     }
   };
 
-  const handleAdd = () => {
-    setFormError(null);
-    const km = parseLocaleNumber(distanceKm);
-    if (!origin.trim() || !destination.trim()) {
-      setFormError(t("mileage_error_origin_dest") || "Both origin and destination are required.");
-      return;
-    }
-    if (!startTime || !endTime) {
-      setFormError(t("mileage_error_times_required") || "Start time and end time are required.");
-      return;
-    }
-    if (new Date(endTime) <= new Date(startTime)) {
-      setFormError(t("mileage_error_time_order") || "End time must be after start time.");
-      return;
-    }
-    if (isNaN(km) || km <= 0) {
-      setFormError(t("mileage_error_distance") || "Distance must be greater than 0 km.");
-      return;
-    }
-    addMileage.mutate({
-      origin: origin.trim(),
-      destination: destination.trim(),
-      distance_km: km,
-      start_time: new Date(startTime).toISOString(),
-      end_time: new Date(endTime).toISOString(),
-      round_trip: roundTrip,
-      ...(description.trim() ? { description: description.trim() } : {}),
-      ...(effectiveVehicleId ? { vehicle_id: Number(effectiveVehicleId) } : {}),
-    });
-  };
-
   const handleCopyTrip = (trip: MileageRecord) => {
-    setCopiedTrip(trip);
+    setCopiedTripId(trip.id);
     setPasteError(null);
     setPasteNotice(null);
   };
 
   const handleClearClipboard = () => {
-    setCopiedTrip(null);
+    setCopiedTripId(null);
     setPasteError(null);
     setPasteNotice(null);
   };
 
-  const handleOpenFormForDay = (dateKey: string) => {
-    const nextTimes = buildDefaultDateTimeLocal(dateKey, startTime, endTime);
-    setStartTime(nextTimes.startTime);
-    setEndTime(nextTimes.endTime);
-    setShowForm(true);
-    setFormError(null);
-    requestAnimationFrame(() => {
-      formRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    });
+  const handleOpenCreateModal = (
+    dateKey?: string,
+    triggerEl?: HTMLElement | null,
+  ) => {
+    triggerRef.current = triggerEl ?? null;
+    setModalState({ mode: "create", initialDateKey: dateKey });
+  };
+
+  const handleOpenEditModal = (
+    trip: MileageRecord,
+    triggerEl: HTMLElement | null,
+  ) => {
+    triggerRef.current = triggerEl;
+    setModalState({ mode: "edit", trip });
+  };
+
+  const handleToggleWeek = (weekStartKey: string) => {
+    setCollapsedWeeks((prev) => ({
+      ...prev,
+      [weekStartKey]: !prev[weekStartKey],
+    }));
   };
 
   const handleAddPreviousWeek = () => {
     if (weeks.length === 0) return;
     const prevStart = addDaysToDateKey(weeks[0].weekStartKey, -7);
-    setExtraWeekStarts((prev) => (prev.includes(prevStart) ? prev : [...prev, prevStart]));
+    setExtraWeekStarts((prev) =>
+      prev.includes(prevStart) ? prev : [...prev, prevStart],
+    );
   };
 
   const handleAddNextWeek = () => {
     if (weeks.length === 0) return;
-    const nextStart = addDaysToDateKey(weeks[weeks.length - 1].weekStartKey, 7);
-    setExtraWeekStarts((prev) => (prev.includes(nextStart) ? prev : [...prev, nextStart]));
+    const nextStart = addDaysToDateKey(
+      weeks[weeks.length - 1].weekStartKey,
+      7,
+    );
+    setExtraWeekStarts((prev) =>
+      prev.includes(nextStart) ? prev : [...prev, nextStart],
+    );
   };
 
   const handlePasteToDates = async (targetDateKeys: string[]) => {
-    if (!copiedTrip || !isDraft || targetDateKeys.length === 0) return;
+    if (!copiedTrip || !canEdit || targetDateKeys.length === 0) return;
 
     const pending: string[] = [];
     const seen = new Set<string>();
@@ -317,7 +416,9 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
       pasteNoticeTimerRef.current = null;
     }
 
-    const validVehicleIds = vehiclesLoaded ? new Set(vehicles.map((v) => v.id)) : null;
+    const validVehicleIds = vehiclesLoaded
+      ? new Set(vehicles.map((v) => v.id))
+      : null;
     const succeeded: string[] = [];
     let errorDetail: string | null = null;
     let hadError = false;
@@ -326,10 +427,12 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
       for (const dateKey of pending) {
         try {
           const payload = buildPastePayload(copiedTrip, dateKey, validVehicleIds);
-          await api.post(`/reports/${id}/mileage`, payload);
+          await createMileage(reportId, payload);
           succeeded.push(dateKey);
         } catch (err: unknown) {
-          const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+          const detail = (
+            err as { response?: { data?: { detail?: string } } }
+          )?.response?.data?.detail;
           errorDetail = detail ?? t("mileage_paste_error");
           hadError = true;
           break;
@@ -372,32 +475,67 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
         setPasteNotice(null);
       }, 4000);
     } else if (succeeded.length > 1) {
-      setPasteNotice(t("mileage_paste_success_many", { count: succeeded.length }));
+      setPasteNotice(
+        t("mileage_paste_success_many", { count: succeeded.length }),
+      );
       pasteNoticeTimerRef.current = setTimeout(() => {
         setPasteNotice(null);
       }, 4000);
     }
   };
 
-  if (isLoading) return <AppShell><p className="text-muted-foreground text-sm mt-8">{t("mileage_loading")}</p></AppShell>;
-  if (!report) return <AppShell><p className="text-red-500 text-sm">{t("mileage_not_found")}</p></AppShell>;
+  if (isLoading) {
+    return (
+      <AppShell>
+        <p className="text-muted-foreground text-sm mt-8">
+          {t("mileage_loading")}
+        </p>
+      </AppShell>
+    );
+  }
+  if (isError) {
+    return (
+      <AppShell>
+        <div className="mt-8">
+          <QueryErrorNotice
+            isFetching={reportFetching}
+            onRetry={() => void refetchReport()}
+          />
+        </div>
+      </AppShell>
+    );
+  }
+  if (!report) {
+    return (
+      <AppShell>
+        <p className="text-red-500 text-sm">{t("mileage_not_found")}</p>
+      </AppShell>
+    );
+  }
 
   const records = report.mileage_records || [];
   const totalKm = records.reduce((s, m) => s + m.distance_km, 0);
   const totalNet = records.reduce((s, m) => s + m.amount_eur, 0);
   const totalGross = records.reduce((s, m) => s + m.amount_before_tax, 0);
   const totalDuration = records.reduce((s, m) => s + m.duration_minutes, 0);
+  const mutatingDisabled = pastingDates.size > 0 || deleteMileage.isPending;
 
   return (
     <AppShell>
       <div className="mb-6">
-        <Link href={`/reports/${id}`} className="flex items-center gap-1 text-sm text-muted hover:text-slate-800 dark:hover:text-slate-200 mb-4">
-          <ArrowLeft className="w-4 h-4" aria-hidden="true" /> {t("mileage_back")}
+        <Link
+          href={`/reports/${id}`}
+          className="flex items-center gap-1 text-sm text-muted hover:text-slate-800 dark:hover:text-slate-200 mb-4"
+        >
+          <ArrowLeft className="w-4 h-4" aria-hidden="true" />{" "}
+          {t("mileage_back")}
         </Link>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-foreground">{t("mileage_heading")}</h1>
+              <h1 className="text-2xl font-bold text-foreground">
+                {t("mileage_heading")}
+              </h1>
               <Badge status={report.status} />
             </div>
             <p className="text-sm text-muted mt-1">{report.title}</p>
@@ -409,13 +547,23 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
               disabled={downloadingTripSheet}
               className="inline-flex items-center justify-center gap-2 px-3.5 py-2 border border-input-border text-slate-700 dark:text-slate-200 bg-card hover:bg-card-hover text-sm font-medium rounded-lg disabled:opacity-50 cursor-pointer transition-colors"
             >
-              <FileSpreadsheet className="w-4 h-4 shrink-0" aria-hidden="true" />
-              <span>{downloadingTripSheet ? t("detail_exporting") : t("mileage_export_trip_sheet")}</span>
+              <FileSpreadsheet
+                className="w-4 h-4 shrink-0"
+                aria-hidden="true"
+              />
+              <span>
+                {downloadingTripSheet
+                  ? t("detail_exporting")
+                  : t("mileage_export_trip_sheet")}
+              </span>
             </button>
           )}
         </div>
         {exportError && (
-          <p role="alert" className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-400">
+          <p
+            role="alert"
+            className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-400"
+          >
             {exportError}
           </p>
         )}
@@ -424,25 +572,41 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
       {/* Summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
         <div className="bg-card rounded-xl shadow-sm p-4">
-          <p className="text-xs text-teal-500 uppercase mb-1">{t("mileage_total_distance")}</p>
-          <p className="text-xl font-bold text-teal-600 dark:text-teal-400">{totalKm.toFixed(1)} km</p>
+          <p className="text-xs text-teal-500 uppercase mb-1">
+            {t("mileage_total_distance")}
+          </p>
+          <p className="text-xl font-bold text-teal-600 dark:text-teal-400">
+            {formatDistanceKm(totalKm)} {t("mileage_km")}
+          </p>
         </div>
         <div className="bg-card rounded-xl shadow-sm p-4">
-          <p className="text-xs text-blue-500 uppercase mb-1">{t("mileage_driving_time")}</p>
-          <p className="text-xl font-bold text-blue-600 dark:text-blue-400">{formatDuration(totalDuration)}</p>
+          <p className="text-xs text-blue-500 uppercase mb-1">
+            {t("mileage_driving_time")}
+          </p>
+          <p className="text-xl font-bold text-blue-600 dark:text-blue-400">
+            {formatDuration(totalDuration)}
+          </p>
         </div>
         <div className="bg-card rounded-xl shadow-sm p-4">
-          <p className="text-xs text-slate-500 uppercase mb-1">{t("mileage_gross")}</p>
-          <p className="text-xl font-bold text-slate-700 dark:text-slate-300">{formatAmount(totalGross, "EUR")}</p>
+          <p className="text-xs text-slate-500 uppercase mb-1">
+            {t("mileage_gross")}
+          </p>
+          <p className="text-xl font-bold text-slate-700 dark:text-slate-300">
+            {formatAmount(totalGross, "EUR")}
+          </p>
         </div>
         <div className="bg-card rounded-xl shadow-sm p-4">
-          <p className="text-xs text-emerald-500 uppercase mb-1">{t("mileage_net")}</p>
-          <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400">{formatAmount(totalNet, "EUR")}</p>
+          <p className="text-xs text-emerald-500 uppercase mb-1">
+            {t("mileage_net")}
+          </p>
+          <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400">
+            {formatAmount(totalNet, "EUR")}
+          </p>
         </div>
       </div>
 
       {/* Starting odometer card */}
-      {report.status === "draft" ? (
+      {canEdit ? (
         <div className="bg-card rounded-xl shadow-sm p-4 mb-6">
           <form onSubmit={handleSaveOdometer} className="space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-end gap-3">
@@ -497,7 +661,8 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
             </div>
             {report.starting_odometer_km != null && totalKm > 0 && (
               <p className="text-xs text-muted">
-                {report.starting_odometer_km.toFixed(1)} km → {(report.starting_odometer_km + totalKm).toFixed(1)} km
+                {report.starting_odometer_km.toFixed(1)} km →{" "}
+                {(report.starting_odometer_km + totalKm).toFixed(1)} km
               </p>
             )}
             {odometerError && (
@@ -506,7 +671,10 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
               </p>
             )}
             {odometerSaved && !odometerError && (
-              <p role="status" className="text-xs text-emerald-600 dark:text-emerald-400">
+              <p
+                role="status"
+                className="text-xs text-emerald-600 dark:text-emerald-400"
+              >
                 {t("mileage_starting_odometer_saved")}
               </p>
             )}
@@ -514,212 +682,30 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
         </div>
       ) : report.starting_odometer_km != null ? (
         <div className="bg-card rounded-xl shadow-sm p-4 mb-6 flex items-center gap-2 text-sm">
-          <Gauge className="w-4 h-4 text-teal-600 dark:text-teal-400 shrink-0" aria-hidden="true" />
+          <Gauge
+            className="w-4 h-4 text-teal-600 dark:text-teal-400 shrink-0"
+            aria-hidden="true"
+          />
           <span className="text-muted">{t("mileage_starting_odometer")}:</span>
           <span className="font-semibold text-foreground">
-            {report.starting_odometer_km.toFixed(1)} km → {(report.starting_odometer_km + totalKm).toFixed(1)} km
+            {report.starting_odometer_km.toFixed(1)} km →{" "}
+            {(report.starting_odometer_km + totalKm).toFixed(1)} km
           </span>
         </div>
       ) : null}
 
       {/* Add button */}
-      {report.status === "draft" && (
+      {canEdit && (
         <div className="mb-6">
           <button
-            onClick={() => setShowForm(!showForm)}
-            className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-              showForm
-                ? "bg-teal-600 text-white"
-                : "border border-teal-300 dark:border-teal-700 text-teal-700 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-950/30"
-            }`}
+            type="button"
+            onClick={(e) => handleOpenCreateModal(undefined, e.currentTarget)}
+            className="inline-flex items-center gap-2 min-h-11 px-4 py-2 text-sm font-medium rounded-lg border border-teal-300 dark:border-teal-700 text-teal-700 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-950/30 cursor-pointer transition-colors"
           >
-            <Plus className="w-4 h-4" /> {t("mileage_add_trip")}
+            <Plus className="w-4 h-4" aria-hidden="true" />{" "}
+            {t("mileage_add_trip")}
           </button>
         </div>
-      )}
-
-      {/* Add form */}
-      {showForm && (
-        <form
-          ref={formRef}
-          onSubmit={(e) => {
-            e.preventDefault();
-            handleAdd();
-          }}
-          className="bg-teal-50 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-800/50 rounded-xl p-4 mb-6 space-y-3"
-        >
-          <p className="text-sm font-medium text-slate-700 dark:text-slate-300">{t("mileage_record_trip")}</p>
-
-          {formError && (
-            <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-400">
-              {formError}
-            </p>
-          )}
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label htmlFor="mileage-origin" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
-                {t("mileage_origin")}
-              </label>
-              <input
-                id="mileage-origin"
-                type="text"
-                required
-                placeholder={t("mileage_origin")}
-                value={origin}
-                onChange={(e) => {
-                  setOrigin(e.target.value);
-                  if (formError) setFormError(null);
-                }}
-                className="w-full min-h-11 px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground focus:outline-none focus:ring-2 focus:ring-teal-500"
-              />
-            </div>
-            <div>
-              <label htmlFor="mileage-destination" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
-                {t("mileage_destination")}
-              </label>
-              <input
-                id="mileage-destination"
-                type="text"
-                required
-                placeholder={t("mileage_destination")}
-                value={destination}
-                onChange={(e) => {
-                  setDestination(e.target.value);
-                  if (formError) setFormError(null);
-                }}
-                className="w-full min-h-11 px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground focus:outline-none focus:ring-2 focus:ring-teal-500"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label htmlFor="mileage-start-time" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
-                {t("mileage_start_time")}
-              </label>
-              <input
-                id="mileage-start-time"
-                type="datetime-local"
-                required
-                value={startTime}
-                onChange={(e) => {
-                  setStartTime(e.target.value);
-                  if (formError) setFormError(null);
-                }}
-                className="w-full min-h-11 px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground focus:outline-none focus:ring-2 focus:ring-teal-500"
-              />
-            </div>
-            <div>
-              <label htmlFor="mileage-end-time" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
-                {t("mileage_end_time")}
-              </label>
-              <input
-                id="mileage-end-time"
-                type="datetime-local"
-                required
-                value={endTime}
-                onChange={(e) => {
-                  setEndTime(e.target.value);
-                  if (formError) setFormError(null);
-                }}
-                className="w-full min-h-11 px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground focus:outline-none focus:ring-2 focus:ring-teal-500"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label htmlFor="mileage-vehicle" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
-              {t("mileage_vehicle")}
-            </label>
-            <select
-              id="mileage-vehicle"
-              value={effectiveVehicleId}
-              onChange={(e) => {
-                setSelectedVehicleId(e.target.value);
-                if (formError) setFormError(null);
-              }}
-              className="w-full min-h-11 px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground focus:outline-none focus:ring-2 focus:ring-teal-500"
-            >
-              <option value="">{t("mileage_vehicle_none")}</option>
-              {vehicles.map((v) => (
-                <option key={v.id} value={String(v.id)}>
-                  {`${v.plate_number}${v.make_model ? ` · ${v.make_model}` : ""}${v.fuel_consumption_l_per_100km != null ? ` (${v.fuel_consumption_l_per_100km} l/100km)` : ""}`}
-                </option>
-              ))}
-            </select>
-            {vehiclesLoaded && vehicles.length === 0 && (
-              <p className="text-xs text-muted mt-1">
-                {t("mileage_vehicle_add_hint")}{" "}
-                <Link href="/profile" className="text-teal-600 dark:text-teal-400 underline hover:text-teal-700 dark:hover:text-teal-300">
-                  {t("mileage_vehicle_add_link")}
-                </Link>
-                .
-              </p>
-            )}
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
-            <div className="sm:col-span-3">
-              <label htmlFor="mileage-distance" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
-                {t("mileage_distance")} (km)
-              </label>
-              <input
-                id="mileage-distance"
-                type="number"
-                step="0.1"
-                min="0.1"
-                required
-                placeholder={t("mileage_distance")}
-                value={distanceKm}
-                onChange={(e) => {
-                  setDistanceKm(e.target.value);
-                  if (formError) setFormError(null);
-                }}
-                className="w-full min-h-11 px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground focus:outline-none focus:ring-2 focus:ring-teal-500"
-              />
-            </div>
-            <div className="sm:col-span-6">
-              <label htmlFor="mileage-description" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
-                {t("mileage_desc_optional")}
-              </label>
-              <input
-                id="mileage-description"
-                type="text"
-                placeholder={t("mileage_desc_optional")}
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="w-full min-h-11 px-3 py-2 border border-input-border rounded-lg text-base sm:text-sm bg-input text-foreground focus:outline-none focus:ring-2 focus:ring-teal-500"
-              />
-            </div>
-            <div className="sm:col-span-3">
-              <button
-                type="submit"
-                disabled={addMileage.isPending}
-                className="w-full min-h-11 flex items-center justify-center gap-2 px-4 py-2 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 disabled:opacity-50 whitespace-nowrap cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
-              >
-                <Plus className="w-4 h-4" aria-hidden="true" />
-                {addMileage.isPending ? t("mileage_adding") : t("mileage_add_trip")}
-              </button>
-            </div>
-          </div>
-
-          <div className="pt-1">
-            <label
-              htmlFor="mileage-round-trip"
-              className="inline-flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300 cursor-pointer select-none"
-            >
-              <input
-                id="mileage-round-trip"
-                type="checkbox"
-                checked={roundTrip}
-                onChange={(e) => setRoundTrip(e.target.checked)}
-                className="h-4 w-4 rounded border-input-border text-teal-600 focus:ring-teal-500"
-              />
-              <span>{t("mileage_round_trip")}</span>
-            </label>
-          </div>
-        </form>
       )}
 
       {/* Weekly mileage trips */}
@@ -730,21 +716,64 @@ export default function MileagePage({ params }: { params: Promise<{ id: string }
         totalDuration={totalDuration}
         totalGross={totalGross}
         totalNet={totalNet}
-        isDraft={isDraft}
+        canEdit={canEdit}
         locale={locale}
         copiedTrip={copiedTrip}
         pastingDates={pastingDates}
-        deletingTrip={deleteMileage.isPending}
+        mutatingDisabled={mutatingDisabled}
+        highlightedTripId={highlightedTripId}
+        collapsedWeeks={collapsedWeeks}
         pasteNotice={pasteNotice}
         pasteError={pasteError}
+        onToggleWeek={handleToggleWeek}
+        onEditTrip={handleOpenEditModal}
         onCopyTrip={handleCopyTrip}
         onClearClipboard={handleClearClipboard}
         onPasteToDates={(dates) => void handlePasteToDates(dates)}
-        onAddForDay={handleOpenFormForDay}
+        onAddForDay={(dateKey, triggerEl) =>
+          handleOpenCreateModal(dateKey, triggerEl)
+        }
         onDeleteTrip={confirmDeleteMileage}
         onAddPreviousWeek={handleAddPreviousWeek}
         onAddNextWeek={handleAddNextWeek}
       />
+
+      {/* Unified Create / Edit Trip Modal (mounted whenever modalState !== null) */}
+      {modalState !== null && (
+        <MileageTripModal
+          key={
+            modalState.mode === "edit"
+              ? `edit-${modalState.trip.id}`
+              : `create-${modalState.initialDateKey ?? "default"}`
+          }
+          mode={modalState.mode}
+          initialDateKey={
+            modalState.mode === "create"
+              ? modalState.initialDateKey
+              : undefined
+          }
+          trip={modalState.mode === "edit" ? modalState.trip : undefined}
+          vehicles={vehicles}
+          vehiclesLoading={vehiclesLoading}
+          vehiclesError={vehiclesError}
+          isPending={addMileage.isPending || editMileage.isPending}
+          onClose={closeModalAndRestoreFocus}
+          onCreate={async (payload) => {
+            await addMileage.mutateAsync(payload);
+          }}
+          onUpdate={async (mileageId, payload) => {
+            const previousDayKey =
+              modalState.mode === "edit"
+                ? isoToLocalDateKey(modalState.trip.start_time)
+                : "";
+            await editMileage.mutateAsync({
+              mileageId,
+              payload,
+              previousDayKey,
+            });
+          }}
+        />
+      )}
     </AppShell>
   );
 }

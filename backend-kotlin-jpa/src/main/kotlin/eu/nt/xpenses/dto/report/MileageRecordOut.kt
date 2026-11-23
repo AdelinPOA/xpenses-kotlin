@@ -40,5 +40,6 @@ data class MileageRecordOut(
     @JsonProperty("vehicle_make_model") val vehicleMakeModel: String? = null,
     @JsonProperty("vehicle_fuel_type") val vehicleFuelType: String? = null,
     @JsonProperty("vehicle_category") val vehicleCategory: String? = null,
-    @JsonProperty("round_trip") val roundTrip: Boolean = false
+    @JsonProperty("round_trip") val roundTrip: Boolean = false,
+    @JsonProperty("version") val version: Int = 0
 )

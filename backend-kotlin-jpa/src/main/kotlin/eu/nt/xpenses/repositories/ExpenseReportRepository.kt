@@ -16,7 +16,7 @@ import java.util.Optional
 interface ExpenseReportRepository : JpaRepository<ExpenseReport, Int> {
     @Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT r FROM ExpenseReport r WHERE r.id = :reportId")
-    fun findByIdForOcrPromotion(@Param("reportId") reportId: Int): Optional<ExpenseReport>
+    fun findByIdForUpdate(@Param("reportId") reportId: Int): Optional<ExpenseReport>
 
     fun findAllByUserId(userId: Int): List<ExpenseReport>
 

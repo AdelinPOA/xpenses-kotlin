@@ -25,7 +25,13 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.mockito.Mockito.`when`
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.dao.OptimisticLockingFailureException
 import org.springframework.http.HttpStatus
+import org.springframework.transaction.PlatformTransactionManager
+import org.springframework.transaction.annotation.Propagation
+import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionSynchronizationManager
+import org.springframework.transaction.support.TransactionTemplate
 import org.springframework.web.server.ResponseStatusException
 import java.io.ByteArrayInputStream
 import java.math.BigDecimal
@@ -52,6 +58,9 @@ class VehicleMileageTest : IntegrationTestBase() {
 
     @Autowired
     private lateinit var entityManager: EntityManager
+
+    @Autowired
+    private lateinit var transactionManager: PlatformTransactionManager
 
     private val defaultStart = Instant.parse("2026-06-01T08:00:00Z")
     private val defaultEnd = Instant.parse("2026-06-01T09:30:00Z")
@@ -92,6 +101,7 @@ class VehicleMileageTest : IntegrationTestBase() {
             incomeTaxRate = BigDecimal("0.10"),
             taxDeductionEur = BigDecimal("0.00"),
         ),
+        txManager: PlatformTransactionManager? = null,
     ): VehicleMileage = VehicleMileage(
         mileageRecordRepository = mileageRecordRepository,
         userVehicleRepository = userVehicleRepository,
@@ -102,6 +112,7 @@ class VehicleMileageTest : IntegrationTestBase() {
         fuelPricePort = MileageFuelPricePort(fuelPriceLookup),
         ratesConfigPort = MileageRatesConfigPort { rates },
         companyName = "Newtech Automation",
+        transactionManager = txManager,
     )
 
     @Test
@@ -842,5 +853,386 @@ class VehicleMileageTest : IntegrationTestBase() {
 
         val managerDownload = module.exportTripSheet(report.id!!, user("manager1"))
         assertTrue(managerDownload.bytes.isNotEmpty())
+    }
+
+    @Test
+    fun `updateMileage enforces ownership, draft status, validation bounds, blank description clearing, and version conflicts`() {
+        val tech1 = user("tech1")
+        val manager1 = user("manager1")
+        val draftReport = makeReport("tech1", status = "draft")
+        val submittedReport = makeReport("tech1", status = "submitted")
+        val module = makeModule()
+
+        val created = module.createMileage(
+            draftReport.id!!,
+            MileageRecordCreate(
+                origin = "  Office  ",
+                destination = "  Client  ",
+                distanceKm = 40.0,
+                startTime = defaultStart,
+                endTime = defaultEnd,
+                description = "  Initial note  ",
+            ),
+            tech1,
+        )
+        assertEquals("Office", created.origin)
+        assertEquals("Client", created.destination)
+        assertEquals("Initial note", created.description)
+        assertEquals(0, created.version)
+
+        // Non-owner -> 403
+        assertEquals(
+            HttpStatus.FORBIDDEN,
+            assertThrows<ResponseStatusException> {
+                module.updateMileage(draftReport.id!!, created.id, MileageRecordUpdate(origin = "Hack"), manager1)
+            }.statusCode,
+        )
+
+        // Non-draft -> 400
+        val submittedRec = mileageRecordRepository.saveAndFlush(
+            MileageRecord(
+                report = submittedReport,
+                user = tech1,
+                origin = "A",
+                destination = "B",
+                distanceKm = 10.0,
+                rateBeforeTax = BigDecimal("0.60"),
+                rateAfterTax = BigDecimal("0.40"),
+                amountBeforeTax = BigDecimal("6.00"),
+                amountEur = BigDecimal("4.00"),
+                amountOriginal = BigDecimal("4.00"),
+                currencyOriginal = "EUR",
+                fxRate = BigDecimal.ONE,
+                startTime = defaultStart,
+                endTime = defaultEnd,
+            )
+        )
+        assertEquals(
+            HttpStatus.BAD_REQUEST,
+            assertThrows<ResponseStatusException> {
+                module.updateMileage(submittedReport.id!!, submittedRec.id!!, MileageRecordUpdate(origin = "X"), tech1)
+            }.statusCode,
+        )
+
+        // Validation errors: blank origin, contradictory flags, infinite/out-of-range distance, out-of-window timestamps
+        assertEquals(
+            HttpStatus.BAD_REQUEST,
+            assertThrows<ResponseStatusException> {
+                module.updateMileage(draftReport.id!!, created.id, MileageRecordUpdate(origin = "   "), tech1)
+            }.statusCode,
+        )
+        assertEquals(
+            HttpStatus.BAD_REQUEST,
+            assertThrows<ResponseStatusException> {
+                module.updateMileage(draftReport.id!!, created.id, MileageRecordUpdate(vehicleId = 1, clearVehicle = true), tech1)
+            }.statusCode,
+        )
+        assertEquals(
+            HttpStatus.BAD_REQUEST,
+            assertThrows<ResponseStatusException> {
+                module.updateMileage(draftReport.id!!, created.id, MileageRecordUpdate(distanceKm = Double.NaN), tech1)
+            }.statusCode,
+        )
+        assertEquals(
+            HttpStatus.BAD_REQUEST,
+            assertThrows<ResponseStatusException> {
+                module.updateMileage(draftReport.id!!, created.id, MileageRecordUpdate(distanceKm = 100000.01), tech1)
+            }.statusCode,
+        )
+        assertEquals(
+            HttpStatus.BAD_REQUEST,
+            assertThrows<ResponseStatusException> {
+                module.updateMileage(
+                    draftReport.id!!,
+                    created.id,
+                    MileageRecordUpdate(startTime = Instant.parse("2019-12-31T23:59:59Z")),
+                    tech1,
+                )
+            }.statusCode,
+        )
+        assertEquals(
+            HttpStatus.UNPROCESSABLE_CONTENT,
+            assertThrows<ResponseStatusException> {
+                module.updateMileage(
+                    draftReport.id!!,
+                    created.id,
+                    MileageRecordUpdate(startTime = defaultEnd, endTime = defaultStart),
+                    tech1,
+                )
+            }.statusCode,
+        )
+
+        // Blank description clears to null; null description leaves untouched; version increments on saveAndFlush
+        val cleared = module.updateMileage(
+            draftReport.id!!,
+            created.id,
+            MileageRecordUpdate(description = "   ", version = created.version),
+            tech1,
+        )
+        assertNull(cleared.description)
+        assertEquals(created.version + 1, cleared.version)
+
+        val setAgain = module.updateMileage(
+            draftReport.id!!,
+            created.id,
+            MileageRecordUpdate(description = "  Kept note  ", version = cleared.version),
+            tech1,
+        )
+        assertEquals("Kept note", setAgain.description)
+
+        val omittedDesc = module.updateMileage(
+            draftReport.id!!,
+            created.id,
+            MileageRecordUpdate(origin = "HQ", version = setAgain.version),
+            tech1,
+        )
+        assertEquals("Kept note", omittedDesc.description)
+        assertEquals("HQ", omittedDesc.origin)
+
+        // Stale version throws OptimisticLockingFailureException
+        assertThrows<OptimisticLockingFailureException> {
+            module.updateMileage(
+                draftReport.id!!,
+                created.id,
+                MileageRecordUpdate(origin = "Stale", version = created.version),
+                tech1,
+            )
+        }
+    }
+
+    @Test
+    fun `updateMileage semantic deltas reuse fuelExchangeRate, preserve deleted snapshots, and protect legacy pre-V32 rows`() {
+        val tech1 = user("tech1")
+        val report = makeReport("tech1")
+        var fxCalls = 0
+        var fuelCalls = 0
+        val module = makeModule(
+            fxRateLookup = { _, _ ->
+                fxCalls++
+                BigDecimal("0.2")
+            },
+            fuelPriceLookup = { fuelType, date ->
+                fuelCalls++
+                ResolvedFuelPrice(BigDecimal("8.50"), date, FuelPriceSource.MANUAL_SETTING, fuelType ?: "default")
+            },
+        )
+
+        val v1 = module.createVehicle(
+            UserVehicleCreate(
+                plateNumber = "B-11-SEM",
+                makeModel = "Skoda Octavia",
+                fuelType = "diesel",
+                fuelConsumptionLitersPer100Km = BigDecimal("6.20"),
+            ),
+            tech1,
+        )
+        val vNullCons = module.createVehicle(
+            UserVehicleCreate(
+                plateNumber = "B-22-NUL",
+                makeModel = "Dacia Logan",
+                fuelType = "petrol",
+                fuelConsumptionLitersPer100Km = null,
+            ),
+            tech1,
+        )
+
+        val created = module.createMileage(
+            report.id!!,
+            MileageRecordCreate("Office", "Site", 100.0, defaultStart, defaultEnd, vehicleId = v1.id),
+            tech1,
+        )
+        assertEquals(1, fxCalls)
+        assertEquals(1, fuelCalls)
+
+        // Semantic no-op: resending unchanged vehicleId and unchanged distanceKm triggers zero FX/fuel calls
+        val noop = module.updateMileage(
+            report.id!!,
+            created.id,
+            MileageRecordUpdate(origin = "Office 2", distanceKm = 100.0, vehicleId = v1.id, version = created.version),
+            tech1,
+        )
+        assertEquals(1, fxCalls)
+        assertEquals(1, fuelCalls)
+        assertEquals("B-11-SEM", noop.vehiclePlate)
+
+        // Distance-only edit reuses stored fuelExchangeRate with zero FX or fuel calls
+        val distEdit = module.updateMileage(
+            report.id!!,
+            created.id,
+            MileageRecordUpdate(distanceKm = 200.0, version = noop.version),
+            tech1,
+        )
+        assertEquals(1, fxCalls)
+        assertEquals(1, fuelCalls)
+        assertEquals(200.0, distEdit.distanceKm)
+        assertTrue(distEdit.amountEur > noop.amountEur)
+
+        // Switching to active vehicle with null consumption fills defaultFuelConsumption (7.5) from ratesConfigPort
+        val nullConsEdit = module.updateMileage(
+            report.id!!,
+            created.id,
+            MileageRecordUpdate(vehicleId = vNullCons.id, version = distEdit.version),
+            tech1,
+        )
+        assertEquals(BigDecimal("7.5"), nullConsEdit.fuelConsumptionLitersPer100Km)
+        assertEquals("B-22-NUL", nullConsEdit.vehiclePlate)
+        assertEquals(1, fxCalls) // same-day vehicle change reuses stored fuelExchangeRate
+        assertEquals(2, fuelCalls)
+
+        // Deleting vehicle preserves snapshot on unrelated edit
+        flushAndClear()
+        module.deleteVehicle(vNullCons.id, tech1)
+        flushAndClear()
+        val afterDelete = module.updateMileage(
+            report.id!!,
+            created.id,
+            MileageRecordUpdate(destination = "Site 2", version = nullConsEdit.version),
+            tech1,
+        )
+        assertNull(afterDelete.vehicleId)
+        assertEquals("B-22-NUL", afterDelete.vehiclePlate)
+        assertEquals(1, fxCalls)
+        assertEquals(2, fuelCalls)
+
+        // Missing/non-positive fuelExchangeRate: origin-only edit does NOT call FX; distance edit DOES call FX
+        val entity = mileageRecordRepository.findById(created.id).orElseThrow()
+        entity.fuelExchangeRate = BigDecimal.ZERO
+        mileageRecordRepository.saveAndFlush(entity)
+        val afterOriginMissingFx = module.updateMileage(
+            report.id!!,
+            created.id,
+            MileageRecordUpdate(origin = "Office 3"),
+            tech1,
+        )
+        assertEquals(1, fxCalls)
+        val afterDistMissingFx = module.updateMileage(
+            report.id!!,
+            created.id,
+            MileageRecordUpdate(distanceKm = 150.0, version = afterOriginMissingFx.version),
+            tech1,
+        )
+        assertEquals(2, fxCalls)
+        assertTrue(afterDistMissingFx.fuelExchangeRate!! > BigDecimal.ZERO)
+
+        // Legacy pre-V32 row (pre-2020 untouched timestamps + null modern fuel columns)
+        val legacyStart = Instant.parse("2019-05-10T08:00:00Z")
+        val legacyEnd = Instant.parse("2019-05-10T09:00:00Z")
+        val managedReport = expenseReportRepository.getReferenceById(report.id!!)
+        val managedTech1 = userRepository.getReferenceById(tech1.id!!)
+        val legacy = mileageRecordRepository.saveAndFlush(
+            MileageRecord(
+                report = managedReport,
+                user = managedTech1,
+                origin = "Legacy A",
+                destination = "Legacy B",
+                distanceKm = 50.0,
+                rateBeforeTax = BigDecimal("0.50"),
+                rateAfterTax = BigDecimal("0.40"),
+                amountBeforeTax = BigDecimal("25.00"),
+                amountEur = BigDecimal("20.00"),
+                amountOriginal = BigDecimal("20.00"),
+                currencyOriginal = "EUR",
+                fxRate = BigDecimal.ONE,
+                startTime = legacyStart,
+                endTime = legacyEnd,
+            )
+        )
+        val legacyUpdated = module.updateMileage(
+            report.id!!,
+            legacy.id!!,
+            MileageRecordUpdate(origin = "Legacy A2", vehicleId = v1.id),
+            tech1,
+        )
+        assertEquals("Legacy A2", legacyUpdated.origin)
+        assertEquals("B-11-SEM", legacyUpdated.vehiclePlate)
+        assertNull(legacyUpdated.fuelConsumptionLitersPer100Km)
+        assertNull(legacyUpdated.fuelPriceRonPerLiter)
+        assertNull(legacyUpdated.fuelPriceSource)
+        assertEquals(2, fxCalls)
+        assertEquals(2, fuelCalls)
+    }
+
+    @Test
+    fun `FX failures return sanitized 502 Bad Gateway without leaking upstream message`() {
+        val report = makeReport("tech1")
+        val module = makeModule(
+            fxRateLookup = { _, _ -> throw RuntimeException("upstream secret token=xyz timeout") },
+        )
+        val ex = assertThrows<ResponseStatusException> {
+            module.createMileage(
+                report.id!!,
+                MileageRecordCreate("Office", "Client", 50.0, defaultStart, defaultEnd),
+                user("tech1"),
+            )
+        }
+        assertEquals(HttpStatus.BAD_GATEWAY, ex.statusCode)
+        assertEquals("Exchange rate service unavailable. Please try again.", ex.reason)
+        assertFalse(ex.reason.orEmpty().contains("secret"))
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    fun `createMileage and updateMileage run external FX and fuel ports outside any database transaction`() {
+        val writeTx = TransactionTemplate(transactionManager)
+        var createdReportId: Int? = null
+        var createdVehicleId: Int? = null
+        val txStates = mutableListOf<Pair<String, Boolean>>()
+
+        try {
+            val tech1 = writeTx.execute { userRepository.findByUsername("tech1")!! }
+            val report = writeTx.execute {
+                expenseReportRepository.saveAndFlush(
+                    ExpenseReport(user = tech1, title = "NonTx Port Test Report", status = "draft")
+                )
+            }
+            createdReportId = report.id!!
+
+            val module = makeModule(
+                fxRateLookup = { _, _ ->
+                    txStates.add("fx" to TransactionSynchronizationManager.isActualTransactionActive())
+                    BigDecimal("0.2")
+                },
+                fuelPriceLookup = { fuelType, date ->
+                    txStates.add("fuel" to TransactionSynchronizationManager.isActualTransactionActive())
+                    ResolvedFuelPrice(BigDecimal("8.50"), date, FuelPriceSource.MANUAL_SETTING, fuelType ?: "default")
+                },
+                txManager = transactionManager,
+            )
+
+            val vehicle = module.createVehicle(
+                UserVehicleCreate(plateNumber = "B-99-NTX", fuelType = "diesel"),
+                tech1,
+            )
+            createdVehicleId = vehicle.id
+
+            val created = module.createMileage(
+                createdReportId,
+                MileageRecordCreate("Office", "Site", 50.0, defaultStart, defaultEnd, vehicleId = vehicle.id),
+                tech1,
+            )
+            val nextDayStart = Instant.parse("2026-06-02T08:00:00Z")
+            val nextDayEnd = Instant.parse("2026-06-02T09:30:00Z")
+            module.updateMileage(
+                createdReportId,
+                created.id,
+                MileageRecordUpdate(startTime = nextDayStart, endTime = nextDayEnd, version = created.version),
+                tech1,
+            )
+
+            assertEquals(4, txStates.size)
+            assertTrue(txStates.all { !it.second }, "Expected all external port calls outside DB tx, got $txStates")
+        } finally {
+            writeTx.execute {
+                createdReportId?.let { rid ->
+                    mileageRecordRepository.deleteAll(mileageRecordRepository.findAllByReportId(rid))
+                    expenseReportRepository.deleteById(rid)
+                }
+                createdVehicleId?.let { vid ->
+                    if (userVehicleRepository.existsById(vid)) {
+                        userVehicleRepository.deleteById(vid)
+                    }
+                }
+            }
+        }
     }
 }

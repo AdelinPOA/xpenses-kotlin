@@ -50,5 +50,6 @@ fun toMileageRecordOut(m: MileageRecord): MileageRecordOut {
         vehicleFuelType = m.vehicleFuelType,
         vehicleCategory = m.vehicleCategory,
         roundTrip = m.roundTrip,
+        version = m.version,
     )
 }

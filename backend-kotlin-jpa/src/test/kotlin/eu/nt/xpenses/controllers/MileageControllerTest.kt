@@ -116,6 +116,79 @@ class MileageControllerTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `PATCH mileage returns version, enforces 409 conflict, clears description, validates bounds, and ignores unknown properties`() {
+        val report = makeTechReport("Mileage Edit Contract Report")
+        entityManager.flush()
+        entityManager.clear()
+        val cookie = authHelper.loginAs("tech1", "tech1")
+
+        val createRes = mockMvc.perform(
+            post("/api/reports/${report.id}/mileage")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(mileageBody)
+                .cookie(cookie)
+        )
+            .andExpect(status().isCreated)
+            .andExpect(jsonPath("$.version").value(0))
+            .andReturn()
+        val mileageId = JsonPath.read<Int>(createRes.response.contentAsString, "$.id")
+        val initialVersion = JsonPath.read<Int>(createRes.response.contentAsString, "$.version")
+
+        // Unknown JSON property is accepted (fail-on-unknown-properties: false) and blank description clears to null
+        val patchRes = mockMvc.perform(
+            patch("/api/reports/${report.id}/mileage/$mileageId")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"origin":"  Updated Office  ","description":"","version":$initialVersion,"future_client_flag":true}""")
+                .cookie(cookie)
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.origin").value("Updated Office"))
+            .andExpect(jsonPath("$.description").value(nullValue()))
+            .andExpect(jsonPath("$.version").value(initialVersion + 1))
+            .andReturn()
+        val nextVersion = JsonPath.read<Int>(patchRes.response.contentAsString, "$.version")
+
+        // Stale version returns 409 Conflict
+        mockMvc.perform(
+            patch("/api/reports/${report.id}/mileage/$mileageId")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"origin":"Stale Edit","version":$initialVersion}""")
+                .cookie(cookie)
+        )
+            .andExpect(status().isConflict)
+            .andExpect(jsonPath("$.detail").isString)
+
+        // Blank origin -> 400
+        mockMvc.perform(
+            patch("/api/reports/${report.id}/mileage/$mileageId")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"origin":"   ","version":$nextVersion}""")
+                .cookie(cookie)
+        ).andExpect(status().isBadRequest)
+
+        // Contradictory clear_vehicle + vehicle_id -> 400
+        mockMvc.perform(
+            patch("/api/reports/${report.id}/mileage/$mileageId")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"vehicle_id":1,"clear_vehicle":true,"version":$nextVersion}""")
+                .cookie(cookie)
+        ).andExpect(status().isBadRequest)
+
+        // Out-of-range distance_km -> 400
+        mockMvc.perform(
+            patch("/api/reports/${report.id}/mileage/$mileageId")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"distance_km":100001.0,"version":$nextVersion}""")
+                .cookie(cookie)
+        ).andExpect(status().isBadRequest)
+
+        // GET list also exposes incremented version
+        mockMvc.perform(get("/api/reports/${report.id}/mileage").cookie(cookie))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$[0].version").value(nextVersion))
+    }
+
+    @Test
     fun `GET trip-sheet returns XLSX attachment for owner and enforces empty 400 and access 403`() {
         val report = makeTechReport()
         entityManager.flush()

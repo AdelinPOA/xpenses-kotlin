@@ -27,7 +27,7 @@ Multi-provider Romanian fuel price resolution, caching, and provider health moni
 - `[FuelPriceProvider.kt:HttpFuelPriceProvider.getProviderPriority]` / `[FuelPriceProvider.kt:HttpFuelPriceProvider.saveProviderPriority]` — reads and writes `"fuel_provider_priority"` in `app_settings` via `AppSettingRepository`
 - `[FuelPriceProvider.kt:HttpFuelPriceProvider.fetchAndParse]` — executes outbound HTTP GET requests to `pretcarburant.ro`, `raw.githubusercontent.com`, and `energy.ec.europa.eu`, updates in-memory TTL caches, and calls `FxService.getRate("RON", ...)`
 - `[FuelPriceProvider.kt:HttpFuelPriceProvider.probeProvider]` / `[FuelPriceProvider.kt:HttpFuelPriceProvider.resolve]` — mutates in-memory `providerStates` `ConcurrentHashMap` and logs warnings
-- `[FuelPriceService.kt:FuelPriceService.resolveFuelPrice]` / `[FuelPriceService.kt:FuelPriceService.persistCachedPrice]` — queries and inserts `FuelPrice` rows via `FuelPriceRepository` and reads manual prices via `AppSettingsService.getManualFuelPrice`
+- `[FuelPriceService.kt:FuelPriceService.resolveFuelPrice]` / `[FuelPriceService.kt:FuelPriceService.persistCachedPrice]` — queries and inserts `FuelPrice` rows via `FuelPriceRepository`, reads manual prices via `AppSettingsService.getManualFuelPrice`, and logs an SLF4J `WARN` on `provider_miss` fallback
 - `[FuelPriceHealthService.kt:FuelPriceHealthService.scheduledHealthCheck]` / `[FuelPriceHealthService.kt:FuelPriceHealthService.runHealthCheck]` / `[FuelPriceHealthService.kt:FuelPriceHealthService.getHealthStatus]` — executes `@Scheduled` / on-demand probes and queries `FuelPriceRepository.findTopByOrderByFetchedAtDesc()`
 
 ## Verification

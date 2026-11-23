@@ -5,6 +5,8 @@ spring:
     # Preserve the established wire/persisted JSON defaults across Jackson 3.
     use-jackson2-defaults: true
     property-naming-strategy: SNAKE_CASE
+    deserialization:
+      fail-on-unknown-properties: false
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/xpenses}
     username: ${SPRING_DATASOURCE_USERNAME:xpenses}

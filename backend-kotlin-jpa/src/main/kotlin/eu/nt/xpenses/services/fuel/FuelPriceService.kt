@@ -3,6 +3,7 @@ package eu.nt.xpenses.services.fuel
 import eu.nt.xpenses.model.FuelPrice
 import eu.nt.xpenses.repositories.FuelPriceRepository
 import eu.nt.xpenses.services.AppSettingsService
+import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.dao.DataIntegrityViolationException
@@ -39,6 +40,8 @@ class FuelPriceService @Autowired constructor(
         fuelPriceProvider: FuelPriceProvider,
         appSettingsService: AppSettingsService,
     ) : this(fuelPriceRepository, fuelPriceProvider, appSettingsService, null, true)
+
+    private val log = LoggerFactory.getLogger(FuelPriceService::class.java)
 
     fun resolveFuelPrice(vehicleFuelType: String?, date: LocalDate): ResolvedFuelPrice {
         val normalized = vehicleFuelType?.trim()?.lowercase()?.takeIf { it.isNotEmpty() }
@@ -86,6 +89,11 @@ class FuelPriceService @Autowired constructor(
                     fuelType = canonical,
                 )
             }
+            log.warn(
+                "Fuel price provider_miss fallback to manual setting fuelType={} date={}",
+                canonical,
+                dateKey,
+            )
         }
 
         return manualFallback(canonical, canonical, date)

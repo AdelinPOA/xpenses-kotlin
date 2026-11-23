@@ -51,6 +51,12 @@ class ValidationExceptionHandlerTest {
         val res = handler.handleResponseStatusException(ResponseStatusException(HttpStatus.BAD_REQUEST))
         assertEquals(400, res.statusCode.value())
         assertEquals("Request failed", res.body?.get("detail"))
+
+        val badGateway = handler.handleResponseStatusException(
+            ResponseStatusException(HttpStatus.BAD_GATEWAY, "Exchange rate service unavailable. Please try again.")
+        )
+        assertEquals(502, badGateway.statusCode.value())
+        assertEquals("Exchange rate service unavailable. Please try again.", badGateway.body?.get("detail"))
     }
 
     @Test

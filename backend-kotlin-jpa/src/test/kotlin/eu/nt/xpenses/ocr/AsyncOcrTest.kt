@@ -149,7 +149,7 @@ class AsyncOcrTest {
         job.reportLinkStatus = "PENDING"
         job.resultJson = """{"amount":10.0,"currency":"EUR","date":"2024-01-01"}"""
         val report = ExpenseReport(id = 77, user = techUser, title = "Draft report")
-        `when`(expenseReportRepository.findByIdForOcrPromotion(77)).thenReturn(Optional.of(report))
+        `when`(expenseReportRepository.findByIdForUpdate(77)).thenReturn(Optional.of(report))
 
         asyncOcrService.processOcr(1)
 
@@ -167,7 +167,7 @@ class AsyncOcrTest {
         job.reportLinkStatus = "PENDING"
         job.resultJson = """{"amount":10.0,"currency":"EUR","date":"2024-01-01"}"""
         val report = ExpenseReport(id = 77, user = techUser, title = "Submitted report", status = "submitted")
-        `when`(expenseReportRepository.findByIdForOcrPromotion(77)).thenReturn(Optional.of(report))
+        `when`(expenseReportRepository.findByIdForUpdate(77)).thenReturn(Optional.of(report))
 
         asyncOcrService.processOcr(1)
 

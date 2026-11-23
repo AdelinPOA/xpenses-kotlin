@@ -32,7 +32,7 @@ Provides Spring Boot infrastructure configuration, HTTP security filter-chain wi
 - `[CiTestFixtureInitializer.kt:run]` — Inserts the CI technician `User` (`authSource="local"`, `role="technician"`, `email="$normalizedUsername@ci.invalid"`) into PostgreSQL when `@Profile("ci")` is active.
 - `[DataInitializer.kt:run]` — Inserts initial `Category`, `AppSetting`, and (when `seed.demo.users=true`) demo `User`, `ExpenseReport`, and `Expense` records into PostgreSQL on startup.
 - `[SecurityConfig.kt:filterChain]` & `[SecurityConfig.kt:csrfOriginRefererFilter]` — Registers `csrfOriginRefererFilter()`, `rateLimitingFilter`, and `jwtFilter` before `UsernamePasswordAuthenticationFilter`; writes HTTP `401`/`403` JSON error responses and logs Origin/Referer rejection warnings.
-- `[ValidationExceptionHandler.kt:ValidationExceptionHandler]` — Emits SLF4J debug/warn/error logs on malformed payloads, optimistic-locking/data-integrity conflicts, multipart failures, and unhandled exceptions.
+- `[ValidationExceptionHandler.kt:ValidationExceptionHandler]` — Emits SLF4J debug/warn/error logs on malformed payloads, optimistic-locking (`WARN`)/data-integrity conflicts, `5xx` `ResponseStatusException` responses (`ERROR`), multipart failures, and unhandled exceptions.
 
 ## Verification
 - Run: `cd backend-kotlin-jpa && ./gradlew test --tests '<ClassName>' --no-daemon` (targeted test per `AGENTS.md`) or `cd backend-kotlin-jpa && ./gradlew test --no-daemon` (full backend suite in isolated/CI env).

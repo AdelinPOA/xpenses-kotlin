@@ -1,3 +1,6 @@
+import type { MileageCreatePayload } from "./types/report";
+export type { MileageCreatePayload } from "./types/report";
+
 export interface MileageTripLike {
   id: number;
   origin: string;
@@ -11,17 +14,6 @@ export interface MileageTripLike {
   description: string | null;
   round_trip: boolean;
   vehicle_id: number | null;
-}
-
-export interface MileageCreatePayload {
-  origin: string;
-  destination: string;
-  distance_km: number;
-  start_time: string;
-  end_time: string;
-  round_trip: boolean;
-  description?: string;
-  vehicle_id?: number;
 }
 
 export interface MileageDayGroup<T extends MileageTripLike = MileageTripLike> {

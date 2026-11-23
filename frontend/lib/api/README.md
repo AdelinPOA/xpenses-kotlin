@@ -23,6 +23,9 @@ Domain-focused HTTP client functions built on top of the shared Axios `api` inst
 - `[delegationParsing.ts:previewDelegationEmail]`: `(request: DelegationPreviewRequest) => Promise<DelegationPreviewResult>` — previews delegation email parsing (`POST /settings/imap/preview`).
 - `[expenses.ts:bulkUploadExpenses]`: `(files: File[]) => Promise<BulkUploadResult>` — uploads receipt files via `FormData` (`POST /expenses/bulk-upload`).
 - `[expenses.ts:duplicateExpense]`: `(expenseId: number) => Promise<Expense>` — duplicates an expense (`POST /expenses/{expenseId}/duplicate`).
+- `[mileage.ts:createMileage]`: `(reportId: number, payload: MileageCreatePayload) => Promise<MileageRecord>` — creates a mileage trip (`POST /reports/{reportId}/mileage`, 45s timeout).
+- `[mileage.ts:updateMileage]`: `(reportId: number, mileageId: number, payload: MileageUpdatePayload) => Promise<MileageRecord>` — patches a mileage trip (`PATCH /reports/{reportId}/mileage/{mileageId}`, 45s timeout).
+- `[mileage.ts:deleteMileage]`: `(reportId: number, mileageId: number) => Promise<void>` — deletes a mileage trip (`DELETE /reports/{reportId}/mileage/{mileageId}`, 45s timeout).
 - `[reviewQueue.ts:BulkStatusResult]`: Exported interface `{ succeeded: number[]; failed: { id: number; reason: string | null }[] }`.
 - `[reviewQueue.ts:getReviewQueue]`: `() => Promise<ReviewQueueItem[]>` — fetches review queue items (`GET /review-queue`).
 - `[reviewQueue.ts:bulkReportStatus]`: `(ids: number[], action: "approve" | "reject", reason?: string) => Promise<BulkStatusResult>` — submits bulk report status updates (`POST /reports/bulk-status`).
@@ -38,6 +41,7 @@ Domain-focused HTTP client functions built on top of the shared Axios `api` inst
 - `[admin.ts:getFxProviders]`, `[admin.ts:updateFxProviders]`, `[admin.ts:testFxProvider]`, `[admin.ts:getOcrConfig]`, `[admin.ts:updateOcrConfig]`, `[admin.ts:testOcrModel]`, `[admin.ts:getOcrComparisons]`, `[admin.ts:getStorageConfig]`, `[admin.ts:updateStorageConfig]`, `[admin.ts:testStorageConfig]`, `[admin.ts:getStorageMigrationStatus]`, `[admin.ts:simulateEmailIngestion]`, `[admin.ts:getImapIngestionRecovery]`, `[admin.ts:retryImapIngestion]`: Perform authenticated HTTP requests against `/settings/*` and `/ocr/comparison` via `../api`.
 - `[delegationParsing.ts:getDelegationParsingConfig]`, `[delegationParsing.ts:updateDelegationParsingConfig]`, `[delegationParsing.ts:previewDelegationEmail]`: Perform HTTP requests against `/settings/imap/parsing` and `/settings/imap/preview` via `../api`.
 - `[expenses.ts:bulkUploadExpenses]`, `[expenses.ts:duplicateExpense]`: Perform HTTP `POST` requests against `/expenses/bulk-upload` (multipart `FormData`) and `/expenses/{expenseId}/duplicate` via `../api`.
+- `[mileage.ts:createMileage]`, `[mileage.ts:updateMileage]`, `[mileage.ts:deleteMileage]`: Perform HTTP `POST`/`PATCH`/`DELETE` requests against `/reports/{reportId}/mileage` with a `45_000` ms timeout via `../api`.
 - `[reviewQueue.ts:getReviewQueue]`, `[reviewQueue.ts:bulkReportStatus]`: Perform HTTP requests against `/review-queue` and `/reports/bulk-status` via `../api`.
 
 ## Verification

@@ -17,6 +17,15 @@ import {
   parseDateKey,
   shiftTripToDate,
 } from "../../lib/mileageWeeks.ts";
+import {
+  buildMileagePatchPayload,
+  computeTripDurationPreview,
+  detectVehicleSnapshotDrift,
+  formatDistanceKm,
+  isoToDateTimeLocal,
+  parseStrictDecimal,
+  shiftEndTimeForStartChange,
+} from "../../lib/mileageTripForm.ts";
 
 function localIso(year, month, day, hour, minute = 0) {
   return new Date(year, month - 1, day, hour, minute, 0, 0).toISOString();
@@ -373,4 +382,246 @@ test("formatting helpers and buildDefaultDateTimeLocal produce expected outputs"
       endTime: "2026-05-14T08:30",
     },
   );
+});
+
+test("parseStrictDecimal and formatDistanceKm handle locale decimals, bounds, and hundredths", () => {
+  assert.equal(parseStrictDecimal("12.25"), 12.25);
+  assert.equal(parseStrictDecimal("12,25"), 12.25);
+  assert.equal(parseStrictDecimal(" 0,01 "), 0.01);
+  assert.equal(parseStrictDecimal("100000"), 100000);
+  assert.equal(parseStrictDecimal("0"), null);
+  assert.equal(parseStrictDecimal("0.009"), null);
+  assert.equal(parseStrictDecimal("100000.01"), null);
+  assert.equal(parseStrictDecimal("-5"), null);
+  assert.equal(parseStrictDecimal("12abc"), null);
+  assert.equal(parseStrictDecimal("12.3.4"), null);
+  assert.equal(parseStrictDecimal(""), null);
+
+  assert.equal(formatDistanceKm(12), "12.0");
+  assert.equal(formatDistanceKm(12.5), "12.5");
+  assert.equal(formatDistanceKm(12.25), "12.25");
+  assert.equal(formatDistanceKm(0.01), "0.01");
+  assert.equal(formatDistanceKm(0.1), "0.1");
+});
+
+test("isoToDateTimeLocal, shiftEndTimeForStartChange, and computeTripDurationPreview handle duration shifts and overnight trips", () => {
+  const iso = localIso(2026, 5, 11, 8, 5);
+  assert.equal(isoToDateTimeLocal(iso), "2026-05-11T08:05");
+
+  // Forward day shift preserves 1h 30m duration
+  assert.equal(
+    shiftEndTimeForStartChange("2026-05-11T08:00", "2026-05-11T09:30", "2026-05-12T10:15"),
+    "2026-05-12T11:45",
+  );
+  // Backward day shift preserves 1h 30m duration
+  assert.equal(
+    shiftEndTimeForStartChange("2026-05-13T08:00", "2026-05-13T09:30", "2026-05-12T08:00"),
+    "2026-05-12T09:30",
+  );
+  // Invalid or non-positive range returns prevEndLocal unchanged
+  assert.equal(
+    shiftEndTimeForStartChange("2026-05-11T10:00", "2026-05-11T09:00", "2026-05-12T08:00"),
+    "2026-05-11T09:00",
+  );
+  assert.equal(
+    shiftEndTimeForStartChange("invalid", "2026-05-11T09:00", "2026-05-12T08:00"),
+    "2026-05-11T09:00",
+  );
+
+  assert.deepEqual(computeTripDurationPreview("2026-05-11T08:00", "2026-05-11T09:30"), {
+    durationMinutes: 90,
+    formatted: "1h 30m",
+    dayOffset: 0,
+  });
+  assert.deepEqual(computeTripDurationPreview("2026-05-11T23:00", "2026-05-12T00:30"), {
+    durationMinutes: 90,
+    formatted: "1h 30m",
+    dayOffset: 1,
+  });
+  assert.equal(computeTripDurationPreview("2026-05-11T09:30", "2026-05-11T09:30"), null);
+});
+
+test("detectVehicleSnapshotDrift handles matched, drifted, deleted, none, null consumption, and pre-V109 null category", () => {
+  const activeVehicles = [
+    {
+      id: 7,
+      plate_number: "B-12-ABC",
+      make_model: "Dacia Duster",
+      fuel_type: "diesel",
+      vehicle_category: "M1",
+      fuel_consumption_l_per_100km: 6.5,
+    },
+    {
+      id: 8,
+      plate_number: "B-34-DEF",
+      make_model: "VW Golf",
+      fuel_type: "petrol",
+      vehicle_category: "M1",
+      fuel_consumption_l_per_100km: null,
+    },
+  ];
+
+  // Exact match
+  assert.equal(
+    detectVehicleSnapshotDrift(
+      {
+        vehicle_id: 7,
+        vehicle_plate: " b-12-abc ",
+        vehicle_make_model: "Dacia Duster",
+        vehicle_fuel_type: "diesel",
+        vehicle_category: "m1",
+        fuel_consumption_l_per_100km: 6.5,
+      },
+      activeVehicles,
+    ),
+    "matched",
+  );
+
+  // Active vehicle with null consumption does NOT false-positive when trip stored default 7.5
+  assert.equal(
+    detectVehicleSnapshotDrift(
+      {
+        vehicle_id: 8,
+        vehicle_plate: "B-34-DEF",
+        vehicle_make_model: "VW Golf",
+        vehicle_fuel_type: "petrol",
+        vehicle_category: null, // pre-V109 null category also does not false-positive
+        fuel_consumption_l_per_100km: 7.5,
+      },
+      activeVehicles,
+    ),
+    "matched",
+  );
+
+  // Drifted consumption
+  assert.equal(
+    detectVehicleSnapshotDrift(
+      {
+        vehicle_id: 7,
+        vehicle_plate: "B-12-ABC",
+        vehicle_make_model: "Dacia Duster",
+        vehicle_fuel_type: "diesel",
+        vehicle_category: "M1",
+        fuel_consumption_l_per_100km: 7.2,
+      },
+      activeVehicles,
+    ),
+    "drifted",
+  );
+
+  // Deleted vehicle with snapshot preserved
+  assert.equal(
+    detectVehicleSnapshotDrift(
+      {
+        vehicle_id: null,
+        vehicle_plate: "B-99-OLD",
+        vehicle_make_model: "Old Car",
+        vehicle_fuel_type: "diesel",
+        vehicle_category: "M1",
+        fuel_consumption_l_per_100km: 6.0,
+      },
+      activeVehicles,
+    ),
+    "deleted",
+  );
+
+  // Missing active vehicle ID
+  assert.equal(
+    detectVehicleSnapshotDrift(
+      {
+        vehicle_id: 999,
+        vehicle_plate: "B-99-OLD",
+        vehicle_make_model: null,
+        vehicle_fuel_type: null,
+        vehicle_category: null,
+        fuel_consumption_l_per_100km: null,
+      },
+      activeVehicles,
+    ),
+    "deleted",
+  );
+
+  // No vehicle and no snapshot
+  assert.equal(
+    detectVehicleSnapshotDrift(
+      {
+        vehicle_id: null,
+        vehicle_plate: null,
+        vehicle_make_model: null,
+        vehicle_fuel_type: null,
+        vehicle_category: null,
+        fuel_consumption_l_per_100km: 7.5,
+      },
+      activeVehicles,
+    ),
+    "none",
+  );
+});
+
+test("buildMileagePatchPayload produces sparse diffs, clears description with empty string, and returns null on no-op", () => {
+  const startWithSeconds = new Date(2026, 4, 11, 8, 15, 42, 0).toISOString();
+  const endWithSeconds = new Date(2026, 4, 11, 9, 45, 19, 0).toISOString();
+  const original = {
+    origin: "Hotel",
+    destination: "Factory",
+    start_time: startWithSeconds,
+    end_time: endWithSeconds,
+    distance_km: 24.5,
+    description: "Daily commute",
+    round_trip: false,
+    version: 3,
+  };
+
+  const unchangedDraft = {
+    origin: " Hotel ",
+    destination: "Factory",
+    startTime: "2026-05-11T08:15",
+    endTime: "2026-05-11T09:45",
+    distanceKm: "24,50",
+    description: "Daily commute",
+    roundTrip: false,
+  };
+  const initialChoice = { kind: "vehicle", vehicleId: 7 };
+
+  // No-op returns null even when original timestamps had non-zero seconds
+  assert.equal(
+    buildMileagePatchPayload(original, unchangedDraft, initialChoice, initialChoice),
+    null,
+  );
+
+  // Distance + description clear + version attached
+  const patch1 = buildMileagePatchPayload(
+    original,
+    { ...unchangedDraft, distanceKm: "12,25", description: "   " },
+    initialChoice,
+    initialChoice,
+  );
+  assert.deepEqual(patch1, {
+    distance_km: 12.25,
+    description: "",
+    version: 3,
+  });
+
+  // Vehicle clear
+  const patch2 = buildMileagePatchPayload(
+    original,
+    unchangedDraft,
+    { kind: "none" },
+    { kind: "keep_snapshot" },
+  );
+  assert.deepEqual(patch2, {
+    clear_vehicle: true,
+    version: 3,
+  });
+
+  // Vehicle switch without version on original omits version
+  const patch3 = buildMileagePatchPayload(
+    { ...original, version: undefined },
+    unchangedDraft,
+    { kind: "vehicle", vehicleId: 9 },
+    { kind: "keep_snapshot" },
+  );
+  assert.deepEqual(patch3, {
+    vehicle_id: 9,
+  });
 });

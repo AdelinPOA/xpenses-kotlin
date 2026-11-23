@@ -233,7 +233,7 @@ class AsyncOcrService(
             }
             val requestedReportId = current.requestedReportId
             val report = requestedReportId?.let { reportId ->
-                expenseReportRepository.findByIdForOcrPromotion(reportId).orElse(null)
+                expenseReportRepository.findByIdForUpdate(reportId).orElse(null)
                     ?.takeIf { it.user?.id == user.id && it.status == "draft" }
             }
             current.reportLinkStatus = when {

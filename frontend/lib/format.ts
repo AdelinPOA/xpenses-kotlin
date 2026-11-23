@@ -66,3 +66,5 @@ export function formatDate(date: Date | string): string {
 export function parseLocaleNumber(raw: string): number {
   return Number.parseFloat(raw.trim().replace(",", "."));
 }
+
+export { formatDistanceKm, parseStrictDecimal } from "./mileageTripForm";

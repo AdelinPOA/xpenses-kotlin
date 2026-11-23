@@ -80,7 +80,7 @@ class ValidationExceptionHandler {
 
     @ExceptionHandler(OptimisticLockingFailureException::class)
     fun handleOptimisticLockingFailure(ex: OptimisticLockingFailureException): ResponseEntity<Map<String, String>> {
-        log.debug("Optimistic locking conflict: {}", ex.message)
+        log.warn("Optimistic locking conflict: {}", ex.message)
         return ResponseEntity.status(409).body(
             mapOf("detail" to "The record was modified by another request. Please refresh and try again.")
         )
@@ -117,6 +117,9 @@ class ValidationExceptionHandler {
 
     @ExceptionHandler(ResponseStatusException::class)
     fun handleResponseStatusException(ex: ResponseStatusException): ResponseEntity<Map<String, String>> {
+        if (ex.statusCode.is5xxServerError) {
+            log.error("Server error response status={} reason={}", ex.statusCode.value(), ex.reason, ex)
+        }
         return ResponseEntity.status(ex.statusCode).body(mapOf("detail" to (ex.reason ?: "Request failed")))
     }
 

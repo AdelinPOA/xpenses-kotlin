@@ -49,7 +49,7 @@ test("login is accessible and does not overflow", async ({ page }) => {
   await expectNoSeriousAxeViolations(page);
 });
 
-test("mobile expense bundling toolbar appears on selection and navigates to new report", async ({ page }) => {
+async function setupMockedTechnicianSession(page: Page) {
   await page.context().addCookies([
     {
       name: "access_token",
@@ -58,13 +58,59 @@ test("mobile expense bundling toolbar appears on selection and navigates to new 
       path: "/",
     },
   ]);
+  await page.route("**/api/**", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: "{}",
+    }),
+  );
+  await page.route("**/api/fx/status", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        status: "HEALTHY",
+        primary_provider: "BNR",
+        active_source: "BNR",
+        fallback_active: false,
+        last_checked_at: "2026-11-20T18:00:00Z",
+        primary_error: null,
+        providers: [],
+        last_db_rate: null,
+      }),
+    }),
+  );
+  await page.route("**/api/fuel-prices/status", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        status: "HEALTHY",
+        primary_provider: "PRETCARBURANT_LIVE",
+        active_source: "PRETCARBURANT_LIVE",
+        fallback_active: false,
+        last_checked_at: "2026-11-20T20:00:00Z",
+        primary_error: null,
+        providers: [],
+        last_db_price: null,
+      }),
+    }),
+  );
+  await page.route("**/api/users/me/vehicles", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: "[]" }),
+  );
   await page.route("**/api/auth/me", (route) =>
     route.fulfill({
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({ id: 1, username: "tech1", role: "technician", language: "en" }),
-    })
+    }),
   );
+}
+
+test("mobile expense bundling toolbar appears on selection and navigates to new report", async ({ page }) => {
+  await setupMockedTechnicianSession(page);
   await page.route("**/api/categories", (route) =>
     route.fulfill({
       status: 200,
@@ -104,21 +150,7 @@ test("mobile expense bundling toolbar appears on selection and navigates to new 
 });
 
 test("mobile pre-flight submission drawer shows receipt audit and confirmation", async ({ page }) => {
-  await page.context().addCookies([
-    {
-      name: "access_token",
-      value: "mock-valid-token",
-      domain: "localhost",
-      path: "/",
-    },
-  ]);
-  await page.route("**/api/auth/me", (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ id: 1, username: "tech1", role: "technician", language: "en" }),
-    })
-  );
+  await setupMockedTechnicianSession(page);
   await page.route("**/api/reports/10", (route) =>
     route.fulfill({
       status: 200,
@@ -188,26 +220,7 @@ test("mobile pre-flight submission drawer shows receipt audit and confirmation",
 });
 
 test("mobile expense date field stays inside its card at narrow widths", async ({ page }) => {
-  await page.context().addCookies([
-    {
-      name: "access_token",
-      value: "mock-valid-token",
-      domain: "localhost",
-      path: "/",
-    },
-  ]);
-  await page.route("**/api/auth/me", (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        id: 1,
-        username: "tech1",
-        role: "technician",
-        language: "en",
-      }),
-    }),
-  );
+  await setupMockedTechnicianSession(page);
   await page.route("**/api/categories**", (route) =>
     route.fulfill({ status: 200, contentType: "application/json", body: "[]" }),
   );

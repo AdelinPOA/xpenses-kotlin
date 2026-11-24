@@ -94,8 +94,24 @@ class OcrService(
 
     companion object {
         const val CACHE_PROVIDER = "ai-compatible"
-        const val CACHE_CONTRACT_VERSION = "2"
+        const val CACHE_CONTRACT_VERSION = "3"
         internal const val MODEL_COOLDOWN_SECONDS = 90L
+
+        private val TRANSLATE_TO_ENGLISH_PROMPT =
+            """
+            Translate the provided receipt OCR fields into English using the Latin alphabet only.
+            Return a single valid JSON object with the exact keys: merchant, description, raw_text.
+            - merchant (string or null): keep Latin brand names as-is; transliterate any non-Latin/Cyrillic name into Latin script; return null if input is null.
+            - description (string or null): concise natural English expense summary (max 80 chars, Latin script only); return null if input is null.
+            - raw_text (string): concise English translation/summary of the key receipt lines (max 250 chars, Latin script only), preserving dates, numbers, and amounts.
+            Return raw JSON only without markdown fences.
+            """.trimIndent()
+
+        internal fun containsNonLatinScript(text: String?): Boolean =
+            text != null &&
+                text.codePoints().anyMatch { cp ->
+                    Character.isLetter(cp) && Character.UnicodeScript.of(cp) != Character.UnicodeScript.LATIN
+                }
 
         private const val GEMINI_PROVIDER_ID = "google-gemini"
         private const val GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai"
@@ -724,23 +740,29 @@ class OcrService(
         val categoryOptions = categories.joinToString(", ") { "${it.id}: ${it.name}" }
         val prompt =
             """
-            Analyze this receipt, bill, invoice, or ticket (including Romanian, German, or English receipts).
+            Analyze this receipt, bill, invoice, or ticket in any language or script (including English, Romanian, German, Ukrainian, Russian, Spanish, etc.).
+            Mandatory language rule: ALL output text MUST be in English using the Latin alphabet. Never return Cyrillic or other non-Latin scripts, and never leave foreign-language item descriptions untranslated.
             Return a single valid JSON object with these keys:
-            - merchant (string or null): store/vendor name
+            - merchant (string or null): store/vendor name in the Latin alphabet (keep established Latin brand names as-is; transliterate non-Latin/Cyrillic vendor names to Latin script)
             - amount (number or null): FINAL total amount actually charged/paid in the receipt's primary billing currency (never subtotal, cash tendered, change returned, or an alternate display currency if a final charged total is shown; convert comma decimals like 123,45 to 123.45)
-            - currency (3-letter uppercase ISO 4217 code or null, e.g. EUR, RON, USD, GBP; convert LEI/Lei to RON, € to EUR)
+            - currency (3-letter uppercase ISO 4217 code or null, e.g. EUR, RON, USD, GBP, UAH; convert LEI/Lei to RON, € to EUR, грн to UAH)
             - tax_amount (number or null): total VAT/TVA/tax amount
             - tax_rate (number or null): VAT/tax percentage as a number (e.g. 19 for 19%)
             - date (YYYY-MM-DD string or null): receipt/invoice issue date
-            - raw_text (string): concise key visible lines only (max 250 chars: merchant, date, totals, tax)
+            - raw_text (string): concise English translation/summary of key visible lines only (max 250 chars: merchant, date, totals, tax; Latin script only)
             - category_id (integer from [$categoryOptions] or null; e.g. parking/tolls/fuel/taxi -> Transport, hotel/lodging -> Accommodation, laundry/detergent -> Laundry, visa/consular fees -> Visa)
-            - description (string or null): short human-friendly expense summary (max 80 chars)
+            - description (string or null): short human-friendly expense summary ALWAYS written in English (max 80 chars, Latin script only; translate foreign items/services to English, e.g. "Laundry washing and drying, plastic bag", "Hotel accommodation, 3 nights", "Taxi ride")
             Return raw JSON only without markdown fences. Return null for fields that cannot be identified.
             """.trimIndent()
         val imagePages = if (isPdf) renderPdfPages(fileBytes) else listOf(fileBytes to mimeType)
         val imageContent =
             buildList<Any> {
-                add(mapOf("type" to "text", "text" to "Read the attached receipt document pages and extract the requested fields."))
+                add(
+                    mapOf(
+                        "type" to "text",
+                        "text" to "Read the attached receipt document pages and extract the requested fields. Write description and all text output in English (Latin script only).",
+                    ),
+                )
                 imagePages.forEach { (bytes, pageMimeType) ->
                     add(
                         mapOf(
@@ -761,7 +783,15 @@ class OcrService(
         if (extractedDate != null && date == null) warnings.add("Extracted date format is invalid")
         if (date == null) warnings.add("Could not extract date")
 
-        val merchant = (result["merchant"] as? String)?.trim()?.takeIf { it.isNotEmpty() }?.take(255)
+        val rawMerchant = (result["merchant"] as? String)?.trim()?.takeIf { it.isNotEmpty() }?.take(255)
+        val rawDescription = (result["description"] as? String)?.trim()?.takeIf { it.isNotEmpty() }
+        val rawTextValue = (result["raw_text"] as? String)?.trim() ?: result["raw_text"]?.toString()?.trim().orEmpty()
+        val (merchant, description, rawText) =
+            if (containsNonLatinScript(rawMerchant) || containsNonLatinScript(rawDescription) || containsNonLatinScript(rawTextValue)) {
+                translateNonLatinFields(provider, model, rawMerchant, rawDescription, rawTextValue)
+            } else {
+                Triple(rawMerchant, rawDescription, rawTextValue)
+            }
         if (merchant == null) warnings.add("Could not extract merchant")
         val currency = normalizeCurrency(result["currency"] as? String)
         val taxAmount = normalizeOcrNumber(result["tax_amount"])
@@ -777,12 +807,65 @@ class OcrService(
             "date" to date,
             "merchant" to merchant,
             "category_id" to categoryId,
-            "description" to (result["description"] as? String)?.trim()?.takeIf { it.isNotEmpty() },
-            "raw_text" to (result["raw_text"] ?: ""),
+            "description" to description,
+            "raw_text" to rawText,
             "confidence" to 1.0,
             "warnings" to warnings,
         )
     }
+
+    private fun translateNonLatinFields(
+        provider: OCRProviderConfig,
+        model: OCRModelConfig,
+        merchant: String?,
+        description: String?,
+        rawText: String,
+    ): Triple<String?, String?, String> =
+        try {
+            val payload =
+                objectMapper.writeValueAsString(
+                    mapOf(
+                        "merchant" to merchant,
+                        "description" to description,
+                        "raw_text" to rawText,
+                    ),
+                )
+            val response = compatibleClient.complete(provider, model.modelId, TRANSLATE_TO_ENGLISH_PROMPT, payload)
+            val translated: Map<String, Any?> = objectMapper.readValue(AiJsonSanitizer.extractJsonObject(response))
+
+            val translatedMerchant =
+                if (containsNonLatinScript(merchant)) {
+                    (translated["merchant"] as? String)
+                        ?.trim()
+                        ?.takeIf { it.isNotEmpty() && !containsNonLatinScript(it) }
+                        ?.take(255)
+                        ?: merchant
+                } else {
+                    merchant
+                }
+            val translatedDescription =
+                if (containsNonLatinScript(description)) {
+                    (translated["description"] as? String)
+                        ?.trim()
+                        ?.takeIf { it.isNotEmpty() && !containsNonLatinScript(it) }
+                        ?: description
+                } else {
+                    description
+                }
+            val translatedRawText =
+                if (containsNonLatinScript(rawText)) {
+                    (translated["raw_text"] as? String)
+                        ?.trim()
+                        ?.takeIf { it.isNotEmpty() && !containsNonLatinScript(it) }
+                        ?: rawText
+                } else {
+                    rawText
+                }
+            Triple(translatedMerchant, translatedDescription, translatedRawText)
+        } catch (e: Exception) {
+            log.warn("OCR English translation fallback failed for {} ({})", model.id, e.javaClass.simpleName)
+            Triple(merchant, description, rawText)
+        }
 
     private fun detectDocumentType(
         bytes: ByteArray,

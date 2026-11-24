@@ -820,4 +820,190 @@ class OcrServiceTest {
         assertEquals(99.0, result["amount"])
         assertTrue(capturedUrl.startsWith("data:image/jpeg;base64,"), "Expected JPEG data URL, got: ${capturedUrl.take(40)}")
     }
+
+    @Test
+    fun `scanReceipt prompt explicitly requires English output in Latin script`() {
+        var capturedSystemPrompt = ""
+        var capturedUserText = ""
+        doAnswer { invocation ->
+            capturedSystemPrompt = invocation.arguments[2] as String
+            val parts = invocation.arguments[3] as List<*>
+            capturedUserText =
+                parts
+                    .filterIsInstance<Map<*, *>>()
+                    .firstOrNull { it["type"] == "text" }
+                    ?.get("text")
+                    ?.toString()
+                    .orEmpty()
+            objectMapper.writeValueAsString(geminiResult(10.0, "Test Shop", "2026-11-24"))
+        }.`when`(compatibleClient).complete(
+            any(OCRProviderConfig::class.java) ?: OCRProviderConfig("provider", "provider", "https://api.example.com/v1"),
+            anyString(),
+            anyString(),
+            any<Any?>(),
+        )
+
+        ocrService.scanReceipt(fakeBytes, filename)
+
+        assertTrue(capturedSystemPrompt.contains("ALL output text MUST be in English using the Latin alphabet"))
+        assertTrue(capturedSystemPrompt.contains("Never return Cyrillic or other non-Latin scripts"))
+        assertTrue(capturedUserText.contains("English (Latin script only)"))
+    }
+
+    @Test
+    fun `scanReceipt translates Ukrainian Cyrillic description and raw_text to English while preserving Latin merchant`() {
+        var calls = 0
+        doAnswer { invocation ->
+            calls++
+            if (invocation.arguments[3] is List<*>) {
+                objectMapper.writeValueAsString(
+                    mapOf(
+                        "amount" to 505.0,
+                        "currency" to "UAH",
+                        "tax_amount" to null,
+                        "tax_rate" to null,
+                        "date" to "2026-11-24",
+                        "merchant" to "Clean Line",
+                        "category_id" to null,
+                        "description" to "Прання та Сушіння, Пакетик поліетиленовий",
+                        "raw_text" to "Громадська пральня Clean Line вул. Ак.Сахарова 58 #Прання та Сушіння Сума: 505,00 грн. 24.11.2026 09:11:48",
+                    ),
+                )
+            } else {
+                objectMapper.writeValueAsString(
+                    mapOf(
+                        "merchant" to "Clean Line",
+                        "description" to "Washing and drying, plastic bag",
+                        "raw_text" to "Public laundry Clean Line 58 Ak. Sakharova St Washing and drying Total: 505.00 UAH 24.11.2026 09:11:48",
+                    ),
+                )
+            }
+        }.`when`(compatibleClient).complete(
+            any(OCRProviderConfig::class.java) ?: OCRProviderConfig("provider", "provider", "https://api.example.com/v1"),
+            anyString(),
+            anyString(),
+            any<Any?>(),
+        )
+
+        val result = ocrService.scanReceipt(fakeBytes, filename)
+
+        assertEquals(2, calls)
+        assertEquals(505.0, result["amount"])
+        assertEquals("UAH", result["currency"])
+        assertEquals("Clean Line", result["merchant"])
+        assertEquals("Washing and drying, plastic bag", result["description"])
+        assertEquals(
+            "Public laundry Clean Line 58 Ak. Sakharova St Washing and drying Total: 505.00 UAH 24.11.2026 09:11:48",
+            result["raw_text"],
+        )
+    }
+
+    @Test
+    fun `scanReceipt transliterates Cyrillic merchant and translates Cyrillic description`() {
+        doAnswer { invocation ->
+            if (invocation.arguments[3] is List<*>) {
+                objectMapper.writeValueAsString(
+                    mapOf(
+                        "amount" to 1200.0,
+                        "currency" to "KZT",
+                        "date" to "2026-10-20",
+                        "merchant" to "СМЗ Нурдинов Нурахмет",
+                        "description" to "Перевозка пассажиров и багажа",
+                        "raw_text" to "Перевозка пассажиров и багажа 1200 KZT",
+                    ),
+                )
+            } else {
+                objectMapper.writeValueAsString(
+                    mapOf(
+                        "merchant" to "SMZ Nurdinov Nurakhmet",
+                        "description" to "Passenger and baggage transport",
+                        "raw_text" to "Passenger and baggage transport 1200 KZT",
+                    ),
+                )
+            }
+        }.`when`(compatibleClient).complete(
+            any(OCRProviderConfig::class.java) ?: OCRProviderConfig("provider", "provider", "https://api.example.com/v1"),
+            anyString(),
+            anyString(),
+            any<Any?>(),
+        )
+
+        val result = ocrService.scanReceipt(fakeBytes, filename)
+
+        assertEquals("SMZ Nurdinov Nurakhmet", result["merchant"])
+        assertEquals("Passenger and baggage transport", result["description"])
+        assertEquals("Passenger and baggage transport 1200 KZT", result["raw_text"])
+    }
+
+    @Test
+    fun `scanReceipt keeps usable OCR result if English translation repair fails`() {
+        doAnswer { invocation ->
+            if (invocation.arguments[3] is List<*>) {
+                objectMapper.writeValueAsString(
+                    mapOf(
+                        "amount" to 505.0,
+                        "currency" to "UAH",
+                        "date" to "2026-11-24",
+                        "merchant" to "Clean Line",
+                        "description" to "Прання та Сушіння",
+                        "raw_text" to "Громадська пральня Clean Line",
+                    ),
+                )
+            } else {
+                throw ProviderTransportException("AI provider HTTP 503", statusCode = 503)
+            }
+        }.`when`(compatibleClient).complete(
+            any(OCRProviderConfig::class.java) ?: OCRProviderConfig("provider", "provider", "https://api.example.com/v1"),
+            anyString(),
+            anyString(),
+            any<Any?>(),
+        )
+
+        val result = ocrService.scanReceipt(fakeBytes, filename)
+
+        assertEquals(505.0, result["amount"])
+        assertEquals("UAH", result["currency"])
+        assertEquals("Clean Line", result["merchant"])
+        assertEquals("2026-11-24", result["date"])
+        assertEquals("gemini-3.1-flash-lite", result["model_used"])
+    }
+
+    @Test
+    fun `scanReceipt does not invoke translation repair for European Latin diacritics`() {
+        `when`(
+            compatibleClient.complete(
+                any(OCRProviderConfig::class.java) ?: OCRProviderConfig("provider", "provider", "https://api.example.com/v1"),
+                anyString(),
+                anyString(),
+                any<Any?>(),
+            ),
+        ).thenReturn(
+            objectMapper.writeValueAsString(
+                mapOf(
+                    "amount" to 45.0,
+                    "currency" to "EUR",
+                    "date" to "2026-11-19",
+                    "merchant" to "PLENERGY LA BAÑEZA",
+                    "description" to "Accommodation at Ostlandstraße 7, León",
+                    "raw_text" to "TOTAL 45,00 €",
+                ),
+            ),
+        )
+
+        val result = ocrService.scanReceipt(fakeBytes, filename)
+
+        assertEquals("PLENERGY LA BAÑEZA", result["merchant"])
+        assertEquals("Accommodation at Ostlandstraße 7, León", result["description"])
+        verify(compatibleClient, times(1)).complete(
+            any(OCRProviderConfig::class.java) ?: OCRProviderConfig("provider", "provider", "https://api.example.com/v1"),
+            anyString(),
+            anyString(),
+            any<Any?>(),
+        )
+    }
+
+    @Test
+    fun `cache contract version is bumped for English OCR output contract`() {
+        assertEquals("3", OcrService.CACHE_CONTRACT_VERSION)
+    }
 }

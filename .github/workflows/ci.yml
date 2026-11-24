@@ -76,17 +76,11 @@ jobs:
           cd frontend
           npm ci
 
-      - name: Run Service Worker VM regressions
-        run: npm run test:service-worker:unit --prefix frontend
-
-      - name: Install Chromium for Service Worker browser regression
+      - name: Install Chromium for frontend browser regressions
         run: cd frontend && npx playwright install --with-deps chromium
 
-      - name: Run real Service Worker Chromium regression
-        run: npm run test:service-worker:browser --prefix frontend
-
-      - name: Run auth, offline, replay and PWA regressions serially
-        run: npm run test:offline-regressions --prefix frontend
+      - name: Run auth unit and session refresh regressions
+        run: npm run test:auth-regressions --prefix frontend
 
       - name: Run capture review and release-gate regressions
         run: |
@@ -258,7 +252,7 @@ jobs:
       - name: Run authenticated mobile UI smoke tests
         run: npm run test:e2e:mobile --prefix frontend
 
-      - name: Run authenticated capture and offline cold-start integration
+      - name: Run authenticated capture integration
         env:
           PLAYWRIGHT_CAPTURE_INTEGRATION: "true"
         run: |

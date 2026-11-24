@@ -2,12 +2,6 @@ export type AuthFailureKind = "terminal" | "transient";
 export const TERMINAL_AUTH_FAILURE_EVENT = "xpenses:terminal-auth-failure";
 export const USER_STORAGE_KEY = "xpenses_user_profile";
 export const AUTH_MARKER_FIELD = "__xpenses_auth_marker";
-/** Must exactly match the active public shell cache in frontend/public/sw.js. */
-export const GENERIC_OFFLINE_SHELL_CACHE = "xpenses-v9";
-
-export function cachesToPurgeOnLogout(cacheNames: string[]): string[] {
-  return cacheNames.filter((name) => name !== GENERIC_OFFLINE_SHELL_CACHE);
-}
 
 export interface StoredIdentityMarker {
   ownerId: number | null;

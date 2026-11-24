@@ -152,7 +152,6 @@ function CaptureSession({ reportId }: { reportId?: number }) {
   const toast = useToast();
   const t = useTranslations("expenses");
   const tc = useTranslations("capture");
-  const toffline = useTranslations("offline");
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const inFlightRef = useRef<Set<string>>(new Set());
@@ -688,7 +687,7 @@ function CaptureSession({ reportId }: { reportId?: number }) {
                         </Link>
                       )}
                       {job.allowed_actions.includes("retry") && (
-                        <button type="button" onClick={() => void runRetry(job)} className="min-h-10 rounded-lg border border-border px-3 text-xs font-semibold text-foreground">{toffline("retry")}</button>
+                        <button type="button" onClick={() => void runRetry(job)} className="min-h-10 rounded-lg border border-border px-3 text-xs font-semibold text-foreground">{tc("retry")}</button>
                       )}
                       {job.allowed_actions.includes("complete_manually") && (
                         <button type="button" onClick={() => void openManualCompletion(job)} className="min-h-10 rounded-lg bg-primary px-3 text-xs font-semibold text-white">{tc("complete_manually")}</button>

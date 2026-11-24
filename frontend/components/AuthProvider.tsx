@@ -13,7 +13,6 @@ import { User } from "@/lib/api";
 import { getMe, logout as apiLogout, refreshTokens } from "@/lib/auth";
 import {
   AUTH_MARKER_FIELD,
-  cachesToPurgeOnLogout,
   getAuthFailureKind,
   readStoredIdentityMarker,
   storedIdentityMatches,
@@ -22,7 +21,6 @@ import {
 } from "@/lib/authSession";
 import { writeLangCookie } from "@/i18n/LocaleProvider";
 import { useQueryClient } from "@tanstack/react-query";
-import type { QueryPersistence } from "@/lib/queryPersister";
 
 function getStoredUser(): User | null {
   if (typeof window === "undefined") return null;
@@ -83,10 +81,8 @@ function createIdentityMarker(): string {
 
 export default function AuthProvider({
   children,
-  persistence,
 }: {
   children: React.ReactNode;
-  persistence: QueryPersistence;
 }) {
   // Keep the first render identical on the server and client. Reading
   // localStorage in a state initializer makes the client render a different
@@ -118,7 +114,7 @@ export default function AuthProvider({
         identityMarker?: string | null;
         expectedIdentity?: { ownerId: number | null; marker: string | null };
       } = {},
-    ): Promise<void> => {
+    ): void => {
       const nextId = nextUser?.id ?? null;
       const persistProfile = options.persistProfile !== false;
       if (options.expectedIdentity && typeof window !== "undefined") {
@@ -127,7 +123,7 @@ export default function AuthProvider({
           current.ownerId !== options.expectedIdentity.ownerId ||
           current.marker !== options.expectedIdentity.marker
         )
-          return persistence.whenReady();
+          return;
       }
       const storedIdentity =
         typeof window === "undefined"
@@ -143,16 +139,12 @@ export default function AuthProvider({
       const identityChanged =
         currentUserId.current !== nextId ||
         localIdentityMarker.current !== identityMarker;
-      let ready: Promise<void>;
       if (identityChanged) {
         currentUserId.current = nextId;
         localIdentityMarker.current = identityMarker;
         authGeneration.current++;
         setSessionVerified(false);
         queryClient.clear();
-        ready = persistence.setOwner(nextId);
-      } else {
-        ready = persistence.whenReady();
       }
       try {
         if (persistProfile && nextUser) {
@@ -179,13 +171,12 @@ export default function AuthProvider({
             localStorage.removeItem(USER_STORAGE_KEY);
         }
       } catch {
-        // Local profile persistence is best-effort; IndexedDB remains owner-scoped.
+        // Local profile persistence is best-effort.
       }
       if (nextUser) writeLangCookie(nextUser.language || "en");
       setUserState(nextUser);
-      return ready;
     },
-    [persistence, queryClient, setSessionVerified],
+    [queryClient, setSessionVerified],
   );
 
   const clearProactiveRefresh = useCallback(() => {
@@ -218,7 +209,7 @@ export default function AuthProvider({
       authDisabled.current = true;
       setSessionVerified(false);
       clearProactiveRefresh();
-      await commitUser(null, { expectedIdentity: expected });
+      commitUser(null, { expectedIdentity: expected });
       setLoading(false);
       if (
         typeof window !== "undefined" &&
@@ -280,11 +271,10 @@ export default function AuthProvider({
         )
           return null;
 
-        const commitReady = commitUser(verifiedUser, {
+        commitUser(verifiedUser, {
           expectedIdentity: identityAtStart,
         });
         const committedGeneration = authGeneration.current;
-        await commitReady;
         const committedIdentity = readStoredIdentityMarker(localStorage);
         if (
           requestId !== authRequestId.current ||
@@ -322,7 +312,6 @@ export default function AuthProvider({
           // No response, timeout, server failure, or an endpoint response that
           // does not prove invalid credentials is not grounds to erase the owner.
           setSessionVerified(false);
-          if (currentUserId.current != null) await persistence.whenReady();
         }
         return null;
       } finally {
@@ -330,7 +319,6 @@ export default function AuthProvider({
       }
     }, [
       commitUser,
-      persistence,
       rejectSession,
       scheduleProactiveRefresh,
       setSessionVerified,
@@ -361,11 +349,10 @@ export default function AuthProvider({
       authDisabled.current = nextUser === null;
       setSessionVerified(false);
       clearProactiveRefresh();
-      void commitUser(nextUser).then(() => {
-        if (requestId !== authRequestId.current) return;
-        setLoading(false);
-        if (nextUser) void verifySession();
-      });
+      commitUser(nextUser);
+      if (requestId !== authRequestId.current) return;
+      setLoading(false);
+      if (nextUser) void verifySession();
     },
     [clearProactiveRefresh, commitUser, setSessionVerified, verifySession],
   );
@@ -381,11 +368,6 @@ export default function AuthProvider({
     const handleVisibility = () => {
       if (document.visibilityState === "visible") checkAuth();
     };
-    const handleOffline = () => {
-      authGeneration.current++;
-      setSessionVerified(false);
-    };
-    const handleOnline = () => checkAuth();
 
     const handleTerminalAuthFailure = () => {
       if (mounted) void rejectSession(authRequestId.current);
@@ -412,26 +394,23 @@ export default function AuthProvider({
       authDisabled.current = !storedUser;
       setSessionVerified(false);
       clearProactiveRefresh();
-      void commitUser(storedUser, {
+      commitUser(storedUser, {
         persistProfile: false,
         identityMarker: nextIdentity.marker,
-      }).then(() => {
-        if (!mounted || invalidationRequestId !== authRequestId.current) return;
-        setLoading(false);
-        if (storedUser) {
-          // The cross-tab profile is only a namespace hint. Freshly verify the
-          // cookie-backed server identity before enabling replay.
-          void verifySession();
-        } else if (window.location.pathname !== "/login") {
-          const next = window.location.pathname + window.location.search;
-          router.replace(`/login?next=${encodeURIComponent(next)}`);
-        }
       });
+      if (!mounted || invalidationRequestId !== authRequestId.current) return;
+      setLoading(false);
+      if (storedUser) {
+        // The cross-tab profile is only a namespace hint. Freshly verify the
+        // cookie-backed server identity before enabling replay.
+        void verifySession();
+      } else if (window.location.pathname !== "/login") {
+        const next = window.location.pathname + window.location.search;
+        router.replace(`/login?next=${encodeURIComponent(next)}`);
+      }
     };
 
     document.addEventListener("visibilitychange", handleVisibility);
-    window.addEventListener("offline", handleOffline);
-    window.addEventListener("online", handleOnline);
     window.addEventListener(
       TERMINAL_AUTH_FAILURE_EVENT,
       handleTerminalAuthFailure,
@@ -441,7 +420,7 @@ export default function AuthProvider({
     // Browser storage is only read after hydration so the initial tree stays
     // deterministic. It supplies a local owner namespace, never server auth.
     const storedUser = getStoredUser();
-    if (storedUser) void commitUser(storedUser);
+    if (storedUser) commitUser(storedUser);
 
     checkAuth();
     const interval = setInterval(checkAuth, 5 * 60 * 1000);
@@ -453,8 +432,6 @@ export default function AuthProvider({
       clearInterval(interval);
       clearProactiveRefresh();
       document.removeEventListener("visibilitychange", handleVisibility);
-      window.removeEventListener("offline", handleOffline);
-      window.removeEventListener("online", handleOnline);
       window.removeEventListener(
         TERMINAL_AUTH_FAILURE_EVENT,
         handleTerminalAuthFailure,
@@ -471,58 +448,30 @@ export default function AuthProvider({
   ]);
 
   const logout = useCallback(async () => {
-    try {
-      clearProactiveRefresh();
-      authDisabled.current = true;
-      authRequestId.current++;
-      authGeneration.current++;
-      setSessionVerified(false);
-      const localOwnerId = currentUserId.current ?? null;
-      const sharedIdentity =
-        typeof window === "undefined"
-          ? { ownerId: null, marker: null }
-          : readStoredIdentityMarker(localStorage);
-      const stillOwnsSharedIdentity = sharedIdentity.ownerId === localOwnerId;
-      const expectedIdentity = stillOwnsSharedIdentity
-        ? sharedIdentity
-        : {
-            ownerId: localOwnerId,
-            marker: localIdentityMarker.current ?? null,
-          };
-      const purge = commitUser(null, { expectedIdentity });
-      await Promise.all([
-        purge,
-        stillOwnsSharedIdentity
-          ? apiLogout().catch(() => {
-              // Continue client cleanup even if network logout fails.
-            })
-          : Promise.resolve(),
-      ]);
-      if (typeof window !== "undefined") {
-        if ("caches" in window) {
-          try {
-            const keys = await caches.keys();
-            await Promise.all(
-              cachesToPurgeOnLogout(keys).map((key) => caches.delete(key)),
-            );
-          } catch {
-            // Ignore cache deletion errors
-          }
-        }
-        if (navigator.serviceWorker?.controller) {
-          navigator.serviceWorker.controller.postMessage({ type: "CLEAR_CACHE" });
-        }
-      }
-      router.push("/login");
-    } finally {
-      if (typeof window !== "undefined") {
-        try {
-          localStorage.removeItem("xpenses_offline_sync_status");
-        } catch {
-          // Ignore storage removal errors
-        }
-      }
+    clearProactiveRefresh();
+    authDisabled.current = true;
+    authRequestId.current++;
+    authGeneration.current++;
+    setSessionVerified(false);
+    const localOwnerId = currentUserId.current ?? null;
+    const sharedIdentity =
+      typeof window === "undefined"
+        ? { ownerId: null, marker: null }
+        : readStoredIdentityMarker(localStorage);
+    const stillOwnsSharedIdentity = sharedIdentity.ownerId === localOwnerId;
+    const expectedIdentity = stillOwnsSharedIdentity
+      ? sharedIdentity
+      : {
+          ownerId: localOwnerId,
+          marker: localIdentityMarker.current ?? null,
+        };
+    commitUser(null, { expectedIdentity });
+    if (stillOwnsSharedIdentity) {
+      await apiLogout().catch(() => {
+        // Continue client cleanup even if network logout fails.
+      });
     }
+    router.push("/login");
   }, [router, clearProactiveRefresh, commitUser, setSessionVerified]);
 
   // Neutral loading state while the initial session check runs. If a cached

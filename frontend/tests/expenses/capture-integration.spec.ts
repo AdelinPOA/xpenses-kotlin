@@ -3,14 +3,10 @@ import { test, expect } from "@playwright/test";
 
 // Mutating integration tests must run only with a disposable, loopback backend.
 // No routes are intercepted: auth, uploads, recovery, review and replay use HTTP.
-test.use({ serviceWorkers: "allow" });
 test.describe("authenticated capture integration", () => {
   test.skip(process.env.PLAYWRIGHT_CAPTURE_INTEGRATION !== "true", "Requires an explicitly enabled disposable integration stack");
 
-  test("real acceptance and recovery, offline cold-start and versioned confirmation", async ({ page, baseURL, browserName }) => {
-    // Playwright's Service Worker automation is Chromium-only; this is not
-    // physical Safari/PWA acceptance (tracked separately in issue #51).
-    test.skip(browserName !== "chromium", "Service Worker automation requires Chromium");
+  test("real acceptance and recovery, reload retention and versioned confirmation", async ({ page, baseURL }) => {
     test.setTimeout(120_000);
     expect(["localhost", "127.0.0.1"]).toContain(new URL(baseURL!).hostname);
     const username = process.env.PLAYWRIGHT_USER;
@@ -73,32 +69,22 @@ test.describe("authenticated capture integration", () => {
     expect(recovered.receipt_id).toBeGreaterThan(0);
     await expect(page.getByRole("heading", { name: "Check the receipt details" })).toBeVisible();
     await page.getByRole("spinbutton", { name: "Amount *", exact: true }).fill("22.00");
-    await page.getByLabel(/Merchant/i).fill("Retained offline correction");
+    await page.getByLabel(/Merchant/i).fill("Retained draft correction");
     await expect(page.getByText(/Saved on this device — not saved on the server/i)).toBeVisible();
 
-    await page.evaluate(async () => { await navigator.serviceWorker.ready; });
-    await expect.poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller))).toBeTruthy();
-    await page.context().setOffline(true);
-    await page.close();
-    const coldPage = await page.context().newPage();
-    await coldPage.goto(reviewUrl, { waitUntil: "load" });
-    await expect(coldPage.locator('meta[name="xpenses-offline-shell"]')).toHaveAttribute("content", "v9");
-    // The generic offline workspace is intentionally not a second OCR editor.
-    // It must leave the owner-scoped pending review intact for online resume.
-    await coldPage.context().setOffline(false);
-    await coldPage.goto(reviewUrl, { waitUntil: "load" });
-    await expect(coldPage.getByLabel(/Merchant/i)).toHaveValue("Retained offline correction");
-    const confirmation = coldPage.waitForResponse((response) => response.request().method() === "PUT" && response.url().endsWith(`/api/expenses/${expenseId}/review`));
-    await coldPage.getByRole("button", { name: "Confirm Expense", exact: true }).click();
+    await page.reload({ waitUntil: "load" });
+    await expect(page.getByLabel(/Merchant/i)).toHaveValue("Retained draft correction");
+    const confirmation = page.waitForResponse((response) => response.request().method() === "PUT" && response.url().endsWith(`/api/expenses/${expenseId}/review`));
+    await page.getByRole("button", { name: "Confirm Expense", exact: true }).click();
     const acknowledgement = await confirmation;
     expect(acknowledgement.ok()).toBeTruthy();
     const verified = await acknowledgement.json();
     expect(verified.verification_state).toBe("VERIFIED");
-    expect(verified.merchant).toBe("Retained offline correction");
-    await expect(coldPage).toHaveURL(new RegExp(`/expenses\\?highlight=${expenseId}$`));
-    await expect(coldPage.locator('[data-expense-row][aria-current="true"]')).toBeVisible();
+    expect(verified.merchant).toBe("Retained draft correction");
+    await expect(page).toHaveURL(new RegExp(`/expenses\\?highlight=${expenseId}$`));
+    await expect(page.locator('[data-expense-row][aria-current="true"]')).toBeVisible();
     const request = acknowledgement.request();
-    const reviewReplay = await coldPage.request.put(`/api/expenses/${expenseId}/review`, {
+    const reviewReplay = await page.request.put(`/api/expenses/${expenseId}/review`, {
       headers: { "Idempotency-Key": (await request.headerValue("idempotency-key"))! },
       data: request.postDataJSON(),
     });

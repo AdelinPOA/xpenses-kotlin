@@ -123,7 +123,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
       {/* Mobile backdrop */}
       {open && (
         <div
-          className="fixed left-0 right-0 bottom-0 top-[var(--app-banner-height,0px)] bg-black/50 z-50 lg:hidden"
+          className="fixed inset-0 bg-black/50 z-50 lg:hidden"
           onClick={onClose}
           aria-hidden="true"
         />
@@ -137,13 +137,13 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
         aria-hidden={isMobileClosed ? "true" : undefined}
         inert={isMobileClosed ? true : undefined}
         className={clsx(
-          "fixed top-[var(--app-banner-height,0px)] bottom-0 left-0 w-[220px] bg-sidebar text-slate-200 flex flex-col z-50 border-r border-sidebar-border",
+          "fixed top-0 bottom-0 left-0 w-[220px] bg-sidebar text-slate-200 flex flex-col z-50 border-r border-sidebar-border",
           "transition-transform duration-200 ease-in-out",
           "lg:translate-x-0",
           open ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        <div className="px-6 pb-4 border-b border-sidebar-border flex items-center justify-between" style={{ paddingTop: "calc(1.5rem + var(--app-header-safe-inset, env(safe-area-inset-top, 0px)))" }}>
+        <div className="px-6 pb-4 border-b border-sidebar-border flex items-center justify-between" style={{ paddingTop: "calc(1.5rem + env(safe-area-inset-top, 0px))" }}>
           <Link
             href="/dashboard"
             onClick={(e) => {

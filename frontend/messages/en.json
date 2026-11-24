@@ -226,27 +226,6 @@
     "notifications_count": "Notifications ({count})",
     "export_failed": "Export failed. Please try again."
   },
-  "offline": {
-    "banner_offline": "Offline — changes will sync automatically",
-    "banner_offline_with_queue": "Offline — {count} draft(s) will submit automatically",
-    "banner_sync_pending": "{count} offline draft(s) waiting to sync",
-    "banner_needs_attention": "{count} offline draft(s) need attention",
-    "synced_toast": "Synced {count} offline expense(s)",
-    "still_offline": "Still offline — drafts will sync when connection returns",
-    "drafts_badge": "{count} offline draft(s)",
-    "needs_attention": "needs attention",
-    "queue_title": "Offline Expense recovery",
-    "queue_subtitle": "Saved Expenses stay safe while Receipts finish syncing.",
-    "close_queue": "Close",
-    "queue_empty": "No queued Expenses.",
-    "expense_number": "Expense #{id}",
-    "new_expense_pending": "New Expense pending",
-    "expense_pending": "Waiting to create the Expense",
-    "receipts_pending": "Expense saved; Receipts are pending",
-    "open_expense": "Open Expense",
-    "retry": "Retry",
-    "discard": "Discard"
-  },
   "offlineWorkspace": {
     "offlineLabel": "OFFLINE",
     "eyebrow": "FIELD WORKSPACE",
@@ -301,7 +280,7 @@
     "new_expense": "New Expense",
     "receipt_capture": "Receipt",
     "receipt_capture_choice": "Capture and review a receipt",
-    "receipt_capture_hint": "Take a photo or choose a file. OCR creates one saved draft for immediate review.",
+    "receipt_capture_hint": "Photo or file",
     "continue_capture": "Continue to receipt capture",
     "manual_entry_heading": "Manual entry",
     "manual_entry_hint": "Enter the Expense details yourself and attach a receipt if you have one.",
@@ -467,9 +446,7 @@
     "export_last_month": "Last month",
     "export_this_year": "This year",
     "export_all_time": "All time",
-    "saved_offline_toast": "Saved offline — will submit automatically",
     "queue_full_warning": "Offline queue is nearly full — sync soon to avoid losing drafts",
-    "edit_offline_unsupported": "Editing is not available offline. Drafts can still be created.",
     "bulk_no_img": "No img",
     "status_approved": "Approved",
     "status_rejected": "Rejected",
@@ -477,7 +454,6 @@
     "filter_by_status": "Status",
     "more_actions": "More actions",
     "receipt_capture_heading": "Add a receipt",
-    "receipt_capture_hint": "Photo or file",
     "choose_file": "Choose file",
     "additional_details": "Additional details",
     "tax_amount": "Tax amount",
@@ -497,8 +473,6 @@
     "bundle_toolbar_aria": "Expense bundling toolbar"
   },
   "pwa": {
-    "update_available": "A new version is available.",
-    "update_now": "Reload",
     "ios_install_hint": "Install the app: tap Share, then \"Add to Home Screen\".",
     "ios_install_dismiss": "Dismiss"
   },
@@ -1336,7 +1310,8 @@
     "offline_saved": "Receipt saved on this device. It is not uploaded or verified yet.",
     "manual_amount_required": "Enter an amount greater than zero.",
     "manual_date_required": "Enter the receipt date.",
-    "local_save_failed": "These manual details could not be saved on this device."
+    "local_save_failed": "These manual details could not be saved on this device.",
+    "retry": "Retry"
   },
   "expenseReview": {
     "step_review": "Step 2 · Review",

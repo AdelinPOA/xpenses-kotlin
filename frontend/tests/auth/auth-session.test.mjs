@@ -2,9 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   AUTH_MARKER_FIELD,
-  cachesToPurgeOnLogout,
   classifyAuthEndpointFailure,
-  GENERIC_OFFLINE_SHELL_CACHE,
   getAuthFailureKind,
   storedIdentityMatches,
   USER_STORAGE_KEY,
@@ -57,18 +55,6 @@ test("session proofs compare against the live shared owner marker", () => {
   assert.equal(storedIdentityMatches(storage, 4, "session-a"), false);
   profile = "null";
   assert.equal(storedIdentityMatches(storage, 4, "session-a"), false);
-});
-
-test("logout preserves only the exact generic workspace cache", () => {
-  assert.deepEqual(
-    cachesToPurgeOnLogout([
-      GENERIC_OFFLINE_SHELL_CACHE,
-      "xpenses-v7",
-      "xpenses-private",
-      "xpenses-v8-private",
-    ]),
-    ["xpenses-v7", "xpenses-private", "xpenses-v8-private"],
-  );
 });
 
 test("direct network, timeout, and 5xx auth-check failures remain transient", () => {

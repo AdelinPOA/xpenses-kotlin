@@ -13,15 +13,12 @@ import api, {
 import { categoryKeys, expenseKeys, dashboardKeys, reportKeys } from "@/lib/queryKeys";
 import { useFormGuard } from "@/lib/useFormGuard";
 import { compressImage, compressedUploadName } from "@/lib/receiptCapture";
-import { saveNewExpense } from "@/lib/expenseSaving";
-import { useOfflineSync } from "@/components/OfflineSyncProvider";
 import { Trash2 } from "lucide-react";
 import clsx from "clsx";
 import { formatEur } from "@/lib/format";
 import FxRateInput from "./FxRateInput";
 import ReceiptPreview from "./ReceiptPreview";
 import { useToast } from "@/components/ToastProvider";
-import { useAuth } from "@/components/AuthProvider";
 import { useTranslations } from "next-intl";
 
 function sanitizeUrl(url: string): string {
@@ -76,8 +73,6 @@ export default function ExpenseForm({
   const t = useTranslations("expenses");
   const tc = useTranslations("common");
   const toast = useToast();
-  const { user } = useAuth();
-  const { refreshCount: refreshOffline } = useOfflineSync();
 
   const currentExpense = expense;
   const isEdit = !!currentExpense;
@@ -151,6 +146,11 @@ export default function ExpenseForm({
   const handlePointerUp = () => setIsDraggingImage(false);
 
   const redirectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const createIdempotencyKeyRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    createIdempotencyKeyRef.current = null;
+  }, [form, fxRateEditMode, manualFxRate, receiptFiles]);
 
   const fileUrls = useMemo(
     () => receiptFiles.map((entry) => URL.createObjectURL(entry.file)),
@@ -211,10 +211,6 @@ export default function ExpenseForm({
     items.find((it) => it.key === activeReceiptKey) || items[0] || null;
 
   const save = useMutation({
-    // "always": TanStack otherwise PAUSES mutations while navigator.onLine
-    // is false — our own offline handling (IndexedDB queue) lives in
-    // mutationFn and must run even when offline.
-    networkMode: "always",
     mutationFn: async () => {
       const manualRate = fxRateEditMode ? manualFxRate : null;
       const payload = {
@@ -236,7 +232,6 @@ export default function ExpenseForm({
       };
 
       if (isEdit && currentExpense) {
-        if (!navigator.onLine) throw new Error(t("edit_offline_unsupported"));
         let result: Expense;
         try {
           result = await api
@@ -280,8 +275,6 @@ export default function ExpenseForm({
           return {
             expense: result,
             receiptUploadFailed: true as const,
-            queued: null,
-            failed: null,
           };
         } finally {
           setIsUploadingReceipts(false);
@@ -289,78 +282,65 @@ export default function ExpenseForm({
         return {
           expense: result,
           receiptUploadFailed: false,
-          queued: null,
-          failed: null,
         };
       }
 
+      const saveKey =
+        createIdempotencyKeyRef.current ??
+        (createIdempotencyKeyRef.current = crypto.randomUUID());
+      let result: Expense;
       try {
-        if (!user?.id) throw new Error(t("error_save"));
-        if (receiptFiles.length > 0 && navigator.onLine)
+        result = await api
+          .post<Expense>("/expenses", payload, {
+            headers: { "Idempotency-Key": `${saveKey}:expense` },
+          })
+          .then((r) => r.data);
+      } catch (e: any) {
+        throw new Error(e.response?.data?.detail ?? t("error_save"), { cause: e });
+      }
+      try {
+        if (receiptFiles.length > 0) {
           setIsUploadingReceipts(true);
-        const outcome = await saveNewExpense(
-          payload,
-          receiptFiles.map(({ file }) => file),
-          user.id,
-        );
-        if (outcome.status === "failed") {
-          return {
-            expense: null,
-            receiptUploadFailed: false,
-            queued: null,
-            failed: outcome.message,
-          };
+          const fd = new FormData();
+          for (const { file } of receiptFiles) {
+            const compressed = await compressImage(file);
+            fd.append(
+              "files",
+              compressed,
+              compressedUploadName(file.name, compressed),
+            );
+          }
+          await api.post(`/expenses/${result.id}/receipts`, fd, {
+            headers: { "Idempotency-Key": `${saveKey}:receipts` },
+          });
         }
-        if (outcome.status === "queued") {
-          return {
-            expense: null,
-            receiptUploadFailed: false,
-            queued: outcome.item,
-            failed: null,
-          };
-        }
-        if (outcome.status === "partial") {
-          return {
-            expense: outcome.expense,
-            receiptUploadFailed: true as const,
-            queued: outcome.item,
-            failed: null,
-          };
-        }
+      } catch {
+        qc.invalidateQueries({ queryKey: expenseKeys.all });
+        qc.invalidateQueries({ queryKey: dashboardKeys.all });
+        qc.invalidateQueries({ queryKey: reportKeys.all });
+        createIdempotencyKeyRef.current = null;
         return {
-          expense: outcome.expense,
-          receiptUploadFailed: false,
-          queued: null,
-          failed: null,
+          expense: result,
+          receiptUploadFailed: true as const,
         };
       } finally {
         setIsUploadingReceipts(false);
       }
+      createIdempotencyKeyRef.current = null;
+      return {
+        expense: result,
+        receiptUploadFailed: false,
+      };
     },
     onSuccess: async ({
       expense: result,
       receiptUploadFailed,
-      queued,
-      failed,
     }) => {
-      if (failed) {
-        setError(failed);
-        await refreshOffline();
-        return;
-      }
-      if (queued && !result) {
-        toast.success(t("saved_offline_toast"));
-        await refreshOffline();
-        clearDirty();
-        router.push(reportId ? `/reports/${reportId}` : "/expenses");
-        return;
-      }
       if (!result) return;
       qc.invalidateQueries({ queryKey: expenseKeys.all });
       qc.invalidateQueries({ queryKey: dashboardKeys.all });
       qc.invalidateQueries({ queryKey: reportKeys.all });
       if (receiptUploadFailed) {
-        await refreshOffline();
         toast.warning(t("warning_expense_saved_receipt_failed"));
         if (isEdit) {
           // Editing an existing expense: stay put and point at the receipts.

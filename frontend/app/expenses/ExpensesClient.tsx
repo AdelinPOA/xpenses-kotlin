@@ -19,8 +19,6 @@ import Badge from "@/components/ui/Badge";
 import EmptyState from "@/components/ui/EmptyState";
 import QueryErrorNotice from "@/components/ui/QueryErrorNotice";
 import { useToast } from "@/components/ToastProvider";
-import { useOfflineSync } from "@/components/OfflineSyncProvider";
-import OfflineQueuePanel from "@/components/expenses/OfflineQueuePanel";
 import { useAllowNavigation } from "@/lib/navigationGuard";
 import dynamic from "next/dynamic";
 import BulkUploadZone from "@/components/expenses/BulkUploadZone";
@@ -101,8 +99,6 @@ function ExpensesPageContent() {
   const highlightId = Math.max(0, parseInt(searchParams.get("highlight") ?? "", 10) || 0);
   const t = useTranslations("expenses");
   const tc = useTranslations("common");
-  const toffline = useTranslations("offline");
-  const offline = useOfflineSync();
   const [exporting, setExporting] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [exportRange, setExportRange] = useState<ExportRange>("all");
@@ -110,7 +106,6 @@ function ExpensesPageContent() {
   const [isDragging, setIsDragging] = useState(false);
   const [bulkFiles, setBulkFiles] = useState<File[]>([]);
   const [showBulkDrawer, setShowBulkDrawer] = useState(false);
-  const [showOfflineQueue, setShowOfflineQueue] = useState(false);
   const [lightboxReceipt, setLightboxReceipt] = useState<{
     url: string;
     title: string;
@@ -412,28 +407,6 @@ function ExpensesPageContent() {
             </h1>
             <p className="text-muted text-sm mt-0.5 truncate">
               {totalElements} {t("total")}
-              {offline.pendingCount > 0 && (
-                <>
-                  {" "}
-                  ·{" "}
-                  <button
-                    type="button"
-                    onClick={() => setShowOfflineQueue((value) => !value)}
-                    className={clsx(
-                      "font-semibold hover:underline",
-                      offline.failedCount > 0
-                        ? "text-amber-600 dark:text-amber-400"
-                        : "text-blue-600 dark:text-blue-400",
-                    )}
-                    aria-expanded={showOfflineQueue}
-                  >
-                    {toffline("drafts_badge", { count: offline.pendingCount })}
-                    {offline.failedCount > 0
-                      ? ` · ${toffline("needs_attention")}`
-                      : ""}
-                  </button>
-                </>
-              )}
             </p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -540,10 +513,6 @@ function ExpensesPageContent() {
             </Link>
           </div>
         </div>
-
-        {showOfflineQueue && (
-          <OfflineQueuePanel onClose={() => setShowOfflineQueue(false)} />
-        )}
 
         <div className="bg-card rounded-xl shadow-sm overflow-hidden">
           <div className="p-3 border-b border-slate-100 dark:border-slate-700">

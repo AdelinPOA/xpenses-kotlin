@@ -52,7 +52,7 @@ export function FxSidebarStatusPill({
   const tNav = useTranslations("nav");
   const { data } = useFxStatus(Boolean(user));
 
-  if (!user || !data) return null;
+  if (!user || !data || !Array.isArray(data.providers)) return null;
 
   const activeProvider = data.providers.find((item) => item.active);
   const canManageSettings = user.role === "mod" || user.role === "chef_finance";
@@ -145,7 +145,7 @@ export function FuelSidebarStatusPill({
   const tNav = useTranslations("nav");
   const { data } = useFuelPriceStatus(Boolean(user));
 
-  if (!user || !data) return null;
+  if (!user || !data || !Array.isArray(data.providers)) return null;
 
   const activeProvider = data.providers.find((item) => item.active);
   const canManageSettings = user.role === "mod" || user.role === "chef_finance";
@@ -225,7 +225,7 @@ export function FxFallbackBanner() {
   const { data } = useFxStatus(Boolean(user));
   const [dismissedKey, setDismissedKey] = useState<string | null>(null);
 
-  if (!user || !data) return null;
+  if (!user || !data || typeof data !== "object" || Array.isArray(data)) return null;
   if (!data.fallback_active && data.status !== "DOWN") return null;
 
   const alertKey = `${data.status}:${data.active_source ?? "none"}:${data.primary_error ?? ""}`;
@@ -301,7 +301,7 @@ export function FuelFallbackBanner() {
   const { data } = useFuelPriceStatus(Boolean(user));
   const [dismissedKey, setDismissedKey] = useState<string | null>(null);
 
-  if (!user || !data || !data.fallback_active) return null;
+  if (!user || !data || typeof data !== "object" || Array.isArray(data) || !data.fallback_active) return null;
 
   const alertKey = `${data.status}:${data.active_source ?? "none"}:${data.primary_error ?? ""}`;
   if (dismissedKey === alertKey) return null;

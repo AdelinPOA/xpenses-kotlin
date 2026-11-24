@@ -88,6 +88,64 @@ async function openAuthenticatedApp(page: Page, state: FixtureState) {
       await route.fulfill({ json: { mobile_quick_add_fab_enabled: false } });
       return;
     }
+    if (pathname === "/api/fx/status") {
+      await route.fulfill({
+        json: {
+          status: "HEALTHY",
+          primary_provider: "BNR",
+          active_source: "BNR",
+          fallback_active: false,
+          last_checked_at: "2026-11-20T18:00:00Z",
+          primary_error: null,
+          providers: [
+            {
+              provider: "BNR",
+              priority: 1,
+              healthy: true,
+              active: true,
+              is_primary: true,
+              checked_at: "2026-11-20T18:00:00Z",
+              source_date: "2026-11-20",
+              ron_per_eur: 5.3482,
+              latency_ms: 42,
+              error: null,
+            },
+          ],
+          last_db_rate: null,
+        },
+      });
+      return;
+    }
+    if (pathname === "/api/fuel-prices/status") {
+      await route.fulfill({
+        json: {
+          status: "HEALTHY",
+          primary_provider: "PRETCARBURANT_LIVE",
+          active_source: "PRETCARBURANT_LIVE",
+          fallback_active: false,
+          last_checked_at: "2026-11-20T20:00:00Z",
+          primary_error: null,
+          providers: [
+            {
+              provider: "PRETCARBURANT_LIVE",
+              priority: 1,
+              healthy: true,
+              active: true,
+              is_primary: true,
+              checked_at: "2026-11-20T20:00:00Z",
+              source_date: "2026-11-20",
+              diesel_ron: 10.56,
+              petrol_ron: 9.12,
+              lpg_ron: 4.83,
+              latency_ms: 45,
+              error: null,
+            },
+          ],
+          last_db_price: null,
+        },
+      });
+      return;
+    }
     await route.fulfill({ json: [] });
   });
 

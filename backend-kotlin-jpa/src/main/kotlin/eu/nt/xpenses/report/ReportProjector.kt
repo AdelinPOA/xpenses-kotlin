@@ -5,13 +5,13 @@ import eu.nt.xpenses.dto.report.ReportOut
 import eu.nt.xpenses.mileage.toMileageRecordOut
 import eu.nt.xpenses.model.AdvancePayment
 import eu.nt.xpenses.model.ExpenseReport
-import eu.nt.xpenses.services.mapper.ExpenseMapper
+import eu.nt.xpenses.expense.ExpenseProjector
 import org.springframework.stereotype.Component
 import java.math.BigDecimal
 
 @Component
 class ReportProjector(
-    private val expenseMapper: ExpenseMapper,
+    private val expenseProjector: ExpenseProjector,
     private val dailyAllowanceRatePort: DailyAllowanceRatePort,
 ) {
     fun toReportOut(report: ExpenseReport): ReportOut =
@@ -24,7 +24,7 @@ class ReportProjector(
     }
 
     fun toReportOut(report: ExpenseReport, dailyRate: BigDecimal): ReportOut {
-        val expensesOut = report.expenses.sortedBy { it.date }.map { expenseMapper.toExpenseOut(it) }
+        val expensesOut = report.expenses.sortedBy { it.date }.map { expenseProjector.toExpenseOut(it) }
         val advancesOut = report.advances.sortedBy { it.date }.map { mapAdvanceToOut(it) }
         val mileageOut = report.mileageRecords.sortedBy { it.startTime }.map { toMileageRecordOut(it) }
         val totals = ReportTotals.calculate(report, dailyRate)

@@ -3,9 +3,10 @@ package eu.nt.xpenses.controllers
 import eu.nt.xpenses.IntegrationTestBase
 import eu.nt.xpenses.dto.expense.ExpenseCreate
 import eu.nt.xpenses.dto.expense.ExpenseOut
+import eu.nt.xpenses.expense.BulkExpenseInput
+import eu.nt.xpenses.expense.BulkSourceFile
+import eu.nt.xpenses.expense.Expenses
 import eu.nt.xpenses.models.RawUpload
-import eu.nt.xpenses.services.ExpenseService
-import eu.nt.xpenses.services.IdempotentExpenseSaving
 import eu.nt.xpenses.services.SaveIdempotencyService
 import eu.nt.xpenses.services.StorageContext
 import eu.nt.xpenses.services.StorageService
@@ -51,9 +52,7 @@ class ExpenseIdempotencyTest : IntegrationTestBase() {
 
     @Autowired lateinit var jdbc: JdbcTemplate
 
-    @Autowired lateinit var saving: IdempotentExpenseSaving
-
-    @Autowired lateinit var expenses: ExpenseService
+    @Autowired lateinit var expenses: Expenses
 
     @Autowired lateinit var identities: SaveIdempotencyService
 
@@ -266,7 +265,7 @@ class ExpenseIdempotencyTest : IntegrationTestBase() {
                 (1..4).map {
                     executor.submit<ExpenseOut> {
                         check(start.await(5, TimeUnit.SECONDS))
-                        saving.create(createBody(), user, "$prefix:parallel")
+                        expenses.createExpense(createBody(), user, "$prefix:parallel")
                     }
                 }
             start.countDown()
@@ -294,7 +293,7 @@ class ExpenseIdempotencyTest : IntegrationTestBase() {
             0L,
             jdbc.queryForObject("SELECT count(*) FROM expense_save_requests WHERE request_key = ?", Long::class.java, "$prefix:rollback"),
         )
-        ids.add(saving.create(createBody(), user, "$prefix:rollback").id)
+        ids.add(expenses.createExpense(createBody(), user, "$prefix:rollback").id)
     }
 
     @Test
@@ -362,11 +361,16 @@ class ExpenseIdempotencyTest : IntegrationTestBase() {
         val user = userRepository.findByUsername("tech1")!!
         val files = listOf(file(), file("two.png"))
         val batchKey = "$prefix:deleted-bulk"
-        val sources = saving.manifest(files)
-        saving.bindManifest(user, "bulk-manifest", batchKey, sources)
+        val sourceZero = BulkSourceFile(0, files[0], "one.png", png)
+        val plan = expenses.prepareBulkBatch(files, listOf(sourceZero), user, batchKey)
         // Simulate interruption after source zero was durably created, before
         // source one was processed. The user then explicitly deletes that draft.
-        val deletedId = saving.bulkCreate(0, sources[0], user, batchKey) { createBody() }.id
+        val deletedId = expenses.bulkCreate(
+            listOf(BulkExpenseInput(sourceZero, mapOf("amount" to 12, "currency" to "EUR", "date" to "2026-06-10"))),
+            emptyList(),
+            plan,
+            user,
+        ).created.single().id
         ids.add(deletedId)
         expenses.deleteExpense(deletedId, user)
         val cookie = authHelper.loginAs("tech1", "tech1")

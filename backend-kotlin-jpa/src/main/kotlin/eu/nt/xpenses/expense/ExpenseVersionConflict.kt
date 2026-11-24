@@ -1,4 +1,4 @@
-package eu.nt.xpenses.services
+package eu.nt.xpenses.expense
 
 import eu.nt.xpenses.dto.expense.ExpenseOut
 

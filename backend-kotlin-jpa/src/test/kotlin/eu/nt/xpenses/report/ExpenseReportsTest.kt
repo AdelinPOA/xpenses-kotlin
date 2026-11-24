@@ -25,7 +25,7 @@ import eu.nt.xpenses.services.PdfService
 import eu.nt.xpenses.services.SaveIdempotencyService
 import eu.nt.xpenses.services.StorageContext
 import eu.nt.xpenses.services.StorageService
-import eu.nt.xpenses.services.mapper.ExpenseMapper
+import eu.nt.xpenses.expense.ExpenseProjector
 import jakarta.persistence.EntityManager
 import org.apache.pdfbox.Loader
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
@@ -61,7 +61,7 @@ class ExpenseReportsTest : IntegrationTestBase() {
     private lateinit var storageService: StorageService
 
     @Autowired
-    private lateinit var expenseMapper: ExpenseMapper
+    private lateinit var expenseProjector: ExpenseProjector
 
     @Autowired
     private lateinit var lifecycle: ExpenseReportLifecycle
@@ -201,7 +201,7 @@ class ExpenseReportsTest : IntegrationTestBase() {
     fun `ReportProjector toReportOuts queries daily allowance rate once across batch`() {
         var rateCalls = 0
         val countingProjector = ReportProjector(
-            expenseMapper = expenseMapper,
+            expenseProjector = expenseProjector,
             dailyAllowanceRatePort = DailyAllowanceRatePort {
                 rateCalls++
                 BigDecimal("60.00")

@@ -1,4 +1,4 @@
-package eu.nt.xpenses.services.mapper
+package eu.nt.xpenses.expense
 
 import eu.nt.xpenses.dto.expense.ExpenseOut
 import eu.nt.xpenses.dto.expense.ReceiptOut
@@ -7,7 +7,7 @@ import eu.nt.xpenses.model.Receipt
 import org.springframework.stereotype.Component
 
 @Component
-class ExpenseMapper {
+class ExpenseProjector {
 
     fun toReceiptOut(receipt: Receipt): ReceiptOut {
         return ReceiptOut(

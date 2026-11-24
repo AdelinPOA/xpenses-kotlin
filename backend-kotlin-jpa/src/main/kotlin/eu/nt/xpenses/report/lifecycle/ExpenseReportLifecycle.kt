@@ -6,7 +6,7 @@ import eu.nt.xpenses.model.User
 import eu.nt.xpenses.repositories.ExpenseReportRepository
 import eu.nt.xpenses.repositories.ExpenseRepository
 import eu.nt.xpenses.services.Authorization
-import eu.nt.xpenses.services.ExpenseService
+import eu.nt.xpenses.expense.Expenses
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -18,7 +18,7 @@ import java.time.Instant
 class ExpenseReportLifecycle(
     private val reportRepository: ExpenseReportRepository,
     private val expenseRepository: ExpenseRepository,
-    private val expenseService: ExpenseService,
+    private val expenses: Expenses,
     private val authorization: Authorization
 ) {
     @Transactional
@@ -238,7 +238,7 @@ class ExpenseReportLifecycle(
         val expensesList = report.expenses.toList()
         if (command.deleteExpenses) {
             for (expense in expensesList) {
-                expenseService.deleteExpense(expense.id!!, actor)
+                expenses.deleteExpense(expense.id!!, actor)
             }
         } else {
             for (expense in expensesList) {

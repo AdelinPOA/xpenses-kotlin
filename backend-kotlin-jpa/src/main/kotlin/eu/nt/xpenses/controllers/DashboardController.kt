@@ -12,7 +12,7 @@ import eu.nt.xpenses.report.review.ReviewQueueReader
 import eu.nt.xpenses.repositories.*
 import eu.nt.xpenses.services.Authorization
 import eu.nt.xpenses.services.FxService
-import eu.nt.xpenses.services.mapper.ExpenseMapper
+import eu.nt.xpenses.expense.ExpenseProjector
 import jakarta.servlet.http.HttpServletRequest
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.data.domain.PageRequest
@@ -34,7 +34,7 @@ class DashboardController @Autowired constructor(
     private val expenseReportRepository: ExpenseReportRepository,
     private val categoryRepository: CategoryRepository,
     private val advancePaymentRepository: AdvancePaymentRepository,
-    private val expenseMapper: ExpenseMapper,
+    private val expenseProjector: ExpenseProjector,
     private val authorization: Authorization,
     private val reviewQueueReader: ReviewQueueReader,
     private val fxService: FxService? = null,
@@ -108,7 +108,7 @@ class DashboardController @Autowired constructor(
             expenseRepository.findRecentExpenses(Pageable.ofSize(10))
         } else {
             expenseRepository.findRecentExpensesByUserId(uid, Pageable.ofSize(10))
-        }.map { expenseMapper.toExpenseOut(it) }
+        }.map { expenseProjector.toExpenseOut(it) }
 
         return DashboardStats(
             expenseCountTotal = expenseCountTotal.toInt(),

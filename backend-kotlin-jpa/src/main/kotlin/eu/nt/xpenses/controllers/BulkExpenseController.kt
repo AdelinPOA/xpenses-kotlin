@@ -2,18 +2,14 @@ package eu.nt.xpenses.controllers
 
 import eu.nt.xpenses.dto.expense.BulkUploadError
 import eu.nt.xpenses.dto.expense.BulkUploadResult
-import eu.nt.xpenses.dto.expense.ExpenseCreate
-import eu.nt.xpenses.dto.expense.ExpenseOut
+import eu.nt.xpenses.expense.BulkExpenseInput
+import eu.nt.xpenses.expense.BulkSourceFile
+import eu.nt.xpenses.expense.Expenses
 import eu.nt.xpenses.model.User
-import eu.nt.xpenses.repositories.OcrComparisonRepository
 import eu.nt.xpenses.security.RateLimitStore
-import eu.nt.xpenses.services.ExpenseService
-import eu.nt.xpenses.services.IdempotentExpenseSaving
 import eu.nt.xpenses.services.OcrService
-import eu.nt.xpenses.services.SaveIdempotencyService
 import jakarta.servlet.http.HttpServletRequest
 import org.slf4j.LoggerFactory
-import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
@@ -23,41 +19,20 @@ import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.multipart.MultipartFile
 import org.springframework.web.server.ResponseStatusException
-import java.math.BigDecimal
-import java.time.LocalDate
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Executor
 import java.util.concurrent.RejectedExecutionException
 
 @RestController
 @RequestMapping("/api/expenses")
-class BulkExpenseController @Autowired constructor(
-    private val expenseService: ExpenseService,
+class BulkExpenseController(
+    private val expenses: Expenses,
     private val ocrService: OcrService,
     private val rateLimitStore: RateLimitStore,
-    private val saving: IdempotentExpenseSaving,
-    private val idempotency: SaveIdempotencyService,
-    private val ocrComparisonRepository: OcrComparisonRepository? = null,
     @Qualifier("ocrTaskExecutor") private val ocrTaskExecutor: Executor = Executor { it.run() },
 ) {
-    constructor(
-        expenseService: ExpenseService,
-        ocrService: OcrService,
-        rateLimitStore: RateLimitStore,
-        saving: IdempotentExpenseSaving,
-        idempotency: SaveIdempotencyService,
-    ) : this(expenseService, ocrService, rateLimitStore, saving, idempotency, null, Executor { it.run() })
     private val log = LoggerFactory.getLogger(javaClass)
-    private val currencyRegex = Regex("^[A-Z]{3}$")
-    private val dateRegex = Regex("^\\d{4}-\\d{2}-\\d{2}$")
     private val allowedExtensions = setOf("jpg", "jpeg", "png", "pdf", "webp")
-
-    private data class ValidatedBulkFile(
-        val index: Int,
-        val file: MultipartFile,
-        val filename: String,
-        val bytes: ByteArray,
-    )
 
     @PostMapping("/bulk-upload")
     fun bulkUploadExpenses(
@@ -67,23 +42,12 @@ class BulkExpenseController @Autowired constructor(
         val currentUser =
             request.getAttribute("currentUser") as? User
                 ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated")
-        val key = idempotency.validateKey(request.getHeader("Idempotency-Key"))
-        // Reserve room for the public known-ID retry suffix :receipt:<index>.
-        if (key != null && key.length > 200) {
-            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Bulk Idempotency-Key must not exceed 200 characters")
-        }
-
         if (files.size > 20) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Maximum 20 files per bulk upload")
         }
 
-        val sources = if (key != null) saving.manifest(files) else null
-        if (key != null && sources != null) saving.bindManifest(currentUser, "bulk-manifest", key, sources)
-
-        val created = mutableListOf<ExpenseOut>()
         val errors = mutableListOf<BulkUploadError>()
-        val today = LocalDate.now().toString()
-        val validFiles = mutableListOf<ValidatedBulkFile>()
+        val validFiles = mutableListOf<BulkSourceFile>()
 
         for ((index, file) in files.withIndex()) {
             val filename = file.originalFilename ?: "receipt"
@@ -101,20 +65,18 @@ class BulkExpenseController @Autowired constructor(
                 errors.add(BulkUploadError(filename, "Unsupported or invalid file format detected via magic bytes", fileIndex = index))
                 continue
             }
-            validFiles.add(ValidatedBulkFile(index, file, filename, fileBytes))
+            validFiles.add(BulkSourceFile(index, file, filename, fileBytes))
         }
 
-        val filesNeedingOcr =
-            if (key != null && sources != null) {
-                validFiles.filter { item ->
-                    saving.lookupBulkCreate(item.index, sources[item.index], currentUser, key) == null
-                }
-            } else {
-                validFiles
-            }
+        val plan = expenses.prepareBulkBatch(
+            allFiles = files,
+            validFiles = validFiles,
+            currentUser = currentUser,
+            idempotencyKey = request.getHeader("Idempotency-Key"),
+        )
 
         val nowMillis = System.currentTimeMillis()
-        for (item in filesNeedingOcr) {
+        for (ignored in plan.filesNeedingOcr) {
             val userQuotaCount =
                 rateLimitStore.record(
                     "rl:ocr_quota:user:${currentUser.id}",
@@ -128,15 +90,15 @@ class BulkExpenseController @Autowired constructor(
         }
 
         val ocrResultsByIndex: Map<Int, Map<String, Any?>> =
-            if (filesNeedingOcr.isEmpty()) {
+            if (plan.filesNeedingOcr.isEmpty()) {
                 emptyMap()
-            } else if (filesNeedingOcr.size == 1) {
-                val single = filesNeedingOcr.single()
+            } else if (plan.filesNeedingOcr.size == 1) {
+                val single = plan.filesNeedingOcr.single()
                 mapOf(single.index to runOcrSafely(single.bytes, single.filename))
             } else {
                 val futures = mutableListOf<Pair<Int, CompletableFuture<Map<String, Any?>>>>()
                 try {
-                    for (item in filesNeedingOcr) {
+                    for (item in plan.filesNeedingOcr) {
                         futures +=
                             item.index to
                                 CompletableFuture.supplyAsync(
@@ -151,94 +113,14 @@ class BulkExpenseController @Autowired constructor(
                 }
             }
 
-        for (item in validFiles) {
-            val index = item.index
-            val file = item.file
-            val filename = item.filename
-            val ocrResult = ocrResultsByIndex[index].orEmpty()
-
-            val expenseOut =
-                try {
-                    saving.bulkCreate(index, sources?.get(index) ?: saving.manifest(listOf(file)).single(), currentUser, key) {
-                        val amount = nonNegativeDecimal(ocrResult["amount"])
-                        val currency =
-                            (ocrResult["currency"] as? String)
-                                ?.takeIf { it.matches(currencyRegex) } ?: "EUR"
-                        val extractedDate =
-                            (ocrResult["date"] as? String)
-                                ?.takeIf { it.matches(dateRegex) } ?: today
-                        val fallbackDescription =
-                            when {
-                                ocrResult.isEmpty() -> "OCR failed — please fill manually"
-                                amount == BigDecimal.ZERO && ocrResult["provider_error"] != null ->
-                                    "OCR partial/failed — please review"
-                                else -> null
-                            }
-                        ExpenseCreate(
-                            categoryId = ocrResult["category_id"] as? Int,
-                            reportId = null,
-                            amount = amount,
-                            currency = currency,
-                            taxAmount = nonNegativeDecimal(ocrResult["tax_amount"]),
-                            date = extractedDate,
-                            description = (ocrResult["description"] as? String) ?: fallbackDescription,
-                            merchant = ocrResult["merchant"] as? String,
-                            rawOcrText = ocrResult["raw_text"] as? String,
-                        )
-                    }
-                } catch (e: ResponseStatusException) {
-                    if (e.statusCode == HttpStatus.CONFLICT) throw e
-                    log.error("Failed to create expense for $filename: ${e.message}")
-                    errors.add(BulkUploadError(filename, "Could not create expense: ${e.reason}", fileIndex = index))
-                    continue
-                } catch (e: Exception) {
-                    log.error("Failed to create expense for $filename: ${e.message}")
-                    errors.add(BulkUploadError(filename, "Could not create expense: ${e.message}", fileIndex = index))
-                    continue
-                }
-
-            val comparisonId = (ocrResult["comparison_id"] as? Number)?.toInt()
-            val comparisonRepo = ocrComparisonRepository
-            if (comparisonId != null && comparisonRepo != null) {
-                runCatching { comparisonRepo.linkExpense(comparisonId, expenseOut.id) }
-                    .onFailure { log.warn("Failed to link OCR comparison {} to expense {}: {}", comparisonId, expenseOut.id, it.message) }
-            }
-
-            try {
-                // Same key used by the known-ID frontend attachment retry.
-                saving.upload(expenseOut.id, listOf(file), currentUser, key?.let { "$it:receipt:$index" })
-            } catch (e: ResponseStatusException) {
-                if (e.statusCode == HttpStatus.CONFLICT) throw e
-                log.warn("Receipt storage failed for expense ${expenseOut.id}: ${e.reason ?: e.message}")
-                errors.add(BulkUploadError(filename, e.reason ?: e.message, expenseOut.id, index))
-                // A retained creation identity may point at an intentionally deleted
-                // Expense. Report that file, never recreate it or block later sources.
-                if (e.statusCode == HttpStatus.NOT_FOUND || e.statusCode == HttpStatus.GONE) continue
-            } catch (e: Exception) {
-                log.warn("Receipt storage failed for expense ${expenseOut.id}: ${e.message}")
-                errors.add(BulkUploadError(filename, e.message ?: "Could not upload receipt", expenseOut.id, index))
-            }
-            // Reload instead of returning the pre-upload DTO with no Receipt metadata.
-            // Deletion can also race the upload/reload boundary.
-            try {
-                created.add(expenseService.getExpense(expenseOut.id, currentUser))
-            } catch (e: ResponseStatusException) {
-                if (e.statusCode != HttpStatus.NOT_FOUND && e.statusCode != HttpStatus.GONE) throw e
-                if (errors.none { it.fileIndex == index }) {
-                    errors.add(BulkUploadError(filename, e.reason ?: e.message, expenseOut.id, index))
-                }
-            }
+        val inputs = validFiles.map { item ->
+            BulkExpenseInput(
+                source = item,
+                ocrResult = ocrResultsByIndex[item.index].orEmpty(),
+            )
         }
-
-        return ResponseEntity.ok(BulkUploadResult(created, errors))
+        return ResponseEntity.ok(expenses.bulkCreate(inputs, errors, plan, currentUser))
     }
-
-    private fun nonNegativeDecimal(raw: Any?): BigDecimal =
-        when (raw) {
-            is BigDecimal -> raw.max(BigDecimal.ZERO)
-            is Number -> raw.toDouble().takeIf { it.isFinite() }?.let(BigDecimal::valueOf)?.max(BigDecimal.ZERO) ?: BigDecimal.ZERO
-            else -> BigDecimal.ZERO
-        }
 
     private fun runOcrSafely(
         fileBytes: ByteArray,

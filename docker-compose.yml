@@ -38,7 +38,7 @@ services:
     restart: unless-stopped
 
   backend:
-    image: xpenses-backend:latest
+    image: ${XPENSES_BACKEND_IMAGE:-xpenses-backend:latest}
     build:
       context: ./backend-kotlin-jpa
       dockerfile: Dockerfile
@@ -81,7 +81,7 @@ services:
     restart: unless-stopped
 
   frontend:
-    image: xpenses-frontend:latest
+    image: ${XPENSES_FRONTEND_IMAGE:-xpenses-frontend:latest}
     build:
       context: ./frontend
       dockerfile: Dockerfile

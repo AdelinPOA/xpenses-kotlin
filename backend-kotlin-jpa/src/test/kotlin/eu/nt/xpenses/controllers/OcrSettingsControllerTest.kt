@@ -3,19 +3,10 @@ package eu.nt.xpenses.controllers
 import eu.nt.xpenses.dto.settings.OCRConfigUpdate
 import eu.nt.xpenses.dto.settings.OCRModelUpdate
 import eu.nt.xpenses.dto.settings.OCRProviderUpdate
-import eu.nt.xpenses.ingestion.TechnicianEmailIngestion
-import eu.nt.xpenses.services.AppSettingsService
-import eu.nt.xpenses.services.EmailImportService
-import eu.nt.xpenses.services.EmailSettingsService
 import eu.nt.xpenses.services.OCRConfig
 import eu.nt.xpenses.services.OCRModelConfig
 import eu.nt.xpenses.services.OCRProviderConfig
 import eu.nt.xpenses.services.OcrService
-import eu.nt.xpenses.services.StorageService
-import eu.nt.xpenses.services.fuel.FuelPriceHealthService
-import eu.nt.xpenses.services.fuel.HttpFuelPriceProvider
-import eu.nt.xpenses.services.fx.FxProviderHealthService
-import eu.nt.xpenses.services.fx.HttpFxRateProvider
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -28,19 +19,7 @@ import tools.jackson.databind.ObjectMapper
 
 class OcrSettingsControllerTest {
     private val ocrService = mock(OcrService::class.java)
-    private val controller =
-        AppSettingsController(
-            mock(AppSettingsService::class.java),
-            ocrService,
-            mock(EmailSettingsService::class.java),
-            mock(TechnicianEmailIngestion::class.java),
-            mock(StorageService::class.java),
-            mock(EmailImportService::class.java),
-            mock(HttpFxRateProvider::class.java),
-            mock(FxProviderHealthService::class.java),
-            mock(FuelPriceHealthService::class.java),
-            mock(HttpFuelPriceProvider::class.java),
-        )
+    private val controller = OcrSettingsController(ocrService)
 
     @Test
     fun `OCR settings response masks all provider credentials`() {

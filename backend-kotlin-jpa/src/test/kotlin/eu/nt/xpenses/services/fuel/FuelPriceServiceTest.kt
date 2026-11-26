@@ -4,7 +4,6 @@ import eu.nt.xpenses.model.AppSetting
 import eu.nt.xpenses.model.FuelPrice
 import eu.nt.xpenses.repositories.AppSettingRepository
 import eu.nt.xpenses.repositories.FuelPriceRepository
-import eu.nt.xpenses.services.AppSettingsService
 import eu.nt.xpenses.services.FxService
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
 import org.junit.jupiter.api.Assertions.*
@@ -24,23 +23,25 @@ class FuelPriceServiceTest {
     private val objectMapper = ObjectMapper()
     private lateinit var fuelPriceRepository: FuelPriceRepository
     private lateinit var fuelPriceProvider: FuelPriceProvider
-    private lateinit var appSettingsService: AppSettingsService
+    private lateinit var manualFuelPricePort: ManualFuelPricePort
     private lateinit var fuelPriceService: FuelPriceService
 
     @BeforeEach
     fun setUp() {
         fuelPriceRepository = mock(FuelPriceRepository::class.java)
         fuelPriceProvider = mock(FuelPriceProvider::class.java)
-        appSettingsService = mock(AppSettingsService::class.java)
-        `when`(appSettingsService.getManualFuelPrice(null)).thenReturn(BigDecimal("9.20"))
-        `when`(appSettingsService.getManualFuelPrice("diesel")).thenReturn(BigDecimal("9.20"))
-        `when`(appSettingsService.getManualFuelPrice("petrol")).thenReturn(BigDecimal("9.10"))
-        `when`(appSettingsService.getManualFuelPrice("lpg")).thenReturn(BigDecimal("4.85"))
-        `when`(appSettingsService.getManualFuelPrice("electric")).thenReturn(BigDecimal("0.00"))
+        manualFuelPricePort = ManualFuelPricePort { fuelType ->
+            when (fuelType) {
+                "petrol" -> BigDecimal("9.10")
+                "lpg" -> BigDecimal("4.85")
+                "electric" -> BigDecimal("0.00")
+                else -> BigDecimal("9.20")
+            }
+        }
         fuelPriceService = FuelPriceService(
             fuelPriceRepository = fuelPriceRepository,
             fuelPriceProvider = fuelPriceProvider,
-            appSettingsService = appSettingsService,
+            manualFuelPricePort = manualFuelPricePort,
             transactionManager = null,
             liveEnabled = true,
         )

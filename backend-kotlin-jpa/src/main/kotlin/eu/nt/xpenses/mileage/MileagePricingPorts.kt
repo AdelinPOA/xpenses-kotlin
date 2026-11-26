@@ -1,6 +1,5 @@
 package eu.nt.xpenses.mileage
 
-import eu.nt.xpenses.services.AppSettingsService
 import eu.nt.xpenses.services.FxService
 import eu.nt.xpenses.services.fuel.FuelPriceService
 import eu.nt.xpenses.services.fuel.ResolvedFuelPrice
@@ -48,10 +47,10 @@ class FuelPriceServiceMileageAdapter(
 
 @Component
 class AppSettingsMileageRatesAdapter(
-    private val appSettingsService: AppSettingsService,
+    private val mileageRatesService: MileageRatesService,
 ) : MileageRatesConfigPort {
     override fun currentRates(): MileageRatesConfig {
-        val rates = appSettingsService.getMileageRates()
+        val rates = mileageRatesService.getMileageRates()
         return MileageRatesConfig(
             grossRate = rates.mileageRateBeforeTax,
             defaultFuelConsumption = rates.fuelConsumptionLitersPer100Km,

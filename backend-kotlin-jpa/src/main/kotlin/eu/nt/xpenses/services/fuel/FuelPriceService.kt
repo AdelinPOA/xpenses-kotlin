@@ -2,7 +2,6 @@ package eu.nt.xpenses.services.fuel
 
 import eu.nt.xpenses.model.FuelPrice
 import eu.nt.xpenses.repositories.FuelPriceRepository
-import eu.nt.xpenses.services.AppSettingsService
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
@@ -14,6 +13,10 @@ import org.springframework.transaction.support.TransactionTemplate
 import java.math.BigDecimal
 import java.time.Instant
 import java.time.LocalDate
+
+fun interface ManualFuelPricePort {
+    fun getManualFuelPrice(vehicleFuelType: String?): BigDecimal
+}
 
 data class ResolvedFuelPrice(
     val priceRonPerLiter: BigDecimal,
@@ -30,7 +33,7 @@ data class ResolvedFuelPrice(
 class FuelPriceService @Autowired constructor(
     private val fuelPriceRepository: FuelPriceRepository,
     private val fuelPriceProvider: FuelPriceProvider,
-    private val appSettingsService: AppSettingsService,
+    private val manualFuelPricePort: ManualFuelPricePort,
     private val transactionManager: PlatformTransactionManager? = null,
     @Value("\${fuel.price.live-enabled:true}")
     private val liveEnabled: Boolean = true,
@@ -38,8 +41,8 @@ class FuelPriceService @Autowired constructor(
     constructor(
         fuelPriceRepository: FuelPriceRepository,
         fuelPriceProvider: FuelPriceProvider,
-        appSettingsService: AppSettingsService,
-    ) : this(fuelPriceRepository, fuelPriceProvider, appSettingsService, null, true)
+        manualFuelPricePort: ManualFuelPricePort,
+    ) : this(fuelPriceRepository, fuelPriceProvider, manualFuelPricePort, null, true)
 
     private val log = LoggerFactory.getLogger(FuelPriceService::class.java)
 
@@ -104,7 +107,7 @@ class FuelPriceService @Autowired constructor(
         lookupFuelType: String?,
         date: LocalDate,
     ): ResolvedFuelPrice = ResolvedFuelPrice(
-        priceRonPerLiter = appSettingsService.getManualFuelPrice(lookupFuelType),
+        priceRonPerLiter = manualFuelPricePort.getManualFuelPrice(lookupFuelType),
         sourceDate = date,
         source = FuelPriceSource.MANUAL_SETTING,
         fuelType = labelFuelType,

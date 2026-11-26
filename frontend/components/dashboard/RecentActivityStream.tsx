@@ -33,29 +33,29 @@ export default function RecentActivityStream({ activities }: RecentActivityStrea
   }
 
   return (
-    <div className="rounded-2xl border border-border bg-card shadow-xs overflow-hidden">
-      <div className="flex items-center justify-between border-b border-border bg-muted/10 p-4 sm:p-5">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold">
+    <div className="rounded-2xl border border-border bg-card shadow-2xs overflow-hidden">
+      <div className="flex items-center justify-between border-b border-border bg-surface-subtle/50 p-4 sm:p-5">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
             <Activity className="w-4 h-4" />
           </div>
           <div>
-            <h3 className="font-bold text-foreground text-base sm:text-lg">{t("team_activity")}</h3>
+            <h3 className="font-bold text-foreground text-sm sm:text-base">{t("team_activity")}</h3>
             <p className="text-xs text-muted-foreground">{t("recent_updates")}</p>
           </div>
         </div>
-        <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-bold text-muted-foreground">
+        <span className="rounded-full bg-surface-subtle border border-border px-2.5 py-0.5 text-xs font-semibold tabular-nums text-foreground">
           {activities.length}
         </span>
       </div>
 
-      <div className="divide-y divide-border">
+      <div className="divide-y divide-border/80">
         {activities.map((item) => {
           const { Icon, colorClass, bgClass, labelKey } = getActivityMeta(item.type);
           return (
             <div
               key={item.id}
-              className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 sm:px-5 gap-3 hover:bg-muted/20 transition-colors"
+              className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 sm:px-5 gap-3 hover:bg-card-hover transition-colors"
             >
               <div className="flex items-center gap-3.5 min-w-0">
                 <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${bgClass} ${colorClass}`}>
@@ -63,8 +63,8 @@ export default function RecentActivityStream({ activities }: RecentActivityStrea
                 </div>
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-sm">
-                    <span className="font-bold text-foreground">{item.actor_name}</span>
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold capitalize ${bgClass} ${colorClass}`}>
+                    <span className="font-semibold text-foreground">{item.actor_name}</span>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold capitalize ${bgClass} ${colorClass}`}>
                       {tc(labelKey)}
                     </span>
                     <span className="text-muted-foreground text-xs truncate max-w-xs sm:max-w-md font-medium">
@@ -78,7 +78,7 @@ export default function RecentActivityStream({ activities }: RecentActivityStrea
               </div>
 
               <div className="self-end sm:self-auto shrink-0">
-                <span className="text-sm font-black tabular-nums text-foreground">{formatEur(item.amount_eur)}</span>
+                <span className="text-sm font-mono font-semibold tabular-nums text-foreground">{formatEur(item.amount_eur)}</span>
               </div>
             </div>
           );

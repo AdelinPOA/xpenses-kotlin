@@ -57,25 +57,25 @@ export default function PendingAdvancesList({
       </div>
 
       {/* List items without scroll traps */}
-      <div className="divide-y divide-border">
+      <div className="divide-y divide-border/80">
         {advances.map((adv) => (
           <div
             key={adv.id}
-            className="p-4 sm:p-5 space-y-3 bg-card hover:bg-muted/20 transition-colors"
+            className="p-4 sm:p-5 space-y-3 bg-card hover:bg-card-hover transition-colors"
           >
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2.5 min-w-0">
                 <div className="w-8 h-8 rounded-full bg-blue-500/10 text-blue-600 flex items-center justify-center font-bold text-xs shrink-0">
                   <User className="w-4 h-4" />
                 </div>
-                <span className="font-bold text-sm text-foreground truncate">{adv.user_name}</span>
+                <span className="font-semibold text-sm text-foreground truncate">{adv.user_name}</span>
               </div>
-              <span className="text-base font-black tabular-nums text-blue-600 dark:text-blue-400 shrink-0">
+              <span className="text-sm font-mono font-bold tabular-nums text-blue-600 dark:text-blue-400 shrink-0">
                 {formatEur(adv.amount_eur)}
               </span>
             </div>
 
-            <div className="text-xs text-muted-foreground bg-muted/30 p-2.5 rounded-lg border border-border/50">
+            <div className="text-xs text-muted-foreground bg-surface-subtle/80 p-2.5 rounded-xl border border-border/60">
               <p className="font-semibold text-foreground truncate">{adv.report_title}</p>
               {adv.description && <p className="italic mt-0.5 line-clamp-2 text-foreground/80">{adv.description}</p>}
             </div>

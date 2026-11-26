@@ -87,7 +87,7 @@ interface ExpenseReportRepository : JpaRepository<ExpenseReport, Int> {
         SELECT r FROM ExpenseReport r
         WHERE (:userId IS NULL OR r.user.id = :userId)
           AND (:status IS NULL OR r.status = :status)
-        ORDER BY r.createdAt DESC, r.id DESC
+        ORDER BY CASE WHEN r.status = 'draft' THEN 0 ELSE 1 END, r.createdAt DESC, r.id DESC
     """)
     @EntityGraph(attributePaths = ["user"])
     fun findAllWithFiltersPaged(

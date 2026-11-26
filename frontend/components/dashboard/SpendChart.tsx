@@ -36,13 +36,16 @@ export default function SpendChart({ data }: SpendChartProps) {
     });
   }, [data]);
 
-  // Generate SVG path strings
+  // Generate smooth SVG cubic bezier path strings
   const linePath = useMemo(() => {
     if (points.length === 0) return "";
+    if (points.length === 1) return `M ${points[0].x} ${points[0].y}`;
     let path = `M ${points[0].x} ${points[0].y}`;
     for (let i = 1; i < points.length; i++) {
-      // Draw straight line segments for modern polygonal look
-      path += ` L ${points[i].x} ${points[i].y}`;
+      const prev = points[i - 1];
+      const curr = points[i];
+      const midX = (prev.x + curr.x) / 2;
+      path += ` C ${midX} ${prev.y}, ${midX} ${curr.y}, ${curr.x} ${curr.y}`;
     }
     return path;
   }, [points]);

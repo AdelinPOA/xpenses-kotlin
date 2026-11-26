@@ -44,15 +44,17 @@ export default function IosInstallHint() {
   return (
     <div
       role="status"
-      className="lg:hidden mt-4 flex items-start gap-3 rounded-xl border border-border bg-card p-3 shadow-sm"
+      className="lg:hidden mt-5 flex items-center gap-3 rounded-2xl border border-primary/20 bg-card/90 backdrop-blur-md p-3.5 shadow-xs"
     >
-      <Share className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
-      <p className="flex-1 text-xs font-medium text-foreground">{t("ios_install_hint")}</p>
+      <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+        <Share className="h-4 w-4" aria-hidden="true" />
+      </div>
+      <p className="flex-1 text-xs font-medium text-foreground leading-relaxed">{t("ios_install_hint")}</p>
       <button
         type="button"
         onClick={dismiss}
         aria-label={t("ios_install_dismiss")}
-        className="min-w-11 min-h-11 shrink-0 flex items-center justify-center rounded-lg text-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        className="min-w-11 min-h-11 -mr-1.5 shrink-0 flex items-center justify-center rounded-xl text-muted hover:text-foreground hover:bg-surface-subtle transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
       >
         <X className="h-4 w-4" aria-hidden="true" />
       </button>

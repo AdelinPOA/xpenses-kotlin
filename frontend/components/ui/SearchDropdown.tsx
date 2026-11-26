@@ -124,7 +124,7 @@ export default function SearchDropdown({ className }: SearchDropdownProps) {
   return (
     <div className={clsx("relative", className)}>
       <div className="relative">
-        <Search className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
+        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" aria-hidden="true" />
         <input
           ref={inputRef}
           type="text"
@@ -136,20 +136,26 @@ export default function SearchDropdown({ className }: SearchDropdownProps) {
           }}
           onFocus={() => setIsOpen(true)}
           onKeyDown={handleKeyDown}
-          className="w-full pl-9 pr-4 py-2 bg-input border border-input-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-base sm:text-sm"
+          className="w-full pl-10 pr-14 py-2 bg-card border border-border rounded-xl text-foreground placeholder:text-muted-foreground shadow-2xs transition-all focus:outline-none focus:ring-2 focus:ring-primary/35 focus:border-primary text-base sm:text-sm"
           aria-label={t("global_search")}
           aria-expanded={showDropdown}
           aria-haspopup="listbox"
           aria-controls="search-listbox"
           role="combobox"
         />
+        <kbd
+          aria-hidden="true"
+          className="hidden sm:inline-flex items-center gap-0.5 absolute right-2.5 top-1/2 -translate-y-1/2 px-1.5 py-0.5 text-[10px] font-mono font-semibold text-muted-foreground bg-surface-subtle border border-border rounded-md pointer-events-none"
+        >
+          ⌘K
+        </kbd>
       </div>
 
       {showDropdown && (
         <div
           ref={dropdownRef}
           id="search-listbox"
-          className="absolute top-full left-0 right-0 mt-2 bg-card border border-border rounded-xl shadow-lg z-50 max-h-[400px] overflow-hidden"
+          className="absolute top-full left-0 right-0 mt-2 bg-card border border-border rounded-2xl shadow-xl z-50 max-h-[400px] overflow-hidden"
           role="listbox"
         >
           {isLoading ? (
@@ -167,7 +173,7 @@ export default function SearchDropdown({ className }: SearchDropdownProps) {
                   const Icon = group.icon;
                   return (
                   <div key={group.key}>
-                    <div className="px-3 py-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider bg-muted/50">
+                    <div className="px-3.5 py-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider bg-surface-subtle border-y border-border/60 first:border-t-0">
                       {group.label} ({group.count})
                     </div>
                     {group.items.slice(0, 5).map((item) => {

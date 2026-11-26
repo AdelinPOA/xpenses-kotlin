@@ -87,7 +87,11 @@ class ExpenseReports(
             )
         } else {
             val reports = queryReportsWithExpenses(status, all, userId, actor)
-                .sortedByDescending { it.createdAt }
+                .sortedWith(
+                    compareBy<ExpenseReport> { if (it.status == "draft") 0 else 1 }
+                        .thenByDescending { it.createdAt }
+                        .thenByDescending { it.id ?: 0 },
+                )
             reportProjector.toReportOuts(reports)
         }
     }

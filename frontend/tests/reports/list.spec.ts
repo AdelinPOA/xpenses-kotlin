@@ -75,17 +75,17 @@ test.describe("Reports list page", () => {
     await expect(page.getByRole("button", { name: "Submitted" })).toBeVisible();
   });
 
-  test("mobile filters are compact until opened", async ({ page }) => {
+  test("mobile toolbar shows inline search, status chips, and expandable sort/filters", async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 });
     await setupAuthMocks(page, "manager");
     await page.route("**/api/reports**", (route) => route.fulfill({ json: REPORTS }));
     await page.goto("/reports", { waitUntil: "load" });
-    await expect(page.getByRole("button", { name: "Filters" })).toBeVisible({ timeout: 15000 });
-    await expect(page.getByRole("button", { name: "Draft" })).not.toBeVisible();
-    await page.getByRole("button", { name: "Filters" }).click();
+    await expect(page.getByPlaceholder("Search reports…")).toBeVisible({ timeout: 15000 });
     await expect(page.getByRole("button", { name: "Draft" })).toBeVisible();
     await page.getByRole("button", { name: "Submitted" }).click();
-    await expect(page.getByRole("button", { name: "Submitted" }).first()).toBeVisible();
+    await expect(page.getByRole("button", { name: "Submitted" }).first()).toHaveAttribute("aria-pressed", "true");
+    await page.getByRole("button", { name: "Filters" }).click();
+    await expect(page.getByRole("button", { name: "Title" })).toBeVisible();
   });
 
   test("export button visible", async ({ page }) => {
@@ -125,5 +125,24 @@ test.describe("Reports list page", () => {
     await page.route("**/api/reports**", (route) => route.fulfill({ json: REPORTS }));
     await page.goto("/reports", { waitUntil: "load" });
     await page.waitForFunction(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth, { timeout: 15000 });
+  });
+
+  test("privileged mobile viewport has no overflow", async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await setupAuthMocks(page, "manager");
+    await page.route("**/api/reports**", (route) => route.fulfill({ json: REPORTS }));
+    await page.goto("/reports", { waitUntil: "load" });
+    await expect(page.getByRole("link", { name: "New report" })).toBeVisible({ timeout: 15000 });
+    await page.waitForFunction(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth, { timeout: 15000 });
+    for (const locator of [
+      page.getByRole("link", { name: "New report" }),
+      page.getByRole("button", { name: /export/i }),
+      page.getByRole("button", { name: /import order/i }),
+    ]) {
+      const box = await locator.boundingBox();
+      expect(box).not.toBeNull();
+      expect(box!.x).toBeGreaterThanOrEqual(0);
+      expect(box!.x + box!.width).toBeLessThanOrEqual(375);
+    }
   });
 });

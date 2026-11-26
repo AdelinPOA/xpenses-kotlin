@@ -58,14 +58,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   ];
 
   return (
-    <div className="min-h-screen min-h-dvh bg-background text-foreground flex flex-col">
-      <header id="app-header" className="lg:hidden fixed top-0 left-0 right-0 z-30 bg-card border-b border-border shadow-sm [padding-top:env(safe-area-inset-top,0px)]">
+    <div className="min-h-screen min-h-dvh bg-background text-foreground flex flex-col overflow-x-clip">
+      <header
+        id="app-header"
+        className="lg:hidden fixed top-0 left-0 right-0 z-30 bg-card/85 backdrop-blur-xl border-b border-border/80 [padding-top:env(safe-area-inset-top,0px)]"
+      >
         <div className="h-14 px-4 flex items-center justify-between relative">
           <button
             ref={menuButtonRef}
             type="button"
             onClick={() => setSidebarOpen(true)}
-            className="min-w-11 min-h-11 -ml-2 text-muted hover:bg-card-hover rounded-lg flex items-center justify-center shrink-0 z-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            className="min-w-11 min-h-11 -ml-2 text-muted hover:text-foreground hover:bg-surface-subtle rounded-xl flex items-center justify-center shrink-0 z-20 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             aria-label={tNav("open_sidebar")}
             aria-expanded={sidebarOpen}
             aria-controls="app-sidebar"
@@ -78,10 +81,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             onClick={(e) => {
               if (!allowNavigation()) e.preventDefault();
             }}
-            className="absolute left-1/2 -translate-x-1/2 min-h-11 px-3 flex items-center justify-center gap-2 hover:opacity-90 transition-opacity z-10 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            className="absolute left-1/2 -translate-x-1/2 min-h-11 px-3 flex items-center justify-center gap-2 hover:opacity-90 transition-opacity z-10 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
-            <Image src="/logo.png" alt="" width={26} height={26} className="rounded-full" />
-            <span className="text-base font-bold text-foreground tracking-tight">xpenses</span>
+            <Image src="/logo.png" alt="" width={24} height={24} className="rounded-full ring-1 ring-border" />
+            <span className="text-[15px] font-bold text-foreground tracking-tight">xpenses</span>
           </Link>
 
           <div className="flex items-center gap-2 z-20">
@@ -90,10 +93,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               onClick={(e) => {
                 if (!allowNavigation()) e.preventDefault();
               }}
-              className="w-11 h-11 rounded-full bg-primary/20 border border-primary flex items-center justify-center text-primary font-bold text-sm shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              className="w-11 h-11 rounded-full flex items-center justify-center shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               aria-label={tNav("profile")}
             >
-              {user?.display_name?.charAt(0) || "U"}
+              <span className="w-8 h-8 rounded-full bg-primary/15 border border-primary/40 flex items-center justify-center text-primary font-bold text-xs shadow-2xs">
+                {user?.display_name?.charAt(0)?.toUpperCase() || "U"}
+              </span>
             </Link>
           </div>
         </div>
@@ -103,18 +108,20 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
       <main
         id="main-content"
-        className="app-main flex-1 lg:ml-[220px] pt-[calc(3.5rem_+_env(safe-area-inset-top,0px)_+_1rem)] sm:pt-[calc(3.5rem_+_env(safe-area-inset-top,0px)_+_1.5rem)] lg:pt-6 pb-[calc(7.5rem_+_env(safe-area-inset-bottom,0px))] lg:pb-0 p-4 sm:p-6 lg:p-8"
+        className="app-main flex-1 min-w-0 max-w-full lg:ml-[244px] pt-[calc(3.5rem_+_env(safe-area-inset-top,0px)_+_1rem)] sm:pt-[calc(3.5rem_+_env(safe-area-inset-top,0px)_+_1.5rem)] lg:pt-7 pb-[calc(7.5rem_+_env(safe-area-inset-bottom,0px))] lg:pb-10 p-4 sm:p-6 lg:px-8"
       >
-        <FxFallbackBanner />
-        <FuelFallbackBanner />
-        {children}
-        <IosInstallHint />
+        <div className="mx-auto w-full min-w-0 max-w-[1440px]">
+          <FxFallbackBanner />
+          <FuelFallbackBanner />
+          {children}
+          <IosInstallHint />
+        </div>
       </main>
 
       <nav
         id="mobile-bottom-nav"
         aria-label={tNav("mobile_navigation")}
-        className="lg:hidden fixed bottom-0 left-0 right-0 h-[calc(4rem+env(safe-area-inset-bottom,0px))] pb-safe box-border bg-card border-t border-border flex items-center justify-around z-30 shadow-lg px-1"
+        className="lg:hidden fixed bottom-0 left-0 right-0 h-[calc(4rem+env(safe-area-inset-bottom,0px))] pb-safe box-border bg-card/90 backdrop-blur-xl border-t border-border/80 flex items-center justify-around z-30 shadow-[0_-4px_20px_-4px_rgba(15,23,42,0.08)] dark:shadow-[0_-4px_24px_-4px_rgba(0,0,0,0.45)] px-1"
       >
         {navItems.map((item) => {
           const { href, labelKey, icon: Icon } = item;
@@ -132,22 +139,22 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                   if (!allowNavigation()) e.preventDefault();
                 }}
                 className={clsx(
-                "relative flex min-w-0 flex-1 h-full flex-col items-center justify-end pb-1 text-[11px] font-semibold leading-none whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary",
-                active ? "text-nav-active" : "text-muted hover:text-foreground"
-              )}
-            >
-              <span
-                className={clsx(
-                  "absolute bottom-6 flex h-[52px] w-[52px] items-center justify-center rounded-full border-4 border-card shadow-lg transition-transform active:scale-95",
-                  active
-                    ? "bg-primary-hover text-white ring-2 ring-primary"
-                    : "bg-primary text-white hover:bg-primary-hover"
+                  "relative flex min-w-0 flex-1 h-full flex-col items-center justify-end pb-1.5 text-[11px] font-semibold leading-none whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary",
+                  active ? "text-nav-active" : "text-muted hover:text-foreground"
                 )}
               >
-                <Icon className="w-6 h-6" aria-hidden="true" />
-              </span>
-              <span>{tNav(labelKey)}</span>
-            </Link>
+                <span
+                  className={clsx(
+                    "absolute bottom-6 flex h-[52px] w-[52px] items-center justify-center rounded-full border-4 border-card shadow-[0_6px_18px_-3px_rgba(194,65,12,0.45)] transition-transform active:scale-95",
+                    active
+                      ? "bg-primary-hover text-white ring-2 ring-primary/60"
+                      : "bg-primary text-white hover:bg-primary-hover"
+                  )}
+                >
+                  <Icon className="w-[22px] h-[22px]" aria-hidden="true" />
+                </span>
+                <span>{tNav(labelKey)}</span>
+              </Link>
             );
           }
 
@@ -160,11 +167,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 if (!allowNavigation()) e.preventDefault();
               }}
               className={clsx(
-                "flex min-w-0 flex-1 flex-col items-center justify-center gap-1 min-h-14 px-0.5 text-[11px] font-semibold leading-none whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary",
+                "relative flex min-w-0 flex-1 flex-col items-center justify-center gap-1 min-h-14 px-0.5 text-[11px] font-semibold leading-none whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary",
                 active ? "text-nav-active" : "text-muted hover:text-foreground"
               )}
             >
-              <Icon className="w-5 h-5" aria-hidden="true" />
+              {active && (
+                <span
+                  aria-hidden="true"
+                  className="absolute top-0 left-1/2 -translate-x-1/2 w-6 h-0.5 rounded-full bg-primary"
+                />
+              )}
+              <Icon className="w-5 h-5" strokeWidth={active ? 2.25 : 1.9} aria-hidden="true" />
               <span>{tNav(labelKey)}</span>
             </Link>
           );

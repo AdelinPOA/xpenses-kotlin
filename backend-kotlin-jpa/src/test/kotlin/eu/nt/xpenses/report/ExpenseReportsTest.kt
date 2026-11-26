@@ -299,11 +299,18 @@ class ExpenseReportsTest : IntegrationTestBase() {
         assertTrue(paged.data.any { (it as ReportOut).id == submitted.id })
         assertTrue(paged.data.none { (it as ReportOut).id == draft1.id })
 
-        // Manager all=true sees across users
+        // Manager all=true sees across users, with draft reports sorted first
         @Suppress("UNCHECKED_CAST")
         val allList = expenseReports.listReports(null, true, null, null, 20, manager) as List<ReportOut>
         assertTrue(allList.any { it.id == draft1.id })
         assertTrue(allList.any { it.id == otherDraft.id })
+        val firstNonDraftIdx = allList.indexOfFirst { it.status != "draft" }
+        val lastDraftIdx = allList.indexOfLast { it.status == "draft" }
+        assertTrue(firstNonDraftIdx > lastDraftIdx)
+
+        val pagedAll = expenseReports.listReports(null, true, null, 0, 10, manager) as PagedResponse<*>
+        val pagedStatuses = pagedAll.data.map { (it as ReportOut).status }
+        assertTrue(pagedStatuses.indexOfFirst { it != "draft" } > pagedStatuses.indexOfLast { it == "draft" })
 
         // getReport ownership & 404
         assertEquals(draft1.id, expenseReports.getReport(draft1.id!!, tech).id)

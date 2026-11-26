@@ -18,7 +18,7 @@ import AppShell from "@/components/layout/AppShell";
 import Badge from "@/components/ui/Badge";
 import EmptyState from "@/components/ui/EmptyState";
 import QueryErrorNotice from "@/components/ui/QueryErrorNotice";
-import { Plus, Trash2, Eye, Send, ChevronUp, ChevronDown, Search, Download, SlidersHorizontal, X, FileText, Loader2 } from "lucide-react";
+import { Plus, Trash2, Eye, Send, ChevronUp, ChevronDown, Search, Download, SlidersHorizontal, X, FileText, Loader2, Users } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/ToastProvider";
 import clsx from "clsx";
@@ -239,7 +239,7 @@ function ReportsPageContent() {
     new Set((reports ?? []).map((r) => r.user_display_name).filter(Boolean))
   ).sort() as string[];
   const statuses = ["", "draft", "submitted", "approved", "rejected", "paid"];
-  const activeFilterCount = [statusFilter, ownerFilter, debouncedSearch].filter(Boolean).length;
+  const hasMobileDrawerFilter = Boolean(ownerFilter);
 
   const filtered = (reports ?? []).filter((r) => {
     if (ownerFilter && r.user_display_name !== ownerFilter) return false;
@@ -249,6 +249,15 @@ function ReportsPageContent() {
   });
 
   const sorted = [...filtered].sort((a, b) => {
+    if (sortKey === "submitted_at") {
+      const aDraft = a.status === "draft";
+      const bDraft = b.status === "draft";
+      if (aDraft !== bDraft) return aDraft ? -1 : 1;
+      if (aDraft && bDraft) {
+        const createdCmp = (a.created_at ?? "").localeCompare(b.created_at ?? "");
+        return sortDir === "asc" ? createdCmp : -createdCmp;
+      }
+    }
     let cmp = 0;
     if (sortKey === "title") cmp = a.title.localeCompare(b.title);
     else if (sortKey === "total") {
@@ -263,50 +272,67 @@ function ReportsPageContent() {
 
   return (
     <AppShell>
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">
+      <div className="flex items-center justify-between gap-2 sm:gap-3 mb-3 md:mb-6">
+        <div className="min-w-0">
+          <h1 className="text-lg sm:text-2xl font-bold tracking-tight text-foreground truncate">
             {showAll ? t("company_reports") : t("my_reports")}
           </h1>
-          <p className="text-muted text-sm mt-1">{reports?.length ?? 0} {t("total")}</p>
+          <p className="text-muted-foreground text-xs sm:text-sm mt-0.5 tabular-nums">{reports?.length ?? 0} {t("total")}</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
           {isPrivileged && (
             <button
               onClick={() => setShowAll(!showAll)}
               className={clsx(
-                "min-h-11 px-3 py-2 text-xs font-semibold rounded-lg transition-colors border",
+                "hidden md:inline-flex min-h-11 items-center px-3 py-2 text-xs font-semibold rounded-xl border whitespace-nowrap shrink-0 cursor-pointer transition-colors",
                 showAll
-                  ? "bg-slate-900 border-slate-900 text-white dark:bg-slate-700 dark:border-slate-600"
-                  : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-300"
+                  ? "bg-primary/10 border-primary/30 text-primary"
+                  : "bg-card border-border text-muted hover:text-foreground hover:bg-card-hover shadow-2xs"
               )}
             >
               {showAll ? t("toggle_my") : t("toggle_all")}
             </button>
           )}
+          <button
+            type="button"
+            aria-label={t("import_order")}
+            title={t("import_order")}
+            onClick={() => {
+              setImportText("");
+              setImportError(null);
+              setReviewDraft(null);
+              setIsImportOpen(true);
+            }}
+            className="inline-flex h-9 w-9 md:h-auto md:w-auto md:min-h-11 items-center justify-center gap-1.5 md:px-3.5 md:py-2 bg-card border border-border text-foreground text-xs sm:text-sm font-semibold rounded-xl hover:bg-card-hover whitespace-nowrap shrink-0 shadow-2xs cursor-pointer transition-colors"
+          >
+            <FileText className="w-4 h-4 shrink-0 text-muted-foreground" />
+            <span className="hidden md:inline">{t("import_order")}</span>
+          </button>
           <div className="relative">
             <button
               disabled={exporting}
               onClick={() => setExportOpen((v) => !v)}
               aria-expanded={exportOpen}
-              className="flex min-h-11 items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 disabled:opacity-50 cursor-pointer"
+              aria-label={exporting ? t("exporting") : t("export")}
+              title={exporting ? t("exporting") : t("export")}
+              className="inline-flex h-9 w-9 md:h-auto md:w-auto md:min-h-11 items-center justify-center gap-1.5 md:px-3.5 md:py-2 bg-card border border-border text-foreground text-xs sm:text-sm font-semibold rounded-xl hover:bg-card-hover whitespace-nowrap shrink-0 shadow-2xs disabled:opacity-50 cursor-pointer transition-colors"
             >
-              <Download className="w-4 h-4" />
-              {exporting ? t("exporting") : t("export")}
+              <Download className="w-4 h-4 shrink-0 text-muted-foreground" />
+              <span className="hidden md:inline">{exporting ? t("exporting") : t("export")}</span>
             </button>
             {exportOpen && (
               <>
                 <div className="fixed inset-0 z-10" onClick={() => setExportOpen(false)} />
-                <div className="absolute right-0 top-full mt-1 w-36 bg-input border border-border rounded-lg shadow-lg z-20">
+                <div className="absolute right-0 top-full mt-1.5 w-40 bg-card border border-border rounded-xl shadow-xl z-20 overflow-hidden">
                   <button
                     onClick={() => handleExport("csv")}
-                    className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-t-lg"
+                    className="w-full text-left px-4 py-2.5 text-sm text-foreground hover:bg-card-hover transition-colors"
                   >
                     {t("download_csv")}
                   </button>
                   <button
                     onClick={() => handleExport("xlsx")}
-                    className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-b-lg"
+                    className="w-full text-left px-4 py-2.5 text-sm text-foreground hover:bg-card-hover transition-colors"
                   >
                     {t("download_xlsx")}
                   </button>
@@ -314,25 +340,14 @@ function ReportsPageContent() {
               </>
             )}
           </div>
-          <button
-            type="button"
-            onClick={() => {
-              setImportText("");
-              setImportError(null);
-              setReviewDraft(null);
-              setIsImportOpen(true);
-            }}
-            className="flex min-h-11 items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-sm font-medium rounded-lg cursor-pointer transition-colors"
-          >
-            <FileText className="w-4 h-4" />
-            {t("import_order")}
-          </button>
           <Link
             href="/reports/new"
-            className="flex min-h-11 items-center gap-2 px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-hover w-fit"
+            aria-label={t("new_report")}
+            className="inline-flex h-9 md:h-auto md:min-h-11 items-center gap-1 sm:gap-1.5 px-3 md:px-4 md:py-2 bg-primary text-white text-xs sm:text-sm font-semibold rounded-xl hover:bg-primary-hover whitespace-nowrap shrink-0 shadow-xs transition-colors"
           >
-            <Plus className="w-4 h-4" />
-            {t("new_report")}
+            <Plus className="w-4 h-4 shrink-0" />
+            <span className="md:hidden">{t("new_report_short")}</span>
+            <span className="hidden md:inline">{t("new_report")}</span>
           </Link>
         </div>
       </div>
@@ -344,49 +359,143 @@ function ReportsPageContent() {
         </div>
       )}
 
-      <div className="mb-3 md:hidden">
-        <button
-          type="button"
-          onClick={() => setMobileFiltersOpen((v) => !v)}
-          aria-expanded={mobileFiltersOpen}
-          className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground shadow-sm"
-        >
-          <SlidersHorizontal className="w-4 h-4" />
-          {t("filters")}
-          {activeFilterCount > 0 && (
-            <span className="rounded-full bg-primary px-2 py-0.5 text-[11px] text-white">{activeFilterCount}</span>
+      <div className="mb-3 space-y-2.5 md:hidden">
+        <div className="flex h-10 items-center gap-2 rounded-xl border border-border bg-card pl-3 pr-1.5 shadow-2xs focus-within:border-primary/50 transition-colors">
+          <Search className="w-4 h-4 shrink-0 text-muted-foreground" />
+          <input
+            id="report-search-mobile"
+            name="report_search_mobile"
+            aria-label={t("search_placeholder")}
+            type="text"
+            placeholder={t("search_placeholder")}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="min-w-0 flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch("")}
+              aria-label={t("clear_search")}
+              className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
           )}
-        </button>
+          <button
+            type="button"
+            onClick={() => setMobileFiltersOpen((v) => !v)}
+            aria-label={t("filters")}
+            aria-expanded={mobileFiltersOpen}
+            className={clsx(
+              "relative inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors",
+              mobileFiltersOpen || hasMobileDrawerFilter
+                ? "bg-primary/15 text-primary"
+                : "bg-slate-100 text-muted-foreground hover:text-foreground dark:bg-slate-800"
+            )}
+          >
+            <SlidersHorizontal className="w-3.5 h-3.5" />
+            {hasMobileDrawerFilter && (
+              <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-primary" />
+            )}
+          </button>
+        </div>
 
-        {activeFilterCount > 0 && (
-          <div className="mt-3 flex flex-wrap gap-2">
-            {statusFilter && (
-              <button onClick={() => setStatusFilter("")} className="inline-flex min-h-11 items-center gap-1 rounded-full bg-primary/10 px-3 py-2 text-xs font-semibold text-primary">
-                {t(`status_${statusFilter}` as any)}
-                <X className="w-3 h-3" />
+        <div className="flex items-center gap-2">
+          <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {statuses.map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setStatusFilter(s)}
+                aria-pressed={statusFilter === s}
+                className={clsx(
+                  "h-8 px-3 rounded-full text-xs font-semibold whitespace-nowrap shrink-0 border transition-colors",
+                  statusFilter === s
+                    ? "bg-primary/15 border-primary/50 text-primary"
+                    : "bg-card border-border text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {s === "" ? t("filter_all") : t(`status_${s}` as any)}
               </button>
-            )}
-            {ownerFilter && (
-              <button onClick={() => setOwnerFilter("")} className="inline-flex min-h-11 items-center gap-1 rounded-full bg-primary/10 px-3 py-2 text-xs font-semibold text-primary">
-                {ownerFilter}
-                <X className="w-3 h-3" />
-              </button>
-            )}
-            {debouncedSearch && (
-              <button onClick={() => setSearch("")} className="inline-flex min-h-11 items-center gap-1 rounded-full bg-primary/10 px-3 py-2 text-xs font-semibold text-primary">
-                {debouncedSearch}
-                <X className="w-3 h-3" />
-              </button>
+            ))}
+          </div>
+          {isPrivileged && (
+            <button
+              type="button"
+              onClick={() => setShowAll(!showAll)}
+              aria-pressed={showAll}
+              aria-label={showAll ? t("toggle_my") : t("toggle_all")}
+              className={clsx(
+                "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-xs font-semibold whitespace-nowrap transition-colors",
+                showAll
+                  ? "bg-primary/15 border-primary/50 text-primary"
+                  : "bg-card border-border text-foreground hover:bg-card-hover"
+              )}
+            >
+              <Users className="w-3.5 h-3.5 shrink-0" />
+              {t("scope_company_short")}
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="bg-card rounded-2xl border border-border shadow-2xs overflow-hidden">
+        {mobileFiltersOpen && (
+          <div className="md:hidden px-3.5 py-2.5 border-b border-slate-100 dark:border-slate-700 space-y-2.5 bg-slate-50/60 dark:bg-slate-900/40">
+            <div className="flex flex-wrap items-center gap-1.5">
+              {(["submitted_at", "total", "title"] as SortKey[]).map((key) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => toggleSort(key)}
+                  className={clsx(
+                    "inline-flex h-8 items-center gap-1 rounded-full border px-3 text-xs font-medium transition-colors",
+                    sortKey === key
+                      ? "bg-slate-800 border-slate-800 text-white dark:bg-slate-200 dark:border-slate-200 dark:text-slate-900"
+                      : "bg-card border-border text-muted-foreground"
+                  )}
+                >
+                  {key === "submitted_at" ? t("table_submitted") : key === "total" ? t("table_total") : t("table_title")}
+                  <SortIcon k={key} />
+                </button>
+              ))}
+            </div>
+            {showAll && uniqueOwners.length > 1 && (
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-xs text-muted-foreground font-medium mr-0.5">{t("employee_filter")}</span>
+                <button
+                  type="button"
+                  onClick={() => setOwnerFilter("")}
+                  className={clsx(
+                    "h-8 px-3 rounded-full text-xs font-medium transition-colors",
+                    ownerFilter === ""
+                      ? "bg-primary text-white"
+                      : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
+                  )}
+                >
+                  {t("filter_all")}
+                </button>
+                {uniqueOwners.map((name) => (
+                  <button
+                    key={name}
+                    type="button"
+                    onClick={() => setOwnerFilter(ownerFilter === name ? "" : name)}
+                    className={clsx(
+                      "h-8 px-3 rounded-full text-xs font-medium transition-colors",
+                      ownerFilter === name
+                        ? "bg-primary text-white"
+                        : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
+                    )}
+                  >
+                    {name}
+                  </button>
+                ))}
+              </div>
             )}
           </div>
         )}
-      </div>
-
-      <div className="bg-card rounded-xl shadow-sm">
-        <div className={clsx(
-          "p-4 border-b border-slate-100 dark:border-slate-700 flex-wrap gap-3 items-center",
-          mobileFiltersOpen ? "flex" : "hidden md:flex"
-        )}>
+        <div className="hidden md:flex p-4 border-b border-slate-100 dark:border-slate-700 flex-wrap gap-3 items-center">
           <div className="flex w-full flex-wrap gap-2 md:w-auto">
           {statuses.map((s) => (
             <button
@@ -419,10 +528,7 @@ function ReportsPageContent() {
           </div>
         </div>
         {showAll && uniqueOwners.length > 1 && (
-          <div className={clsx(
-            "px-4 py-2 border-b border-slate-100 dark:border-slate-700 flex-wrap gap-2 items-center",
-            mobileFiltersOpen ? "flex" : "hidden md:flex"
-          )}>
+          <div className="hidden md:flex px-4 py-2 border-b border-slate-100 dark:border-slate-700 flex-wrap gap-2 items-center">
             <span className="text-xs text-muted-foreground font-medium mr-1">{t("employee_filter")}</span>
             <button
               onClick={() => setOwnerFilter("")}
@@ -486,31 +592,31 @@ function ReportsPageContent() {
         ) : (
           <>
             {/* Mobile: stacked cards */}
-            <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-700">
+            <div className="md:hidden divide-y divide-border/80">
               {sorted.map((r) => (
                 <div key={r.id} className="p-4">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <Link href={`/reports/${r.id}`} className="font-medium text-foreground hover:text-blue-600 dark:hover:text-blue-400">
+                  <div className="flex items-start justify-between gap-2.5">
+                    <div className="min-w-0 flex-1">
+                      <Link href={`/reports/${r.id}`} className="font-semibold text-foreground hover:text-primary transition-colors break-words">
                         {r.title}
                       </Link>
-                      <p className="text-xs text-muted mt-0.5">
+                      <p className="text-xs font-mono text-muted-foreground mt-0.5">
                         {showAll && r.user_display_name ? `${r.user_display_name} · ` : ""}
                         {r.date_from && r.date_to ? `${r.date_from} — ${r.date_to}` : "—"}
                       </p>
                     </div>
-                    <p className="font-semibold text-foreground shrink-0">
+                    <p className="font-mono font-semibold text-foreground shrink-0 tabular-nums">
                       {formatEur(r.expenses.reduce((s, e) => s + e.amount_eur, 0) || r.total_amount)}
                     </p>
                   </div>
-                  <div className="flex items-center justify-between mt-3">
-                    <div className="flex items-center gap-2">
+                  <div className="flex items-center justify-between gap-2 mt-3">
+                    <div className="flex items-center gap-2 min-w-0 flex-wrap">
                       <Badge status={r.status} />
                       <span className="text-xs text-muted-foreground">
                         {r.expenses.length === 1 ? t("expense_count_one", { count: r.expenses.length }) : t("expense_count_other", { count: r.expenses.length })}
                       </span>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1 shrink-0">
                       <Link href={`/reports/${r.id}`} aria-label={`View report ${r.title}`} className="min-w-11 min-h-11 inline-flex items-center justify-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
                         <Eye className="w-4 h-4 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400" aria-hidden="true" />
                       </Link>
@@ -533,7 +639,7 @@ function ReportsPageContent() {
             {/* Desktop: table */}
             <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-slate-50 dark:bg-slate-800 text-xs text-muted uppercase">
+              <thead className="bg-surface-subtle/75 border-b border-border text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                 <tr>
                   <th
                     className="text-left px-4 py-3 cursor-pointer select-none hover:text-slate-700 dark:hover:text-slate-200"

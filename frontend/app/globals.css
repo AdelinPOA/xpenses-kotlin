@@ -3,13 +3,14 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --sidebar-width: 220px;
-  --background: #f8fafc;
+  --sidebar-width: 244px;
+  --background: #f4f6f9;
   --foreground: #0f172a;
   --card: #ffffff;
   --card-hover: #f8fafc;
+  --surface-subtle: #eef2f6;
   --border: #e2e8f0;
-  --border-subtle: #f1f5f9;
+  --border-subtle: #edf2f7;
   --input: #ffffff;
   --input-border: #cbd5e1;
   --muted: #475569;
@@ -17,33 +18,38 @@
   --primary: #c2410c;
   --primary-hover: #9a3412;
   --nav-active-text: #9a3412;
-  --sidebar: #0f172a;
+  --sidebar: #0b1120;
   --sidebar-border: #1e293b;
 }
 
 .dark {
-  --background: #0c0f1a;
-  --foreground: #e2e8f0;
-  --card: #151b2b;
-  --card-hover: #1c2438;
-  --border: #1e293b;
-  --border-subtle: #162032;
-  --input: #0f172a;
+  --background: #090d16;
+  --foreground: #f1f5f9;
+  --card: #111827;
+  --card-hover: #182234;
+  --surface-subtle: #182032;
+  --border: #1f2937;
+  --border-subtle: #161e2e;
+  --input: #0d1321;
   --input-border: #334155;
   --muted: #cbd5e1;
   --muted-foreground: #94a3b8;
   --primary: #c2410c;
   --primary-hover: #9a3412;
   --nav-active-text: #fb923c;
-  --sidebar: #0a0e1a;
-  --sidebar-border: #1a2236;
+  --sidebar: #070a12;
+  --sidebar-border: #172033;
 }
 
 @theme {
+  --font-sans: var(--font-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
   --color-card-hover: var(--card-hover);
+  --color-surface-subtle: var(--surface-subtle);
   --color-border: var(--border);
   --color-border-subtle: var(--border-subtle);
   --color-input: var(--input);
@@ -56,7 +62,7 @@
   --color-sidebar: var(--sidebar);
   --color-sidebar-border: var(--sidebar-border);
 
-  --animate-slide-in: slide-in 0.3s ease-out;
+  --animate-slide-in: slide-in 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   --animate-fade-in: fade-in 0.2s ease-out;
 
   @keyframes fade-in {
@@ -66,7 +72,7 @@
 
   @keyframes slide-in {
     from {
-      transform: translateY(-1rem);
+      transform: translateY(-0.75rem);
       opacity: 0;
     }
     to {
@@ -111,6 +117,10 @@
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }
+  .bg-architectural-grid {
+    background-image: radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--foreground) 7%, transparent) 1px, transparent 0);
+    background-size: 24px 24px;
+  }
 }
 
 @layer base {
@@ -131,9 +141,12 @@
   }
 
   body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     background-color: var(--background);
     color: var(--foreground);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
     -webkit-overflow-scrolling: touch;
   }
 

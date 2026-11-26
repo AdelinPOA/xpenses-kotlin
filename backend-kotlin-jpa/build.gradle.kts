@@ -1,10 +1,10 @@
 plugins {
-    kotlin("jvm") version "2.4.0"
-    kotlin("plugin.spring") version "2.4.0"
-    kotlin("plugin.jpa") version "2.4.0"
-    id("org.springframework.boot") version "4.1.1"
+    kotlin("jvm") version "2.4.21"
+    kotlin("plugin.spring") version "2.4.21"
+    kotlin("plugin.jpa") version "2.4.21"
+    id("org.springframework.boot") version "4.2.0"
     id("io.spring.dependency-management") version "1.1.7"
-    id("org.graalvm.buildtools.native") version "0.10.4"
+    id("org.graalvm.buildtools.native") version "1.1.19"
 }
 
 group = "eu.nt"
@@ -22,10 +22,10 @@ repositories {
 
 // JWT/logging adapters still use Jackson 2; keep that managed family patched
 // while application HTTP/settings/OCR JSON migrates to Boot 4's Jackson 3.
-extra["jackson-2-bom.version"] = "2.21.8"
-// Security patches newer than Boot 4.1.1's managed baseline, within its lines.
-extra["jackson-bom.version"] = "3.1.8"
-extra["tomcat.version"] = "11.0.27"
+extra["jackson-2-bom.version"] = "2.23.0"
+// Security patches newer than Boot 4.2.0's managed baseline, within its lines.
+extra["jackson-bom.version"] = "3.3.0"
+extra["tomcat.version"] = "11.0.29"
 
 dependencies {
     // Spring Boot Starters
@@ -38,35 +38,35 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-mail")
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("io.micrometer:micrometer-registry-prometheus")
-    implementation("net.logstash.logback:logstash-logback-encoder:8.0")
+    implementation("net.logstash.logback:logstash-logback-encoder:9.0")
     implementation("org.springframework.boot:spring-boot-starter-cache")
     implementation("org.springframework.boot:spring-boot-starter-data-redis")
     implementation("com.github.ben-manes.caffeine:caffeine")
-    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.1")
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.2.1")
     implementation("javax.cache:cache-api:1.1.1")
     implementation("com.github.ben-manes.caffeine:jcache")
 
     // Database
-    runtimeOnly("org.postgresql:postgresql:42.7.13")
+    runtimeOnly("org.postgresql:postgresql:42.7.15")
     implementation("org.flywaydb:flyway-database-postgresql")
 
     // JWT
-    implementation("io.jsonwebtoken:jjwt-api:0.12.6")
-    runtimeOnly("io.jsonwebtoken:jjwt-impl:0.12.6")
-    runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.12.6")
+    implementation("io.jsonwebtoken:jjwt-api:0.13.0")
+    runtimeOnly("io.jsonwebtoken:jjwt-impl:0.13.0")
+    runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.13.0")
 
     // PDF Generation & Parsing
-    implementation("com.github.librepdf:openpdf:2.0.3")
-    implementation("org.apache.pdfbox:pdfbox:3.0.4")
+    implementation("com.github.librepdf:openpdf:3.0.6")
+    implementation("org.apache.pdfbox:pdfbox:3.0.8")
 
     // Excel/CSV Export
-    implementation("org.apache.poi:poi-ooxml:5.4.0")
+    implementation("org.apache.poi:poi-ooxml:6.0.0")
 
     // S3 Storage
-    implementation("software.amazon.awssdk:s3:2.30.0")
+    implementation("software.amazon.awssdk:s3:2.59.9")
 
     // Email HTML normalization (local parsing only, no remote resources).
-    implementation("org.jsoup:jsoup:1.23.2")
+    implementation("org.jsoup:jsoup:1.24.1")
 
     // Kotlin Support
     implementation("org.jetbrains.kotlin:kotlin-reflect")
@@ -79,8 +79,8 @@ dependencies {
     testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
     testImplementation("org.springframework.boot:spring-boot-starter-security-test")
     testImplementation("org.springframework.boot:spring-boot-starter-data-jpa-test")
-    testImplementation("org.testcontainers:junit-jupiter")
-    testImplementation("org.testcontainers:postgresql")
+    testImplementation("org.testcontainers:testcontainers-junit-jupiter")
+    testImplementation("org.testcontainers:testcontainers-postgresql")
 }
 
 dependencyManagement {
@@ -90,7 +90,7 @@ dependencyManagement {
         // systemProperty("api.version", ...) in tasks.withType<Test> below — Testcontainers
         // shades docker-java internally and defaults to API 1.32, which is rejected by
         // Docker 29+ (minimum 1.40).
-        mavenBom("org.testcontainers:testcontainers-bom:1.21.0")
+        mavenBom("org.testcontainers:testcontainers-bom:2.0.5")
     }
 }
 

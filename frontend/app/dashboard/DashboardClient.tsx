@@ -385,36 +385,42 @@ export default function DashboardClient() {
         <QueryErrorNotice isFetching={managerStatsFetching} onRetry={() => { void refetchManagerStats(); }} />
       )}
       {/* ── 1. TOP GLOBAL HEADER (DESKTOP) ────────────────────────────────────────── */}
-      <div className="hidden lg:flex items-center justify-between border-b border-border pb-4 mb-6">
-        <SearchDropdown className="w-80" />
+      <div className="hidden lg:flex items-center justify-between border-b border-border/80 pb-4 mb-6">
+        <SearchDropdown className="w-80 xl:w-96" />
 
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-4">
           {/* Real notification indicator (Phase 3.3): managers see pending work;
               technicians have no notification source yet, so no fake dot. */}
           {isManagerRole && (
             <button
               onClick={() => router.push("/approvals")}
-              className="relative p-1 text-muted hover:text-foreground transition-colors cursor-pointer"
+              className="relative w-10 h-10 rounded-xl border border-border bg-card hover:bg-card-hover flex items-center justify-center text-muted hover:text-foreground transition-colors cursor-pointer shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               aria-label={t("notifications_count", { count: pendingNotificationCount })}
             >
-              <Bell className="w-5 h-5" />
+              <Bell className="w-[18px] h-[18px]" />
               {pendingNotificationCount > 0 && (
-                <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center tabular-nums">
+                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center justify-center tabular-nums ring-2 ring-background">
                   {pendingNotificationCount > 99 ? "99+" : pendingNotificationCount}
                 </span>
               )}
             </button>
           )}
 
-          <div className="flex items-center gap-3">
-            <div className="text-right">
-              <p className="text-sm font-bold text-foreground">{user?.display_name}</p>
-              <p className="text-xs text-muted-foreground capitalize">{user?.role?.replace("_", " ")}</p>
+          <Link
+            href="/profile"
+            onClick={(e) => {
+              if (!allowNavigation()) e.preventDefault();
+            }}
+            className="flex items-center gap-3 pl-3 pr-2 py-1.5 rounded-xl hover:bg-card border border-transparent hover:border-border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          >
+            <div className="text-right leading-tight">
+              <p className="text-sm font-semibold text-foreground">{user?.display_name}</p>
+              <p className="text-[11px] text-muted-foreground capitalize">{user?.role?.replace("_", " ")}</p>
             </div>
-            <div className="w-9 h-9 rounded-full bg-primary/15 border border-primary/40 flex items-center justify-center text-primary font-bold text-sm">
-              {user?.display_name?.charAt(0) || "U"}
+            <div className="w-9 h-9 rounded-full bg-primary/12 border border-primary/35 flex items-center justify-center text-primary font-bold text-sm">
+              {user?.display_name?.charAt(0)?.toUpperCase() || "U"}
             </div>
-          </div>
+          </Link>
         </div>
       </div>
 
@@ -422,28 +428,28 @@ export default function DashboardClient() {
       {isManagerRole ? (
         <div className="space-y-6">
           {/* Manager Header Banner */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-card rounded-2xl p-5 sm:p-6 border border-border shadow-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-card rounded-2xl p-5 sm:p-6 border border-border shadow-2xs">
             <div>
               <div className="flex items-center gap-2">
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-primary/10 text-primary">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-primary/10 text-primary border border-primary/20">
                   {t("review_desk")}
                 </span>
-                <span className="text-xs text-muted-foreground">{currentMonthYear}</span>
+                <span className="text-xs font-medium text-muted-foreground">{currentMonthYear}</span>
               </div>
-              <h1 className="text-xl sm:text-2xl font-black text-foreground mt-1">{t("manager_work_hub")}</h1>
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground mt-1.5">{t("manager_work_hub")}</h1>
               <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">{t("manager_work_hub_subtitle")}</p>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2.5">
               {canToggle && (
                 <button
                   type="button"
                   onClick={() => setShowAll(!showAll)}
                   className={clsx(
-                    "px-3 py-1.5 text-xs font-bold rounded-xl border shadow-xs cursor-pointer transition-colors",
+                    "px-3.5 py-2 text-xs font-semibold rounded-xl border shadow-2xs cursor-pointer transition-colors",
                     showAll
                       ? "bg-primary/10 border-primary/30 text-primary"
-                      : "bg-background border-border text-muted hover:text-foreground"
+                      : "bg-card border-border text-muted hover:text-foreground hover:bg-card-hover"
                   )}
                 >
                   {showAll ? t("toggle_my_view") : t("toggle_company_overview")}
@@ -452,7 +458,7 @@ export default function DashboardClient() {
 
               <Link
                 href="/approvals"
-                className="px-4 py-2 text-xs sm:text-sm font-bold rounded-xl bg-primary text-white hover:bg-primary-hover transition-colors shadow-xs"
+                className="px-4 py-2 text-xs sm:text-sm font-semibold rounded-xl bg-primary text-white hover:bg-primary-hover transition-colors shadow-xs"
               >
                 {t("open_review_queue")}
               </Link>
@@ -499,20 +505,20 @@ export default function DashboardClient() {
             {/* Title & Action Bar */}
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-2xl font-black text-foreground">{t("title")}</h1>
-                <p className="text-xs text-muted-foreground mt-0.5">{currentMonthYear}</p>
+                <h1 className="text-2xl font-bold tracking-tight text-foreground">{t("title")}</h1>
+                <p className="text-xs font-medium text-muted-foreground mt-0.5">{currentMonthYear}</p>
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-2.5">
                 {canToggle && (
                   <button
                     type="button"
                     onClick={() => setShowAll(!showAll)}
                     className={clsx(
-                      "px-3.5 py-2 text-xs font-bold rounded-xl border shadow-xs cursor-pointer transition-colors",
+                      "px-3.5 py-2 text-xs font-semibold rounded-xl border shadow-2xs cursor-pointer transition-colors",
                       showAll
                         ? "bg-primary/10 border-primary/30 text-primary"
-                        : "bg-background border-border text-muted hover:text-foreground"
+                        : "bg-card border-border text-muted hover:text-foreground hover:bg-card-hover"
                     )}
                   >
                     {showAll ? t("toggle_my_view") : t("toggle_company_overview")}
@@ -527,7 +533,7 @@ export default function DashboardClient() {
                       `xpenses-report-${new Date().toISOString().slice(0, 10)}.csv`,
                     ).catch(() => toast.error(t("export_failed")))
                   }
-                  className="flex items-center gap-2 bg-card border border-border text-foreground hover:bg-card-hover px-3.5 py-2 rounded-xl text-xs font-semibold transition-colors cursor-pointer shadow-xs"
+                  className="flex items-center gap-2 bg-card border border-border text-foreground hover:bg-card-hover px-3.5 py-2 rounded-xl text-xs font-semibold transition-colors cursor-pointer shadow-2xs"
                 >
                   <Download className="w-4 h-4 text-muted-foreground" />
                   {t("download_report")}
@@ -536,7 +542,7 @@ export default function DashboardClient() {
                 <Link
                   href="/expenses/new"
                   aria-label={t("add_expense")}
-                  className="flex items-center gap-1.5 bg-primary hover:bg-primary-hover text-white px-4 py-2 rounded-xl text-sm font-bold transition-colors cursor-pointer shadow-xs"
+                  className="flex items-center gap-1.5 bg-primary hover:bg-primary-hover text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all cursor-pointer shadow-xs active:scale-[0.98]"
                 >
                   <Plus className="w-4 h-4" />
                   {t("add_expense")}
@@ -548,14 +554,14 @@ export default function DashboardClient() {
             <div className="grid grid-cols-12 gap-6 items-start">
               {/* LEFT COLUMN: Main Recent Expenses Table (7 / 12 width) */}
               <div className="col-span-12 xl:col-span-7 space-y-4">
-                <div className="bg-card rounded-2xl border border-border shadow-xs overflow-hidden">
-                  <div className="p-4 sm:p-5 border-b border-border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-muted/10">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold">
+                <div className="bg-card rounded-2xl border border-border shadow-2xs overflow-hidden">
+                  <div className="p-4 sm:p-5 border-b border-border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-surface-subtle/50">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
                         <FileText className="w-4 h-4" />
                       </div>
                       <div>
-                        <h2 className="text-base font-bold text-foreground">{t("recent_expenses")}</h2>
+                        <h2 className="text-sm font-bold text-foreground">{t("recent_expenses")}</h2>
                         <p className="text-xs text-muted-foreground">
                           {data?.expense_count_month ? `${data.expense_count_month} ${t("transactions").toLowerCase()}` : ""}
                         </p>
@@ -564,16 +570,16 @@ export default function DashboardClient() {
 
                     <div className="flex items-center gap-2">
                       <div className="relative">
-                        <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                        <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
                         <input
                           type="text"
                           value={recentExpensesSearch}
                           onChange={(e) => setRecentExpensesSearch(e.target.value)}
                           placeholder={t("filter_expenses")}
-                          className="pl-8 pr-3 py-1.5 text-xs rounded-lg border border-border bg-background text-foreground focus:outline-hidden focus:ring-1 focus:ring-primary w-44"
+                          className="pl-8 pr-3 py-1.5 text-xs rounded-xl border border-border bg-card text-foreground placeholder:text-muted-foreground focus:outline-hidden focus:ring-2 focus:ring-primary/35 focus:border-primary w-44 transition-all"
                         />
                       </div>
-                      <Link href="/expenses" className="text-xs font-bold text-primary hover:underline px-2 py-1">
+                      <Link href="/expenses" className="text-xs font-semibold text-primary hover:underline px-2 py-1">
                         {t("see_all")}
                       </Link>
                     </div>
@@ -591,7 +597,7 @@ export default function DashboardClient() {
                     <div className="overflow-x-auto">
                       <table className="w-full text-left border-collapse">
                         <thead>
-                          <tr className="border-b border-border text-[11px] font-bold text-muted-foreground uppercase tracking-wider bg-muted/20">
+                          <tr className="border-b border-border text-[11px] font-semibold text-muted-foreground uppercase tracking-wider bg-surface-subtle/75">
                             <th className="py-3 px-4">{t("date")}</th>
                             <th className="py-3 px-3">{t("merchant")}</th>
                             <th className="py-3 px-3">{t("category")}</th>
@@ -599,35 +605,35 @@ export default function DashboardClient() {
                             <th className="py-3 px-4 text-right">{t("status")}</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-border">
+                        <tbody className="divide-y divide-border/80">
                           {filteredRecentExpenses.slice(0, 8).map((e) => {
                             const { Icon, colorClass, bgClass } = getCategoryMeta(e.category_name);
                             return (
                               <tr
                                 key={e.id}
                                 onClick={() => router.push(`/expenses/${e.id}`)}
-                                className="hover:bg-muted/30 transition-colors text-sm cursor-pointer group"
+                                className="hover:bg-card-hover transition-colors text-sm cursor-pointer group"
                               >
-                                <td className="py-3 px-4 font-medium text-xs text-muted-foreground whitespace-nowrap">
+                                <td className="py-3.5 px-4 font-mono text-xs text-muted-foreground whitespace-nowrap">
                                   {e.date}
                                 </td>
-                                <td className="py-3 px-3">
+                                <td className="py-3.5 px-3">
                                   <div className="flex items-center gap-2.5 min-w-0">
-                                    <div className={clsx("w-7 h-7 rounded-lg flex items-center justify-center shrink-0", bgClass, colorClass)}>
+                                    <div className={clsx("w-8 h-8 rounded-xl flex items-center justify-center shrink-0", bgClass, colorClass)}>
                                       <Icon className="w-3.5 h-3.5" />
                                     </div>
-                                    <span className="font-bold text-foreground group-hover:text-primary transition-colors truncate max-w-[140px]">
+                                    <span className="font-semibold text-foreground group-hover:text-primary transition-colors truncate max-w-[160px]">
                                       {e.merchant || "—"}
                                     </span>
                                   </div>
                                 </td>
-                                <td className="py-3 px-3 text-xs text-muted-foreground">
+                                <td className="py-3.5 px-3 text-xs text-muted-foreground">
                                   {e.category_name || tc("uncategorized")}
                                 </td>
-                                <td className="py-3 px-3 text-right font-semibold text-foreground tabular-nums tracking-tight whitespace-nowrap">
+                                <td className="py-3.5 px-3 text-right font-mono text-xs font-semibold text-foreground tabular-nums tracking-tight whitespace-nowrap">
                                   {formatEur(e.amount_eur)}
                                 </td>
-                                <td className="py-3 px-4 text-right">
+                                <td className="py-3.5 px-4 text-right">
                                   <Badge status={e.status} />
                                 </td>
                               </tr>
@@ -646,31 +652,33 @@ export default function DashboardClient() {
                 <ReimbursementFlowLedger totals={reportStatusTotals} />
 
                 {/* 2. Spend by Category Card */}
-                <div className="bg-card rounded-2xl border border-border p-5 shadow-xs space-y-4">
-                  <div className="flex items-center justify-between border-b border-border pb-3">
-                    <h2 className="text-sm font-bold text-foreground uppercase tracking-wider">{t("spend_by_category")}</h2>
-                    <span className="text-xs font-bold text-foreground">{formatEur(data?.total_last_report_eur ?? 0)}</span>
+                <div className="bg-card rounded-2xl border border-border p-5 shadow-2xs space-y-4">
+                  <div className="flex items-center justify-between border-b border-border/80 pb-3">
+                    <h2 className="text-xs font-bold text-foreground uppercase tracking-wider">{t("spend_by_category")}</h2>
+                    <span className="text-xs font-mono font-semibold text-foreground tabular-nums">{formatEur(data?.total_last_report_eur ?? 0)}</span>
                   </div>
 
                   {!data?.spend_by_category.length ? (
                     <p className="text-xs text-muted-foreground text-center py-4">{t("no_expenses_this_month")}</p>
                   ) : (
-                    <div className="space-y-3">
+                    <div className="space-y-3.5">
                       {(() => {
                         const totalCatSpend = data.spend_by_category.reduce((sum, c) => sum + c.total, 0) || 1;
                         return data.spend_by_category.slice(0, 5).map((s, i) => {
                           const percent = Math.min((s.total / totalCatSpend) * 100, 100);
                           return (
-                            <div 
-                              key={i} 
+                            <div
+                              key={i}
                               onClick={() => router.push(s.category_id ? `/expenses?category_id=${s.category_id}` : "/expenses")}
-                              className="group cursor-pointer space-y-1"
+                              className="group cursor-pointer space-y-1.5"
                             >
-                              <div className="flex items-center justify-between text-xs">
-                                <span className="font-bold text-foreground group-hover:text-primary transition-colors">{s.category_name}</span>
-                                <span className="font-extrabold text-foreground">{formatEur(s.total)} ({percent.toFixed(0)}%)</span>
+                              <div className="flex items-center justify-between text-xs gap-2">
+                                <span className="font-semibold text-foreground group-hover:text-primary transition-colors truncate">{s.category_name}</span>
+                                <span className="font-mono font-semibold text-foreground tabular-nums shrink-0">
+                                  {formatEur(s.total)} <span className="text-muted-foreground font-normal">({percent.toFixed(0)}%)</span>
+                                </span>
                               </div>
-                              <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+                              <div className="w-full bg-surface-subtle rounded-full h-2 overflow-hidden">
                                 <div
                                   className="h-full rounded-full bg-primary transition-all duration-500"
                                   style={{ width: `${percent}%` }}
@@ -685,11 +693,11 @@ export default function DashboardClient() {
                 </div>
 
                 {/* 3. Monthly Spend Trend Chart */}
-                <div className="bg-card rounded-2xl border border-border p-5 shadow-xs">
+                <div className="bg-card rounded-2xl border border-border p-5 shadow-2xs">
                   <div className="flex items-center justify-between mb-2">
                     <div>
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{t("total_spend")}</span>
-                      <p className="text-xl font-black text-foreground">{formatEur(data?.total_last_report_eur ?? 0)}</p>
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{t("total_spend")}</span>
+                      <p className="text-xl font-bold tracking-tight font-mono tabular-nums text-foreground mt-0.5">{formatEur(data?.total_last_report_eur ?? 0)}</p>
                     </div>
                   </div>
                   <SpendChart data={chartData} />
@@ -703,10 +711,10 @@ export default function DashboardClient() {
             {/* Top Greeting */}
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-xl font-black text-foreground">
+                <h1 className="text-xl font-bold tracking-tight text-foreground">
                   {t("greeting", { name: user?.display_name?.split(" ")[0] ?? "" })}
                 </h1>
-                <p className="text-xs text-muted-foreground">{currentMonthYear}</p>
+                <p className="text-xs font-medium text-muted-foreground mt-0.5">{currentMonthYear}</p>
               </div>
 
               <Link
@@ -716,22 +724,36 @@ export default function DashboardClient() {
                   triggerHaptic(10);
                   if (!allowNavigation()) e.preventDefault();
                 }}
-                className="inline-flex items-center gap-1 bg-primary text-white text-xs font-bold px-3.5 py-2 rounded-full shadow-xs active:scale-95 transition-transform"
+                className="inline-flex items-center gap-1.5 bg-primary hover:bg-primary-hover text-white text-xs font-semibold px-3.5 py-2 rounded-full shadow-xs active:scale-95 transition-transform"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>{tc("new")}</span>
               </Link>
             </div>
 
-            {/* Mobile Total Spend Stat Card */}
-            <div className="bg-card border border-border rounded-xl p-3.5 shadow-2xs flex items-center justify-between">
-              <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{t("total_spend")}</span>
-                <p className="text-lg font-black text-foreground">{formatEur(data?.total_last_report_eur ?? 0)}</p>
-              </div>
-              <div className="text-right">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{t("expenses_count_label", { fallback: "Expenses" })}</span>
-                <p className="text-lg font-black text-foreground tabular-nums">{data?.expense_count_month ?? 0}</p>
+            {/* Mobile Executive Spend Summary Card */}
+            <div className="relative overflow-hidden rounded-2xl bg-slate-900 dark:bg-card border border-slate-800 dark:border-border p-4 shadow-md text-white dark:text-foreground">
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute -top-12 -right-12 w-36 h-36 rounded-full bg-primary/25 blur-2xl"
+              />
+              <div className="relative flex items-center justify-between gap-4">
+                <div>
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400 dark:text-muted-foreground">
+                    {t("total_spend")}
+                  </span>
+                  <p className="text-2xl font-bold font-mono tabular-nums tracking-tight mt-0.5">
+                    {formatEur(data?.total_last_report_eur ?? 0)}
+                  </p>
+                </div>
+                <div className="text-right px-3 py-2 rounded-xl bg-white/[0.06] dark:bg-surface-subtle border border-white/[0.08] dark:border-border">
+                  <span className="block text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-muted-foreground">
+                    {t("expenses_count_label", { fallback: "Expenses" })}
+                  </span>
+                  <p className="text-lg font-bold font-mono tabular-nums leading-tight mt-0.5">
+                    {data?.expense_count_month ?? 0}
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -740,54 +762,54 @@ export default function DashboardClient() {
               <Link
                 href="/reports?status=draft"
                 onClick={() => triggerHaptic(10)}
-                className="min-w-[115px] flex-1 snap-start bg-card border border-border rounded-xl p-3 shadow-2xs flex flex-col justify-between active:scale-[0.98] transition-transform"
+                className="min-w-[118px] flex-1 snap-start bg-card border border-border border-t-2 border-t-slate-400 dark:border-t-slate-500 rounded-xl p-3 shadow-2xs flex flex-col justify-between active:scale-[0.98] transition-transform"
               >
-                <div className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground">
+                <div className="flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground">
                   <FileEdit className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
                   <span className="truncate">{t("draft_summary_title")}</span>
                 </div>
-                <div className="mt-2">
+                <div className="mt-2.5">
                   <p className="text-base font-bold text-foreground leading-none tabular-nums">{reportStatusTotals.draftCount}</p>
-                  <p className="text-[11px] font-semibold text-muted-foreground mt-1 tabular-nums tracking-tight">{userReportsError && !userReports ? "—" : formatEur(reportStatusTotals.draftEur)}</p>
+                  <p className="text-[11px] font-mono font-medium text-muted-foreground mt-1 tabular-nums tracking-tight">{userReportsError && !userReports ? "—" : formatEur(reportStatusTotals.draftEur)}</p>
                 </div>
               </Link>
 
               <Link
                 href="/reports?status=submitted"
                 onClick={() => triggerHaptic(10)}
-                className="min-w-[115px] flex-1 snap-start bg-amber-500/5 border border-amber-500/20 rounded-xl p-3 shadow-2xs flex flex-col justify-between active:scale-[0.98] transition-transform"
+                className="min-w-[118px] flex-1 snap-start bg-card border border-border border-t-2 border-t-amber-500 rounded-xl p-3 shadow-2xs flex flex-col justify-between active:scale-[0.98] transition-transform"
               >
-                <div className="flex items-center gap-1.5 text-xs font-bold text-amber-700 dark:text-amber-400">
+                <div className="flex items-center gap-1.5 text-[11px] font-semibold text-amber-700 dark:text-amber-400">
                   <Clock className="w-3.5 h-3.5 shrink-0" />
                   <span className="truncate">{t("pending_summary_title")}</span>
                 </div>
-                <div className="mt-2">
-                  <p className="text-base font-bold text-amber-700 dark:text-amber-400 leading-none tabular-nums">{reportStatusTotals.submittedCount}</p>
-                  <p className="text-[11px] font-semibold text-amber-700 dark:text-amber-400 mt-1 tabular-nums tracking-tight">{userReportsError && !userReports ? "—" : formatEur(reportStatusTotals.submittedEur)}</p>
+                <div className="mt-2.5">
+                  <p className="text-base font-bold text-foreground leading-none tabular-nums">{reportStatusTotals.submittedCount}</p>
+                  <p className="text-[11px] font-mono font-medium text-amber-700 dark:text-amber-400 mt-1 tabular-nums tracking-tight">{userReportsError && !userReports ? "—" : formatEur(reportStatusTotals.submittedEur)}</p>
                 </div>
               </Link>
 
               <Link
                 href="/reports?status=paid"
                 onClick={() => triggerHaptic(10)}
-                className="min-w-[115px] flex-1 snap-start bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-3 shadow-2xs flex flex-col justify-between active:scale-[0.98] transition-transform"
+                className="min-w-[118px] flex-1 snap-start bg-card border border-border border-t-2 border-t-emerald-500 rounded-xl p-3 shadow-2xs flex flex-col justify-between active:scale-[0.98] transition-transform"
               >
-                <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-400">
+                <div className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
                   <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
                   <span className="truncate">{t("approved_summary_title")}</span>
                 </div>
-                <div className="mt-2">
-                  <p className="text-base font-bold text-emerald-700 dark:text-emerald-400 leading-none tabular-nums">{reportStatusTotals.paidCount}</p>
-                  <p className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 mt-1 tabular-nums tracking-tight">{userReportsError && !userReports ? "—" : formatEur(reportStatusTotals.paidEur)}</p>
+                <div className="mt-2.5">
+                  <p className="text-base font-bold text-foreground leading-none tabular-nums">{reportStatusTotals.paidCount}</p>
+                  <p className="text-[11px] font-mono font-medium text-emerald-700 dark:text-emerald-400 mt-1 tabular-nums tracking-tight">{userReportsError && !userReports ? "—" : formatEur(reportStatusTotals.paidEur)}</p>
                 </div>
               </Link>
             </div>
 
             {/* Mobile Recent Expenses Feed */}
-            <div className="bg-card border border-border rounded-2xl p-4 shadow-xs flex flex-col">
+            <div className="bg-card border border-border rounded-2xl p-4 shadow-2xs flex flex-col">
               <div className="flex items-center justify-between mb-3">
-                <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">{t("recent_expenses")}</span>
-                <Link href="/expenses" className="text-xs font-bold text-primary hover:underline">
+                <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t("recent_expenses")}</span>
+                <Link href="/expenses" className="text-xs font-semibold text-primary hover:underline">
                   {t("see_all")}
                 </Link>
               </div>

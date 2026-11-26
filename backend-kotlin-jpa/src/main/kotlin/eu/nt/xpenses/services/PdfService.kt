@@ -1,8 +1,8 @@
 package eu.nt.xpenses.services
 
-import com.lowagie.text.*
-import com.lowagie.text.pdf.*
-import com.lowagie.text.pdf.draw.DottedLineSeparator
+import org.openpdf.text.*
+import org.openpdf.text.pdf.*
+import org.openpdf.text.pdf.draw.DottedLineSeparator
 import eu.nt.xpenses.model.*
 import eu.nt.xpenses.report.ReportTotals
 import org.apache.pdfbox.Loader

@@ -93,7 +93,7 @@ export default function PaymentsPage() {
           {reports.map((report) => (
             <div
               key={report.id}
-              className="bg-card rounded-xl shadow-sm p-6 flex items-center justify-between gap-4"
+              className="bg-card rounded-2xl border border-border shadow-2xs p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
             >
               <div className="flex-1 min-w-0">
                 <h3 className="text-base font-semibold text-foreground truncate">
@@ -119,9 +119,9 @@ export default function PaymentsPage() {
                 )}
               </div>
 
-              <div className="flex items-center gap-6 shrink-0">
-                <div className="text-right">
-                  <p className="text-lg font-bold text-foreground">
+              <div className="flex items-center justify-between sm:justify-end gap-4 shrink-0">
+                <div className="sm:text-right">
+                  <p className="text-lg font-mono font-bold tabular-nums text-foreground">
                     {formatEur(report.total_amount)}
                   </p>
                   <p className="text-xs text-muted-foreground">
@@ -133,7 +133,7 @@ export default function PaymentsPage() {
                 <button
                   onClick={() => payMutation.mutate(report.id)}
                   disabled={payMutation.isPending}
-                  className="flex items-center gap-2 px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-hover disabled:opacity-50"
+                  className="min-h-11 flex items-center gap-2 px-4 py-2 bg-primary text-white text-sm font-medium rounded-xl whitespace-nowrap hover:bg-primary-hover disabled:opacity-50"
                 >
                   <Banknote className="w-4 h-4" />
                   {t("mark_paid")}

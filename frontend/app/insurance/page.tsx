@@ -123,12 +123,12 @@ export default function InsurancePage() {
             {(files?.length ?? 0) === 1 ? t("file_count_one") : t("file_count_other")}
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2.5">
           {isManager && (
             <>
               <button
                 onClick={() => setShowAll(!showAll)}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors ${
+                className={`min-h-11 px-3 py-2 text-xs font-semibold rounded-xl border whitespace-nowrap transition-colors ${
                   showAll
                     ? "bg-slate-900 border-slate-900 text-white dark:bg-slate-700 dark:border-slate-600"
                     : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-300"
@@ -138,7 +138,7 @@ export default function InsurancePage() {
               </button>
               <button
                 onClick={() => setShowUpload(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700"
+                className="min-h-11 flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-xl whitespace-nowrap hover:bg-emerald-700"
               >
                 <Upload className="w-4 h-4" />
                 {t("upload_file")}

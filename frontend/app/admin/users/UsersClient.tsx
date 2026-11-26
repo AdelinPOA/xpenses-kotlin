@@ -151,7 +151,7 @@ export default function UsersClient() {
 
   return (
     <AppShell>
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-foreground">{t("users_heading")}</h1>
           <p className="text-muted text-sm mt-1">
@@ -161,7 +161,7 @@ export default function UsersClient() {
         {canEdit && (
           <button
             onClick={() => { setShowCreateForm((v) => !v); setCreateError(null); }}
-            className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover text-white text-sm font-medium rounded-lg transition-colors"
+            className="min-h-11 flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover text-white text-sm font-medium rounded-xl whitespace-nowrap w-fit transition-colors"
           >
             <Plus className="w-4 h-4" />
             {t("create_user")}

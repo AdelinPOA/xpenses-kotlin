@@ -83,14 +83,14 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             key={t.id}
             role={t.type === "error" ? "alert" : "status"}
             aria-live={t.type === "error" ? "assertive" : "polite"}
-            className={`pointer-events-auto flex items-start gap-3 p-4 rounded-xl border shadow-lg transition-all duration-300 animate-slide-in ${
+            className={`pointer-events-auto flex items-start gap-3 p-3.5 rounded-2xl border backdrop-blur-md shadow-lg transition-all duration-300 animate-slide-in ${
               t.type === "success"
-                ? "bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-950/90 dark:border-emerald-800 dark:text-emerald-200"
+                ? "bg-emerald-50/95 border-emerald-200/90 text-emerald-900 dark:bg-emerald-950/90 dark:border-emerald-800/80 dark:text-emerald-200"
                 : t.type === "warning"
-                ? "bg-amber-50 border-amber-200 text-amber-800 dark:bg-amber-950/90 dark:border-amber-800 dark:text-amber-200"
+                ? "bg-amber-50/95 border-amber-200/90 text-amber-900 dark:bg-amber-950/90 dark:border-amber-800/80 dark:text-amber-200"
                 : t.type === "error"
-                ? "bg-rose-50 border-rose-200 text-rose-800 dark:bg-rose-950/90 dark:border-rose-800 dark:text-rose-200"
-                : "bg-slate-50 border-slate-200 text-slate-800 dark:bg-slate-900/90 dark:border-slate-800 dark:text-slate-200"
+                ? "bg-rose-50/95 border-rose-200/90 text-rose-900 dark:bg-rose-950/90 dark:border-rose-800/80 dark:text-rose-200"
+                : "bg-card/95 border-border text-foreground"
             }`}
           >
             {t.type === "success" && <CheckCircle className="w-5 h-5 shrink-0 text-emerald-500" />}

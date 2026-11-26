@@ -25,8 +25,8 @@ export default function ExpenseStatusOverview({ approved, pending, total }: Expe
   }, [approved, pending, total, arcLength]);
 
   return (
-    <div className="bg-card rounded-2xl border border-border p-6 shadow-sm flex flex-col justify-between min-h-[220px]">
-      <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Expense Status Overview</h2>
+    <div className="bg-card rounded-2xl border border-border p-5 shadow-2xs flex flex-col justify-between min-h-[210px]">
+      <h2 className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-2">Expense Status Overview</h2>
       
       <div className="flex items-center justify-between gap-6 flex-1">
         {/* Semi-Donut Gauge */}
@@ -36,7 +36,7 @@ export default function ExpenseStatusOverview({ approved, pending, total }: Expe
             <path
               d="M 14 48 A 36 36 0 0 1 86 48"
               fill="none"
-              stroke="var(--border-subtle)"
+              stroke="var(--surface-subtle)"
               strokeWidth="9"
               strokeLinecap="round"
             />
@@ -58,7 +58,7 @@ export default function ExpenseStatusOverview({ approved, pending, total }: Expe
               <path
                 d="M 14 48 A 36 36 0 0 1 86 48"
                 fill="none"
-                stroke="#f97316"
+                stroke="#c2410c"
                 strokeWidth="9"
                 strokeDasharray={`${pendingLength} ${arcLength}`}
                 strokeDashoffset={-approvedLength}
@@ -70,35 +70,35 @@ export default function ExpenseStatusOverview({ approved, pending, total }: Expe
 
           {/* Centered label inside gauge */}
           <div className="absolute bottom-1 text-center">
-            <span className="text-2xl font-black text-foreground block leading-tight">{total}</span>
-            <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Total</p>
+            <span className="text-2xl font-bold font-mono tabular-nums text-foreground block leading-tight">{total}</span>
+            <p className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">Total</p>
           </div>
         </div>
 
         {/* Legend */}
         <div className="flex-1 flex flex-col justify-center gap-3">
-          <div className="flex items-center justify-between text-xs font-semibold">
+          <div className="flex items-center justify-between text-xs font-medium">
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" />
               <span className="text-muted">Approved</span>
             </div>
-            <span className="text-foreground font-black">{approved} ({approvedPercent}%)</span>
+            <span className="text-foreground font-mono font-semibold tabular-nums">{approved} ({approvedPercent}%)</span>
           </div>
 
-          <div className="flex items-center justify-between text-xs font-semibold">
+          <div className="flex items-center justify-between text-xs font-medium">
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-primary shrink-0" />
               <span className="text-muted">Pending</span>
             </div>
-            <span className="text-foreground font-black">{pending} ({pendingPercent}%)</span>
+            <span className="text-foreground font-mono font-semibold tabular-nums">{pending} ({pendingPercent}%)</span>
           </div>
 
-          <div className="flex items-center justify-between text-xs font-semibold border-t border-border-subtle pt-2">
+          <div className="flex items-center justify-between text-xs font-medium border-t border-border-subtle pt-2">
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-muted-foreground/30 shrink-0" />
               <span className="text-muted">Total Requests</span>
             </div>
-            <span className="text-foreground font-black">{total}</span>
+            <span className="text-foreground font-mono font-semibold tabular-nums">{total}</span>
           </div>
         </div>
       </div>

@@ -400,7 +400,7 @@ function ExpensesPageContent() {
           />
         )}
 
-        <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
             <h1 className="text-xl sm:text-2xl font-bold text-foreground">
               {t("title")}
@@ -506,7 +506,7 @@ function ExpensesPageContent() {
               onClick={(e) => {
                 if (!allowNavigation()) e.preventDefault();
               }}
-              className="min-h-11 inline-flex items-center gap-2 rounded-lg bg-primary px-3 sm:px-4 py-2 text-sm font-semibold text-white hover:bg-primary-hover w-fit"
+              className="min-h-11 inline-flex items-center gap-2 rounded-lg bg-primary px-3 sm:px-4 py-2 text-sm font-semibold text-white hover:bg-primary-hover whitespace-nowrap w-fit"
             >
               <Plus className="w-4 h-4" aria-hidden="true" />
               {t("add_expense")}

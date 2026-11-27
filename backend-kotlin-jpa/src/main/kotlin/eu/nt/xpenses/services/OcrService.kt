@@ -921,6 +921,7 @@ class OcrService(
             "€", "EURO" -> "EUR"
             "$", "US$" -> "USD"
             "£" -> "GBP"
+            "₼", "MANAT" -> "AZN"
             else -> cleaned.takeIf { Pattern.matches("^[A-Z]{3}$", it) }
         }
     }

@@ -7,7 +7,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import AppShell from "@/components/layout/AppShell";
 import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/ToastProvider";
-import api, { type Expense } from "@/lib/api";
+import api, { CURRENCIES, type Expense } from "@/lib/api";
 import { expenseKeys, dashboardKeys } from "@/lib/queryKeys";
 import {
   captureReceipt,
@@ -713,7 +713,7 @@ function CaptureSession({ reportId }: { reportId?: number }) {
             {manualJob.expense_id ? <p className="mt-4 text-sm text-muted-foreground">{tc("resume_existing_expense")}</p> : (
             <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
               <label className="text-xs font-medium text-muted-foreground">{t("label_amount")}<input disabled={manualLocked} type="number" min="0.01" step="0.01" inputMode="decimal" value={manualValues.amount} onChange={(event) => setManualValues((value) => ({ ...value, amount: event.target.value }))} className="mt-1 min-h-11 w-full rounded-lg border border-input-border bg-background px-3 text-base text-foreground" /></label>
-              <label className="text-xs font-medium text-muted-foreground">{t("label_currency")}<select disabled={manualLocked} value={manualValues.currency} onChange={(event) => setManualValues((value) => ({ ...value, currency: event.target.value }))} className="mt-1 min-h-11 w-full rounded-lg border border-input-border bg-background px-3 text-base text-foreground">{["EUR", "USD", "GBP", "RON", "CHF", "CAD", "AUD", "JPY"].map((currency) => <option key={currency}>{currency}</option>)}</select></label>
+              <label className="text-xs font-medium text-muted-foreground">{t("label_currency")}<select disabled={manualLocked} value={manualValues.currency} onChange={(event) => setManualValues((value) => ({ ...value, currency: event.target.value }))} className="mt-1 min-h-11 w-full rounded-lg border border-input-border bg-background px-3 text-base text-foreground">{CURRENCIES.map((currency) => <option key={currency} value={currency}>{currency}</option>)}</select></label>
               <label className="text-xs font-medium text-muted-foreground">{t("label_date")}<input disabled={manualLocked} type="date" value={manualValues.date} onChange={(event) => setManualValues((value) => ({ ...value, date: event.target.value }))} className="mt-1 min-h-11 w-full rounded-lg border border-input-border bg-background px-3 text-base text-foreground" /></label>
               <label className="text-xs font-medium text-muted-foreground">{t("label_merchant")}<input disabled={manualLocked} value={manualValues.merchant} onChange={(event) => setManualValues((value) => ({ ...value, merchant: event.target.value }))} className="mt-1 min-h-11 w-full rounded-lg border border-input-border bg-background px-3 text-base text-foreground" /></label>
               <label className="text-xs font-medium text-muted-foreground sm:col-span-2">{t("label_description")}<textarea disabled={manualLocked} value={manualValues.description} onChange={(event) => setManualValues((value) => ({ ...value, description: event.target.value }))} rows={2} className="mt-1 w-full rounded-lg border border-input-border bg-background px-3 py-2 text-base text-foreground" /></label>

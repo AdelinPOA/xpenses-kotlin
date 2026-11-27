@@ -7,7 +7,7 @@ Shared TypeScript interfaces, union types, literal constants, and runtime type g
 - `[index.ts]`: Barrel export re-exporting all symbols from `./common`, `./expense`, `./report`, `./user`, `./dashboard`, `./admin`, `./insurance`, `./search`, and `./vehicle` (does not re-export `./delegationParsing` or `./reviewQueue`).
 - `[common.ts:PagedResponse]`: Generic paginated envelope `PagedResponse<T>` (`data: T[]`, `page`, `size`, `total_elements`, `total_pages`).
 - `[common.ts:isPagedResponse]`: Type guard `(r: T[] | PagedResponse<T>) => r is PagedResponse<T>`.
-- `[common.ts:CURRENCIES]`: Readonly 49-element tuple of supported ISO currency codes (`EUR`, `USD`, `GBP`, `RON`, `CHF`, etc.).
+- `[common.ts:CURRENCIES]`: Readonly 51-element tuple of supported ISO currency codes (`EUR`, `USD`, `GBP`, `RON`, `CHF`, etc.).
 - `[common.ts:Currency]`: Literal union `(typeof CURRENCIES)[number]`.
 - `[admin.ts:LdapConfig]`, `[admin.ts:LdapSyncResult]`, `[admin.ts:LdapTestResult]`: LDAP directory integration settings, sync summary, and connection preview contracts.
 - `[admin.ts:SmtpConfig]`, `[admin.ts:SmtpTestResult]`, `[admin.ts:ImapConfig]`, `[admin.ts:ImapTestResult]`: Mail (SMTP) and email ingestion (IMAP) configuration and test result contracts.
@@ -27,7 +27,7 @@ Shared TypeScript interfaces, union types, literal constants, and runtime type g
 
 ## Invariants
 - `[common.ts:isPagedResponse]`: Discriminates `PagedResponse<T>` from `T[]` via `!Array.isArray(r) && r.data !== undefined`.
-- `[common.ts:CURRENCIES]`: Declared `as const`, fixing `Currency` to the exact 49-code readonly tuple.
+- `[common.ts:CURRENCIES]`: Declared `as const`, fixing `Currency` to the exact 51-code readonly tuple.
 - `[admin.ts:OcrProviderUpdate]`: `api_key` is only supplied when setting a new key; omitting/leaving it empty preserves any previously stored key.
 - `[admin.ts:OcrConfigUpdate]`: `PATCH` payload fields are independent so omitted workflows and catalog entries remain unchanged.
 - `[admin.ts:OcrModelUpdate]`: Excludes server-computed `tested` via `Omit<OcrModel, "tested">`.

@@ -15,6 +15,6 @@ export const CURRENCIES = [
   "HUF", "BGN", "HRK", "TRY", "JPY", "CNY", "KRW", "AUD", "CAD", "NZD",
   "BRL", "MXN", "ARS", "CLP", "COP", "INR", "IDR", "MYR", "SGD", "THB",
   "PHP", "VND", "ZAR", "EGP", "NGN", "KES", "AED", "SAR", "QAR", "ILS",
-  "RUB", "UAH", "GEL", "KZT", "TWD", "HKD", "ISK", "MAD", "TND",
+  "RUB", "UAH", "GEL", "KZT", "MDL", "AZN", "TWD", "HKD", "ISK", "MAD", "TND",
 ] as const;
 export type Currency = (typeof CURRENCIES)[number];

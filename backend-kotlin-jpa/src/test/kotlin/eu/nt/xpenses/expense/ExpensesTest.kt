@@ -190,6 +190,39 @@ class ExpensesTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `listExpenses includes unattached and uncategorized expenses when no report or category filter is set`() {
+        val tech = userRepository.findByUsername("tech1")!!
+        val created = expenses.createExpense(
+            ExpenseCreate(
+                reportId = null,
+                categoryId = null,
+                amount = BigDecimal("18.77"),
+                currency = "EUR",
+                date = "2026-11-19",
+                merchant = "UnattachedLaundry-${UUID.randomUUID()}",
+            ),
+            tech,
+        )
+
+        val paged = expenses.listExpenses(
+            currentUser = tech,
+            reportId = null,
+            categoryId = null,
+            status = null,
+            fromDate = null,
+            toDate = null,
+            all = false,
+            page = 0,
+            size = 50,
+            q = null,
+        ) as PagedResponse<*>
+
+        @Suppress("UNCHECKED_CAST")
+        val items = paged.data as List<ExpenseOut>
+        assertTrue(items.any { it.id == created.id })
+    }
+
+    @Test
     fun `duplicateExpense creates detached draft copy`() {
         val tech = userRepository.findByUsername("tech1")!!
         val report = expenseReportRepository.save(ExpenseReport(user = tech, title = "Trip"))

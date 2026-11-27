@@ -30,10 +30,12 @@ interface ExpenseRepository : JpaRepository<Expense, Int> {
     @Query(
         """
         SELECT e FROM Expense e
+        LEFT JOIN e.report r
+        LEFT JOIN e.category c
         WHERE (:userId IS NULL OR e.user.id = :userId)
           AND (:status IS NULL OR e.status = :status)
-          AND (:reportId IS NULL OR e.report.id = :reportId)
-          AND (:categoryId IS NULL OR e.category.id = :categoryId)
+          AND (:reportId IS NULL OR r.id = :reportId)
+          AND (:categoryId IS NULL OR c.id = :categoryId)
           AND (:fromDate IS NULL OR e.date >= :fromDate)
           AND (:toDate IS NULL OR e.date <= :toDate)
           AND (:verificationState IS NULL OR e.verificationState = :verificationState)
@@ -57,10 +59,12 @@ interface ExpenseRepository : JpaRepository<Expense, Int> {
     @Query(
         """
         SELECT e FROM Expense e
+        LEFT JOIN e.report r
+        LEFT JOIN e.category c
         WHERE (:userId IS NULL OR e.user.id = :userId)
           AND (:status IS NULL OR e.status = :status)
-          AND (:reportId IS NULL OR e.report.id = :reportId)
-          AND (:categoryId IS NULL OR e.category.id = :categoryId)
+          AND (:reportId IS NULL OR r.id = :reportId)
+          AND (:categoryId IS NULL OR c.id = :categoryId)
           AND (:fromDate IS NULL OR e.date >= :fromDate)
           AND (:toDate IS NULL OR e.date <= :toDate)
           AND (:verificationState IS NULL OR e.verificationState = :verificationState)
